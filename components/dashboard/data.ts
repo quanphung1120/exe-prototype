@@ -325,6 +325,8 @@ export interface MatchRoom {
   joined: number
   players: string[]
   pricePerHour: number
+  /** Set once a court has been booked for this room. */
+  bookingId?: string
 }
 
 export const ROOMS: MatchRoom[] = [
@@ -444,6 +446,14 @@ export const ROOM_TIME_SLOTS = [
 
 export type BookingStatus = "confirmed" | "pending" | "completed" | "cancelled"
 
+export type InviteStatus = "host" | "going" | "pending"
+
+export interface BookingPlayer {
+  name: string
+  initials: string
+  status: InviteStatus
+}
+
 export interface Booking {
   id: string
   sport: SportKey
@@ -451,9 +461,14 @@ export interface Booking {
   venue: string
   court: string
   day: string
+  /** BOOKING_DAYS key for new bookings; absent on legacy seed records. */
+  dayKey?: string
   time: string
   status: BookingStatus
-  withPlayers: { name: string; initials: string }[]
+  withPlayers: BookingPlayer[]
+  /** Linked match room, when the booking created or belongs to one. */
+  roomId?: string
+  pricePerHour: number
   result?: "W" | "L"
   score?: string
 }
@@ -468,9 +483,10 @@ export const BOOKINGS: Booking[] = [
     day: "Today",
     time: "18:30 – 19:30",
     status: "confirmed",
+    pricePerHour: 360000,
     withPlayers: [
-      { name: "Trần Huy", initials: "TH" },
-      { name: "Lê Lan", initials: "LL" },
+      { name: "Trần Huy", initials: "TH", status: "going" },
+      { name: "Lê Lan", initials: "LL", status: "going" },
     ],
   },
   {
@@ -482,7 +498,8 @@ export const BOOKINGS: Booking[] = [
     day: "Tomorrow",
     time: "07:00 – 08:00",
     status: "confirmed",
-    withPlayers: [{ name: "Phạm Quân", initials: "PQ" }],
+    pricePerHour: 220000,
+    withPlayers: [{ name: "Phạm Quân", initials: "PQ", status: "going" }],
   },
   {
     id: "b3",
@@ -493,9 +510,10 @@ export const BOOKINGS: Booking[] = [
     day: "Sat, 21 Jun",
     time: "09:30 – 10:30",
     status: "pending",
+    pricePerHour: 150000,
     withPlayers: [
-      { name: "Đỗ Anh", initials: "ĐA" },
-      { name: "Vũ Hà", initials: "VH" },
+      { name: "Đỗ Anh", initials: "ĐA", status: "going" },
+      { name: "Vũ Hà", initials: "VH", status: "going" },
     ],
   },
   {
@@ -507,9 +525,10 @@ export const BOOKINGS: Booking[] = [
     day: "Mon, 16 Jun",
     time: "20:00 – 21:00",
     status: "completed",
+    pricePerHour: 280000,
     withPlayers: [
-      { name: "Bùi Khang", initials: "BK" },
-      { name: "Lê Lan", initials: "LL" },
+      { name: "Bùi Khang", initials: "BK", status: "going" },
+      { name: "Lê Lan", initials: "LL", status: "going" },
     ],
     result: "W",
     score: "6–3, 6–4",
@@ -523,11 +542,74 @@ export const BOOKINGS: Booking[] = [
     day: "Fri, 13 Jun",
     time: "18:00 – 19:00",
     status: "completed",
-    withPlayers: [{ name: "Vũ Hà", initials: "VH" }],
+    pricePerHour: 220000,
+    withPlayers: [{ name: "Vũ Hà", initials: "VH", status: "going" }],
     result: "L",
     score: "4–6, 6–7",
   },
 ]
+
+// ── Court booking: slot model + helpers ──────────────────────────────────────
+
+/** Fixed hourly start times offered when booking a court. One-hour slots. */
+export const SLOT_TIMES = ["17:00", "18:00", "19:00", "20:00", "21:00"]
+
+/** The booking date strip: a fixed 5-day window (static so SSR stays in sync). */
+export const BOOKING_DAYS: { key: string; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "tomorrow", label: "Tomorrow" },
+  { key: "sat", label: "Sat" },
+  { key: "sun", label: "Sun" },
+  { key: "mon", label: "Mon" },
+]
+
+/** Add one hour to a "HH:MM" start, returning "HH:MM – HH:MM". */
+export function slotRange(start: string): string {
+  const [h, m] = start.split(":").map(Number)
+  const end = `${String((h + 1) % 24).padStart(2, "0")}:${String(m).padStart(
+    2,
+    "0"
+  )}`
+  return `${start} – ${end}`
+}
+
+/** Tiny deterministic FNV-1a-style hash; stable across server and client. */
+function hashStr(s: string): number {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+/**
+ * Deterministic per-court, per-day slot availability. No randomness/Date — the
+ * same court + day always yields the same grid, so server and client agree.
+ * Lower court `freePct` → more slots taken.
+ */
+export function courtSlots(
+  courtId: string,
+  dayKey: string
+): { time: string; taken: boolean }[] {
+  const freePct = COURTS.find((c) => c.id === courtId)?.freePct ?? 50
+  return SLOT_TIMES.map((time, i) => ({
+    time,
+    taken: hashStr(`${courtId}:${dayKey}:${i}`) % 100 >= freePct,
+  }))
+}
+
+/** Resolve a stored venue name back to a Court. */
+export function courtByVenue(name: string): Court | undefined {
+  return COURTS.find((c) => c.name === name)
+}
+
+/** Map a room's stored day word to a BOOKING_DAYS key (defaults to today). */
+export function dayKeyForRoom(room: MatchRoom): string {
+  const d = room.day.toLowerCase()
+  if (d === "tomorrow") return "tomorrow"
+  return "today"
+}
 
 export interface Chat {
   id: string
