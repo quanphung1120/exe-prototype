@@ -95,7 +95,10 @@
     "maxPlayersInc": "Thêm người",
     "invitePlayers": "Mời người chơi",
     "invite": "Mời",
-    "roomFull": "Phòng đã đầy — tăng số người tối đa để mời thêm"
+    "roomFull": "Phòng đã đầy — tăng số người tối đa để mời thêm",
+    "bookCourt": "Đặt sân",
+    "booked": "Đã đặt · {day} · {time}",
+    "viewInBookings": "Xem trong Lịch đặt"
   },
   "LocaleSwitcher": {
     "label": "Ngôn ngữ",
@@ -160,6 +163,72 @@
       "none": "Mình không tìm thấy sân phù hợp — hãy thử môn khác hoặc bộ lọc khác."
     }
   },
+  "Play": {
+    "button": "Chơi ngay",
+    "title": "Bạn muốn làm gì?",
+    "bookCourt": "Đặt sân",
+    "bookCourtDesc": "Giữ một khung giờ — chơi một mình hoặc với người quen",
+    "findTeammates": "Tìm đồng đội",
+    "findTeammatesDesc": "Để AI tìm người chơi cùng bạn",
+    "both": "Cả hai",
+    "bothDesc": "Tìm người chơi và đặt sân"
+  },
+  "Booking": {
+    "title": "Đặt · {court}",
+    "pickTitle": "Đặt sân",
+    "description": "Chọn khung giờ, chọn hình thức và lấp đầy sân.",
+    "steps": {
+      "court": "Sân",
+      "slot": "Khung giờ",
+      "players": "Người chơi",
+      "confirm": "Xác nhận"
+    },
+    "courtSearch": "Tìm theo tên sân hoặc quận…",
+    "noCourts": "Không tìm thấy sân",
+    "anyDay": "Ngày",
+    "days": {
+      "today": "Hôm nay",
+      "tomorrow": "Ngày mai",
+      "sat": "T.7",
+      "sun": "CN",
+      "mon": "T.2"
+    },
+    "slotsFor": "Khung giờ trống",
+    "taken": "Đã đặt",
+    "format": "Hình thức",
+    "fillMode": "Bạn lấp đầy sân thế nào?",
+    "fill": {
+      "court": "Chỉ đặt sân",
+      "invite": "Mời người chơi",
+      "find": "Tìm đồng đội",
+      "findHint": "Chúng tôi sẽ mở các chỗ còn trống và tìm người chơi phù hợp để lấp đầy."
+    },
+    "invite": "Mời",
+    "added": "Đã thêm",
+    "invited": "Đã mời",
+    "going": "Tham gia",
+    "host": "Chủ phòng",
+    "roster": "Người chơi",
+    "summary": "Tóm tắt",
+    "when": "Thời gian",
+    "players": "Người chơi",
+    "price": "Giá",
+    "perHead": "{amount}/người",
+    "perHour": "/giờ",
+    "justYou": "Chỉ mình bạn",
+    "goingInvited": "{going} tham gia · {invited} đã mời",
+    "goingCount": "{count} tham gia",
+    "finding": "Đang tìm đồng đội…",
+    "conflictWarning": "Lưu ý — khung giờ này trùng với một lượt đặt đã xác nhận.",
+    "back": "Quay lại",
+    "next": "Tiếp",
+    "confirm": "Xác nhận đặt sân",
+    "roomTitle": "{sport} tại {court}",
+    "toast": {
+      "booked": "Đã đặt sân",
+      "cancelled": "Đã hủy đặt sân"
+    }
+  },
   "Shared": {
     "next": "kế tiếp {time}",
     "perHour": "/giờ"
@@ -209,6 +278,8 @@
     "manage": "Quản lý",
     "rebook": "Đặt lại",
     "courtLabel": "Sân {n}",
+    "cancel": "Hủy đặt sân",
+    "goingInvited": "{going} tham gia · {invited} đã mời",
     "records": {
       "b3": {
         "day": "Sat, 21 Jun"

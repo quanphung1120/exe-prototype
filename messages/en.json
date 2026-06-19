@@ -95,7 +95,10 @@
     "maxPlayersInc": "More players",
     "invitePlayers": "Invite players",
     "invite": "Invite",
-    "roomFull": "Room's full — raise max players to invite more"
+    "roomFull": "Room's full — raise max players to invite more",
+    "bookCourt": "Book court",
+    "booked": "Booked · {day} · {time}",
+    "viewInBookings": "View in Bookings"
   },
   "LocaleSwitcher": {
     "label": "Language",
@@ -160,6 +163,72 @@
       "none": "I couldn't find a match — try another sport or filter."
     }
   },
+  "Play": {
+    "button": "Play",
+    "title": "What do you want to do?",
+    "bookCourt": "Book a court",
+    "bookCourtDesc": "Reserve a slot — solo or with people you know",
+    "findTeammates": "Find teammates",
+    "findTeammatesDesc": "Let AI find players to join you",
+    "both": "Both",
+    "bothDesc": "Find players and book a court"
+  },
+  "Booking": {
+    "title": "Book · {court}",
+    "pickTitle": "Book a court",
+    "description": "Pick a slot, choose your format, and fill the court.",
+    "steps": {
+      "court": "Court",
+      "slot": "Slot",
+      "players": "Players",
+      "confirm": "Confirm"
+    },
+    "courtSearch": "Search court name or district…",
+    "noCourts": "No courts found",
+    "anyDay": "Day",
+    "days": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "sat": "Sat",
+      "sun": "Sun",
+      "mon": "Mon"
+    },
+    "slotsFor": "Open slots",
+    "taken": "Taken",
+    "format": "Format",
+    "fillMode": "How are you filling the court?",
+    "fill": {
+      "court": "Just the court",
+      "invite": "Invite players",
+      "find": "Find teammates",
+      "findHint": "We'll open the remaining seats and find compatible players to fill them."
+    },
+    "invite": "Invite",
+    "added": "Added",
+    "invited": "Invited",
+    "going": "Going",
+    "host": "Host",
+    "roster": "Players",
+    "summary": "Summary",
+    "when": "When",
+    "players": "Players",
+    "price": "Price",
+    "perHead": "{amount}/player",
+    "perHour": "/h",
+    "justYou": "Just you",
+    "goingInvited": "{going} going · {invited} invited",
+    "goingCount": "{count} going",
+    "finding": "Finding teammates…",
+    "conflictWarning": "Heads up — this overlaps another confirmed booking.",
+    "back": "Back",
+    "next": "Next",
+    "confirm": "Confirm booking",
+    "roomTitle": "{sport} at {court}",
+    "toast": {
+      "booked": "Court booked",
+      "cancelled": "Booking cancelled"
+    }
+  },
   "Shared": {
     "next": "next {time}",
     "perHour": "/h"
@@ -209,6 +278,8 @@
     "manage": "Manage",
     "rebook": "Rebook",
     "courtLabel": "Court {n}",
+    "cancel": "Cancel booking",
+    "goingInvited": "{going} going · {invited} invited",
     "records": {
       "b3": {
         "day": "Sat, 21 Jun"
