@@ -88,16 +88,16 @@ function timeSlotLabel(slot: string, t: (key: string) => string) {
 }
 
 /** One row of single-select segmented chips built from Button. */
-function FilterChips({
+function FilterChips<T extends string>({
   label,
   value,
   options,
   onChange,
 }: {
   label: string
-  value: string
-  options: { value: string; label: string }[]
-  onChange: (value: string) => void
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -130,15 +130,16 @@ export function MatchMakerView() {
   const [createOpen, setCreateOpen] = React.useState(false)
   const [quickOpen, setQuickOpen] = React.useState(false)
   const [maxDistance, setMaxDistance] = React.useState("any") // "2" | "5" | "any"
-  const [day, setDay] = React.useState("today-tomorrow") // "today" | "today-tomorrow"
-  const [format, setFormat] = React.useState("any") // "any" | "Singles" | "Doubles"
+  const [day, setDay] =
+    React.useState<QuickJoinFilters["day"]>("today-tomorrow")
+  const [format, setFormat] = React.useState<QuickJoinFilters["format"]>("any")
   const [level, setLevel] = React.useState<OpenToKey>("my-level")
 
   const buildFilters = (): QuickJoinFilters => ({
     sport,
     maxDistanceKm: maxDistance === "any" ? null : Number(maxDistance),
-    day: day as QuickJoinFilters["day"],
-    format: format as QuickJoinFilters["format"],
+    day,
+    format,
     level,
   })
 
@@ -237,7 +238,7 @@ export function MatchMakerView() {
                 <FilterChips
                   label={t("quickFilter.level")}
                   value={level}
-                  onChange={(v) => setLevel(v as OpenToKey)}
+                  onChange={setLevel}
                   options={OPEN_TO.map((o) => ({
                     value: o.value,
                     label: t(`openTo.${o.value}`),

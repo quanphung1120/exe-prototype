@@ -119,6 +119,8 @@ export function MatchmakingProvider({
     if (f.sport !== "all" && room.sport !== f.sport) return false
     if (f.maxDistanceKm !== null && room.distanceKm > f.maxDistanceKm)
       return false
+    // Only rooms scheduled Today/Tomorrow are quick-joinable; any later-dated
+    // room is excluded under both day options.
     const day = room.day.toLowerCase()
     if (f.day === "today" && day !== "today") return false
     if (f.day === "today-tomorrow" && day !== "today" && day !== "tomorrow")
