@@ -119,13 +119,15 @@ On the current mock data the "My level" result is nearly identical to today's.
   calls `quickJoin({ sport, ...filters })` and closes the popover.
 - The empty-state "Find me a match" button runs `quickJoin({ sport, ...filters })`
   in one click using current state.
-- Use segmented chips (shadcn `ToggleGroup`, single-select) for each row, or a
-  small inline button group if `ToggleGroup` is not present.
+- Each filter row is a **single-select segmented control built inline from the
+  existing `Button`** — selected option uses `variant="default"`, the rest
+  `variant="outline"`, all `rounded-full size-sm` to match the dashboard's pill
+  aesthetic. No new toggle primitive is added.
 
 ### Components and i18n
 
-- Add the shadcn `popover` primitive: `npx shadcn@latest add popover` (and
-  `toggle-group` if used). These build on `@base-ui/react`, already installed.
+- Add the shadcn `popover` primitive: `npx shadcn@latest add popover`. It builds
+  on `@base-ui/react`, already installed. No other new primitive is needed.
 - Add `MatchMaker.quickFilter.*` strings to **both** `messages/en.json` and
   `messages/vi.json`: filter row labels, each option label, and the
   *Find match* button. Vietnamese copy follows the formal register used
