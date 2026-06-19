@@ -73,11 +73,11 @@ export function useBooking() {
 const capacityFor = (format: "Singles" | "Doubles") =>
   format === "Singles" ? 2 : 4
 
-/** Build the step list for a launch: prepend "court" only when none is chosen. */
-function stepsFor(courtId: string | null): string[] {
-  return courtId
-    ? ["slot", "players", "confirm"]
-    : ["court", "slot", "players", "confirm"]
+/** Build the step list for a launch: prepend "court" only when launched court-less. */
+function stepsFor(courtless: boolean): string[] {
+  return courtless
+    ? ["court", "slot", "players", "confirm"]
+    : ["slot", "players", "confirm"]
 }
 
 const EMPTY_DRAFT: BookingDraft = {
@@ -99,12 +99,13 @@ export function BookingProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false)
   const [courtId, setCourtId] = React.useState<string | null>(null)
   const [roomId, setRoomId] = React.useState<string | null>(null)
+  const [courtless, setCourtless] = React.useState(false)
   const [step, setStep] = React.useState(0)
   const [draft, setDraft] = React.useState<BookingDraft>(EMPTY_DRAFT)
   const idRef = React.useRef(0)
 
   const court = courtId ? COURTS.find((c) => c.id === courtId) ?? null : null
-  const steps = stepsFor(courtId)
+  const steps = stepsFor(courtless)
 
   const openPlay = () => setPlayOpen(true)
   const closePlay = () => setPlayOpen(false)
@@ -118,6 +119,7 @@ export function BookingProvider({ children }: { children: React.ReactNode }) {
     setPlayOpen(false)
     setCourtId(cid)
     setRoomId(rid)
+    setCourtless(cid === null)
     setStep(0)
     setDraft({
       dayKey: room ? dayKeyForRoom(room) : "today",
