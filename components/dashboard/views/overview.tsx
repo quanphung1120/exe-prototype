@@ -9,6 +9,7 @@ import {
   Clock,
   Flame,
   Navigation,
+  Play,
   Sparkles,
   Star,
   Swords,
@@ -33,6 +34,7 @@ import {
   type ActivityKind,
   type SportKey,
 } from "@/components/dashboard/data"
+import { useBooking } from "@/components/dashboard/booking"
 import {
   CourtRow,
   PlayerRow,
@@ -55,6 +57,8 @@ const ACTIVITY_ICON: Record<
 export function OverviewView() {
   const t = useTranslations("Overview")
   const tc = useTranslations("Common")
+  const tPlay = useTranslations("Play")
+  const { openPlay, openBooking } = useBooking()
   const [sport, setSport] = React.useState<SportKey | "all">("all")
 
   const nextMatch = BOOKINGS.find((b) => b.status === "confirmed")!
@@ -81,6 +85,12 @@ export function OverviewView() {
               ),
             })}
           </p>
+          <div className="mt-3 flex items-center gap-2">
+            <Button className="rounded-full" onClick={openPlay}>
+              <Play />
+              {tPlay("button")}
+            </Button>
+          </div>
         </div>
         <Tabs
           value={sport}
@@ -259,7 +269,11 @@ export function OverviewView() {
                 <CourtRow
                   key={c.id}
                   court={c}
-                  action={<RowAction>{t("book")}</RowAction>}
+                  action={
+                    <RowAction onClick={() => openBooking(c.id)}>
+                      {t("book")}
+                    </RowAction>
+                  }
                 />
               ))}
             </div>

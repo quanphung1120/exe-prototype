@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { useBooking } from "@/components/dashboard/booking"
 import { CourtRow, RowAction } from "@/components/dashboard/shared"
 import {
   COURTS,
@@ -110,6 +111,8 @@ function runQuery(
 export function CourtAssistant() {
   const t = useTranslations("Assistant")
   const tc = useTranslations("Common")
+  const tPlay = useTranslations("Play")
+  const { openPlay } = useBooking()
 
   const GREETING: Msg = {
     id: "greet",
@@ -277,6 +280,16 @@ export function CourtAssistant() {
 
               {showSuggestions ? (
                 <div className="mt-1 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false)
+                      openPlay()
+                    }}
+                    className="rounded-full bg-brand/12 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand/20"
+                  >
+                    {tPlay("button")}
+                  </button>
                   {SUGGESTIONS.map((s) => (
                     <button
                       key={s}

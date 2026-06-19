@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus } from "lucide-react"
+import { Play } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { LocaleSwitcher } from "@/components/locale-switcher"
@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ActiveRoomPill } from "@/components/dashboard/active-room"
+import { useBooking } from "@/components/dashboard/booking"
 import { activeNavItem } from "@/components/dashboard/nav"
 import { NotificationsButton } from "@/components/dashboard/notifications"
 import { usePathname } from "@/i18n/navigation"
@@ -17,7 +18,8 @@ export function DashboardTopbar() {
   const pathname = usePathname()
   const item = activeNavItem(pathname)
   const tNav = useTranslations("Nav")
-  const t = useTranslations("Topbar")
+  const tPlay = useTranslations("Play")
+  const { openPlay } = useBooking()
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3 sm:px-4">
@@ -35,9 +37,9 @@ export function DashboardTopbar() {
       <NotificationsButton />
       <LocaleSwitcher />
       <ThemeToggle />
-      <Button size="sm" className="rounded-full">
-        <Plus />
-        <span className="hidden sm:inline">{t("newMatch")}</span>
+      <Button size="sm" className="rounded-full" onClick={openPlay}>
+        <Play />
+        <span className="hidden sm:inline">{tPlay("button")}</span>
       </Button>
     </header>
   )
