@@ -437,6 +437,7 @@ function ThinkingBlock({
 
 function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
   const t = useTranslations("Assistant")
+  const { openBooking } = useBooking()
   const courts = msg.courtIds
     .map((id) => COURTS.find((c) => c.id === id))
     .filter((c): c is Court => Boolean(c))
@@ -455,7 +456,11 @@ function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
               <CourtRow
                 key={c.id}
                 court={c}
-                action={<RowAction>{t("book")}</RowAction>}
+                action={
+                  <RowAction onClick={() => openBooking(c.id)}>
+                    {t("book")}
+                  </RowAction>
+                }
               />
             ))}
           </div>
