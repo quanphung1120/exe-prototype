@@ -1,19 +1,26 @@
 "use client"
 
 import * as React from "react"
-import { CalendarPlus, Clock, MapPin, Trophy } from "lucide-react"
+import { CalendarPlus, Clock, MapPin, Trophy, UserPlus } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  courtByVenue,
-  type Booking,
-  type BookingStatus,
-} from "@/components/dashboard/data"
+import { type Booking, type BookingStatus } from "@/components/dashboard/data"
 import { useBooking } from "@/components/dashboard/booking"
 import { SportTag } from "@/components/dashboard/shared"
 
@@ -73,9 +80,12 @@ const WHEN_KEY: Record<string, string> = {
 function BookingCard({ booking }: { booking: Booking }) {
   const t = useTranslations("Bookings")
   const tc = useTranslations("Common")
-  const { cancelBooking, openBooking } = useBooking()
+  const { cancelBooking, rebookFrom, addTeamToSession } = useBooking()
   const done = booking.status === "completed"
   const cancelled = booking.status === "cancelled"
+  const hasTeam = Boolean(booking.roomId)
+  // Solo = just the host on the booking; only then offer to add a team.
+  const solo = booking.withPlayers.length <= 1
 
   const going = booking.withPlayers.filter((p) => p.status !== "pending").length
   const invited = booking.withPlayers.filter(
@@ -177,21 +187,48 @@ function BookingCard({ booking }: { booking: Booking }) {
             variant="ghost"
             size="sm"
             className="w-full rounded-full sm:w-auto"
-            onClick={() => openBooking(courtByVenue(booking.venue)?.id ?? null)}
+            onClick={() => rebookFrom(booking.id)}
           >
             {t("rebook")}
           </Button>
         </div>
       ) : (
-        <div className="shrink-0 sm:ml-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full rounded-full sm:w-auto"
-            onClick={() => cancelBooking(booking.id)}
-          >
-            {t("cancel")}
-          </Button>
+        <div className="flex shrink-0 items-center gap-2 sm:ml-2">
+          {solo ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={() => addTeamToSession(booking.id)}
+            >
+              <UserPlus />
+              {t("addTeam")}
+            </Button>
+          ) : null}
+          <AlertDialog>
+            <AlertDialogTrigger
+              render={<Button variant="ghost" size="sm" className="rounded-full" />}
+            >
+              {t("cancel")}
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("cancelTitle")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {hasTeam ? t("cancelTeamBody") : t("cancelSoloBody")}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t("keep")}</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={() => cancelBooking(booking.id)}
+                >
+                  {t("cancelConfirm")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
     </div>

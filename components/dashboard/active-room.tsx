@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import {
   CalendarCheck,
   CalendarPlus,
+  Check,
   ChevronRight,
   Clock,
   LogOut,
@@ -15,9 +16,22 @@ import {
   Star,
   UserPlus,
   Users,
+  Wallet,
+  X,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -35,18 +49,18 @@ import {
   SportTag,
 } from "@/components/dashboard/shared"
 import {
-  COURTS,
   MATCH_SUGGESTIONS,
   USER,
-  courtByVenue,
+  activeRoster,
   formatVnd,
   playerByInitials,
   trustTier,
   trustTierAccent,
   type MatchRoom,
+  type PlaySession,
 } from "@/components/dashboard/data"
-import { useBooking } from "@/components/dashboard/booking"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
+import { useSession } from "@/components/dashboard/session"
 import { roomChatId, useChat } from "@/components/dashboard/chat-store"
 import { useRouter } from "@/i18n/navigation"
 
@@ -62,36 +76,50 @@ function roomDayLabel(day: string, tc: (key: string) => string) {
 /**
  * Persistent topbar pill shown whenever the user is in at least one match room.
  * It opens a slide-over with the active room's location, participants (and their
- * trust scores), plus a switcher for any other rooms the user has joined.
+ * trust scores), the bill split when a court is booked, plus a switcher for any
+ * other rooms the user has joined.
  */
 export function ActiveRoomPill() {
   const t = useTranslations("ActiveRoom")
-  const tc = useTranslations("Common")
   const { joinedRooms, activeRoom, managerOpen, setManagerOpen } =
     useMatchmaking()
 
   if (!activeRoom) return null
 
   const extra = joinedRooms.length - 1
+  const booked = Boolean(activeRoom.bookingId)
 
   return (
     <Sheet open={managerOpen} onOpenChange={setManagerOpen}>
       <SheetTrigger
         className={cn(
-          "inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 py-1.5 pr-3 pl-2.5 text-xs font-medium text-foreground transition-colors hover:bg-brand/15 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
+          "inline-flex items-center gap-2 rounded-full border py-1.5 pr-3 pl-2.5 text-xs font-medium text-foreground transition-colors focus-visible:ring-2 focus-visible:outline-none",
+          booked
+            ? "border-brand/30 bg-brand/10 hover:bg-brand/15 focus-visible:ring-brand"
+            : "border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15 focus-visible:ring-amber-500"
         )}
         aria-label={t("pill")}
       >
         <span className="relative flex size-2 shrink-0">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-brand/70" />
-          <span className="relative inline-flex size-2 rounded-full bg-brand" />
+          <span
+            className={cn(
+              "absolute inline-flex size-full animate-ping rounded-full",
+              booked ? "bg-brand/70" : "bg-amber-500/70"
+            )}
+          />
+          <span
+            className={cn(
+              "relative inline-flex size-2 rounded-full",
+              booked ? "bg-brand" : "bg-amber-500"
+            )}
+          />
         </span>
         <span className="hidden sm:inline">{t("pill")}</span>
         <span className="text-muted-foreground">
-          {tc(`sports.${activeRoom.sport}`)}
+          {booked ? `· ${activeRoom.time.split(" – ")[0]}` : t("noCourtShort")}
         </span>
         {extra > 0 ? (
-          <span className="rounded-full bg-brand/20 px-1.5 font-mono text-[10px] text-brand tabular-nums">
+          <span className="rounded-full bg-foreground/10 px-1.5 font-mono text-[10px] tabular-nums">
             {t("more", { count: extra })}
           </span>
         ) : null}
@@ -114,16 +142,14 @@ function RoomDetail({
   const t = useTranslations("ActiveRoom")
   const tc = useTranslations("Common")
   const tm = useTranslations("MatchMaker")
-  const {
-    joinedRooms,
-    setActiveRoomId,
-    leaveRoom,
-    setRoomCapacity,
-    invitePlayer,
-  } = useMatchmaking()
+  const { joinedRooms, setActiveRoomId, leaveRoom, setRoomCapacity } =
+    useMatchmaking()
+  const { sessions, invitePlayer, kickPlayer, bookCourtForSession } =
+    useSession()
   const { setActiveChatId } = useChat()
-  const { openBooking } = useBooking()
   const router = useRouter()
+
+  const session = sessions.find((s) => s.id === room.id)
 
   const title = tm.has(`rooms.${room.id}.title`)
     ? tm(`rooms.${room.id}.title`)
@@ -131,6 +157,7 @@ function RoomDetail({
   const others = joinedRooms.filter((r) => r.id !== room.id)
   const isHost = room.host.initials === USER.initials
   const full = room.joined >= room.capacity
+  const booked = Boolean(room.bookingId)
   // People to invite: not already in the room, same-sport listed first.
   const invitable = [...MATCH_SUGGESTIONS]
     .filter((p) => !room.players.includes(p.initials))
@@ -150,6 +177,13 @@ function RoomDetail({
     leaveRoom(room.id)
     onClose()
   }
+
+  const leaveBody =
+    isHost && booked
+      ? t("leaveBookedBody")
+      : isHost
+        ? t("leaveHostBody")
+        : t("leaveBody")
 
   return (
     <>
@@ -175,7 +209,9 @@ function RoomDetail({
               {room.venue} · {room.district} · {room.distanceKm} km
             </DetailRow>
             <DetailRow icon={Clock}>
-              {roomDayLabel(room.day, tc)} · {room.time}
+              {booked
+                ? `${roomDayLabel(room.day, tc)} · ${room.time}`
+                : t("noCourtYet")}
             </DetailRow>
             <DetailRow icon={Users}>
               {tc(`sports.${room.sport}`)} ·{" "}
@@ -183,49 +219,53 @@ function RoomDetail({
               {formatVnd(room.pricePerHour)}/h
             </DetailRow>
           </div>
-          {isHost ? (
-            room.bookingId ? (
-              <div className="flex items-center justify-between gap-2 rounded-2xl bg-brand/10 px-3 py-2 text-sm">
-                <span className="inline-flex items-center gap-1.5 text-brand">
-                  <CalendarCheck className="size-4" />
-                  {t("booked", {
-                    day: roomDayLabel(room.day, tc),
-                    time: room.time,
-                  })}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className="rounded-full"
-                  onClick={() => {
-                    router.push("/dashboard/bookings")
-                    onClose()
-                  }}
-                >
-                  {t("viewInBookings")}
-                </Button>
-              </div>
-            ) : (
+
+          {/* Court status — shown to ALL members */}
+          {booked ? (
+            <div className="flex items-center justify-between gap-2 rounded-2xl bg-brand/10 px-3 py-2 text-sm">
+              <span className="inline-flex items-center gap-1.5 text-brand">
+                <CalendarCheck className="size-4" />
+                {t("booked", {
+                  day: roomDayLabel(room.day, tc),
+                  time: room.time,
+                })}
+              </span>
               <Button
-                variant="outline"
-                size="sm"
-                className="w-full rounded-full"
+                variant="ghost"
+                size="xs"
+                className="rounded-full"
                 onClick={() => {
-                  const c =
-                    courtByVenue(room.venue) ??
-                    COURTS.filter((x) => x.sports.includes(room.sport)).sort(
-                      (a, b) => a.distanceKm - b.distanceKm
-                    )[0]
-                  openBooking(c?.id ?? null, { roomId: room.id })
+                  router.push("/dashboard/bookings")
                   onClose()
                 }}
               >
-                <CalendarPlus />
-                {t("bookCourt")}
+                {t("viewInBookings")}
               </Button>
-            )
-          ) : null}
+            </div>
+          ) : isHost ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full rounded-full"
+              onClick={() => {
+                bookCourtForSession(room.id)
+                onClose()
+              }}
+            >
+              <CalendarPlus />
+              {t("bookCourt")}
+            </Button>
+          ) : (
+            <p className="rounded-2xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              {t("hostNoCourt")}
+            </p>
+          )}
         </section>
+
+        {/* Bill split — only once a court is booked for a team */}
+        {session && booked && activeRoster(session).length > 1 ? (
+          <BillSplit room={room} session={session} />
+        ) : null}
 
         {/* Participants */}
         <section className="flex flex-col gap-3">
@@ -234,7 +274,12 @@ function RoomDetail({
           </SectionLabel>
           <div className="flex flex-col gap-3">
             {room.players.map((initials, i) => (
-              <ParticipantRow key={`${initials}-${i}`} initials={initials} />
+              <ParticipantRow
+                key={`${initials}-${i}`}
+                initials={initials}
+                canKick={isHost && initials !== USER.initials}
+                onKick={() => kickPlayer(room.id, initials)}
+              />
             ))}
           </div>
         </section>
@@ -328,10 +373,7 @@ function RoomDetail({
                     <SportDot sport={r.sport} />
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {rTitle}
-                      <span className="text-muted-foreground">
-                        {" "}
-                        · {r.venue}
-                      </span>
+                      <span className="text-muted-foreground"> · {r.venue}</span>
                     </span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                   </button>
@@ -351,20 +393,107 @@ function RoomDetail({
           <MessageSquare />
           {t("openChat")}
         </Button>
-        <Button
-          variant="destructive"
-          className="flex-1 rounded-full"
-          onClick={leave}
-        >
-          <LogOut />
-          {t("leave")}
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger
+            render={
+              <Button variant="destructive" className="flex-1 rounded-full" />
+            }
+          >
+            <LogOut />
+            {t("leave")}
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("leaveTitle")}</AlertDialogTitle>
+              <AlertDialogDescription>{leaveBody}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("leaveCancel")}</AlertDialogCancel>
+              <AlertDialogAction variant="destructive" onClick={leave}>
+                {t("leaveConfirm")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SheetFooter>
     </>
   )
 }
 
-function ParticipantRow({ initials }: { initials: string }) {
+/** Equal per-head bill split for a booked team session (decision 7). */
+function BillSplit({
+  room,
+  session,
+}: {
+  room: MatchRoom
+  session: PlaySession
+}) {
+  const t = useTranslations("ActiveRoom")
+  const { payShare } = useSession()
+  const members = activeRoster(session)
+  const headCount = Math.max(1, members.length)
+  const perHead = Math.round(room.pricePerHour / headCount)
+  const paidCount = members.filter((m) => m.paid).length
+
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionLabel>{t("bill")}</SectionLabel>
+      <div className="flex items-center justify-between rounded-2xl bg-muted/40 px-3 py-2 text-sm">
+        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <Wallet className="size-4" />
+          {t("perHead", { amount: formatVnd(perHead) })}
+        </span>
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          {t("collected", {
+            paid: formatVnd(perHead * paidCount),
+            total: formatVnd(perHead * headCount),
+          })}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {members.map((m) => {
+          const you = m.initials === USER.initials
+          return (
+            <div key={m.initials} className="flex items-center gap-2.5">
+              <PlayerAvatar initials={m.initials} />
+              <span className="min-w-0 flex-1 truncate text-sm">
+                {m.name}
+                {you ? (
+                  <span className="text-muted-foreground"> ({t("you")})</span>
+                ) : null}
+              </span>
+              {m.paid ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-brand">
+                  <Check className="size-3.5" />
+                  {t("paid")}
+                </span>
+              ) : (
+                <Button
+                  size="xs"
+                  variant={you ? "default" : "outline"}
+                  className="shrink-0 rounded-full"
+                  onClick={() => payShare(room.id, m.initials)}
+                >
+                  {t("pay", { amount: formatVnd(perHead) })}
+                </Button>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function ParticipantRow({
+  initials,
+  canKick,
+  onKick,
+}: {
+  initials: string
+  canKick?: boolean
+  onKick?: () => void
+}) {
   const t = useTranslations("ActiveRoom")
   const { userLevel } = useMatchmaking()
   const { name, level, trust } = playerByInitials(initials)
@@ -395,6 +524,17 @@ function ParticipantRow({ initials }: { initials: string }) {
           <span className="text-muted-foreground">· {t(`trust.${tier}`)}</span>
         </div>
       </div>
+      {canKick ? (
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="shrink-0 rounded-full text-muted-foreground"
+          aria-label={t("remove")}
+          onClick={onKick}
+        >
+          <X />
+        </Button>
+      ) : null}
     </div>
   )
 }

@@ -2,7 +2,18 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import { Check, MapPin, Search, Users } from "lucide-react"
+import {
+  Check,
+  CreditCard,
+  Loader2,
+  Lock,
+  MapPin,
+  QrCode,
+  Search,
+  ShieldCheck,
+  Users,
+  Wallet,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -23,10 +34,85 @@ import {
   USER,
   courtSlots,
   formatVnd,
+  formatVndFull,
   playerByInitials,
   slotRange,
 } from "@/components/dashboard/data"
 import { useBooking, type FillMode } from "@/components/dashboard/booking"
+
+/** Faked payment methods offered on the Pay step. */
+type PayMethod = "qr" | "card" | "ewallet"
+type WalletKey = "momo" | "zalopay"
+
+/** E-wallet options (decorative — brand-tinted monogram + label). */
+const WALLETS: { key: WalletKey; letter: string; color: string }[] = [
+  { key: "momo", letter: "M", color: "bg-pink-600" },
+  { key: "zalopay", letter: "Z", color: "bg-blue-600" },
+]
+
+/**
+ * A deterministic, decorative QR-like glyph — NOT a scannable code. Modules are
+ * derived from a string seed (no Date/random) so SSR and client renders agree.
+ */
+function FakeQr({ seed }: { seed: string }) {
+  const N = 21
+  const inFinder = (x: number, y: number) => {
+    const box = (bx: number, by: number) =>
+      x >= bx && x <= bx + 6 && y >= by && y <= by + 6
+    return box(0, 0) || box(N - 7, 0) || box(0, N - 7)
+  }
+  let h = 2166136261 >>> 0
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619) >>> 0
+  }
+  const cells: { x: number; y: number }[] = []
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      if (inFinder(x, y)) continue
+      h ^= (x + 1) * 374761393 + (y + 1) * 668265263
+      h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0
+      if (h % 100 < 48) cells.push({ x, y })
+    }
+  }
+  const finder = (bx: number, by: number) => (
+    <g key={`f-${bx}-${by}`}>
+      <rect x={bx} y={by} width={7} height={7} rx={1.4} fill="currentColor" />
+      <rect x={bx + 1} y={by + 1} width={5} height={5} rx={1} fill="white" />
+      <rect
+        x={bx + 2}
+        y={by + 2}
+        width={3}
+        height={3}
+        rx={0.6}
+        fill="currentColor"
+      />
+    </g>
+  )
+  return (
+    <svg
+      viewBox="0 0 21 21"
+      className="size-40 text-neutral-900"
+      role="img"
+      aria-hidden
+      shapeRendering="crispEdges"
+    >
+      {cells.map((c) => (
+        <rect
+          key={`${c.x}-${c.y}`}
+          x={c.x}
+          y={c.y}
+          width={1}
+          height={1}
+          fill="currentColor"
+        />
+      ))}
+      {finder(0, 0)}
+      {finder(N - 7, 0)}
+      {finder(0, N - 7)}
+    </svg>
+  )
+}
 
 /** Segmented single-select chips (same pattern as the Quick Join filters). */
 function Segmented<T extends string>({
@@ -76,7 +162,8 @@ export function BookingDialog() {
     steps,
     step,
     draft,
-    bookings,
+    slotBlocked,
+    draftConflict,
     capacityFor,
     next,
     back,
@@ -86,13 +173,30 @@ export function BookingDialog() {
     setFormat,
     setFillMode,
     toggleInvite,
-    confirmBooking,
+    paying,
+    pay,
   } = useBooking()
 
   const [courtQuery, setCourtQuery] = React.useState("")
 
+  // Payment screen — purely cosmetic local state (like the court search box).
+  const [method, setMethod] = React.useState<PayMethod>("qr")
+  const [card, setCard] = React.useState("")
+  const [exp, setExp] = React.useState("")
+  const [cvc, setCvc] = React.useState("")
+  const [cardName, setCardName] = React.useState(USER.name)
+  const [wallet, setWallet] = React.useState<WalletKey>("momo")
+
+  const resetPayment = () => {
+    setMethod("qr")
+    setCard("")
+    setExp("")
+    setCvc("")
+    setCardName(USER.name)
+    setWallet("momo")
+  }
+
   const stepName = steps[step]
-  const isLast = step === steps.length - 1
   const sport = court?.sports[0]
 
   // Court step search
@@ -105,37 +209,22 @@ export function BookingDialog() {
       )
     : COURTS
 
-  // Slot step grid
+  // Slot step grid — the time list comes from the court; availability (house
+  // bookings + the user's own conflicts) is the single `slotBlocked` predicate.
   const slots = courtId ? courtSlots(courtId, draft.dayKey) : []
-  const bookedTimes = new Set(
-    bookings
-      .filter(
-        (b) =>
-          b.status === "confirmed" &&
-          !!court &&
-          b.venue === court.name &&
-          b.dayKey === draft.dayKey
-      )
-      .map((b) => b.time)
-  )
 
   // Players step
   const maxInvites = capacityFor(draft.format) - 1
   const invitable = sport
     ? [...MATCH_SUGGESTIONS]
         .filter((p) => p.initials !== USER.initials)
-        .sort((a, b) => (a.sport === sport ? 0 : 1) - (b.sport === sport ? 0 : 1))
+        .sort(
+          (a, b) => (a.sport === sport ? 0 : 1) - (b.sport === sport ? 0 : 1)
+        )
     : MATCH_SUGGESTIONS
 
-  // Confirm step
-  const conflict =
-    draft.slot &&
-    bookings.some(
-      (b) =>
-        b.status === "confirmed" &&
-        b.dayKey === draft.dayKey &&
-        b.time === slotRange(draft.slot!)
-    )
+  // Confirm step — the typed reason (court-taken / self-overlap) or null.
+  const conflict = draftConflict
   const headCount =
     draft.fillMode === "find" && !roomId
       ? capacityFor(draft.format)
@@ -156,9 +245,30 @@ export function BookingDialog() {
         ? Boolean(draft.slot)
         : true
 
-  const title = court
-    ? t("title", { court: court.name })
-    : t("pickTitle")
+  // Pay step — light formatting so the inputs feel real (all cosmetic).
+  const onCard = (v: string) =>
+    setCard(
+      v
+        .replace(/\D/g, "")
+        .slice(0, 16)
+        .replace(/(.{4})/g, "$1 ")
+        .trim()
+    )
+  const onExp = (v: string) => {
+    const d = v.replace(/\D/g, "").slice(0, 4)
+    setExp(d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d)
+  }
+  const onCvc = (v: string) => setCvc(v.replace(/\D/g, "").slice(0, 4))
+
+  // The card path asks for a full card; QR / e-wallet are one-tap.
+  const cardReady =
+    card.replace(/\s/g, "").length >= 16 && exp.length >= 4 && cvc.length >= 3
+  const canPay = !paying && (method !== "card" || cardReady)
+  const perHead = court
+    ? formatVnd(Math.round(court.pricePerHour / Math.max(1, headCount)))
+    : ""
+
+  const title = court ? t("title", { court: court.name }) : t("pickTitle")
 
   return (
     <Dialog
@@ -167,6 +277,7 @@ export function BookingDialog() {
         if (!o) {
           closeBooking()
           setCourtQuery("")
+          resetPayment()
         }
       }}
     >
@@ -275,7 +386,7 @@ export function BookingDialog() {
                 <Label>{t("slotsFor")}</Label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {slots.map((s) => {
-                    const isTaken = s.taken || bookedTimes.has(slotRange(s.time))
+                    const isTaken = slotBlocked(s.time)
                     return (
                       <button
                         key={s.time}
@@ -305,7 +416,11 @@ export function BookingDialog() {
             <>
               <div className="flex flex-col gap-1.5">
                 <Label>{t("format")}</Label>
-                <div className={roomId ? "pointer-events-none opacity-50" : undefined}>
+                <div
+                  className={
+                    roomId ? "pointer-events-none opacity-50" : undefined
+                  }
+                >
                   <Segmented
                     value={draft.format}
                     onChange={(v) => !roomId && setFormat(v)}
@@ -339,7 +454,7 @@ export function BookingDialog() {
               ) : (
                 <>
                   <div className="flex flex-col gap-1.5">
-                    <Label>{t("fillMode")}</Label>
+                    <Label>{t("teamGate")}</Label>
                     <Segmented
                       value={draft.fillMode}
                       onChange={(v) => setFillMode(v as FillMode)}
@@ -349,6 +464,13 @@ export function BookingDialog() {
                         { value: "find", label: t("fill.find") },
                       ]}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      {draft.fillMode === "court"
+                        ? t("gateHint.court")
+                        : draft.fillMode === "invite"
+                          ? t("gateHint.invite")
+                          : t("gateHint.find")}
+                    </p>
                   </div>
 
                   {draft.fillMode === "invite" ? (
@@ -428,9 +550,173 @@ export function BookingDialog() {
               />
               {conflict ? (
                 <p className="text-xs font-medium text-destructive">
-                  {t("conflictWarning")}
+                  {conflict === "self-overlap"
+                    ? t("conflictSelf")
+                    : t("conflictCourt")}
                 </p>
               ) : null}
+            </div>
+          ) : null}
+
+          {/* PAY */}
+          {stepName === "pay" && court && draft.slot ? (
+            <div className="flex flex-col gap-4">
+              {/* Amount due */}
+              <div className="flex flex-col gap-1 rounded-3xl bg-gradient-to-br from-brand/12 to-lime/10 p-4 ring-1 ring-brand/15">
+                <Label>{t("pay.amountDue")}</Label>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-heading text-3xl leading-none font-bold tracking-tight tabular-nums">
+                    {formatVndFull(court.pricePerHour)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {t("pay.courtFee")}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {court.name} · {t(`days.${draft.dayKey}`)} ·{" "}
+                  {slotRange(draft.slot)}
+                </p>
+                {headCount > 1 ? (
+                  <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-brand">
+                    <Wallet className="size-3.5 shrink-0" />
+                    {t("pay.collectHint", { amount: perHead })}
+                  </p>
+                ) : null}
+              </div>
+
+              {/* Method */}
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("pay.method")}</Label>
+                <Segmented
+                  value={method}
+                  onChange={setMethod}
+                  options={[
+                    { value: "qr", label: t("pay.qr") },
+                    { value: "card", label: t("pay.card") },
+                    { value: "ewallet", label: t("pay.ewallet") },
+                  ]}
+                />
+              </div>
+
+              {/* Method panel */}
+              {method === "card" ? (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>{t("pay.cardNumber")}</Label>
+                    <div className="relative">
+                      <CreditCard className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={card}
+                        onChange={(e) => onCard(e.target.value)}
+                        inputMode="numeric"
+                        autoComplete="cc-number"
+                        placeholder={t("pay.cardNumberPlaceholder")}
+                        aria-label={t("pay.cardNumber")}
+                        className="h-9 pl-8 font-mono tracking-wider tabular-nums"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>{t("pay.expiry")}</Label>
+                      <Input
+                        value={exp}
+                        onChange={(e) => onExp(e.target.value)}
+                        inputMode="numeric"
+                        autoComplete="cc-exp"
+                        placeholder="MM/YY"
+                        aria-label={t("pay.expiry")}
+                        className="h-9 font-mono tabular-nums"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>{t("pay.cvc")}</Label>
+                      <Input
+                        value={cvc}
+                        onChange={(e) => onCvc(e.target.value)}
+                        inputMode="numeric"
+                        autoComplete="cc-csc"
+                        placeholder="123"
+                        aria-label={t("pay.cvc")}
+                        className="h-9 font-mono tabular-nums"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>{t("pay.cardName")}</Label>
+                    <Input
+                      value={cardName}
+                      onChange={(e) => setCardName(e.target.value)}
+                      autoComplete="cc-name"
+                      aria-label={t("pay.cardName")}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+              ) : method === "qr" ? (
+                <div className="flex flex-col items-center gap-3 rounded-3xl border border-border bg-muted/30 p-4">
+                  <div className="rounded-2xl bg-white p-3 ring-1 ring-black/5">
+                    <FakeQr
+                      seed={`${court.id}:${draft.dayKey}:${draft.slot}`}
+                    />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-medium">{t("pay.qrAccount")}</p>
+                    <p className="font-mono text-xs text-muted-foreground tabular-nums">
+                      {formatVndFull(court.pricePerHour)}
+                    </p>
+                  </div>
+                  <p className="inline-flex items-center gap-1.5 text-center text-xs text-muted-foreground">
+                    <QrCode className="size-3.5 shrink-0" />
+                    {t("pay.qrHint")}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {WALLETS.map((w) => {
+                    const active = wallet === w.key
+                    return (
+                      <button
+                        key={w.key}
+                        type="button"
+                        onClick={() => setWallet(w.key)}
+                        className={cn(
+                          "flex items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm transition-colors",
+                          active
+                            ? "border-brand bg-brand/8"
+                            : "border-border hover:bg-muted/60"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "grid size-8 shrink-0 place-items-center rounded-xl text-sm font-bold text-white",
+                            w.color
+                          )}
+                        >
+                          {w.letter}
+                        </span>
+                        <span className="font-medium">
+                          {t(`pay.wallets.${w.key}`)}
+                        </span>
+                        {active ? (
+                          <Check className="ml-auto size-4 text-brand" />
+                        ) : null}
+                      </button>
+                    )
+                  })}
+                  <p className="text-xs text-muted-foreground">
+                    {t("pay.ewalletHint", {
+                      wallet: t(`pay.wallets.${wallet}`),
+                    })}
+                  </p>
+                </div>
+              )}
+
+              {/* Demo disclaimer */}
+              <p className="inline-flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground">
+                <ShieldCheck className="size-3.5 shrink-0" />
+                {t("pay.secure")}
+              </p>
             </div>
           ) : null}
         </div>
@@ -441,23 +727,39 @@ export function BookingDialog() {
               variant="outline"
               className="rounded-full"
               onClick={back}
+              disabled={paying}
             >
               {t("back")}
             </Button>
           ) : (
             <span />
           )}
-          {isLast ? (
-            <Button className="rounded-full" onClick={confirmBooking}>
-              <Check />
-              {t("confirm")}
+          {stepName === "pay" ? (
+            <Button className="rounded-full" disabled={!canPay} onClick={pay}>
+              {paying ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  {t("pay.processing")}
+                </>
+              ) : (
+                <>
+                  <Lock />
+                  {t("pay.payNow", {
+                    amount: court ? formatVnd(court.pricePerHour) : "",
+                  })}
+                </>
+              )}
             </Button>
-          ) : (
+          ) : stepName === "confirm" ? (
             <Button
               className="rounded-full"
-              disabled={!canNext}
+              disabled={Boolean(conflict) || !court || !draft.slot}
               onClick={next}
             >
+              {t("toPayment")}
+            </Button>
+          ) : (
+            <Button className="rounded-full" disabled={!canNext} onClick={next}>
               {t("next")}
             </Button>
           )}

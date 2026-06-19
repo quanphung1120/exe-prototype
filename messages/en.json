@@ -97,7 +97,22 @@
     "roomFull": "Room's full — raise max players to invite more",
     "bookCourt": "Book court",
     "booked": "Booked · {day} · {time}",
-    "viewInBookings": "View in Bookings"
+    "viewInBookings": "View in Bookings",
+    "noCourtShort": "No court yet",
+    "noCourtYet": "No court booked yet",
+    "hostNoCourt": "The host hasn't booked a court yet.",
+    "bill": "Bill split",
+    "perHead": "{amount}/player",
+    "collected": "{paid} / {total}",
+    "pay": "Pay {amount}",
+    "paid": "Paid",
+    "remove": "Remove from room",
+    "leaveTitle": "Leave this match?",
+    "leaveBody": "You'll be removed from this room.",
+    "leaveHostBody": "You host this room — leaving disbands it for everyone.",
+    "leaveBookedBody": "You host this room — leaving cancels the court booking and disbands the room for everyone.",
+    "leaveCancel": "Stay",
+    "leaveConfirm": "Leave match"
   },
   "LocaleSwitcher": {
     "label": "Language",
@@ -139,6 +154,7 @@
     "toggleOpen": "Open court assistant",
     "toggleClose": "Close court assistant",
     "book": "Book",
+    "bookFind": "Book + find players",
     "courtsCount": "{count, plural, one {# court} other {# courts}}",
     "suggestions": {
       "badminton": "Badminton courts near me tonight",
@@ -180,7 +196,8 @@
       "court": "Court",
       "slot": "Slot",
       "players": "Players",
-      "confirm": "Confirm"
+      "confirm": "Confirm",
+      "pay": "Payment"
     },
     "courtSearch": "Search court name or district…",
     "noCourts": "No courts found",
@@ -196,9 +213,15 @@
     "taken": "Taken",
     "format": "Format",
     "fillMode": "How are you filling the court?",
+    "teamGate": "Do you have a team yet?",
+    "gateHint": {
+      "court": "Just book the court — play solo or bring your own group.",
+      "invite": "Pick players you know and invite them.",
+      "find": "We'll find and invite compatible players to fill the court."
+    },
     "fill": {
       "court": "Just the court",
-      "invite": "Invite players",
+      "invite": "I have players",
       "find": "Find teammates",
       "findHint": "We'll open the remaining seats and find compatible players to fill them."
     },
@@ -219,13 +242,52 @@
     "goingCount": "{count} going",
     "finding": "Finding teammates…",
     "conflictWarning": "Heads up — this overlaps another confirmed booking.",
+    "conflictCourt": "That court is already booked at this time — pick another slot.",
+    "conflictSelf": "You already have a booking at this time — pick another slot.",
     "back": "Back",
     "next": "Next",
     "confirm": "Confirm booking",
+    "toPayment": "Continue to payment",
+    "pay": {
+      "amountDue": "Amount due",
+      "courtFee": "court fee",
+      "method": "Payment method",
+      "qr": "VietQR",
+      "card": "Card",
+      "ewallet": "E-wallet",
+      "cardNumber": "Card number",
+      "cardNumberPlaceholder": "1234 5678 9012 3456",
+      "expiry": "Expiry",
+      "cvc": "CVC",
+      "cardName": "Name on card",
+      "qrAccount": "SPORTMATCH AI JSC",
+      "qrHint": "Scan with your banking app to pay",
+      "ewalletHint": "You'll be redirected to {wallet} to approve the payment.",
+      "wallets": {
+        "momo": "MoMo",
+        "zalopay": "ZaloPay"
+      },
+      "collectHint": "You'll collect {amount}/player from your team afterward",
+      "payNow": "Pay {amount}",
+      "processing": "Processing…",
+      "secure": "Demo payment — no card is charged"
+    },
     "roomTitle": "{sport} at {court}",
     "toast": {
       "booked": "Court booked",
-      "cancelled": "Booking cancelled"
+      "cancelled": "Booking cancelled",
+      "conflict": "That slot was just taken — choose another time."
+    }
+  },
+  "Session": {
+    "toast": {
+      "activeNow": "Now showing {title}",
+      "activeNone": "No active room",
+      "disbanded": "Room disbanded",
+      "rsvpGoing": "Is in",
+      "rsvpDeclined": "Can't make it",
+      "addTeam": "Invite players to share this court",
+      "billPaid": "Paid their share"
     }
   },
   "Shared": {
@@ -276,8 +338,14 @@
     "empty": "Nothing here yet. Book a court to get your next match on the calendar.",
     "manage": "Manage",
     "rebook": "Rebook",
+    "addTeam": "Find teammates",
     "courtLabel": "Court {n}",
     "cancel": "Cancel booking",
+    "cancelTitle": "Cancel this booking?",
+    "cancelSoloBody": "The court hold will be released. This can't be undone.",
+    "cancelTeamBody": "The court hold will be released, but your team room stays open so you can book again.",
+    "keep": "Keep booking",
+    "cancelConfirm": "Cancel booking",
     "goingInvited": "{going} going · {invited} invited",
     "records": {
       "b3": {

@@ -457,9 +457,16 @@ function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
                 key={c.id}
                 court={c}
                 action={
-                  <RowAction onClick={() => openBooking(c.id)}>
-                    {t("book")}
-                  </RowAction>
+                  <div className="flex items-center gap-1">
+                    <RowAction
+                      onClick={() => openBooking(c.id, { fillMode: "find" })}
+                    >
+                      {t("bookFind")}
+                    </RowAction>
+                    <RowAction onClick={() => openBooking(c.id)}>
+                      {t("book")}
+                    </RowAction>
+                  </div>
                 }
               />
             ))}

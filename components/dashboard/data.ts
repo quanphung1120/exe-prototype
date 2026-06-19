@@ -25,6 +25,16 @@ export const sportAccent = (k: SportKey) => sportBy(k)?.accent ?? "bg-muted"
 /** Format a VND amount as a compact "180K" string. */
 export const formatVnd = (vnd: number) => `${Math.round(vnd / 1000)}K`
 
+/**
+ * Format a full VND amount with "." thousands separators, e.g. 360000 →
+ * "360.000₫". Used on the payment screen where the exact charge is shown.
+ * Hand-rolled (no `toLocaleString`) so server and client renders agree.
+ */
+export const formatVndFull = (vnd: number) =>
+  `${Math.round(vnd)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".")}₫`
+
 /** Self-declared skill level. The platform never computes or changes this. */
 export type Level = "beginner" | "intermediate" | "advanced"
 /** A room targets one level, or welcomes any level. */
@@ -45,12 +55,24 @@ export const levelAccent: Record<RoomLevel, string> = {
   any: "bg-muted text-muted-foreground",
 }
 
-/** Whether a player of `playerLevel` fits a room targeting `roomLevel`. */
+/** The three levels in difficulty order, for the soft-match window. */
+const LEVEL_ORDER: Level[] = ["beginner", "intermediate", "advanced"]
+
+/**
+ * Whether a player of `playerLevel` fits a room targeting `roomLevel`. A soft
+ * preference, not a hard gate: the exact level or one adjacent step is welcome
+ * ("any" welcomes everyone).
+ */
 export function levelMatches(
   playerLevel: Level,
   roomLevel: RoomLevel
 ): boolean {
-  return roomLevel === "any" || roomLevel === playerLevel
+  if (roomLevel === "any") return true
+  return (
+    Math.abs(
+      LEVEL_ORDER.indexOf(playerLevel) - LEVEL_ORDER.indexOf(roomLevel)
+    ) <= 1
+  )
 }
 
 export const USER = {
@@ -310,6 +332,8 @@ export interface MatchRoom {
   id: string
   host: { name: string; initials: string }
   title: string
+  /** Resolved court id (set by the session projection). */
+  courtId?: string
   sport: SportKey
   format: "Singles" | "Doubles"
   venue: string
@@ -604,12 +628,337 @@ export function courtByVenue(name: string): Court | undefined {
   return COURTS.find((c) => c.name === name)
 }
 
-/** Map a room's stored day word to a BOOKING_DAYS key (defaults to today). */
-export function dayKeyForRoom(room: MatchRoom): string {
+/** Map a stored day word/label to a BOOKING_DAYS key (seed-build use). */
+export function dayKeyForRoom(room: { day: string }): string {
   const d = room.day.toLowerCase()
-  if (d === "tomorrow") return "tomorrow"
-  return "today"
+  if (d.startsWith("tomorrow")) return "tomorrow"
+  if (d.startsWith("sat")) return "sat"
+  if (d.startsWith("sun")) return "sun"
+  if (d.startsWith("mon")) return "mon"
+  if (d.startsWith("today")) return "today"
+  return "past"
 }
+
+// ── Play sessions: one entity owning team (who) + booking (court/when) ────────
+
+/** RSVP state of a session participant. */
+export type Rsvp = "host" | "going" | "pending" | "declined"
+
+export interface SessionPlayer {
+  name: string
+  initials: string
+  rsvp: Rsvp
+  /** Bill-sharing: whether this member has settled their share. */
+  paid?: boolean
+}
+
+export type SessionStatus = "forming" | "booked" | "completed" | "cancelled"
+
+/**
+ * A play session — one entity owning the team (who) and the booking
+ * (court/when). It may be *forming* (a lobby with no court held yet), *booked*
+ * (a court is held), or historical (completed/cancelled). Both halves are
+ * optional: a book-only session has a roster of just the host; a find-only
+ * session has no held court. Match Maker and Bookings are projections of this.
+ */
+export interface PlaySession {
+  id: string
+  title: string
+  sport: SportKey
+  format: "Singles" | "Doubles"
+  /** Stable court reference (replaces fragile venue-name lookups). */
+  courtId: string | null
+  /** Canonical BOOKING_DAYS key, or "past" for history (never blocks). */
+  dayKey: string
+  /** Display label for the day (kept verbatim for "past"/seed history). */
+  dayLabel: string
+  /** "HH:MM" start — proposed while forming, held once booked. */
+  slot: string | null
+  /** Cosmetic "Court N", set when a court is booked. */
+  courtLabel: string | null
+  host: { name: string; initials: string }
+  capacity: number
+  /** THE roster — counts, seat meter, invites and the bill all read this. */
+  roster: SessionPlayer[]
+  level: RoomLevel
+  status: SessionStatus
+  /** Court-hold sub-state once booked (drives the legacy Booking status). */
+  hold?: "confirmed" | "pending"
+  /** Visible as an open lobby ("room") in Match Maker. */
+  listed: boolean
+  fillIntent: "court" | "invite" | "find"
+  venue: string
+  district: string
+  distanceKm: number
+  pricePerHour: number
+  result?: "W" | "L"
+  score?: string
+}
+
+/** Seats a format implies (host included). */
+export const capacityFor = (format: "Singles" | "Doubles") =>
+  format === "Singles" ? 2 : 4
+
+/** Stable cosmetic "Court N" label from a court id. */
+export function courtNumberFor(courtId: string): string {
+  const i = COURTS.findIndex((c) => c.id === courtId)
+  return `Court ${i >= 0 ? i + 1 : 1}`
+}
+
+/** Parse "HH:MM" to minutes since midnight. */
+function toMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number)
+  return (h || 0) * 60 + (m || 0)
+}
+
+/** Whether two one-hour slots (by "HH:MM" start) overlap. */
+function slotsOverlap(a: string, b: string): boolean {
+  const x = toMinutes(a)
+  const y = toMinutes(b)
+  return x < y + 60 && y < x + 60
+}
+
+/** Booked sessions that actually hold a court (the only ones that block). */
+function courtHolds(sessions: PlaySession[], ignoreId?: string): PlaySession[] {
+  return sessions.filter(
+    (s) =>
+      s.status === "booked" &&
+      s.id !== ignoreId &&
+      s.courtId != null &&
+      s.slot != null &&
+      BOOKING_DAYS.some((d) => d.key === s.dayKey)
+  )
+}
+
+export type Conflict = "court-taken" | "self-overlap" | null
+
+export interface ConflictQuery {
+  courtId: string | null
+  dayKey: string
+  slot: string | null
+  /** Session being (re)booked — excluded from the check. */
+  ignoreId?: string
+}
+
+/**
+ * The single conflict predicate, used by both the slot grid and Confirm.
+ * Interval-based so off-grid seed/room times (e.g. 18:30, 17:45) correctly
+ * block the overlapping on-the-hour tiles. Order: court-taken > self-overlap.
+ */
+export function conflictFor(
+  sessions: PlaySession[],
+  q: ConflictQuery
+): Conflict {
+  if (q.courtId == null || q.slot == null) return null
+  if (!BOOKING_DAYS.some((d) => d.key === q.dayKey)) return null
+  // (a) house availability for this court/day
+  const house = courtSlots(q.courtId, q.dayKey).find((s) => s.time === q.slot)
+  if (house?.taken) return "court-taken"
+  const holds = courtHolds(sessions, q.ignoreId)
+  // (b) another held court at the same venue/day overlapping this slot
+  if (
+    holds.some(
+      (s) =>
+        s.courtId === q.courtId &&
+        s.dayKey === q.dayKey &&
+        slotsOverlap(s.slot!, q.slot!)
+    )
+  )
+    return "court-taken"
+  // (c) the user's own held court (any venue) overlapping this slot/day
+  if (
+    holds.some(
+      (s) =>
+        s.dayKey === q.dayKey &&
+        s.roster.some(
+          (p) => p.initials === USER.initials && p.rsvp !== "declined"
+        ) &&
+        slotsOverlap(s.slot!, q.slot!)
+    )
+  )
+    return "self-overlap"
+  return null
+}
+
+/** Whether a court/day/slot tile is unavailable (house or any held court). */
+export function isSlotTaken(
+  sessions: PlaySession[],
+  courtId: string,
+  dayKey: string,
+  slot: string,
+  ignoreId?: string
+): boolean {
+  return conflictFor(sessions, { courtId, dayKey, slot, ignoreId }) !== null
+}
+
+/** Active (non-declined) roster members. */
+export const activeRoster = (s: PlaySession) =>
+  s.roster.filter((p) => p.rsvp !== "declined")
+
+/** Map a roster to the legacy BookingPlayer[] shape (declined dropped). */
+function rosterToBookingPlayers(roster: SessionPlayer[]): BookingPlayer[] {
+  return roster
+    .filter((p) => p.rsvp !== "declined")
+    .map((p) => ({
+      name: p.name,
+      initials: p.initials,
+      status: p.rsvp as InviteStatus,
+    }))
+}
+
+/** Derive the legacy Booking status from a session. */
+export function bookingStatusOf(s: PlaySession): BookingStatus {
+  if (s.status === "completed") return "completed"
+  if (s.status === "cancelled") return "cancelled"
+  if (s.status === "booked")
+    return s.hold === "pending" ? "pending" : "confirmed"
+  return "pending"
+}
+
+/** Project a session to the legacy MatchRoom shape (Match Maker / chat). */
+export function sessionToRoom(s: PlaySession): MatchRoom {
+  const active = activeRoster(s)
+  return {
+    id: s.id,
+    host: s.host,
+    title: s.title,
+    courtId: s.courtId ?? undefined,
+    sport: s.sport,
+    format: s.format,
+    venue: s.venue,
+    district: s.district,
+    distanceKm: s.distanceKm,
+    day: s.dayLabel,
+    time: s.slot ? slotRange(s.slot) : "",
+    level: s.level,
+    capacity: s.capacity,
+    joined: active.length,
+    players: active.map((p) => p.initials),
+    pricePerHour: s.pricePerHour,
+    bookingId: s.status === "booked" ? s.id : undefined,
+  }
+}
+
+/** Project a session to the legacy Booking shape (Bookings view). */
+export function sessionToBooking(s: PlaySession): Booking {
+  return {
+    id: s.id,
+    sport: s.sport,
+    format: s.format,
+    venue: s.venue,
+    court: s.courtLabel ?? (s.courtId ? courtNumberFor(s.courtId) : ""),
+    day: s.dayLabel,
+    dayKey: BOOKING_DAYS.some((d) => d.key === s.dayKey) ? s.dayKey : undefined,
+    time: s.slot ? slotRange(s.slot) : "",
+    status: bookingStatusOf(s),
+    withPlayers: rosterToBookingPlayers(s.roster),
+    roomId: s.listed ? s.id : undefined,
+    pricePerHour: s.pricePerHour,
+    result: s.result,
+    score: s.score,
+  }
+}
+
+// ── Seed: build the initial sessions from ROOMS + BOOKINGS (SSR-safe) ─────────
+
+/** Explicit day keys for seed bookings (b4/b5 are in the past). */
+const SEED_BOOKING_DAYKEY: Record<string, string> = {
+  b1: "today",
+  b2: "tomorrow",
+  b3: "sat",
+  b4: "past",
+  b5: "past",
+}
+
+/** Start ("HH:MM") of a "HH:MM – HH:MM" range. */
+function startOf(timeRange: string): string {
+  return timeRange.split(" – ")[0] ?? timeRange
+}
+
+function bookingToSession(b: Booking): PlaySession {
+  const court = courtByVenue(b.venue)
+  const status: SessionStatus =
+    b.status === "completed"
+      ? "completed"
+      : b.status === "cancelled"
+        ? "cancelled"
+        : "booked"
+  const host: SessionPlayer = {
+    name: USER.name,
+    initials: USER.initials,
+    rsvp: "host",
+  }
+  const others: SessionPlayer[] = b.withPlayers.map((p) => ({
+    name: p.name,
+    initials: p.initials,
+    rsvp: p.status === "host" ? "host" : (p.status as Rsvp),
+  }))
+  return {
+    id: b.id,
+    title: `${sportLabel(b.sport)} · ${b.venue}`,
+    sport: b.sport,
+    format: b.format,
+    courtId: court?.id ?? null,
+    dayKey: SEED_BOOKING_DAYKEY[b.id] ?? "today",
+    dayLabel: b.day,
+    slot: startOf(b.time),
+    courtLabel: b.court,
+    host: { name: USER.name, initials: USER.initials },
+    capacity: capacityFor(b.format),
+    roster: [host, ...others],
+    level: USER.level,
+    status,
+    hold: b.status === "pending" ? "pending" : "confirmed",
+    listed: false,
+    fillIntent: "court",
+    venue: b.venue,
+    district: court?.district ?? "",
+    distanceKm: court?.distanceKm ?? 0,
+    pricePerHour: b.pricePerHour,
+    result: b.result,
+    score: b.score,
+  }
+}
+
+function roomToSession(r: MatchRoom): PlaySession {
+  const court = courtByVenue(r.venue)
+  return {
+    id: r.id,
+    title: r.title,
+    sport: r.sport,
+    format: r.format,
+    courtId: court?.id ?? null,
+    dayKey: dayKeyForRoom(r),
+    dayLabel: r.day,
+    slot: startOf(r.time),
+    courtLabel: null,
+    host: r.host,
+    capacity: r.capacity,
+    roster: r.players.map((init) => {
+      const p = playerByInitials(init)
+      return {
+        name: p.name,
+        initials: init,
+        rsvp: (init === r.host.initials ? "host" : "going") as Rsvp,
+      }
+    }),
+    level: r.level,
+    status: "forming",
+    listed: true,
+    fillIntent: "find",
+    venue: r.venue,
+    district: r.district,
+    distanceKm: r.distanceKm,
+    pricePerHour: r.pricePerHour,
+  }
+}
+
+/** The initial session list — pure & deterministic (evaluated once). */
+export function buildSeedSessions(): PlaySession[] {
+  return [...ROOMS.map(roomToSession), ...BOOKINGS.map(bookingToSession)]
+}
+
+export const SESSIONS: PlaySession[] = buildSeedSessions()
 
 export interface Chat {
   id: string
