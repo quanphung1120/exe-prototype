@@ -553,7 +553,13 @@
       "format": "Hình thức",
       "level": "Trình độ",
       "find": "Tìm trận",
-      "myLevel": "Trình độ của tôi"
+      "myLevel": "Trình độ của tôi",
+      "sport": "Môn",
+      "court": "Sân",
+      "anyCourt": "Mọi sân",
+      "courtSearch": "Tìm theo tên sân hoặc quận…",
+      "noCourts": "Không tìm thấy sân",
+      "description": "Đặt bộ lọc và chúng tôi sẽ tìm trận phù hợp nhất."
     },
     "createRoom": "Tạo phòng",
     "emptyRooms": "Chưa có phòng nào mở cho môn này.",

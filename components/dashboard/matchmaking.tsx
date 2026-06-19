@@ -46,6 +46,8 @@ export interface PartnerSearch {
 /** Constraints the Quick Join popover applies to the auto-pick. */
 export interface QuickJoinFilters {
   sport: SportKey | "all"
+  /** Specific court id, or null for any court. */
+  courtId: string | null
   /** Max distance in km, or null for no limit. */
   maxDistanceKm: number | null
   day: "today" | "today-tomorrow"
@@ -169,6 +171,10 @@ export function MatchmakingProvider({
 
   const matchesQuickFilters = (room: MatchRoom, f: QuickJoinFilters) => {
     if (f.sport !== "all" && room.sport !== f.sport) return false
+    if (f.courtId) {
+      const court = COURTS.find((c) => c.id === f.courtId)
+      if (!court || room.venue !== court.name) return false
+    }
     if (f.maxDistanceKm !== null && room.distanceKm > f.maxDistanceKm)
       return false
     // Only rooms scheduled Today/Tomorrow are quick-joinable; any later-dated
@@ -276,10 +282,11 @@ export function MatchmakingProvider({
       sport: SportKey
       format: "Singles" | "Doubles"
       maxPlayers: number
+      court: Court
     },
     partner: Player
   ): string => {
-    const court = courtFor(opts.sport)
+    const { court } = opts
     const id = `r-mm-${idRef.current++}`
     addRoom({
       id,
@@ -309,7 +316,14 @@ export function MatchmakingProvider({
   /** Quick Match fallback: search for one partner, then auto-create a room. */
   const startPartnerSearch = (filters: QuickJoinFilters) => {
     stopTimers()
-    const sport = filters.sport === "all" ? "badminton" : filters.sport
+    const chosenCourt = filters.courtId
+      ? COURTS.find((c) => c.id === filters.courtId)
+      : null
+    const sport =
+      filters.sport !== "all"
+        ? filters.sport
+        : (chosenCourt?.sports[0] ?? "badminton")
+    const court = chosenCourt ?? courtFor(sport)
     const format = filters.format === "any" ? "Doubles" : filters.format
     const maxPlayers = format === "Singles" ? 2 : 4
     setSearch({
@@ -333,7 +347,10 @@ export function MatchmakingProvider({
           clock.current = null
         }
         const partner = pickPartner(sport, userLevel)
-        const roomId = createSeedRoom({ sport, format, maxPlayers }, partner)
+        const roomId = createSeedRoom(
+          { sport, format, maxPlayers, court },
+          partner
+        )
         setSearch((s) =>
           s ? { ...s, status: "ready", partner: partner.initials, roomId } : s
         )

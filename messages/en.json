@@ -553,7 +553,13 @@
       "format": "Format",
       "level": "Level",
       "find": "Find match",
-      "myLevel": "My level"
+      "myLevel": "My level",
+      "sport": "Sport",
+      "court": "Court",
+      "anyCourt": "Any court",
+      "courtSearch": "Search court name or district…",
+      "noCourts": "No courts found",
+      "description": "Set your filters and we'll find the best match."
     },
     "createRoom": "Create room",
     "emptyRooms": "No open rooms for this sport yet.",

@@ -13,6 +13,7 @@ import {
   MapPin,
   Minus,
   Plus,
+  Search,
   Sparkles,
   Users,
   Zap,
@@ -29,6 +30,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   Field,
@@ -50,11 +52,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { LevelChip, SportTag } from "@/components/dashboard/shared"
 import {
@@ -143,9 +140,33 @@ export function MatchMakerView() {
     React.useState<QuickJoinFilters["day"]>("today-tomorrow")
   const [format, setFormat] = React.useState<QuickJoinFilters["format"]>("any")
   const [level, setLevel] = React.useState<QuickJoinFilters["level"]>("my")
+  const [quickSport, setQuickSport] = React.useState<SportKey | "all">("all")
+  const [quickCourt, setQuickCourt] = React.useState<string>("any")
+  const [courtQuery, setCourtQuery] = React.useState("")
+
+  // Courts offered in Quick Join, narrowed to the chosen sport.
+  const quickCourts = COURTS.filter(
+    (c) => quickSport === "all" || c.sports.includes(quickSport)
+  )
+  // ...then filtered by the search query (court name or district).
+  const courtNeedle = courtQuery.trim().toLowerCase()
+  const filteredCourts = courtNeedle
+    ? quickCourts.filter(
+        (c) =>
+          c.name.toLowerCase().includes(courtNeedle) ||
+          c.district.toLowerCase().includes(courtNeedle)
+      )
+    : quickCourts
+
+  const onQuickSportChange = (v: SportKey | "all") => {
+    setQuickSport(v)
+    const court = COURTS.find((c) => c.id === quickCourt)
+    if (v !== "all" && court && !court.sports.includes(v)) setQuickCourt("any")
+  }
 
   const buildFilters = (): QuickJoinFilters => ({
-    sport,
+    sport: quickSport,
+    courtId: quickCourt === "any" ? null : quickCourt,
     maxDistanceKm: maxDistance === "any" ? null : Number(maxDistance),
     day,
     format,
@@ -200,8 +221,14 @@ export function MatchMakerView() {
           </TabsList>
         </Tabs>
         <div className="flex flex-wrap items-center gap-2">
-          <Popover open={quickOpen} onOpenChange={setQuickOpen}>
-            <PopoverTrigger
+          <Dialog
+            open={quickOpen}
+            onOpenChange={(o) => {
+              if (!o) setCourtQuery("")
+              setQuickOpen(o)
+            }}
+          >
+            <DialogTrigger
               render={
                 <Button variant="outline" className="rounded-full">
                   <Zap />
@@ -210,8 +237,78 @@ export function MatchMakerView() {
                 </Button>
               }
             />
-            <PopoverContent align="end" className="w-72">
-              <div className="flex flex-col gap-4">
+            <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>{t("quickJoin")}</DialogTitle>
+                <DialogDescription>
+                  {t("quickFilter.description")}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-5">
+                <FilterChips
+                  label={t("quickFilter.sport")}
+                  value={quickSport}
+                  onChange={onQuickSportChange}
+                  options={[
+                    { value: "all", label: t("allSports") },
+                    ...SPORTS.map((s) => ({
+                      value: s.key,
+                      label: tc(`sports.${s.key}`),
+                    })),
+                  ]}
+                />
+                <div className="flex flex-col gap-1.5">
+                  <span className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
+                    {t("quickFilter.court")}
+                  </span>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={courtQuery}
+                      onChange={(e) => setCourtQuery(e.target.value)}
+                      placeholder={t("quickFilter.courtSearch")}
+                      aria-label={t("quickFilter.courtSearch")}
+                      className="h-9 pl-8"
+                    />
+                  </div>
+                  <div className="flex max-h-44 flex-col gap-0.5 overflow-y-auto rounded-2xl border border-border p-1">
+                    <button
+                      type="button"
+                      onClick={() => setQuickCourt("any")}
+                      className={cn(
+                        "flex w-full items-center rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors",
+                        quickCourt === "any"
+                          ? "bg-secondary font-medium"
+                          : "hover:bg-muted/60"
+                      )}
+                    >
+                      {t("quickFilter.anyCourt")}
+                    </button>
+                    {filteredCourts.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setQuickCourt(c.id)}
+                        className={cn(
+                          "flex w-full items-center gap-1 rounded-xl px-2.5 py-1.5 text-left text-sm transition-colors",
+                          quickCourt === c.id
+                            ? "bg-secondary font-medium"
+                            : "hover:bg-muted/60"
+                        )}
+                      >
+                        <span className="truncate">{c.name}</span>
+                        <span className="shrink-0 text-muted-foreground">
+                          · {c.district}
+                        </span>
+                      </button>
+                    ))}
+                    {filteredCourts.length === 0 ? (
+                      <p className="px-2.5 py-2 text-xs text-muted-foreground">
+                        {t("quickFilter.noCourts")}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
                 <FilterChips
                   label={t("quickFilter.distance")}
                   value={maxDistance}
@@ -257,13 +354,15 @@ export function MatchMakerView() {
                     })),
                   ]}
                 />
+              </div>
+              <DialogFooter>
                 <Button className="rounded-full" onClick={runQuickJoin}>
                   <Zap />
                   {t("quickFilter.find")}
                 </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           <Button className="rounded-full" onClick={() => setCreateOpen(true)}>
             <Plus />
             {t("createRoom")}
