@@ -84,6 +84,16 @@ interface MatchmakingContextValue {
   setRoomCapacity: (roomId: string, capacity: number) => void
   /** Host control: add a player to a room by initials (no-op if full). */
   invitePlayer: (roomId: string, initials: string) => void
+  /** Link a booking to a room and sync its day/time/venue. */
+  attachBooking: (
+    roomId: string,
+    bookingId: string,
+    info: { day: string; time: string; venue: string }
+  ) => void
+  /** Clear a room's booking link. */
+  detachBooking: (roomId: string) => void
+  /** Run the faked partner search to fill an already-created open room. */
+  fillRoom: (room: MatchRoom) => void
   /** Whether the room-manager sheet is open (owned here so any surface can open it). */
   managerOpen: boolean
   setManagerOpen: (open: boolean) => void
@@ -276,6 +286,70 @@ export function MatchmakingProvider({
     )
   }
 
+  const attachBooking = (
+    roomId: string,
+    bookingId: string,
+    info: { day: string; time: string; venue: string }
+  ) => {
+    setRooms((prev) =>
+      prev.map((r) =>
+        r.id === roomId
+          ? {
+              ...r,
+              bookingId,
+              day: info.day,
+              time: info.time,
+              venue: info.venue,
+            }
+          : r
+      )
+    )
+  }
+
+  const detachBooking = (roomId: string) => {
+    setRooms((prev) =>
+      prev.map((r) => (r.id === roomId ? { ...r, bookingId: undefined } : r))
+    )
+  }
+
+  /**
+   * Like startPartnerSearch, but fills an already-created room. Takes the room
+   * object directly — `addRoom`'s state write hasn't flushed when this is called
+   * from the booking flow, so reading it back from `rooms` would miss it.
+   */
+  const fillRoom = (room: MatchRoom) => {
+    stopTimers()
+    setSearch({
+      sport: room.sport,
+      format: room.format,
+      maxPlayers: room.capacity,
+      elapsed: 0,
+      status: "searching",
+      partner: null,
+      roomId: room.id,
+    })
+    clock.current = setInterval(() => {
+      setSearch((s) =>
+        s && s.status === "searching" ? { ...s, elapsed: s.elapsed + 1 } : s
+      )
+    }, 1000)
+    timers.current.push(
+      setTimeout(() => {
+        if (clock.current) {
+          clearInterval(clock.current)
+          clock.current = null
+        }
+        const partner = pickPartner(room.sport, userLevel)
+        invitePlayer(room.id, partner.initials)
+        setSearch((s) =>
+          s
+            ? { ...s, status: "ready", partner: partner.initials, roomId: room.id }
+            : s
+        )
+      }, SEARCH_MS)
+    )
+  }
+
   /** Build the open seed room once a partner is found; returns its id. */
   const createSeedRoom = (
     opts: {
@@ -410,6 +484,9 @@ export function MatchmakingProvider({
     dismissSearch: endSearch,
     setRoomCapacity,
     invitePlayer,
+    attachBooking,
+    detachBooking,
+    fillRoom,
     managerOpen,
     setManagerOpen,
     openManager,
