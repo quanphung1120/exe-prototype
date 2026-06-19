@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -10,26 +11,6 @@ type Audience = "player" | "venue"
 type Status = "idle" | "loading" | "success"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-const COPY: Record<
-  Audience,
-  { placeholder: string; cta: string; success: string; note: string }
-> = {
-  player: {
-    placeholder: "email@cuaquykhach.com",
-    cta: "Đăng ký danh sách chờ",
-    success:
-      "Quý khách đã có trong danh sách! Chúng tôi sẽ sớm gửi email lời mời truy cập sớm.",
-    note: "Miễn phí tham gia · Không spam · Lời mời truy cập sớm được gửi hằng tuần.",
-  },
-  venue: {
-    placeholder: "email công việc của Quý khách",
-    cta: "Yêu cầu demo đối tác",
-    success:
-      "Cảm ơn Quý khách! Đội ngũ phụ trách địa điểm sẽ liên hệ trong vòng 2 ngày làm việc.",
-    note: "Dành cho câu lạc bộ & cơ sở · Xem cách AI lấp đầy sân giờ thấp điểm.",
-  },
-}
 
 export function WaitlistForm({
   audience = "player",
@@ -40,16 +21,21 @@ export function WaitlistForm({
   className?: string
   inputId?: string
 }) {
+  const t = useTranslations("Waitlist")
   const [email, setEmail] = React.useState("")
   const [status, setStatus] = React.useState<Status>("idle")
   const [error, setError] = React.useState<string | null>(null)
-  const copy = COPY[audience]
+  const copy = {
+    placeholder: t(`${audience}.placeholder`),
+    cta: t(`${audience}.cta`),
+    success: t(`${audience}.success`),
+    note: t(`${audience}.note`),
+  }
   const errorId = `${inputId}-error`
 
   function validate(value: string): string | null {
-    if (!value.trim()) return "Vui lòng nhập địa chỉ email của Quý khách."
-    if (!EMAIL_RE.test(value.trim()))
-      return "Địa chỉ email có vẻ chưa hợp lệ."
+    if (!value.trim()) return t("errors.required")
+    if (!EMAIL_RE.test(value.trim())) return t("errors.invalid")
     return null
   }
 
@@ -66,7 +52,6 @@ export function WaitlistForm({
     await new Promise((resolve) => setTimeout(resolve, 900))
     setStatus("success")
   }
-
 
   if (status === "success") {
     return (
@@ -96,7 +81,7 @@ export function WaitlistForm({
       <div className="flex flex-col gap-2.5 sm:flex-row">
         <div className="flex-1">
           <label htmlFor={inputId} className="sr-only">
-            Địa chỉ email
+            {t("emailLabel")}
           </label>
           <input
             id={inputId}
@@ -132,7 +117,7 @@ export function WaitlistForm({
           {status === "loading" ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Đang gửi…
+              {t("submitting")}
             </>
           ) : (
             <>

@@ -1,0 +1,660 @@
+{
+  "Common": {
+    "appName": "SportMatch AI",
+    "sports": {
+      "tennis": "Tennis",
+      "pickleball": "Pickleball",
+      "badminton": "Cầu lông"
+    },
+    "format": {
+      "singles": "Đơn",
+      "doubles": "Đôi"
+    },
+    "status": {
+      "confirmed": "Đã xác nhận",
+      "pending": "Chờ xác nhận",
+      "completed": "Đã hoàn thành",
+      "cancelled": "Đã hủy"
+    },
+    "result": {
+      "win": "Thắng",
+      "loss": "Thua"
+    },
+    "when": {
+      "today": "Hôm nay",
+      "tomorrow": "Ngày mai",
+      "yesterday": "Hôm qua"
+    }
+  },
+  "Nav": {
+    "groupPlay": "Chơi",
+    "dashboard": {
+      "label": "Tổng quan",
+      "caption": "Sân của Quý khách trong nháy mắt"
+    },
+    "match-maker": {
+      "label": "Ghép trận",
+      "caption": "Tìm, tạo hoặc xếp hàng một trận"
+    },
+    "find-courts": {
+      "label": "Tìm sân",
+      "caption": "Khung giờ trống gần Quý khách"
+    },
+    "chat": {
+      "label": "Trò chuyện",
+      "caption": "Phối hợp cho trận kế tiếp"
+    },
+    "bookings": {
+      "label": "Lịch đặt",
+      "caption": "Trận sắp tới và đã qua"
+    },
+    "streak": {
+      "label": "Chuỗi ngày",
+      "caption": "Giữ vững phong độ"
+    }
+  },
+  "Sidebar": {
+    "workspaces": "Không gian làm việc",
+    "playerWorkspace": "Không gian người chơi",
+    "venueWorkspace": "Shuttle Republic · Địa điểm",
+    "searchPlaceholder": "Tìm người chơi, sân…",
+    "profile": "Hồ sơ",
+    "settings": "Cài đặt",
+    "logout": "Đăng xuất",
+    "rating": "Điểm {value}"
+  },
+  "Topbar": {
+    "notifications": "Thông báo",
+    "newMatch": "Trận mới"
+  },
+  "ActiveRoom": {
+    "pill": "Đang trong phòng đấu",
+    "location": "Địa điểm",
+    "participants": "Thành viên ({count})",
+    "you": "bạn",
+    "otherRooms": "Phòng khác",
+    "more": "+{count}",
+    "trust": {
+      "trusted": "Tin cậy",
+      "reliable": "Ổn định",
+      "new": "Mới"
+    }
+  },
+  "LocaleSwitcher": {
+    "label": "Ngôn ngữ",
+    "vi": "Tiếng Việt",
+    "en": "English"
+  },
+  "ThemeToggle": {
+    "toggleAria": "Chuyển giao diện sáng và tối",
+    "toggleTitle": "Đổi giao diện (L)"
+  },
+  "Meta": {
+    "titleDefault": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
+    "titleTemplate": "%s · SportMatch AI",
+    "description": "SportMatch AI là trợ lý đặt sân bằng AI cho các môn thể thao vợt. Đặt sân tennis, pickleball và cầu lông chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
+    "ogTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
+    "ogDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký danh sách chờ truy cập sớm.",
+    "twitterTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
+    "twitterDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký danh sách chờ truy cập sớm.",
+    "keywords": [
+      "đặt sân",
+      "ghép người chơi",
+      "tennis",
+      "pickleball",
+      "cầu lông",
+      "trợ lý AI",
+      "thể thao vợt"
+    ]
+  },
+  "Assistant": {
+    "title": "Trợ lý sân",
+    "subtitle": "AI · tìm sân gần bạn",
+    "greeting": "Chào bạn — mình là trợ lý sân của bạn. Hãy cho mình biết môn thể thao, ngân sách hoặc khoảng cách bạn muốn chơi, mình sẽ tìm các sân gần bạn.",
+    "placeholder": "Hỏi tìm một sân…",
+    "thinking": "Đang suy nghĩ…",
+    "thoughtFor": "Đã suy nghĩ trong {seconds}s",
+    "inputAria": "Hỏi trợ lý sân",
+    "sendAria": "Gửi",
+    "closeAria": "Đóng trợ lý",
+    "toggleOpen": "Mở trợ lý sân",
+    "toggleClose": "Đóng trợ lý sân",
+    "book": "Đặt",
+    "courtsCount": "{count} sân",
+    "suggestions": {
+      "badminton": "Sân cầu lông gần tôi tối nay",
+      "cheapest": "Sân rẻ nhất",
+      "tennis": "Tennis tối nay"
+    },
+    "steps": {
+      "location": "Đang đọc vị trí của bạn (Hà Nội)",
+      "scanning": "Đang quét {count} sân {sport}gần đây",
+      "slots": "Đang kiểm tra khung giờ trống hôm nay",
+      "ranking": "Đang sắp xếp theo {rank}",
+      "selecting": "Đang chọn {count} sân phù hợp nhất cho bạn"
+    },
+    "rank": {
+      "price": "giá (thấp đến cao)",
+      "distance": "khoảng cách từ bạn",
+      "rating": "đánh giá và khả dụng"
+    },
+    "reply": {
+      "found": "Đã tìm thấy {count} sân {sport}cho bạn, sắp xếp theo {rank}.",
+      "none": "Mình không tìm thấy sân phù hợp — hãy thử môn khác hoặc bộ lọc khác."
+    }
+  },
+  "Shared": {
+    "next": "kế tiếp {time}",
+    "perHour": "/giờ"
+  },
+  "FindCourts": {
+    "metaTitle": "Tìm sân",
+    "metaDescription": "Khung giờ trống gần bạn, sẵn sàng để đặt.",
+    "allSports": "Tất cả môn",
+    "empty": "Không có sân nào cho môn này gần đây. Hãy thử bộ lọc khác.",
+    "nearby": "Gần đây · {count, plural, other {# sân}}",
+    "distance": "{km} km",
+    "openSlots": "{count, plural, other {# khung trống hôm nay}}",
+    "freePct": "Trống {pct}%",
+    "perHour": "/giờ",
+    "book": "Đặt sân",
+    "courts": {
+      "c1": {
+        "surface": "Kính · toàn cảnh"
+      },
+      "c2": {
+        "surface": "Cứng · Plexicushion"
+      },
+      "c3": {
+        "surface": "Acrylic đệm êm"
+      },
+      "c4": {
+        "surface": "Đất nện · ngoài trời"
+      },
+      "c5": {
+        "surface": "Sàn gỗ đàn hồi"
+      },
+      "c6": {
+        "surface": "Kính thi đấu"
+      }
+    }
+  },
+  "Bookings": {
+    "metaTitle": "Lịch đặt",
+    "metaDescription": "Các trận sắp tới và đã qua của bạn.",
+    "tabs": {
+      "upcoming": "Sắp tới",
+      "past": "Đã qua",
+      "all": "Tất cả"
+    },
+    "newBooking": "Đặt sân mới",
+    "empty": "Chưa có gì ở đây. Đặt một sân để thêm trận kế tiếp vào lịch.",
+    "manage": "Quản lý",
+    "rebook": "Đặt lại",
+    "courtLabel": "Sân {n}",
+    "records": {
+      "b3": {
+        "day": "Sat, 21 Jun"
+      },
+      "b4": {
+        "day": "Mon, 16 Jun"
+      },
+      "b5": {
+        "day": "Fri, 13 Jun"
+      }
+    }
+  },
+  "Landing": {
+    "hero": {
+      "titleLine1": "Tìm sân.",
+      "titleLine2": "Tìm đối thủ phù hợp.",
+      "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân tennis, pickleball và cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
+      "sportsLabel": "Dành cho:"
+    },
+    "trust": {
+      "caption": "Được các câu lạc bộ và người chơi trong giới thể thao vợt tin dùng"
+    },
+    "playerFeaturesSection": {
+      "eyebrow": "Dành cho người chơi",
+      "title": "Bớt sắp xếp. Chơi nhiều hơn.",
+      "subtitle": "Mọi thứ Quý khách cần để ra sân và vào một trận đấu hay — không còn cảnh nhóm chat hỗn loạn."
+    },
+    "playerFeatures": {
+      "0": {
+        "title": "Trợ lý đặt sân AI",
+        "body": "Chỉ cần nói điều Quý khách muốn — “cầu lông tối nay sau 7 giờ, gần đây, người chơi cùng trình độ.” Trợ lý sẽ lo phần còn lại: sân, giờ và người chơi."
+      },
+      "1": {
+        "title": "Ghép theo trình độ",
+        "body": "Được ghép với những người chơi cùng trình độ để mỗi trận đều cân sức — không còn cảnh một chiều."
+      },
+      "2": {
+        "title": "Đặt sân tức thì",
+        "body": "Tình trạng sân trống theo thời gian thực tại các địa điểm gần Quý khách. Giữ chỗ chỉ trong vài giây, không cần gọi điện."
+      },
+      "3": {
+        "title": "Sân gần Quý khách",
+        "body": "Các khung giờ trống theo thời gian thực tại những câu lạc bộ quanh Quý khách, xếp theo khoảng cách, giá và mặt sân."
+      },
+      "4": {
+        "title": "Trò chuyện & phối hợp",
+        "body": "Tính năng trò chuyện, nhắc lịch và đặt sân chung tích hợp sẵn giúp cả nhóm luôn nắm chung thông tin."
+      }
+    },
+    "stepsSection": {
+      "eyebrow": "Cách hoạt động",
+      "title": "Đặt sân và ghép trận chỉ với ba chạm."
+    },
+    "steps": {
+      "0": {
+        "title": "Nói cho AI biết Quý khách muốn gì",
+        "body": "Gõ như đang nhắn tin cho bạn bè: “Pickleball đánh đôi, sáng thứ Bảy, trình độ trung cấp.”"
+      },
+      "1": {
+        "title": "AI tìm sân + người chơi",
+        "body": "Trợ lý quét các địa điểm gần đó, khung giờ trống và người chơi cùng trình độ — rồi đề xuất lựa chọn phù hợp nhất."
+      },
+      "2": {
+        "title": "Xác nhận và chơi",
+        "body": "Một chạm để đặt sân và thông báo cho mọi người. Chỉ việc đến và chơi."
+      }
+    },
+    "stats": {
+      "0": {
+        "value": "3.200+",
+        "label": "Người chơi trong danh sách chờ"
+      },
+      "1": {
+        "value": "40+",
+        "label": "Câu lạc bộ đối tác đang tham gia"
+      },
+      "2": {
+        "value": "<60 giây",
+        "label": "Từ yêu cầu đến đặt xong"
+      },
+      "3": {
+        "value": "5",
+        "label": "Môn thể thao vợt được hỗ trợ"
+      }
+    },
+    "venuesSection": {
+      "eyebrow": "Dành cho địa điểm & câu lạc bộ",
+      "titleLine1": "Lấp đầy mọi sân.",
+      "titleLine2": "Để AI lo phần còn lại.",
+      "subtitle": "Kết nối lịch đặt sân của Quý khách và SportMatch AI sẽ âm thầm đưa người chơi vào những sân trống — ghép trận, sắp lịch và nhắc nhở để Quý khách không phải bận tâm."
+    },
+    "venueBenefits": {
+      "0": {
+        "title": "Lấp đầy sân giờ thấp điểm",
+        "body": "AI khéo léo hướng người chơi gần đó đến những khung giờ trống, biến giờ vắng khách thành lượt đặt sân."
+      },
+      "1": {
+        "title": "Ghép trận tự động",
+        "body": "Những trận còn thiếu người được tự động lấp đầy bằng người chơi đúng trình độ."
+      },
+      "2": {
+        "title": "Phân tích công suất sân",
+        "body": "Xem tỷ lệ sử dụng, nhu cầu cao điểm và xu hướng doanh thu của từng sân theo thời gian thực."
+      },
+      "3": {
+        "title": "Đặt sân hạn chế vắng mặt",
+        "body": "Xác nhận thông minh và danh sách chờ giúp giảm tình trạng vắng mặt và giữ cho sân luôn sinh lời."
+      }
+    },
+    "occupancy": {
+      "title": "Công suất sân",
+      "offPeakBadge": "+32% giờ thấp điểm",
+      "weekdays": {
+        "0": "T2",
+        "1": "T3",
+        "2": "T4",
+        "3": "T5",
+        "4": "T6",
+        "5": "T7",
+        "6": "CN"
+      },
+      "utilization": "Tỷ lệ sử dụng",
+      "bookingsPerWeek": "Lượt đặt / tuần",
+      "playerRating": "Đánh giá người chơi"
+    },
+    "testimonialsSection": {
+      "eyebrow": "Được người dùng thử yêu thích",
+      "title": "Người chơi đã bị cuốn hút.",
+      "ratingAria": "Đánh giá 5 trên 5 sao"
+    },
+    "testimonials": {
+      "0": {
+        "quote": "Trước đây tôi tốn thời gian nhắn tin trong nhóm chat hơn cả thời gian chơi. Giờ tôi chỉ cần nói với ứng dụng và nó lo luôn cả sân lẫn người chơi.",
+        "role": "Cầu lông · 3.5"
+      },
+      "1": {
+        "quote": "Khả năng ghép trình độ chính xác đến đáng kinh ngạc. Trận nào cũng cân sức — điều chưa từng có với những trận đánh ngẫu hứng trước đây.",
+        "role": "Tennis · 4.0"
+      },
+      "2": {
+        "quote": "Là một câu lạc bộ, khung 2–5 giờ chiều các ngày trong tuần của chúng tôi từng vắng tanh. Giờ tính năng ghép trận âm thầm lấp đầy chúng. Mọi thứ tự chạy trong nền.",
+        "role": "Quản lý câu lạc bộ"
+      }
+    },
+    "faqSection": {
+      "eyebrow": "Câu hỏi thường gặp",
+      "title": "Giải đáp thắc mắc."
+    },
+    "faq": {
+      "0": {
+        "question": "SportMatch AI hỗ trợ những môn thể thao nào?",
+        "answer": "Chúng tôi ra mắt với nhóm các môn thể thao vợt: tennis, pickleball và cầu lông. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất."
+      },
+      "1": {
+        "question": "Trợ lý AI thực sự đặt sân như thế nào?",
+        "answer": "Quý khách mô tả điều mình muốn bằng ngôn ngữ tự nhiên. Trợ lý kiểm tra tình trạng sân trống theo thời gian thực tại các địa điểm đối tác, tìm người chơi gần trình độ của Quý khách và đề xuất một kế hoạch hoàn chỉnh — sân, giờ và người chơi. Quý khách xác nhận chỉ bằng một chạm."
+      },
+      "2": {
+        "question": "Tính năng ghép người chơi hoạt động ra sao?",
+        "answer": "Mỗi người chơi có một mức đánh giá trình độ và mức này tăng dần khi Quý khách chơi. Các trận được gợi ý trong một khoảng trình độ sát nhau và khoảng cách do Quý khách đặt ra, để các trận luôn cân sức và thuận tiện."
+      },
+      "3": {
+        "question": "Ứng dụng đã hoạt động chưa?",
+        "answer": "Chúng tôi đang trong giai đoạn truy cập sớm và mở rộng dần theo từng thành phố. Hãy đăng ký danh sách chờ và chúng tôi sẽ gửi email cho Quý khách ngay khi các sân trong khu vực của Quý khách sẵn sàng."
+      },
+      "4": {
+        "question": "Tôi điều hành một câu lạc bộ — làm sao để được đưa lên hệ thống?",
+        "answer": "Hãy yêu cầu một buổi demo dành cho đối tác bên dưới. Chúng tôi sẽ kết nối lịch đặt sân của Quý khách, hiển thị các sân trống tới người chơi gần đó và giúp Quý khách lấp đầy các khung giờ thấp điểm — không cần thay mới toàn bộ hệ thống."
+      }
+    },
+    "cta": {
+      "title": "Hãy là người đầu tiên ra sân.",
+      "subtitle": "Đăng ký danh sách chờ và chúng tôi sẽ gửi email lời mời ngay khi SportMatch AI ra mắt tại thành phố của Quý khách."
+    },
+    "footer": {
+      "tagline": "Trợ lý đặt sân AI cho các môn thể thao vợt. Tìm sân, tìm đối thủ và cứ thế chơi thôi.",
+      "product": {
+        "title": "Sản phẩm",
+        "features": "Tính năng",
+        "howItWorks": "Cách hoạt động",
+        "faq": "Câu hỏi thường gặp",
+        "waitlist": "Đăng ký danh sách chờ"
+      },
+      "venues": {
+        "title": "Dành cho địa điểm",
+        "partner": "Chương trình đối tác",
+        "demo": "Yêu cầu demo",
+        "analytics": "Phân tích"
+      },
+      "company": {
+        "title": "Công ty",
+        "about": "Giới thiệu",
+        "privacy": "Bảo mật",
+        "terms": "Điều khoản"
+      },
+      "copyright": "© 2026 SportMatch AI. Dành cho người chơi.",
+      "themeHint": "Nhấn <kbd>L</kbd> để đổi giao diện"
+    }
+  },
+  "Header": {
+    "homeAria": "SportMatch AI — trang chủ",
+    "nav": {
+      "features": "Tính năng",
+      "howItWorks": "Cách hoạt động",
+      "venues": "Dành cho địa điểm",
+      "faq": "Câu hỏi thường gặp"
+    },
+    "cta": "Đăng ký ngay",
+    "waitlistCta": "Đăng ký danh sách chờ",
+    "menuOpen": "Mở menu",
+    "menuClose": "Đóng menu"
+  },
+  "Waitlist": {
+    "emailLabel": "Địa chỉ email",
+    "submitting": "Đang gửi…",
+    "errors": {
+      "required": "Vui lòng nhập địa chỉ email của Quý khách.",
+      "invalid": "Địa chỉ email có vẻ chưa hợp lệ."
+    },
+    "player": {
+      "placeholder": "email@cuaquykhach.com",
+      "cta": "Đăng ký danh sách chờ",
+      "success": "Quý khách đã có trong danh sách! Chúng tôi sẽ sớm gửi email lời mời truy cập sớm.",
+      "note": "Miễn phí tham gia · Không spam · Lời mời truy cập sớm được gửi hằng tuần."
+    },
+    "venue": {
+      "placeholder": "email công việc của Quý khách",
+      "cta": "Yêu cầu demo đối tác",
+      "success": "Cảm ơn Quý khách! Đội ngũ phụ trách địa điểm sẽ liên hệ trong vòng 2 ngày làm việc.",
+      "note": "Dành cho câu lạc bộ & cơ sở · Xem cách AI lấp đầy sân giờ thấp điểm."
+    }
+  },
+  "MatchMaker": {
+    "metaTitle": "Ghép trận",
+    "metaDescription": "AI gợi ý người chơi hợp trình độ và lịch của bạn.",
+    "heroTitle": "Phòng đang mở gần trình độ của bạn",
+    "heroBody": "Các phòng quanh mức điểm <strong>{rating}</strong> của bạn. <strong>Tham gia nhanh</strong> đưa bạn vào phòng hợp nhất — hoặc xếp hàng ghép trận mới khi chưa có phòng phù hợp.",
+    "allSports": "Tất cả môn",
+    "quickJoin": "Tham gia nhanh",
+    "createRoom": "Tạo phòng",
+    "emptyRooms": "Chưa có phòng nào mở cho môn này.",
+    "findMatch": "Tìm trận cho tôi",
+    "hostOne": "Tự mở phòng",
+    "hostedBy": "Chủ phòng: {name}",
+    "openSeats": "{count, plural, other {còn # chỗ}}",
+    "joined": "Đã tham gia",
+    "full": "Đã đầy",
+    "join": "Tham gia",
+    "selectCourt": "Chọn sân",
+    "players": "{count, plural, other {# người chơi}}",
+    "matchmadeTitle": "Trận {sport} {format} đã ghép",
+    "rooms": {
+      "r1": {
+        "title": "Cầu lông buổi tối, đánh đôi vui vẻ"
+      },
+      "r2": {
+        "title": "Tennis đơn thi đấu"
+      },
+      "r3": {
+        "title": "Pickleball giao lưu nhẹ nhàng"
+      },
+      "r4": {
+        "title": "Pickleball đôi trình độ cao"
+      },
+      "r5": {
+        "title": "Đêm cầu lông đánh đôi"
+      },
+      "r6": {
+        "title": "Tennis đôi, chào đón tất cả"
+      }
+    },
+    "openTo": {
+      "my-level": "Cùng trình độ (±0.3)",
+      "any": "Mọi trình độ",
+      "above": "Người chơi mạnh hơn"
+    },
+    "timeSlots": {
+      "0": "Hôm nay 18:30 – 19:30",
+      "1": "Hôm nay 19:30 – 20:30",
+      "2": "Hôm nay 20:30 – 21:30",
+      "3": "Ngày mai 07:00 – 08:00",
+      "4": "Ngày mai 19:00 – 20:00",
+      "5": "Thứ 7 09:30 – 10:30"
+    },
+    "dialog": {
+      "title": "Mở một phòng",
+      "description": "Thiết lập phòng và chúng tôi sẽ giới thiệu tới người chơi gần trình độ của bạn.",
+      "roomTitle": "Tên phòng",
+      "roomTitlePlaceholder": "Cầu lông buổi tối, đánh đôi vui vẻ",
+      "sport": "Môn",
+      "format": "Hình thức",
+      "court": "Sân",
+      "when": "Thời gian",
+      "openTo": "Mở cho",
+      "note": "Ghi chú cho người chơi (tùy chọn)",
+      "notePlaceholder": "Mang vợt của bạn. Chúng ta sẽ vào sân sớm 10 phút.",
+      "cancel": "Hủy"
+    },
+    "validation": {
+      "titleMin": "Đặt tên phòng ít nhất 5 ký tự.",
+      "titleMax": "Tên phòng dưới 40 ký tự.",
+      "court": "Hãy chọn sân.",
+      "time": "Hãy chọn thời gian.",
+      "noteMax": "Ghi chú dưới 120 ký tự."
+    },
+    "toast": {
+      "roomCreated": "Đã tạo phòng",
+      "joined": "Bạn đã tham gia",
+      "quickJoined": "Đã tham gia nhanh một phòng",
+      "noRoomTitle": "Không có phòng phù hợp — đang tìm trận cho bạn",
+      "noRoomBody": "Chờ chút nhé, chúng tôi đang xếp phòng cho bạn.",
+      "matchReady": "Trận đã sẵn sàng!"
+    },
+    "dock": {
+      "matchReady": "Trận đã sẵn sàng",
+      "finding": "Đang tìm người chơi…",
+      "accept": "Chấp nhận",
+      "cancelSearch": "Hủy tìm kiếm"
+    }
+  },
+  "Overview": {
+    "metaTitle": "Tổng quan",
+    "metaDescription": "Trung tâm điều khiển SportMatch AI của bạn — trận kế tiếp, gợi ý người chơi từ AI, sân gần bạn, lịch đặt và chuỗi ngày.",
+    "greeting": "Chào buổi tối, {name}",
+    "streakTeaser": "Bạn đang có <streak>chuỗi {count} ngày</streak>. Chơi một trận hôm nay để giữ chuỗi.",
+    "filterAll": "Tất cả",
+    "nextMatch": "Trận kế tiếp",
+    "with": "cùng",
+    "directions": "Chỉ đường",
+    "checkIn": "Nhận sân",
+    "currentStreak": "Chuỗi hiện tại",
+    "days": "ngày",
+    "weeklyGoal": "Mục tiêu tuần",
+    "matchMaker": "Ghép trận AI",
+    "courtsNearYou": "Sân gần bạn",
+    "seeAll": "Xem tất cả",
+    "invite": "Mời",
+    "book": "Đặt sân",
+    "emptyPlayers": "Chưa có người chơi cho môn này — thử bộ lọc khác.",
+    "emptyCourts": "Chưa có sân trống cho môn này — thử bộ lọc khác.",
+    "recentActivity": "Hoạt động gần đây",
+    "activity": {
+      "a1": {
+        "text": "AI đã ghép bạn với Trần Huy chơi cầu lông tối nay",
+        "time": "2 giờ trước"
+      },
+      "a2": {
+        "text": "Điểm trình của bạn tăng lên 4.12 (+0.08)",
+        "time": "Hôm qua"
+      },
+      "a3": {
+        "text": "Thắng trận đôi tại Rally Point Club · 6–3, 6–4",
+        "time": "3 ngày trước"
+      },
+      "a4": {
+        "text": "Đã đặt Court 1 tại Ace Tennis Club",
+        "time": "4 ngày trước"
+      },
+      "a5": {
+        "text": "Thua sát nút trận đơn trước Vũ Hà · 4–6, 6–7",
+        "time": "6 ngày trước"
+      }
+    }
+  },
+  "Streak": {
+    "metaTitle": "Chuỗi ngày",
+    "metaDescription": "Theo dõi chuỗi ngày chơi và giữ vững phong độ.",
+    "currentStreak": "Chuỗi hiện tại",
+    "daysUnit": "ngày",
+    "daysCount": "{count, plural, other {# ngày}}",
+    "longestLabel": "Dài nhất:",
+    "weeklyGoal": "Mục tiêu tuần",
+    "weeklyProgress": "{done}/{goal} trận",
+    "longestStreak": "Chuỗi dài nhất",
+    "activeDays": "Ngày hoạt động · 12 tuần",
+    "goalHitRate": "Tỷ lệ đạt mục tiêu",
+    "last12Weeks": "12 tuần gần đây",
+    "less": "Ít",
+    "more": "Nhiều",
+    "matchesCount": "{count, plural, other {# trận}}",
+    "restDay": "Ngày nghỉ",
+    "milestones": "Cột mốc",
+    "weekdays": {
+      "0": "T2",
+      "1": "T3",
+      "2": "T4",
+      "3": "T5",
+      "4": "T6",
+      "5": "T7",
+      "6": "CN"
+    },
+    "milestoneList": {
+      "firstServe": {
+        "label": "Cú giao đầu",
+        "hint": "Chơi trận đầu tiên"
+      },
+      "weekWarrior": {
+        "label": "Chiến binh tuần",
+        "hint": "Chuỗi 7 ngày"
+      },
+      "fortnight": {
+        "label": "Nửa tháng",
+        "hint": "Chuỗi 14 ngày"
+      },
+      "allRounder": {
+        "label": "Toàn diện",
+        "hint": "Chơi đủ 5 môn"
+      },
+      "hotHand": {
+        "label": "Phong độ cao",
+        "hint": "Thắng 5 trận liên tiếp"
+      },
+      "nightOwl": {
+        "label": "Cú đêm",
+        "hint": "10 trận buổi tối"
+      }
+    }
+  },
+  "Chat": {
+    "metaTitle": "Trò chuyện",
+    "metaDescription": "Sắp xếp trận đấu tiếp theo với người chơi và sân.",
+    "messages": "Tin nhắn",
+    "searchPlaceholder": "Tìm cuộc trò chuyện…",
+    "members": "{count, plural, other {# thành viên}}",
+    "online": "Trực tuyến",
+    "offline": "Ngoại tuyến",
+    "call": "Gọi",
+    "videoCall": "Gọi video",
+    "inputPlaceholder": "Nhập tin nhắn…",
+    "messageLabel": "Tin nhắn",
+    "send": "Gửi",
+    "now": "vừa xong",
+    "chats": {
+      "ch1": {
+        "last": "Huy: Hẹn gặp ở Sân 3 lúc 6:30 👊",
+        "time": "12 phút"
+      },
+      "ch2": {
+        "last": "Mang thêm một cuốn cán nếu có nhé",
+        "time": "1 giờ"
+      },
+      "ch3": {
+        "last": "Đã xác nhận tối nay ✅",
+        "time": "3 giờ"
+      },
+      "ch4": {
+        "last": "Tái đấu cuối tuần này nhé? 🎾",
+        "time": "Hôm qua"
+      }
+    },
+    "thread": {
+      "m1": {
+        "text": "Đã đặt Sân 3 cho tối nay 🔥"
+      },
+      "m2": {
+        "text": "Đã xác nhận tối nay ✅"
+      },
+      "m3": {
+        "text": "Tuyệt. Mình sẽ khởi động cú giao 😅"
+      },
+      "m4": {
+        "text": "Hẹn gặp ở Sân 3 lúc 6:30 👊"
+      }
+    }
+  }
+}

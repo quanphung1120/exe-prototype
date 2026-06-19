@@ -1,12 +1,27 @@
 import type { Metadata } from "next"
+import { getTranslations, setRequestLocale } from "next-intl/server"
 
 import { StreakView } from "@/components/dashboard/views/streak"
 
-export const metadata: Metadata = {
-  title: "Streak",
-  description: "Track your play streak and keep the momentum alive.",
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: "Streak" })
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  }
 }
 
-export default function StreakPage() {
+export default async function StreakPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  setRequestLocale(locale)
   return <StreakView />
 }

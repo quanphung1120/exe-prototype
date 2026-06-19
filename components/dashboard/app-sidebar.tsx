@@ -1,7 +1,5 @@
 "use client"
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
 import {
   ChevronsUpDown,
   Flame,
@@ -10,6 +8,7 @@ import {
   Settings,
   UserRound,
 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { LogoMark } from "@/components/logo"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -39,10 +38,13 @@ import {
 } from "@/components/ui/sidebar"
 import { USER } from "@/components/dashboard/data"
 import { NAV, isNavActive } from "@/components/dashboard/nav"
+import { Link, usePathname } from "@/i18n/navigation"
 
 export function AppSidebar() {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
+  const tNav = useTranslations("Nav")
+  const t = useTranslations("Sidebar")
 
   // Collapse the mobile drawer once a destination is chosen.
   const handleNavigate = () => {
@@ -83,18 +85,18 @@ export function AppSidebar() {
                 className="w-(--anchor-width) min-w-56"
               >
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                  <DropdownMenuLabel>{t("workspaces")}</DropdownMenuLabel>
                   <DropdownMenuItem>
                     <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
                       <LogoMark className="size-4 text-primary-foreground" />
                     </div>
-                    Player workspace
+                    {t("playerWorkspace")}
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
                       PR
                     </div>
-                    Padel Republic · Venue
+                    {t("venueWorkspace")}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>
@@ -105,26 +107,26 @@ export function AppSidebar() {
         <div className="relative group-data-[collapsible=icon]:hidden">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <SidebarInput
-            placeholder="Search players, courts…"
+            placeholder={t("searchPlaceholder")}
             className="pl-8"
-            aria-label="Search"
+            aria-label={t("searchPlaceholder")}
           />
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Play</SidebarGroupLabel>
+          <SidebarGroupLabel>{tNav("groupPlay")}</SidebarGroupLabel>
           <SidebarMenu>
             {NAV.map((item) => (
               <SidebarMenuItem key={item.key}>
                 <SidebarMenuButton
                   isActive={isNavActive(item.href, pathname)}
-                  tooltip={item.label}
+                  tooltip={tNav(`${item.key}.label`)}
                   render={<Link href={item.href} onClick={handleNavigate} />}
                 >
                   <item.icon />
-                  <span>{item.label}</span>
+                  <span>{tNav(`${item.key}.label`)}</span>
                 </SidebarMenuButton>
                 {item.badge ? (
                   <SidebarMenuBadge
@@ -193,7 +195,7 @@ export function AppSidebar() {
                     <div className="grid leading-tight">
                       <span className="text-sm font-medium">{USER.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        Rating {USER.rating.toFixed(2)}
+                        {t("rating", { value: USER.rating.toFixed(2) })}
                       </span>
                     </div>
                   </DropdownMenuLabel>
@@ -201,16 +203,16 @@ export function AppSidebar() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <UserRound />
-                  Profile
+                  {t("profile")}
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Settings />
-                  Settings
+                  {t("settings")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive">
                   <LogOut />
-                  Log out
+                  {t("logout")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

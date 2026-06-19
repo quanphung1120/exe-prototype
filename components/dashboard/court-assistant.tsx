@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useTranslations } from "next-intl"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   ArrowDown,
@@ -19,7 +20,6 @@ import { CourtRow, RowAction } from "@/components/dashboard/shared"
 import {
   COURTS,
   SPORTS,
-  sportLabel,
   type Court,
   type SportKey,
 } from "@/components/dashboard/data"
@@ -47,25 +47,21 @@ type Msg =
       courtIds: string[]
     }
 
-const GREETING: Msg = {
-  id: "greet",
-  role: "assistant",
-  type: "text",
-  text: "Hi — I'm your court assistant. Tell me a sport, a budget, or how close you want to play, and I'll pull up courts near you.",
-}
+type Translator = ReturnType<typeof useTranslations>
 
-const SUGGESTIONS = [
-  "Padel courts near me tonight",
-  "Cheapest courts",
-  "Tennis this evening",
-]
+const SUGGESTION_KEYS = ["badminton", "cheapest", "tennis"] as const
 
 /**
  * Fake "AI" planner: light keyword matching on the prompt to pick and order
  * courts, plus reasoning lines that adapt to whatever filter matched. Fully
- * deterministic so it reads the same on every run.
+ * deterministic so it reads the same on every run. All user-facing text is
+ * localized via the passed-in translators.
  */
-function runQuery(prompt: string): {
+function runQuery(
+  prompt: string,
+  t: Translator,
+  tc: Translator
+): {
   steps: string[]
   reply: string
   courts: Court[]
@@ -92,29 +88,38 @@ function runQuery(prompt: string): {
 
   const courts = sorted.slice(0, 3)
 
-  const rank = wantsCheap
-    ? "price (low to high)"
-    : wantsNear
-      ? "distance from you"
-      : "rating and availability"
+  const rankKey = wantsCheap ? "price" : wantsNear ? "distance" : "rating"
+  const rank = t(`rank.${rankKey}`)
 
-  const sportText = matchedSport ? `${sportLabel(matchedSport)} ` : ""
+  const sportText = matchedSport ? `${tc(`sports.${matchedSport}`)} ` : ""
   const steps = [
-    "Reading your location (Hà Nội)",
-    `Scanning ${pool.length} ${sportText}venues nearby`,
-    "Checking open slots for today",
-    `Ranking by ${rank}`,
-    `Selecting your top ${courts.length} matches`,
+    t("steps.location"),
+    t("steps.scanning", { count: pool.length, sport: sportText }),
+    t("steps.slots"),
+    t("steps.ranking", { rank }),
+    t("steps.selecting", { count: courts.length }),
   ]
 
   const reply = courts.length
-    ? `Found ${courts.length} ${sportText}court${courts.length > 1 ? "s" : ""} for you, ranked by ${rank}.`
-    : "I couldn't find a match — try another sport or filter."
+    ? t("reply.found", { count: courts.length, sport: sportText, rank })
+    : t("reply.none")
 
   return { steps, reply, courts }
 }
 
 export function CourtAssistant() {
+  const t = useTranslations("Assistant")
+  const tc = useTranslations("Common")
+
+  const GREETING: Msg = {
+    id: "greet",
+    role: "assistant",
+    type: "text",
+    text: t("greeting"),
+  }
+
+  const SUGGESTIONS = SUGGESTION_KEYS.map((k) => t(`suggestions.${k}`))
+
   const [open, setOpen] = React.useState(false)
   const [messages, setMessages] = React.useState<Msg[]>([GREETING])
   const [draft, setDraft] = React.useState("")
@@ -146,7 +151,7 @@ export function CourtAssistant() {
     const text = raw.trim()
     if (!text || busy) return
 
-    const { steps, reply, courts } = runQuery(text)
+    const { steps, reply, courts } = runQuery(text, t, tc)
     const thinkId = uid()
     const seconds = (((steps.length + 1) * STEP_MS) / 1000).toFixed(1)
 
@@ -233,18 +238,18 @@ export function CourtAssistant() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-sm font-bold tracking-tight">
-                  Court Assistant
+                  {t("title")}
                 </p>
                 <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <span className="size-1.5 rounded-full bg-brand" />
-                  AI · finds courts near you
+                  {t("subtitle")}
                 </p>
               </div>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 className="rounded-full"
-                aria-label="Close assistant"
+                aria-label={t("closeAria")}
                 onClick={() => setOpen(false)}
               >
                 <X />
@@ -298,16 +303,16 @@ export function CourtAssistant() {
                 ref={inputRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                placeholder={busy ? "Thinking…" : "Ask for a court…"}
+                placeholder={busy ? t("thinking") : t("placeholder")}
                 className="rounded-full"
-                aria-label="Ask the court assistant"
+                aria-label={t("inputAria")}
                 disabled={busy}
               />
               <Button
                 type="submit"
                 size="icon"
                 className="shrink-0 rounded-full"
-                aria-label="Send"
+                aria-label={t("sendAria")}
                 disabled={busy || !draft.trim()}
               >
                 <Send />
@@ -322,7 +327,7 @@ export function CourtAssistant() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        aria-label={open ? "Close court assistant" : "Open court assistant"}
+        aria-label={open ? t("toggleClose") : t("toggleOpen")}
         className="relative grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-lime to-brand text-brand-foreground shadow-lg ring-1 ring-foreground/5 transition-transform hover:scale-105 active:scale-95 dark:ring-foreground/10"
       >
         {!open ? (
@@ -360,6 +365,7 @@ function ThinkingBlock({
   msg: Extract<Msg, { type: "thinking" }>
   onToggle: () => void
 }) {
+  const t = useTranslations("Assistant")
   const expanded = !msg.collapsed
 
   return (
@@ -376,7 +382,7 @@ function ThinkingBlock({
           <Loader2 className="size-3.5 animate-spin text-brand" />
         )}
         <span className="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
-          {msg.done ? `Thought for ${msg.seconds}s` : "Thinking…"}
+          {msg.done ? t("thoughtFor", { seconds: msg.seconds }) : t("thinking")}
         </span>
         {msg.done ? (
           <ChevronDown
@@ -404,7 +410,9 @@ function ThinkingBlock({
                 ) : (
                   <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground/70" />
                 )}
-                <span className={cn(done ? "" : "text-foreground")}>{step}</span>
+                <span className={cn(done ? "" : "text-foreground")}>
+                  {step}
+                </span>
               </li>
             )
           })}
@@ -415,6 +423,7 @@ function ThinkingBlock({
 }
 
 function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
+  const t = useTranslations("Assistant")
   const courts = msg.courtIds
     .map((id) => COURTS.find((c) => c.id === id))
     .filter((c): c is Court => Boolean(c))
@@ -426,14 +435,14 @@ function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
         <>
           <p className="inline-flex items-center gap-1 pl-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
             <ArrowDown className="size-3" />
-            {courts.length} courts
+            {t("courtsCount", { count: courts.length })}
           </p>
           <div className="flex flex-col gap-1 rounded-3xl bg-muted/40 p-1.5 ring-1 ring-foreground/5 dark:ring-foreground/10">
             {courts.map((c) => (
               <CourtRow
                 key={c.id}
                 court={c}
-                action={<RowAction>Book</RowAction>}
+                action={<RowAction>{t("book")}</RowAction>}
               />
             ))}
           </div>

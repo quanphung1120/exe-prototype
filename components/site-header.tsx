@@ -2,20 +2,23 @@
 
 import * as React from "react"
 import { Menu, X } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
+import { LocaleSwitcher } from "@/components/locale-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const NAV_LINKS = [
-  { label: "Tính năng", href: "#features" },
-  { label: "Cách hoạt động", href: "#how-it-works" },
-  { label: "Dành cho địa điểm", href: "#venues" },
-  { label: "Câu hỏi thường gặp", href: "#faq" },
+  { key: "features", href: "#features" },
+  { key: "howItWorks", href: "#how-it-works" },
+  { key: "venues", href: "#venues" },
+  { key: "faq", href: "#faq" },
 ]
 
 export function SiteHeader() {
+  const t = useTranslations("Header")
   const [open, setOpen] = React.useState(false)
   const [scrolled, setScrolled] = React.useState(false)
 
@@ -50,39 +53,37 @@ export function SiteHeader() {
         <a
           href="#top"
           className="rounded-md focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
-          aria-label="SportMatch AI — trang chủ"
+          aria-label={t("homeAria")}
         >
           <Logo />
         </a>
 
-        <nav
-          aria-label="Primary"
-          className="hidden items-center gap-1 md:flex"
-        >
+        <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
               className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
             >
-              {link.label}
+              {t(`nav.${link.key}`)}
             </a>
           ))}
         </nav>
 
         <div className="flex items-center gap-1.5">
+          <LocaleSwitcher />
           <ThemeToggle className="cursor-pointer" />
           <Button
             size="lg"
             className="hidden cursor-pointer sm:inline-flex"
             nativeButton={false}
-            render={<a href="#waitlist">Đăng ký ngay</a>}
+            render={<a href="#waitlist">{t("cta")}</a>}
           />
           <Button
             variant="ghost"
             size="icon"
             className="cursor-pointer md:hidden"
-            aria-label={open ? "Đóng menu" : "Mở menu"}
+            aria-label={open ? t("menuClose") : t("menuOpen")}
             aria-expanded={open}
             aria-controls="mobile-menu"
             onClick={() => setOpen((v) => !v)}
@@ -109,7 +110,7 @@ export function SiteHeader() {
               onClick={() => setOpen(false)}
               className="rounded-lg px-3 py-3 text-base font-medium text-foreground transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
             >
-              {link.label}
+              {t(`nav.${link.key}`)}
             </a>
           ))}
           <Button
@@ -117,7 +118,7 @@ export function SiteHeader() {
             className="mt-2 cursor-pointer"
             nativeButton={false}
             onClick={() => setOpen(false)}
-            render={<a href="#waitlist">Đăng ký danh sách chờ</a>}
+            render={<a href="#waitlist">{t("waitlistCta")}</a>}
           />
         </nav>
       </div>

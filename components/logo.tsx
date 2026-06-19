@@ -9,12 +9,7 @@ export function LogoMark({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <rect width="32" height="32" rx="9" fill="currentColor" />
-      <g
-        stroke="white"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        opacity="0.85"
-      >
+      <g stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.85">
         <path d="M9 11.5h14M9 16h14M9 20.5h11" />
         <path d="M12.5 8v16M16.5 8v16M20.5 8v14" />
       </g>

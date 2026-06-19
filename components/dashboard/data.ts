@@ -1,7 +1,7 @@
 // Mock data for the SportMatch AI player dashboard.
 // All values are static so server and client renders stay in sync.
 
-export type SportKey = "tennis" | "padel" | "pickleball" | "badminton" | "squash"
+export type SportKey = "tennis" | "pickleball" | "badminton"
 
 export interface Sport {
   key: SportKey
@@ -13,10 +13,8 @@ export interface Sport {
 
 export const SPORTS: Sport[] = [
   { key: "tennis", label: "Tennis", short: "TN", accent: "bg-chart-2" },
-  { key: "padel", label: "Padel", short: "PD", accent: "bg-chart-1" },
   { key: "pickleball", label: "Pickleball", short: "PK", accent: "bg-lime" },
   { key: "badminton", label: "Badminton", short: "BD", accent: "bg-chart-3" },
-  { key: "squash", label: "Squash", short: "SQ", accent: "bg-chart-5" },
 ]
 
 const sportBy = (k: SportKey) => SPORTS.find((s) => s.key === k)
@@ -36,6 +34,8 @@ export const USER = {
   tier: "Intermediate",
   rating: 4.12,
   ratingDelta: 0.08,
+  /** Reliability/reputation score, 0–100. */
+  trust: 92,
 }
 
 export interface Player {
@@ -47,6 +47,8 @@ export interface Player {
   distanceKm: number
   /** AI compatibility score, 0–100. */
   matchPct: number
+  /** Reliability/reputation score, 0–100. */
+  trust: number
   online: boolean
   blurb: string
 }
@@ -57,9 +59,10 @@ export const MATCH_SUGGESTIONS: Player[] = [
     name: "Trần Huy",
     initials: "TH",
     rating: 4.18,
-    sport: "padel",
+    sport: "badminton",
     distanceKm: 1.2,
     matchPct: 96,
+    trust: 88,
     online: true,
     blurb: "Plays evenings · aggressive baseliner",
   },
@@ -68,9 +71,10 @@ export const MATCH_SUGGESTIONS: Player[] = [
     name: "Lê Lan",
     initials: "LL",
     rating: 4.05,
-    sport: "padel",
+    sport: "pickleball",
     distanceKm: 2.4,
     matchPct: 92,
+    trust: 95,
     online: true,
     blurb: "Looking for doubles partner",
   },
@@ -82,6 +86,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     sport: "tennis",
     distanceKm: 3.1,
     matchPct: 89,
+    trust: 84,
     online: false,
     blurb: "Weekend singles · all-court",
   },
@@ -93,6 +98,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     sport: "pickleball",
     distanceKm: 0.8,
     matchPct: 87,
+    trust: 79,
     online: true,
     blurb: "New to the area, very social",
   },
@@ -104,6 +110,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     sport: "tennis",
     distanceKm: 4.6,
     matchPct: 84,
+    trust: 91,
     online: false,
     blurb: "Competitive · league regular",
   },
@@ -115,10 +122,64 @@ export const MATCH_SUGGESTIONS: Player[] = [
     sport: "badminton",
     distanceKm: 2.0,
     matchPct: 81,
+    trust: 76,
     online: true,
     blurb: "Fast hands, fun rallies",
   },
 ]
+
+/** A participant resolvable from a match room's `players` initials. */
+export interface RosterEntry {
+  name: string
+  initials: string
+  /** Skill rating, when the participant is a known player. */
+  rating?: number
+  /** Reliability/reputation score, 0–100. */
+  trust: number
+}
+
+// Everyone a room's `players` initials can refer to: the user + suggestions.
+const ROSTER: RosterEntry[] = [
+  {
+    name: USER.name,
+    initials: USER.initials,
+    rating: USER.rating,
+    trust: USER.trust,
+  },
+  ...MATCH_SUGGESTIONS.map((p) => ({
+    name: p.name,
+    initials: p.initials,
+    rating: p.rating,
+    trust: p.trust,
+  })),
+]
+
+/** Resolve a room participant's initials to their name, rating and trust. */
+export function playerByInitials(initials: string): RosterEntry {
+  return (
+    ROSTER.find((p) => p.initials === initials) ?? {
+      name: initials,
+      initials,
+      trust: 70,
+    }
+  )
+}
+
+export type TrustTier = "trusted" | "reliable" | "new"
+
+/** Bucket a 0–100 trust score into a reputation tier. */
+export function trustTier(trust: number): TrustTier {
+  if (trust >= 85) return "trusted"
+  if (trust >= 70) return "reliable"
+  return "new"
+}
+
+/** Text-color class for each trust tier (kept on the emerald/lime theme). */
+export const trustTierAccent: Record<TrustTier, string> = {
+  trusted: "text-brand",
+  reliable: "text-chart-3",
+  new: "text-muted-foreground",
+}
 
 export interface Court {
   id: string
@@ -138,10 +199,10 @@ export interface Court {
 export const COURTS: Court[] = [
   {
     id: "c1",
-    name: "Padel Republic",
+    name: "Shuttle Republic",
     district: "Cầu Giấy",
-    sports: ["padel"],
-    surface: "Glass · panoramic",
+    sports: ["badminton"],
+    surface: "Sprung timber · indoor",
     pricePerHour: 360000,
     distanceKm: 1.2,
     rating: 4.8,
@@ -179,7 +240,7 @@ export const COURTS: Court[] = [
     id: "c4",
     name: "Rally Point Club",
     district: "Ba Đình",
-    sports: ["tennis", "padel"],
+    sports: ["tennis", "pickleball"],
     surface: "Clay · outdoor",
     pricePerHour: 280000,
     distanceKm: 3.4,
@@ -192,7 +253,7 @@ export const COURTS: Court[] = [
     id: "c5",
     name: "Topspin Center",
     district: "Long Biên",
-    sports: ["badminton", "squash"],
+    sports: ["badminton", "pickleball"],
     surface: "Sprung timber",
     pricePerHour: 130000,
     distanceKm: 5.1,
@@ -205,8 +266,8 @@ export const COURTS: Court[] = [
     id: "c6",
     name: "Baseline Athletic",
     district: "Hai Bà Trưng",
-    sports: ["squash"],
-    surface: "Tournament glass",
+    sports: ["tennis"],
+    surface: "Hard · acrylic",
     pricePerHour: 170000,
     distanceKm: 4.0,
     rating: 4.6,
@@ -243,10 +304,10 @@ export const ROOMS: MatchRoom[] = [
   {
     id: "r1",
     host: { name: "Trần Huy", initials: "TH" },
-    title: "Evening padel, friendly doubles",
-    sport: "padel",
+    title: "Evening badminton, friendly doubles",
+    sport: "badminton",
     format: "Doubles",
-    venue: "Padel Republic",
+    venue: "Shuttle Republic",
     district: "Cầu Giấy",
     distanceKm: 1.2,
     day: "Today",
@@ -297,8 +358,8 @@ export const ROOMS: MatchRoom[] = [
   {
     id: "r4",
     host: { name: "Vũ Hà", initials: "VH" },
-    title: "Advanced padel doubles",
-    sport: "padel",
+    title: "Advanced pickleball doubles",
+    sport: "pickleball",
     format: "Doubles",
     venue: "Rally Point Club",
     district: "Ba Đình",
@@ -369,7 +430,10 @@ export const OPEN_TO: { value: OpenToKey; label: string }[] = [
   { value: "above", label: "Stronger players" },
 ]
 
-export function skillWindow(openTo: OpenToKey, rating: number): [number, number] {
+export function skillWindow(
+  openTo: OpenToKey,
+  rating: number
+): [number, number] {
   if (openTo === "any") return [1, 7]
   if (openTo === "above") return [rating, rating + 0.8]
   return [Math.max(1, rating - 0.3), rating + 0.3]
@@ -394,9 +458,9 @@ export interface Booking {
 export const BOOKINGS: Booking[] = [
   {
     id: "b1",
-    sport: "padel",
+    sport: "badminton",
     format: "Doubles",
-    venue: "Padel Republic",
+    venue: "Shuttle Republic",
     court: "Court 3",
     day: "Today",
     time: "18:30 – 19:30",
@@ -433,7 +497,7 @@ export const BOOKINGS: Booking[] = [
   },
   {
     id: "b4",
-    sport: "padel",
+    sport: "tennis",
     format: "Doubles",
     venue: "Rally Point Club",
     court: "Court 5",
@@ -476,8 +540,8 @@ export interface Chat {
 export const CHATS: Chat[] = [
   {
     id: "ch1",
-    name: "Padel Crew",
-    initials: "PC",
+    name: "Badminton Crew",
+    initials: "BC",
     last: "Huy: See you at Court 3 at 6:30 👊",
     time: "12m",
     unread: 2,
@@ -525,10 +589,34 @@ export interface Message {
 }
 
 export const THREAD: Message[] = [
-  { id: "m1", mine: false, author: "Trần Huy", text: "Court 3 is booked for tonight 🔥", time: "17:42" },
-  { id: "m2", mine: false, author: "Lê Lan", text: "Confirmed for tonight ✅", time: "17:45" },
-  { id: "m3", mine: true, author: "Minh", text: "Perfect. I'll warm up the serves 😅", time: "17:48" },
-  { id: "m4", mine: false, author: "Trần Huy", text: "See you at Court 3 at 6:30 👊", time: "17:51" },
+  {
+    id: "m1",
+    mine: false,
+    author: "Trần Huy",
+    text: "Court 3 is booked for tonight 🔥",
+    time: "17:42",
+  },
+  {
+    id: "m2",
+    mine: false,
+    author: "Lê Lan",
+    text: "Confirmed for tonight ✅",
+    time: "17:45",
+  },
+  {
+    id: "m3",
+    mine: true,
+    author: "Minh",
+    text: "Perfect. I'll warm up the serves 😅",
+    time: "17:48",
+  },
+  {
+    id: "m4",
+    mine: false,
+    author: "Trần Huy",
+    text: "See you at Court 3 at 6:30 👊",
+    time: "17:51",
+  },
 ]
 
 export const STREAK = {
@@ -539,19 +627,24 @@ export const STREAK = {
   // Last seven days, oldest → today.
   week: [
     { day: "M", active: true, sport: "tennis" as SportKey },
-    { day: "T", active: true, sport: "padel" as SportKey },
+    { day: "T", active: true, sport: "badminton" as SportKey },
     { day: "W", active: false, sport: null },
     { day: "T", active: true, sport: "pickleball" as SportKey },
-    { day: "F", active: true, sport: "padel" as SportKey },
+    { day: "F", active: true, sport: "pickleball" as SportKey },
     { day: "S", active: true, sport: "tennis" as SportKey },
     { day: "S", active: false, sport: null, today: true },
-  ] as { day: string; active: boolean; sport: SportKey | null; today?: boolean }[],
+  ] as {
+    day: string
+    active: boolean
+    sport: SportKey | null
+    today?: boolean
+  }[],
   // 12 weeks × 7 days of activity intensity (0–3) for the heatmap, oldest first.
   history: [
-    0, 1, 0, 2, 1, 0, 0, 1, 0, 1, 2, 0, 1, 0, 0, 2, 1, 3, 1, 0, 1, 0, 1, 0, 2, 0,
-    1, 1, 1, 0, 2, 1, 0, 1, 2, 0, 0, 1, 0, 2, 1, 1, 2, 0, 1, 3, 1, 0, 2, 1, 1, 0,
-    1, 2, 0, 1, 0, 2, 1, 3, 1, 0, 1, 2, 1, 0, 2, 1, 3, 2, 1, 0, 2, 1, 1, 2, 0, 1,
-    2, 1, 3, 2, 1, 0,
+    0, 1, 0, 2, 1, 0, 0, 1, 0, 1, 2, 0, 1, 0, 0, 2, 1, 3, 1, 0, 1, 0, 1, 0, 2,
+    0, 1, 1, 1, 0, 2, 1, 0, 1, 2, 0, 0, 1, 0, 2, 1, 1, 2, 0, 1, 3, 1, 0, 2, 1,
+    1, 0, 1, 2, 0, 1, 0, 2, 1, 3, 1, 0, 1, 2, 1, 0, 2, 1, 3, 2, 1, 0, 2, 1, 1,
+    2, 0, 1, 2, 1, 3, 2, 1, 0,
   ],
 }
 
@@ -574,9 +667,34 @@ export interface ActivityItem {
 }
 
 export const ACTIVITY: ActivityItem[] = [
-  { id: "a1", kind: "match-found", text: "AI matched you with Trần Huy for padel tonight", time: "2h ago" },
-  { id: "a2", kind: "rating", text: "Your skill rating rose to 4.12 (+0.08)", time: "Yesterday" },
-  { id: "a3", kind: "win", text: "Won doubles at Rally Point Club · 6–3, 6–4", time: "3 days ago" },
-  { id: "a4", kind: "booking", text: "Booked Court 1 at Ace Tennis Club", time: "4 days ago" },
-  { id: "a5", kind: "loss", text: "Close singles loss to Vũ Hà · 4–6, 6–7", time: "6 days ago" },
+  {
+    id: "a1",
+    kind: "match-found",
+    text: "AI matched you with Trần Huy for badminton tonight",
+    time: "2h ago",
+  },
+  {
+    id: "a2",
+    kind: "rating",
+    text: "Your skill rating rose to 4.12 (+0.08)",
+    time: "Yesterday",
+  },
+  {
+    id: "a3",
+    kind: "win",
+    text: "Won doubles at Rally Point Club · 6–3, 6–4",
+    time: "3 days ago",
+  },
+  {
+    id: "a4",
+    kind: "booking",
+    text: "Booked Court 1 at Ace Tennis Club",
+    time: "4 days ago",
+  },
+  {
+    id: "a5",
+    kind: "loss",
+    text: "Close singles loss to Vũ Hà · 4–6, 6–7",
+    time: "6 days ago",
+  },
 ]

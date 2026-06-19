@@ -1,47 +1,68 @@
-"use client";
-import React from "react";
-import { CanvasRevealEffect } from "@/components/ui/canvas-reveal-effect";
-import { Sparkles, Users, CalendarCheck, MapPin, MessagesSquare } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Reveal } from "@/components/reveal";
+"use client"
+import React from "react"
+import { CanvasRevealEffect } from "@/components/ui/canvas-reveal-effect"
+import {
+  Sparkles,
+  Users,
+  CalendarCheck,
+  MapPin,
+  MessagesSquare,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Reveal } from "@/components/reveal"
 
 const PLAYER_FEATURES = [
   {
     icon: Sparkles,
     title: "Trợ lý đặt sân AI",
-    body: "Chỉ cần nói điều Quý khách muốn — “padel tối nay sau 7 giờ, gần đây, người chơi cùng trình độ.” Trợ lý sẽ lo phần còn lại: sân, giờ và người chơi.",
+    body: "Chỉ cần nói điều Quý khách muốn — “cầu lông tối nay sau 7 giờ, gần đây, người chơi cùng trình độ.” Trợ lý sẽ lo phần còn lại: sân, giờ và người chơi.",
     featured: true,
-    revealColors: [[34, 197, 94], [163, 230, 53]], // Emerald/Lime
+    revealColors: [
+      [34, 197, 94],
+      [163, 230, 53],
+    ], // Emerald/Lime
   },
   {
     icon: Users,
     title: "Ghép theo trình độ",
     body: "Được ghép với những người chơi cùng trình độ để mỗi trận đều cân sức — không còn cảnh một chiều.",
     featured: false,
-    revealColors: [[6, 182, 212], [59, 130, 246]], // Cyan/Blue
+    revealColors: [
+      [6, 182, 212],
+      [59, 130, 246],
+    ], // Cyan/Blue
   },
   {
     icon: CalendarCheck,
     title: "Đặt sân tức thì",
     body: "Tình trạng sân trống theo thời gian thực tại các địa điểm gần Quý khách. Giữ chỗ chỉ trong vài giây, không cần gọi điện.",
     featured: false,
-    revealColors: [[139, 92, 246], [232, 121, 249]], // Purple/Magenta
+    revealColors: [
+      [139, 92, 246],
+      [232, 121, 249],
+    ], // Purple/Magenta
   },
   {
     icon: MapPin,
     title: "Sân gần Quý khách",
     body: "Các khung giờ trống theo thời gian thực tại những câu lạc bộ quanh Quý khách, xếp theo khoảng cách, giá và mặt sân.",
     featured: false,
-    revealColors: [[245, 158, 11], [239, 68, 68]], // Amber/Red
+    revealColors: [
+      [245, 158, 11],
+      [239, 68, 68],
+    ], // Amber/Red
   },
   {
     icon: MessagesSquare,
     title: "Trò chuyện & phối hợp",
     body: "Tính năng trò chuyện, nhắc lịch và đặt sân chung tích hợp sẵn giúp cả nhóm luôn nắm chung thông tin.",
     featured: false,
-    revealColors: [[16, 185, 129], [20, 184, 166]], // Green/Teal
+    revealColors: [
+      [16, 185, 129],
+      [20, 184, 166],
+    ], // Green/Teal
   },
-];
+]
 
 export default function CanvasRevealEffectDemo2() {
   return (
@@ -62,7 +83,7 @@ export default function CanvasRevealEffectDemo2() {
         </Reveal>
       ))}
     </div>
-  );
+  )
 }
 
 const Card = ({
@@ -72,30 +93,30 @@ const Card = ({
   revealColors,
   featured,
 }: {
-  title: string;
-  body: string;
-  icon: React.ReactNode;
-  revealColors: number[][];
-  featured?: boolean;
+  title: string
+  body: string
+  icon: React.ReactNode
+  revealColors: number[][]
+  featured?: boolean
 }) => {
-  const [hovered, setHovered] = React.useState(false);
+  const [hovered, setHovered] = React.useState(false)
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={cn(
-        "border border-white/10 bg-zinc-950 rounded-3xl flex flex-col justify-between p-6 relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5",
+        "relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/10 bg-zinc-950 p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5",
         featured ? "min-h-[16rem]" : "min-h-[14rem]"
       )}
     >
-      <Icon className="absolute h-6 w-6 -top-3 -left-3 text-zinc-800" />
-      <Icon className="absolute h-6 w-6 -bottom-3 -left-3 text-zinc-800" />
-      <Icon className="absolute h-6 w-6 -top-3 -right-3 text-zinc-800" />
-      <Icon className="absolute h-6 w-6 -bottom-3 -right-3 text-zinc-800" />
+      <Icon className="absolute -top-3 -left-3 h-6 w-6 text-zinc-800" />
+      <Icon className="absolute -bottom-3 -left-3 h-6 w-6 text-zinc-800" />
+      <Icon className="absolute -top-3 -right-3 h-6 w-6 text-zinc-800" />
+      <Icon className="absolute -right-3 -bottom-3 h-6 w-6 text-zinc-800" />
 
       {/* Always visible Canvas Reveal Effect */}
       <div
-        className="h-full w-full absolute inset-0 z-0 transition-opacity duration-500"
+        className="absolute inset-0 z-0 h-full w-full transition-opacity duration-500"
         style={{ opacity: hovered ? 1 : 0.4 }}
       >
         <CanvasRevealEffect
@@ -106,22 +127,22 @@ const Card = ({
         />
       </div>
 
-      <div className="relative z-10 flex flex-col h-full justify-between gap-4">
+      <div className="relative z-10 flex h-full flex-col justify-between gap-4">
         <div>
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-white/10 text-white border border-white/10">
+          <span className="flex size-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white">
             {icon}
           </span>
-          <h3 className="mt-5 font-heading text-2xl font-bold text-white uppercase tracking-wide">
+          <h3 className="mt-5 font-heading text-2xl font-bold tracking-wide text-white uppercase">
             {title}
           </h3>
         </div>
-        <p className="text-zinc-200 text-sm sm:text-base leading-relaxed">
+        <p className="text-sm leading-relaxed text-zinc-200 sm:text-base">
           {body}
         </p>
       </div>
     </div>
-  );
-};
+  )
+}
 
 export const Icon = ({ className, ...rest }: React.SVGProps<SVGSVGElement>) => {
   return (
@@ -136,5 +157,5 @@ export const Icon = ({ className, ...rest }: React.SVGProps<SVGSVGElement>) => {
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
     </svg>
-  );
-};
+  )
+}

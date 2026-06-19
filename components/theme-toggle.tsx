@@ -1,23 +1,25 @@
 "use client"
 
 import { Moon, Sun } from "lucide-react"
-import { useTheme } from "next-themes"
+import { useTranslations } from "next-intl"
+import { useTheme } from "@teispace/next-themes"
 
 import { Button } from "@/components/ui/button"
 
 export function ThemeToggle({ className }: { className?: string }) {
   const { setTheme } = useTheme()
+  const t = useTranslations("ThemeToggle")
 
   return (
     <Button
       variant="ghost"
       size="icon"
       className={className}
-      aria-label="Chuyển giao diện sáng và tối"
-      title="Đổi giao diện (L)"
+      aria-label={t("toggleAria")}
+      title={t("toggleTitle")}
       onClick={() => {
         // Read the live DOM state so we always toggle correctly,
-        // regardless of next-themes' internal mount timing.
+        // regardless of the theme provider's internal mount timing.
         const isDark = document.documentElement.classList.contains("dark")
         setTheme(isDark ? "light" : "dark")
       }}

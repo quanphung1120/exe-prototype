@@ -1,13 +1,27 @@
 import type { Metadata } from "next"
+import { getTranslations, setRequestLocale } from "next-intl/server"
 
 import { OverviewView } from "@/components/dashboard/views/overview"
 
-export const metadata: Metadata = {
-  title: "Dashboard",
-  description:
-    "Your SportMatch AI command center — next match, AI player suggestions, nearby courts, bookings and streak.",
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: "Overview" })
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  }
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  setRequestLocale(locale)
   return <OverviewView />
 }

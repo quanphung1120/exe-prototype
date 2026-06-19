@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Clock, MapPin, Star } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
@@ -27,6 +28,8 @@ const PINS = [
 ]
 
 export function FindCourtsView() {
+  const t = useTranslations("FindCourts")
+  const tc = useTranslations("Common")
   const [sport, setSport] = React.useState<SportKey | "all">("all")
   const courts = COURTS.filter(
     (c) => sport === "all" || c.sports.includes(sport)
@@ -34,12 +37,15 @@ export function FindCourtsView() {
 
   return (
     <div className="flex flex-col gap-5">
-      <Tabs value={sport} onValueChange={(v) => setSport(v as SportKey | "all")}>
+      <Tabs
+        value={sport}
+        onValueChange={(v) => setSport(v as SportKey | "all")}
+      >
         <TabsList variant="line" className="flex-wrap">
-          <TabsTrigger value="all">All sports</TabsTrigger>
+          <TabsTrigger value="all">{t("allSports")}</TabsTrigger>
           {SPORTS.map((s) => (
             <TabsTrigger key={s.key} value={s.key}>
-              {s.label}
+              {tc(`sports.${s.key}`)}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -52,7 +58,7 @@ export function FindCourtsView() {
           ))}
           {!courts.length ? (
             <p className="rounded-4xl bg-card px-4 py-16 text-center text-sm text-muted-foreground shadow-md ring-1 ring-foreground/5 sm:col-span-2 dark:ring-foreground/10">
-              No courts for this sport nearby. Try another filter.
+              {t("empty")}
             </p>
           ) : null}
         </div>
@@ -63,7 +69,7 @@ export function FindCourtsView() {
             <div className="bg-court-lines absolute inset-0" />
             <div className="absolute inset-0 bg-gradient-to-br from-brand/5 via-transparent to-lime/10" />
             <div className="absolute top-4 left-4 font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-              Nearby · {courts.length} courts
+              {t("nearby", { count: courts.length })}
             </div>
             {courts.map((c, i) => {
               const pos = PINS[i % PINS.length]
@@ -74,7 +80,7 @@ export function FindCourtsView() {
                   style={{ top: pos.top, left: pos.left }}
                 >
                   <div className="flex flex-col items-center">
-                    <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background shadow-sm tabular-nums">
+                    <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-semibold text-background tabular-nums shadow-sm">
                       {formatVnd(c.pricePerHour)}
                     </span>
                     <span className="-mt-0.5 size-2 rotate-45 bg-foreground" />
@@ -97,6 +103,7 @@ export function FindCourtsView() {
 }
 
 function CourtCard({ court }: { court: Court }) {
+  const t = useTranslations("FindCourts")
   return (
     <div className="flex flex-col gap-4 rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 transition-shadow hover:shadow-lg dark:ring-foreground/10">
       <div className="flex items-start justify-between gap-3">
@@ -106,7 +113,7 @@ function CourtCard({ court }: { court: Court }) {
           </p>
           <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="size-3" />
-            {court.district} · {court.distanceKm} km
+            {court.district} · {t("distance", { km: court.distanceKm })}
           </p>
         </div>
         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2 py-1 text-xs font-semibold text-secondary-foreground tabular-nums">
@@ -119,21 +126,25 @@ function CourtCard({ court }: { court: Court }) {
         {court.sports.map((s) => (
           <SportTag key={s} sport={s} />
         ))}
-        <span className="text-xs text-muted-foreground">· {court.surface}</span>
+        <span className="text-xs text-muted-foreground">
+          · {t(`courts.${court.id}.surface`)}
+        </span>
       </div>
 
       <div>
         <div className="mb-1.5 flex items-center justify-between text-xs">
           <span className="text-muted-foreground">
-            {court.openSlots} slots open today
+            {t("openSlots", { count: court.openSlots })}
           </span>
           <span className="font-mono font-semibold tabular-nums">
-            {court.freePct}% free
+            {t("freePct", { pct: court.freePct })}
           </span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className={cn("h-full rounded-full bg-gradient-to-r from-lime to-brand")}
+            className={cn(
+              "h-full rounded-full bg-gradient-to-r from-lime to-brand"
+            )}
             style={{ width: `${court.freePct}%` }}
           />
         </div>
@@ -144,7 +155,7 @@ function CourtCard({ court }: { court: Court }) {
           <span className="font-heading text-xl font-bold tabular-nums">
             {formatVnd(court.pricePerHour)}
           </span>
-          <span className="text-xs text-muted-foreground">/hour</span>
+          <span className="text-xs text-muted-foreground">{t("perHour")}</span>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="gap-1 font-mono tabular-nums">
@@ -152,7 +163,7 @@ function CourtCard({ court }: { court: Court }) {
             {court.nextSlot}
           </Badge>
           <Button size="sm" className="rounded-full">
-            Book
+            {t("book")}
           </Button>
         </div>
       </div>

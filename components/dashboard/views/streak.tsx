@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useTranslations } from "next-intl"
 import {
   Award,
   Crown,
@@ -19,20 +20,20 @@ import { StreakStrip } from "@/components/dashboard/shared"
 const HEAT = ["bg-muted", "bg-brand/30", "bg-brand/60", "bg-brand"]
 
 const MILESTONES: {
-  label: string
-  hint: string
+  key: string
   icon: React.ComponentType<{ className?: string }>
   unlocked: boolean
 }[] = [
-  { label: "First serve", hint: "Play your first match", icon: Medal, unlocked: true },
-  { label: "Week warrior", hint: "7-day streak", icon: Flame, unlocked: true },
-  { label: "Fortnight", hint: "14-day streak", icon: Crown, unlocked: true },
-  { label: "All-rounder", hint: "Play all 5 sports", icon: Zap, unlocked: true },
-  { label: "Hot hand", hint: "Win 5 in a row", icon: Award, unlocked: false },
-  { label: "Night owl", hint: "10 evening matches", icon: Moon, unlocked: false },
+  { key: "firstServe", icon: Medal, unlocked: true },
+  { key: "weekWarrior", icon: Flame, unlocked: true },
+  { key: "fortnight", icon: Crown, unlocked: true },
+  { key: "allRounder", icon: Zap, unlocked: true },
+  { key: "hotHand", icon: Award, unlocked: false },
+  { key: "nightOwl", icon: Moon, unlocked: false },
 ]
 
 export function StreakView() {
+  const t = useTranslations("Streak")
   const activeDays = STREAK.history.filter((h) => h > 0).length
 
   return (
@@ -47,18 +48,20 @@ export function StreakView() {
             </div>
             <div>
               <span className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
-                Current streak
+                {t("currentStreak")}
               </span>
               <div className="flex items-end gap-2">
                 <span className="font-heading text-6xl leading-[0.8] font-bold tabular-nums">
                   {STREAK.current}
                 </span>
-                <span className="mb-1.5 text-sm text-muted-foreground">days</span>
+                <span className="mb-1.5 text-sm text-muted-foreground">
+                  {t("daysUnit")}
+                </span>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                Longest:{" "}
+                {t("longestLabel")}{" "}
                 <span className="font-semibold text-foreground tabular-nums">
-                  {STREAK.longest} days
+                  {t("daysCount", { count: STREAK.longest })}
                 </span>
               </p>
             </div>
@@ -68,10 +71,13 @@ export function StreakView() {
             <div className="flex items-center justify-between text-sm">
               <span className="inline-flex items-center gap-1.5 text-muted-foreground">
                 <Target className="size-4" />
-                Weekly goal
+                {t("weeklyGoal")}
               </span>
               <span className="font-mono font-semibold tabular-nums">
-                {STREAK.weeklyDone}/{STREAK.weeklyGoal} matches
+                {t("weeklyProgress", {
+                  done: STREAK.weeklyDone,
+                  goal: STREAK.weeklyGoal,
+                })}
               </span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -89,10 +95,20 @@ export function StreakView() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <MiniStat label="Longest streak" value={STREAK.longest} unit="days" icon={Crown} />
-        <MiniStat label="Active days · 12w" value={activeDays} unit="days" icon={Flame} />
         <MiniStat
-          label="Goal hit rate"
+          label={t("longestStreak")}
+          value={STREAK.longest}
+          unit={t("daysUnit")}
+          icon={Crown}
+        />
+        <MiniStat
+          label={t("activeDays")}
+          value={activeDays}
+          unit={t("daysUnit")}
+          icon={Flame}
+        />
+        <MiniStat
+          label={t("goalHitRate")}
           value={Math.round((STREAK.weeklyDone / STREAK.weeklyGoal) * 100)}
           unit="%"
           icon={Target}
@@ -104,14 +120,14 @@ export function StreakView() {
         <div className="flex items-center justify-between">
           <h2 className="inline-flex items-center gap-2 font-heading text-base font-semibold">
             <Flame className="size-4 text-muted-foreground" />
-            Last 12 weeks
+            {t("last12Weeks")}
           </h2>
           <div className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
-            Less
+            {t("less")}
             {HEAT.map((c, i) => (
               <span key={i} className={cn("size-2.5 rounded-[3px]", c)} />
             ))}
-            More
+            {t("more")}
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -120,7 +136,7 @@ export function StreakView() {
               <span
                 key={i}
                 className={cn("size-3.5 rounded-[4px]", HEAT[v])}
-                title={v > 0 ? `${v} match${v > 1 ? "es" : ""}` : "Rest day"}
+                title={v > 0 ? t("matchesCount", { count: v }) : t("restDay")}
               />
             ))}
           </div>
@@ -131,17 +147,17 @@ export function StreakView() {
       <section className="flex flex-col gap-4 rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
         <h2 className="inline-flex items-center gap-2 font-heading text-base font-semibold">
           <Trophy className="size-4 text-muted-foreground" />
-          Milestones
+          {t("milestones")}
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {MILESTONES.map((m) => (
             <div
-              key={m.label}
+              key={m.key}
               className={cn(
                 "flex items-center gap-3 rounded-3xl p-3 ring-1",
                 m.unlocked
                   ? "bg-secondary/60 ring-border"
-                  : "bg-muted/40 ring-transparent opacity-60"
+                  : "bg-muted/40 opacity-60 ring-transparent"
               )}
             >
               <div
@@ -155,8 +171,12 @@ export function StreakView() {
                 <m.icon className="size-5" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{m.label}</p>
-                <p className="truncate text-xs text-muted-foreground">{m.hint}</p>
+                <p className="truncate text-sm font-medium">
+                  {t(`milestoneList.${m.key}.label`)}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {t(`milestoneList.${m.key}.hint`)}
+                </p>
               </div>
             </div>
           ))}
@@ -189,7 +209,9 @@ function MiniStat({
         <span className="font-heading text-4xl leading-none font-bold tabular-nums">
           {value}
         </span>
-        <span className="text-sm font-medium text-muted-foreground">{unit}</span>
+        <span className="text-sm font-medium text-muted-foreground">
+          {unit}
+        </span>
       </div>
     </div>
   )

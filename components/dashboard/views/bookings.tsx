@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { CalendarPlus, Clock, MapPin, Trophy } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
@@ -19,14 +20,8 @@ type Filter = "upcoming" | "past" | "all"
 
 const UPCOMING: BookingStatus[] = ["confirmed", "pending"]
 
-const STATUS_LABEL: Record<BookingStatus, string> = {
-  confirmed: "Confirmed",
-  pending: "Pending",
-  completed: "Completed",
-  cancelled: "Cancelled",
-}
-
 export function BookingsView() {
+  const t = useTranslations("Bookings")
   const [filter, setFilter] = React.useState<Filter>("upcoming")
 
   const bookings = BOOKINGS.filter((b) => {
@@ -40,14 +35,14 @@ export function BookingsView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
           <TabsList>
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="past">Past</TabsTrigger>
-            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="upcoming">{t("tabs.upcoming")}</TabsTrigger>
+            <TabsTrigger value="past">{t("tabs.past")}</TabsTrigger>
+            <TabsTrigger value="all">{t("tabs.all")}</TabsTrigger>
           </TabsList>
         </Tabs>
         <Button size="sm" className="rounded-full">
           <CalendarPlus />
-          New booking
+          {t("newBooking")}
         </Button>
       </div>
 
@@ -59,22 +54,39 @@ export function BookingsView() {
         </div>
       ) : (
         <p className="rounded-4xl bg-card px-4 py-16 text-center text-sm text-muted-foreground shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
-          Nothing here yet. Book a court to get your next match on the calendar.
+          {t("empty")}
         </p>
       )}
     </div>
   )
 }
 
+/** Day words that resolve to a shared `Common.when` key. */
+const WHEN_KEY: Record<string, string> = {
+  Today: "today",
+  Tomorrow: "tomorrow",
+  Yesterday: "yesterday",
+}
+
 function BookingCard({ booking }: { booking: Booking }) {
+  const t = useTranslations("Bookings")
+  const tc = useTranslations("Common")
   const done = booking.status === "completed"
+
+  const whenKey = WHEN_KEY[booking.day]
+  const dayLabel = whenKey
+    ? tc(`when.${whenKey}`)
+    : t(`records.${booking.id}.day`)
+  const courtNo = booking.court.match(/\d+/)?.[0]
+  const courtLabel = courtNo ? t("courtLabel", { n: courtNo }) : booking.court
+
   return (
     <div className="flex flex-col gap-4 rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 sm:flex-row sm:items-center dark:ring-foreground/10">
       {/* Date block */}
       <div className="flex shrink-0 items-center gap-4">
         <div className="grid w-16 shrink-0 place-items-center rounded-3xl bg-secondary py-3 text-center text-secondary-foreground">
           <span className="font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
-            {booking.day.split(",")[0].slice(0, 3)}
+            {dayLabel.split(",")[0].slice(0, 3)}
           </span>
           <span className="font-heading text-xl leading-none font-bold tabular-nums">
             {booking.time.split(":")[0]}
@@ -89,7 +101,9 @@ function BookingCard({ booking }: { booking: Booking }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <SportTag sport={booking.sport} />
-          <span className="text-xs text-muted-foreground">· {booking.format}</span>
+          <span className="text-xs text-muted-foreground">
+            · {tc(`format.${booking.format.toLowerCase()}`)}
+          </span>
         </div>
         <p className="mt-0.5 font-heading text-lg font-semibold">
           {booking.venue}
@@ -97,11 +111,11 @@ function BookingCard({ booking }: { booking: Booking }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <MapPin className="size-3" />
-            {booking.court}
+            {courtLabel}
           </span>
           <span className="inline-flex items-center gap-1">
             <Clock className="size-3" />
-            {booking.day} · {booking.time}
+            {dayLabel} · {booking.time}
           </span>
         </div>
       </div>
@@ -128,7 +142,7 @@ function BookingCard({ booking }: { booking: Booking }) {
               )}
             >
               <Trophy className="size-3" />
-              {booking.result === "W" ? "Win" : "Loss"}
+              {booking.result === "W" ? tc("result.win") : tc("result.loss")}
             </Badge>
             <span className="font-mono text-xs text-muted-foreground tabular-nums">
               {booking.score}
@@ -142,14 +156,22 @@ function BookingCard({ booking }: { booking: Booking }) {
       {/* Action */}
       {!done ? (
         <div className="shrink-0 sm:ml-2">
-          <Button variant="outline" size="sm" className="w-full rounded-full sm:w-auto">
-            Manage
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full rounded-full sm:w-auto"
+          >
+            {t("manage")}
           </Button>
         </div>
       ) : (
         <div className="shrink-0 sm:ml-2">
-          <Button variant="ghost" size="sm" className="w-full rounded-full sm:w-auto">
-            Rebook
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full rounded-full sm:w-auto"
+          >
+            {t("rebook")}
           </Button>
         </div>
       )}
@@ -158,11 +180,12 @@ function BookingCard({ booking }: { booking: Booking }) {
 }
 
 function StatusBadge({ status }: { status: BookingStatus }) {
+  const tc = useTranslations("Common")
+  const label = tc(`status.${status}`)
   if (status === "confirmed")
-    return <Badge className="bg-brand/12 text-brand">{STATUS_LABEL[status]}</Badge>
-  if (status === "pending")
-    return <Badge variant="secondary">{STATUS_LABEL[status]}</Badge>
+    return <Badge className="bg-brand/12 text-brand">{label}</Badge>
+  if (status === "pending") return <Badge variant="secondary">{label}</Badge>
   if (status === "cancelled")
-    return <Badge variant="destructive">{STATUS_LABEL[status]}</Badge>
-  return <Badge variant="outline">{STATUS_LABEL[status]}</Badge>
+    return <Badge variant="destructive">{label}</Badge>
+  return <Badge variant="outline">{label}</Badge>
 }

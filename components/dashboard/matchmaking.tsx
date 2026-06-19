@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { AnimatePresence, motion } from "framer-motion"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Check, Clock, Loader2, X } from "lucide-react"
 
@@ -12,7 +13,6 @@ import {
   ROOMS,
   USER,
   skillWindow,
-  sportLabel,
   type MatchRoom,
   type SportKey,
 } from "@/components/dashboard/data"
@@ -33,6 +33,12 @@ export interface Queue {
 interface MatchmakingContextValue {
   rooms: MatchRoom[]
   joinedIds: Set<string>
+  /** Rooms the user has joined or hosted. */
+  joinedRooms: MatchRoom[]
+  /** The most-recently joined/hosted room — what the topbar pill represents. */
+  activeRoom: MatchRoom | null
+  activeRoomId: string | null
+  setActiveRoomId: (id: string) => void
   queue: Queue | null
   isSuitable: (room: MatchRoom) => boolean
   joinRoom: (room: MatchRoom, quick?: boolean) => void
@@ -42,8 +48,9 @@ interface MatchmakingContextValue {
   acceptMatch: () => void
 }
 
-const MatchmakingContext =
-  React.createContext<MatchmakingContextValue | null>(null)
+const MatchmakingContext = React.createContext<MatchmakingContextValue | null>(
+  null
+)
 
 export function useMatchmaking() {
   const ctx = React.useContext(MatchmakingContext)
@@ -69,8 +76,11 @@ export function MatchmakingProvider({
 }: {
   children: React.ReactNode
 }) {
+  const t = useTranslations("MatchMaker")
+  const tc = useTranslations("Common")
   const [rooms, setRooms] = React.useState<MatchRoom[]>(ROOMS)
   const [joinedIds, setJoinedIds] = React.useState<Set<string>>(() => new Set())
+  const [activeRoomId, setActiveRoomId] = React.useState<string | null>(null)
   const [queue, setQueue] = React.useState<Queue | null>(null)
 
   const timers = React.useRef<ReturnType<typeof setTimeout>[]>([])
@@ -99,19 +109,28 @@ export function MatchmakingProvider({
     setRooms((prev) =>
       prev.map((r) =>
         r.id === room.id
-          ? { ...r, joined: r.joined + 1, players: [...r.players, USER.initials] }
+          ? {
+              ...r,
+              joined: r.joined + 1,
+              players: [...r.players, USER.initials],
+            }
           : r
       )
     )
     setJoinedIds((prev) => new Set(prev).add(room.id))
-    toast.success(quick ? "Quick joined a room" : "You're in", {
-      description: `${room.title} · ${room.venue}`,
+    setActiveRoomId(room.id)
+    const title = t.has(`rooms.${room.id}.title`)
+      ? t(`rooms.${room.id}.title`)
+      : room.title
+    toast.success(quick ? t("toast.quickJoined") : t("toast.joined"), {
+      description: `${title} · ${room.venue}`,
     })
   }
 
   const addRoom = (room: MatchRoom) => {
     setRooms((prev) => [room, ...prev])
     setJoinedIds((prev) => new Set(prev).add(room.id))
+    setActiveRoomId(room.id)
   }
 
   const startQueue = (forSport: SportKey) => {
@@ -131,13 +150,16 @@ export function MatchmakingProvider({
     for (let seat = 2; seat <= capacity; seat++) {
       const last = seat === capacity
       timers.current.push(
-        setTimeout(() => {
-          setQueue((q) => (q ? { ...q, found: seat, matched: last } : q))
-          if (last && clock.current) {
-            clearInterval(clock.current)
-            clock.current = null
-          }
-        }, (seat - 1) * SEAT_MS)
+        setTimeout(
+          () => {
+            setQueue((q) => (q ? { ...q, found: seat, matched: last } : q))
+            if (last && clock.current) {
+              clearInterval(clock.current)
+              clock.current = null
+            }
+          },
+          (seat - 1) * SEAT_MS
+        )
       )
     }
   }
@@ -156,22 +178,28 @@ export function MatchmakingProvider({
       joinRoom(best, true)
       return
     }
-    startQueue(sport === "all" ? "padel" : sport)
-    toast("No open room fits — finding you a match", {
-      description: "Hang tight, we're filling a lobby for you.",
+    startQueue(sport === "all" ? "badminton" : sport)
+    toast(t("toast.noRoomTitle"), {
+      description: t("toast.noRoomBody"),
     })
   }
 
   const acceptMatch = () => {
     if (!queue) return
     stopTimers()
-    const court = COURTS.find((c) => c.sports.includes(queue.sport)) ?? COURTS[0]
+    const court =
+      COURTS.find((c) => c.sports.includes(queue.sport)) ?? COURTS[0]
     const [skillMin, skillMax] = skillWindow("my-level", USER.rating)
-    const fill = ["TH", "LL", "ĐA", "BK", "VH"].filter((i) => i !== USER.initials)
+    const fill = ["TH", "LL", "ĐA", "BK", "VH"].filter(
+      (i) => i !== USER.initials
+    )
     addRoom({
       id: `r-mm-${idRef.current++}`,
       host: { name: USER.name, initials: USER.initials },
-      title: `Matchmade ${sportLabel(queue.sport).toLowerCase()} ${queue.format.toLowerCase()}`,
+      title: t("matchmadeTitle", {
+        sport: tc(`sports.${queue.sport}`),
+        format: tc(`format.${queue.format.toLowerCase()}`),
+      }),
       sport: queue.sport,
       format: queue.format,
       venue: court.name,
@@ -186,8 +214,8 @@ export function MatchmakingProvider({
       players: [USER.initials, ...fill].slice(0, queue.capacity),
       pricePerHour: court.pricePerHour,
     })
-    toast.success("Match ready!", {
-      description: `${queue.capacity} players · ${court.name}`,
+    toast.success(t("toast.matchReady"), {
+      description: `${t("players", { count: queue.capacity })} · ${court.name}`,
     })
     setQueue(null)
   }
@@ -197,9 +225,20 @@ export function MatchmakingProvider({
     setQueue(null)
   }
 
+  const joinedRooms = React.useMemo(
+    () => rooms.filter((r) => joinedIds.has(r.id)),
+    [rooms, joinedIds]
+  )
+  const activeRoom =
+    joinedRooms.find((r) => r.id === activeRoomId) ?? joinedRooms[0] ?? null
+
   const value: MatchmakingContextValue = {
     rooms,
     joinedIds,
+    joinedRooms,
+    activeRoom,
+    activeRoomId,
+    setActiveRoomId,
     queue,
     isSuitable,
     joinRoom,
@@ -221,6 +260,8 @@ export function MatchmakingProvider({
  * while the user browses other dashboard pages during a search.
  */
 export function MatchmakingDock() {
+  const t = useTranslations("MatchMaker")
+  const tc = useTranslations("Common")
   const { queue, cancelQueue, acceptMatch } = useMatchmaking()
 
   return (
@@ -245,10 +286,11 @@ export function MatchmakingDock() {
               </span>
               <div className="min-w-0">
                 <p className="text-sm leading-none font-semibold">
-                  {queue.matched ? "Match ready" : "Finding players…"}
+                  {queue.matched ? t("dock.matchReady") : t("dock.finding")}
                 </p>
                 <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {sportLabel(queue.sport)} · {queue.format} · ~
+                  {tc(`sports.${queue.sport}`)} ·{" "}
+                  {tc(`format.${queue.format.toLowerCase()}`)} · ~
                   {USER.rating.toFixed(1)}
                 </p>
               </div>
@@ -283,14 +325,14 @@ export function MatchmakingDock() {
                     className="rounded-full"
                     onClick={acceptMatch}
                   >
-                    Accept
+                    {t("dock.accept")}
                   </Button>
                 ) : null}
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   className="rounded-full"
-                  aria-label="Cancel search"
+                  aria-label={t("dock.cancelSearch")}
                   onClick={cancelQueue}
                 >
                   <X />

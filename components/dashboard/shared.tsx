@@ -1,4 +1,7 @@
+"use client"
+
 import * as React from "react"
+import { useTranslations } from "next-intl"
 import { ArrowDownRight, ArrowUpRight, MapPin, Star } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -24,7 +27,11 @@ export function SportDot({
 }) {
   return (
     <span
-      className={cn("size-1.5 shrink-0 rounded-full", sportAccent(sport), className)}
+      className={cn(
+        "size-1.5 shrink-0 rounded-full",
+        sportAccent(sport),
+        className
+      )}
       aria-hidden
     />
   )
@@ -32,10 +39,11 @@ export function SportDot({
 
 /** Sport label with its accent dot, used as an inline tag. */
 export function SportTag({ sport }: { sport: SportKey }) {
+  const tc = useTranslations("Common")
   return (
     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
       <SportDot sport={sport} />
-      {sportLabel(sport)}
+      {tc(`sports.${sport}`)}
     </span>
   )
 }
@@ -72,7 +80,9 @@ export function StatTile({
             {value}
           </span>
           {unit ? (
-            <span className="text-sm font-medium text-muted-foreground">{unit}</span>
+            <span className="text-sm font-medium text-muted-foreground">
+              {unit}
+            </span>
           ) : null}
         </div>
         {typeof delta === "number" ? (
@@ -101,9 +111,15 @@ export function StreakStrip({
   days,
   size = "md",
 }: {
-  days: { day: string; active: boolean; sport: SportKey | null; today?: boolean }[]
+  days: {
+    day: string
+    active: boolean
+    sport: SportKey | null
+    today?: boolean
+  }[]
   size?: "md" | "lg"
 }) {
+  const t = useTranslations("Streak")
   return (
     <div className="flex items-end gap-1.5">
       {days.map((d, i) => (
@@ -126,7 +142,7 @@ export function StreakStrip({
               d.today && "font-bold text-foreground"
             )}
           >
-            {d.day}
+            {t(`weekdays.${i}`)}
           </span>
         </div>
       ))}
@@ -219,6 +235,7 @@ export function CourtRow({
   court: Court
   action?: React.ReactNode
 }) {
+  const t = useTranslations("Shared")
   return (
     <div className="flex items-center gap-3 rounded-3xl p-2 transition-colors hover:bg-muted/60">
       <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-secondary font-heading text-sm font-bold text-secondary-foreground">
@@ -243,11 +260,13 @@ export function CourtRow({
       </div>
       <div className="hidden text-right sm:block">
         <div className="font-mono text-xs text-muted-foreground tabular-nums">
-          next {court.nextSlot}
+          {t("next", { time: court.nextSlot })}
         </div>
         <div className="text-sm font-semibold tabular-nums">
           {formatVnd(court.pricePerHour)}
-          <span className="text-xs font-normal text-muted-foreground">/h</span>
+          <span className="text-xs font-normal text-muted-foreground">
+            {t("perHour")}
+          </span>
         </div>
       </div>
       {action}
@@ -261,7 +280,12 @@ export function RowAction({
   ...props
 }: React.ComponentProps<typeof Button>) {
   return (
-    <Button variant="outline" size="sm" className="shrink-0 rounded-full" {...props}>
+    <Button
+      variant="outline"
+      size="sm"
+      className="shrink-0 rounded-full"
+      {...props}
+    >
       {children}
     </Button>
   )

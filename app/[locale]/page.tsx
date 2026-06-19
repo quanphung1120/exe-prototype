@@ -11,8 +11,8 @@ import {
   Star,
   TrendingUp,
   Users,
-  Zap,
 } from "lucide-react"
+import { getTranslations, setRequestLocale } from "next-intl/server"
 
 import { Faq, type FaqItem } from "@/components/faq"
 import { Logo } from "@/components/logo"
@@ -20,11 +20,11 @@ import { Reveal } from "@/components/reveal"
 import { SiteHeader } from "@/components/site-header"
 import { WaitlistForm } from "@/components/waitlist-form"
 
-const SPORTS = ["Tennis", "Padel", "Pickleball", "Cầu lông", "Bóng quần"]
+const SPORT_KEYS = ["tennis", "pickleball", "badminton"]
 
 const TRUST_LOGOS = [
   "Ace Tennis Club",
-  "Padel Republic",
+  "Shuttle Republic",
   "Smash Pickleball",
   "Baseline Athletic",
   "Courtside Collective",
@@ -33,133 +33,20 @@ const TRUST_LOGOS = [
   "Topspin Center",
 ]
 
-const PLAYER_FEATURES = [
-  {
-    icon: Sparkles,
-    title: "Trợ lý đặt sân AI",
-    body: "Chỉ cần nói điều Quý khách muốn — “padel tối nay sau 7 giờ, gần đây, người chơi cùng trình độ.” Trợ lý sẽ lo phần còn lại: sân, giờ và người chơi.",
-    featured: true,
-  },
-  {
-    icon: Users,
-    title: "Ghép theo trình độ",
-    body: "Được ghép với những người chơi cùng trình độ để mỗi trận đều cân sức — không còn cảnh một chiều.",
-  },
-  {
-    icon: CalendarCheck,
-    title: "Đặt sân tức thì",
-    body: "Tình trạng sân trống theo thời gian thực tại các địa điểm gần Quý khách. Giữ chỗ chỉ trong vài giây, không cần gọi điện.",
-  },
-  {
-    icon: MapPin,
-    title: "Sân gần Quý khách",
-    body: "Các khung giờ trống theo thời gian thực tại những câu lạc bộ quanh Quý khách, xếp theo khoảng cách, giá và mặt sân.",
-  },
-  {
-    icon: MessagesSquare,
-    title: "Trò chuyện & phối hợp",
-    body: "Tính năng trò chuyện, nhắc lịch và đặt sân chung tích hợp sẵn giúp cả nhóm luôn nắm chung thông tin.",
-  },
+const PLAYER_FEATURE_ICONS = [
+  Sparkles,
+  Users,
+  CalendarCheck,
+  MapPin,
+  MessagesSquare,
 ]
+const STEP_ICONS = [MessageSquare, Search, CheckCircle2]
+const VENUE_BENEFIT_ICONS = [TrendingUp, Users, BarChart3, Shield]
 
-const STEPS = [
-  {
-    icon: MessageSquare,
-    title: "Nói cho AI biết Quý khách muốn gì",
-    body: "Gõ như đang nhắn tin cho bạn bè: “Pickleball đánh đôi, sáng thứ Bảy, trình độ trung cấp.”",
-  },
-  {
-    icon: Search,
-    title: "AI tìm sân + người chơi",
-    body: "Trợ lý quét các địa điểm gần đó, khung giờ trống và người chơi cùng trình độ — rồi đề xuất lựa chọn phù hợp nhất.",
-  },
-  {
-    icon: CheckCircle2,
-    title: "Xác nhận và chơi",
-    body: "Một chạm để đặt sân và thông báo cho mọi người. Chỉ việc đến và chơi.",
-  },
-]
-
-const VENUE_BENEFITS = [
-  {
-    icon: TrendingUp,
-    title: "Lấp đầy sân giờ thấp điểm",
-    body: "AI khéo léo hướng người chơi gần đó đến những khung giờ trống, biến giờ vắng khách thành lượt đặt sân.",
-  },
-  {
-    icon: Users,
-    title: "Ghép trận tự động",
-    body: "Những trận còn thiếu người được tự động lấp đầy bằng người chơi đúng trình độ.",
-  },
-  {
-    icon: BarChart3,
-    title: "Phân tích công suất sân",
-    body: "Xem tỷ lệ sử dụng, nhu cầu cao điểm và xu hướng doanh thu của từng sân theo thời gian thực.",
-  },
-  {
-    icon: Shield,
-    title: "Đặt sân hạn chế vắng mặt",
-    body: "Xác nhận thông minh và danh sách chờ giúp giảm tình trạng vắng mặt và giữ cho sân luôn sinh lời.",
-  },
-]
-
-const STATS = [
-  { value: "3.200+", label: "Người chơi trong danh sách chờ" },
-  { value: "40+", label: "Câu lạc bộ đối tác đang tham gia" },
-  { value: "<60 giây", label: "Từ yêu cầu đến đặt xong" },
-  { value: "5", label: "Môn thể thao vợt được hỗ trợ" },
-]
-
-const TESTIMONIALS = [
-  {
-    quote:
-      "Trước đây tôi tốn thời gian nhắn tin trong nhóm chat hơn cả thời gian chơi. Giờ tôi chỉ cần nói với ứng dụng và nó lo luôn cả sân lẫn người chơi.",
-    name: "Maya R.",
-    role: "Padel · 3.5",
-    initials: "MR",
-  },
-  {
-    quote:
-      "Khả năng ghép trình độ chính xác đến đáng kinh ngạc. Trận nào cũng cân sức — điều chưa từng có với những trận đánh ngẫu hứng trước đây.",
-    name: "Daniel K.",
-    role: "Tennis · 4.0",
-    initials: "DK",
-  },
-  {
-    quote:
-      "Là một câu lạc bộ, khung 2–5 giờ chiều các ngày trong tuần của chúng tôi từng vắng tanh. Giờ tính năng ghép trận âm thầm lấp đầy chúng. Mọi thứ tự chạy trong nền.",
-    name: "Priya S.",
-    role: "Quản lý câu lạc bộ",
-    initials: "PS",
-  },
-]
-
-const FAQ_ITEMS: FaqItem[] = [
-  {
-    question: "SportMatch AI hỗ trợ những môn thể thao nào?",
-    answer:
-      "Chúng tôi ra mắt với nhóm các môn thể thao vợt: tennis, padel, pickleball, cầu lông và bóng quần. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất.",
-  },
-  {
-    question: "Trợ lý AI thực sự đặt sân như thế nào?",
-    answer:
-      "Quý khách mô tả điều mình muốn bằng ngôn ngữ tự nhiên. Trợ lý kiểm tra tình trạng sân trống theo thời gian thực tại các địa điểm đối tác, tìm người chơi gần trình độ của Quý khách và đề xuất một kế hoạch hoàn chỉnh — sân, giờ và người chơi. Quý khách xác nhận chỉ bằng một chạm.",
-  },
-  {
-    question: "Tính năng ghép người chơi hoạt động ra sao?",
-    answer:
-      "Mỗi người chơi có một mức đánh giá trình độ và mức này tăng dần khi Quý khách chơi. Các trận được gợi ý trong một khoảng trình độ sát nhau và khoảng cách do Quý khách đặt ra, để các trận luôn cân sức và thuận tiện.",
-  },
-  {
-    question: "Ứng dụng đã hoạt động chưa?",
-    answer:
-      "Chúng tôi đang trong giai đoạn truy cập sớm và mở rộng dần theo từng thành phố. Hãy đăng ký danh sách chờ và chúng tôi sẽ gửi email cho Quý khách ngay khi các sân trong khu vực của Quý khách sẵn sàng.",
-  },
-  {
-    question: "Tôi điều hành một câu lạc bộ — làm sao để được đưa lên hệ thống?",
-    answer:
-      "Hãy yêu cầu một buổi demo dành cho đối tác bên dưới. Chúng tôi sẽ kết nối lịch đặt sân của Quý khách, hiển thị các sân trống tới người chơi gần đó và giúp Quý khách lấp đầy các khung giờ thấp điểm — không cần thay mới toàn bộ hệ thống.",
-  },
+const TESTIMONIAL_META = [
+  { name: "Maya R.", initials: "MR" },
+  { name: "Daniel K.", initials: "DK" },
+  { name: "Priya S.", initials: "PS" },
 ]
 
 const containerCx = "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8"
@@ -173,7 +60,51 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   )
 }
 
-export default function Page() {
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations("Landing")
+  const tc = await getTranslations("Common")
+
+  const playerFeatures = PLAYER_FEATURE_ICONS.map((icon, i) => ({
+    icon,
+    title: t(`playerFeatures.${i}.title`),
+    body: t(`playerFeatures.${i}.body`),
+    featured: i === 0,
+  }))
+
+  const steps = STEP_ICONS.map((icon, i) => ({
+    icon,
+    title: t(`steps.${i}.title`),
+    body: t(`steps.${i}.body`),
+  }))
+
+  const venueBenefits = VENUE_BENEFIT_ICONS.map((icon, i) => ({
+    icon,
+    title: t(`venueBenefits.${i}.title`),
+    body: t(`venueBenefits.${i}.body`),
+  }))
+
+  const stats = [0, 1, 2, 3].map((i) => ({
+    value: t(`stats.${i}.value`),
+    label: t(`stats.${i}.label`),
+  }))
+
+  const testimonials = TESTIMONIAL_META.map((meta, i) => ({
+    ...meta,
+    quote: t(`testimonials.${i}.quote`),
+    role: t(`testimonials.${i}.role`),
+  }))
+
+  const faqItems: FaqItem[] = [0, 1, 2, 3, 4].map((i) => ({
+    question: t(`faq.${i}.question`),
+    answer: t(`faq.${i}.answer`),
+  }))
+
   return (
     <>
       <SiteHeader />
@@ -190,21 +121,17 @@ export default function Page() {
             aria-hidden="true"
           />
 
-          <div
-            className={`${containerCx} relative py-16 sm:py-24 lg:py-28`}
-          >
+          <div className={`${containerCx} relative py-16 sm:py-24 lg:py-28`}>
             <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
               <h1 className="mt-6 font-heading text-5xl leading-[1.1] font-bold tracking-tight uppercase sm:text-6xl lg:text-7xl">
-                Tìm sân.
+                {t("hero.titleLine1")}
                 <span className="block bg-gradient-to-r from-primary to-lime bg-clip-text pb-2 text-transparent">
-                  Tìm đối thủ phù hợp.
+                  {t("hero.titleLine2")}
                 </span>
               </h1>
 
               <p className="mt-5 max-w-xl text-lg text-muted-foreground sm:text-xl">
-                Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân
-                tennis, padel, pickleball, cầu lông và bóng quần chỉ trong vài
-                giây — và được ghép với những người chơi cùng trình độ.
+                {t("hero.subtitle")}
               </p>
 
               <div id="waitlist" className="mt-8 w-full max-w-xl scroll-mt-24">
@@ -212,13 +139,15 @@ export default function Page() {
               </div>
 
               <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-                <span className="text-sm text-muted-foreground">Dành cho:</span>
-                {SPORTS.map((sport) => (
+                <span className="text-sm text-muted-foreground">
+                  {t("hero.sportsLabel")}
+                </span>
+                {SPORT_KEYS.map((sport) => (
                   <span
                     key={sport}
                     className="rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-foreground"
                   >
-                    {sport}
+                    {tc(`sports.${sport}`)}
                   </span>
                 ))}
               </div>
@@ -230,14 +159,14 @@ export default function Page() {
         <section className="border-y border-border bg-muted/40 py-8">
           <div className={containerCx}>
             <p className="text-center text-sm font-medium text-muted-foreground">
-              Được các câu lạc bộ và người chơi trong giới thể thao vợt tin dùng
+              {t("trust.caption")}
             </p>
           </div>
           <div
             className="group/marquee relative mt-6 flex overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_8%,#000_92%,transparent)]"
             aria-hidden="true"
           >
-            <div className="flex w-max animate-marquee items-center gap-x-12 pr-12">
+            <div className="animate-marquee flex w-max items-center gap-x-12 pr-12">
               {[...TRUST_LOGOS, ...TRUST_LOGOS].map((name, i) => (
                 <span
                   key={i}
@@ -254,18 +183,17 @@ export default function Page() {
         <section id="features" className="scroll-mt-20 py-20 sm:py-28">
           <div className={containerCx}>
             <Reveal className="max-w-2xl">
-              <Eyebrow>Dành cho người chơi</Eyebrow>
+              <Eyebrow>{t("playerFeaturesSection.eyebrow")}</Eyebrow>
               <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
-                Bớt sắp xếp. Chơi nhiều hơn.
+                {t("playerFeaturesSection.title")}
               </h2>
               <p className="mt-4 text-lg text-muted-foreground">
-                Mọi thứ Quý khách cần để ra sân và vào một trận đấu hay — không
-                còn cảnh nhóm chat hỗn loạn.
+                {t("playerFeaturesSection.subtitle")}
               </p>
             </Reveal>
 
             <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {PLAYER_FEATURES.map((feature, i) => (
+              {playerFeatures.map((feature, i) => (
                 <Reveal
                   key={feature.title}
                   delayMs={i * 60}
@@ -299,9 +227,9 @@ export default function Page() {
         >
           <div className={containerCx}>
             <Reveal className="mx-auto max-w-2xl text-center">
-              <Eyebrow>Cách hoạt động</Eyebrow>
+              <Eyebrow>{t("stepsSection.eyebrow")}</Eyebrow>
               <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
-                Đặt sân và ghép trận chỉ với ba chạm.
+                {t("stepsSection.title")}
               </h2>
             </Reveal>
 
@@ -311,7 +239,7 @@ export default function Page() {
                 className="pointer-events-none absolute top-7 right-[16.66%] left-[16.66%] hidden border-t-2 border-dashed border-border md:block"
                 aria-hidden="true"
               />
-              {STEPS.map((step, i) => (
+              {steps.map((step, i) => (
                 <Reveal key={step.title} delayMs={i * 100}>
                   <div className="relative flex flex-col items-center text-center">
                     <span className="relative z-10 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
@@ -338,7 +266,7 @@ export default function Page() {
           <div className={containerCx}>
             <Reveal>
               <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-border bg-border lg:grid-cols-4">
-                {STATS.map((stat) => (
+                {stats.map((stat) => (
                   <div
                     key={stat.label}
                     className="flex flex-col items-center gap-1 bg-card px-6 py-10 text-center"
@@ -362,7 +290,7 @@ export default function Page() {
           <div className={containerCx}>
             <div className="relative overflow-hidden rounded-[2rem] bg-zinc-950 px-6 py-14 text-zinc-50 sm:px-12 sm:py-20">
               <div
-                className="pointer-events-none absolute inset-0 bg-court-grid opacity-40"
+                className="bg-court-grid pointer-events-none absolute inset-0 opacity-40"
                 aria-hidden="true"
               />
               <div
@@ -376,21 +304,19 @@ export default function Page() {
                       className="h-px w-6 bg-lime-300/60"
                       aria-hidden="true"
                     />
-                    Dành cho địa điểm &amp; câu lạc bộ
+                    {t("venuesSection.eyebrow")}
                   </p>
                   <h2 className="font-heading text-4xl font-bold tracking-tight sm:text-5xl">
-                    Lấp đầy mọi sân.
+                    {t("venuesSection.titleLine1")}
                     <br />
-                    Để AI lo phần còn lại.
+                    {t("venuesSection.titleLine2")}
                   </h2>
                   <p className="mt-4 max-w-lg text-lg text-zinc-300">
-                    Kết nối lịch đặt sân của Quý khách và SportMatch AI sẽ âm
-                    thầm đưa người chơi vào những sân trống — ghép trận, sắp lịch
-                    và nhắc nhở để Quý khách không phải bận tâm.
+                    {t("venuesSection.subtitle")}
                   </p>
 
                   <dl className="mt-8 grid gap-x-6 gap-y-6 sm:grid-cols-2">
-                    {VENUE_BENEFITS.map((benefit) => (
+                    {venueBenefits.map((benefit) => (
                       <div key={benefit.title} className="flex gap-3">
                         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
                           <benefit.icon className="size-5" />
@@ -413,11 +339,11 @@ export default function Page() {
                   <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
                     <div className="flex items-center justify-between">
                       <p className="font-heading text-lg font-bold">
-                        Công suất sân
+                        {t("occupancy.title")}
                       </p>
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
                         <TrendingUp className="size-3.5" />
-                        +32% giờ thấp điểm
+                        {t("occupancy.offPeakBadge")}
                       </span>
                     </div>
                     <div className="mt-6 flex items-end justify-between gap-2">
@@ -433,7 +359,7 @@ export default function Page() {
                             />
                           </div>
                           <span className="font-mono text-[10px] text-zinc-500">
-                            {["T2", "T3", "T4", "T5", "T6", "T7", "CN"][i]}
+                            {t(`occupancy.weekdays.${i}`)}
                           </span>
                         </div>
                       ))}
@@ -443,19 +369,25 @@ export default function Page() {
                         <p className="font-heading text-2xl font-bold tabular-nums">
                           86%
                         </p>
-                        <p className="text-xs text-zinc-500">Tỷ lệ sử dụng</p>
+                        <p className="text-xs text-zinc-500">
+                          {t("occupancy.utilization")}
+                        </p>
                       </div>
                       <div>
                         <p className="font-heading text-2xl font-bold tabular-nums">
                           128
                         </p>
-                        <p className="text-xs text-zinc-500">Lượt đặt / tuần</p>
+                        <p className="text-xs text-zinc-500">
+                          {t("occupancy.bookingsPerWeek")}
+                        </p>
                       </div>
                       <div>
                         <p className="font-heading text-2xl font-bold tabular-nums">
                           4.9
                         </p>
-                        <p className="text-xs text-zinc-500">Đánh giá người chơi</p>
+                        <p className="text-xs text-zinc-500">
+                          {t("occupancy.playerRating")}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -473,19 +405,19 @@ export default function Page() {
         <section className="py-20 sm:py-28">
           <div className={containerCx}>
             <Reveal className="mx-auto max-w-2xl text-center">
-              <Eyebrow>Được người dùng thử yêu thích</Eyebrow>
+              <Eyebrow>{t("testimonialsSection.eyebrow")}</Eyebrow>
               <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
-                Người chơi đã bị cuốn hút.
+                {t("testimonialsSection.title")}
               </h2>
             </Reveal>
 
             <div className="mt-12 grid gap-5 md:grid-cols-3">
-              {TESTIMONIALS.map((t, i) => (
-                <Reveal key={t.name} delayMs={i * 80}>
+              {testimonials.map((testimonial, i) => (
+                <Reveal key={testimonial.name} delayMs={i * 80}>
                   <figure className="flex h-full flex-col rounded-3xl border border-border bg-card p-6">
                     <div
                       className="flex gap-0.5 text-primary"
-                      aria-label="Đánh giá 5 trên 5 sao"
+                      aria-label={t("testimonialsSection.ratingAria")}
                     >
                       {Array.from({ length: 5 }).map((_, s) => (
                         <Star
@@ -496,16 +428,18 @@ export default function Page() {
                       ))}
                     </div>
                     <blockquote className="mt-4 flex-1 text-foreground">
-                      “{t.quote}”
+                      “{testimonial.quote}”
                     </blockquote>
                     <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4">
                       <span className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-lime text-sm font-bold text-primary-foreground">
-                        {t.initials}
+                        {testimonial.initials}
                       </span>
                       <div>
-                        <p className="text-sm font-semibold">{t.name}</p>
+                        <p className="text-sm font-semibold">
+                          {testimonial.name}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          {t.role}
+                          {testimonial.role}
                         </p>
                       </div>
                     </figcaption>
@@ -520,13 +454,13 @@ export default function Page() {
         <section id="faq" className="scroll-mt-20 bg-muted/40 py-20 sm:py-28">
           <div className={`${containerCx} max-w-3xl`}>
             <Reveal className="text-center">
-              <Eyebrow>Câu hỏi thường gặp</Eyebrow>
+              <Eyebrow>{t("faqSection.eyebrow")}</Eyebrow>
               <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
-                Giải đáp thắc mắc.
+                {t("faqSection.title")}
               </h2>
             </Reveal>
             <Reveal className="mt-10">
-              <Faq items={FAQ_ITEMS} />
+              <Faq items={faqItems} />
             </Reveal>
           </div>
         </section>
@@ -536,16 +470,15 @@ export default function Page() {
           <div className={containerCx}>
             <div className="relative overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-lime/10 px-6 py-16 text-center sm:px-12 sm:py-20">
               <div
-                className="pointer-events-none absolute inset-0 bg-court-grid"
+                className="bg-court-grid pointer-events-none absolute inset-0"
                 aria-hidden="true"
               />
               <div className="relative mx-auto max-w-2xl">
                 <h2 className="mt-5 font-heading text-4xl font-bold tracking-tight uppercase sm:text-6xl">
-                  Hãy là người đầu tiên ra sân.
+                  {t("cta.title")}
                 </h2>
                 <p className="mt-4 text-lg text-muted-foreground">
-                  Đăng ký danh sách chờ và chúng tôi sẽ gửi email lời mời ngay
-                  khi SportMatch AI ra mắt tại thành phố của Quý khách.
+                  {t("cta.subtitle")}
                 </p>
                 <div className="mx-auto mt-8 max-w-xl text-left">
                   <WaitlistForm audience="player" inputId="cta-email" />
@@ -563,8 +496,7 @@ export default function Page() {
             <div className="max-w-xs">
               <Logo />
               <p className="mt-4 text-sm text-muted-foreground">
-                Trợ lý đặt sân AI cho các môn thể thao vợt. Tìm sân, tìm đối thủ
-                và cứ thế chơi thôi.
+                {t("footer.tagline")}
               </p>
               <div className="mt-5 flex gap-4 text-sm font-medium text-muted-foreground">
                 <a
@@ -589,37 +521,43 @@ export default function Page() {
             </div>
 
             <FooterColumn
-              title="Sản phẩm"
+              title={t("footer.product.title")}
               links={[
-                { label: "Tính năng", href: "#features" },
-                { label: "Cách hoạt động", href: "#how-it-works" },
-                { label: "Câu hỏi thường gặp", href: "#faq" },
-                { label: "Đăng ký danh sách chờ", href: "#waitlist" },
+                { label: t("footer.product.features"), href: "#features" },
+                {
+                  label: t("footer.product.howItWorks"),
+                  href: "#how-it-works",
+                },
+                { label: t("footer.product.faq"), href: "#faq" },
+                { label: t("footer.product.waitlist"), href: "#waitlist" },
               ]}
             />
             <FooterColumn
-              title="Dành cho địa điểm"
+              title={t("footer.venues.title")}
               links={[
-                { label: "Chương trình đối tác", href: "#venues" },
-                { label: "Yêu cầu demo", href: "#venues" },
-                { label: "Phân tích", href: "#venues" },
+                { label: t("footer.venues.partner"), href: "#venues" },
+                { label: t("footer.venues.demo"), href: "#venues" },
+                { label: t("footer.venues.analytics"), href: "#venues" },
               ]}
             />
             <FooterColumn
-              title="Công ty"
+              title={t("footer.company.title")}
               links={[
-                { label: "Giới thiệu", href: "#top" },
-                { label: "Bảo mật", href: "#top" },
-                { label: "Điều khoản", href: "#top" },
+                { label: t("footer.company.about"), href: "#top" },
+                { label: t("footer.company.privacy"), href: "#top" },
+                { label: t("footer.company.terms"), href: "#top" },
               ]}
             />
           </div>
 
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 text-sm text-muted-foreground sm:flex-row">
-            <p>© 2026 SportMatch AI. Dành cho người chơi.</p>
+            <p>{t("footer.copyright")}</p>
             <p className="font-mono text-xs">
-              Nhấn <kbd className="rounded bg-muted px-1.5 py-0.5">L</kbd> để đổi
-              giao diện
+              {t.rich("footer.themeHint", {
+                kbd: (chunks) => (
+                  <kbd className="rounded bg-muted px-1.5 py-0.5">{chunks}</kbd>
+                ),
+              })}
             </p>
           </div>
         </div>

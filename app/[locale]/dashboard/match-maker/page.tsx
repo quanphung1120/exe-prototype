@@ -1,12 +1,27 @@
 import type { Metadata } from "next"
+import { getTranslations, setRequestLocale } from "next-intl/server"
 
 import { MatchMakerView } from "@/components/dashboard/views/match-maker"
 
-export const metadata: Metadata = {
-  title: "Match Maker",
-  description: "AI-picked players matched to your level and schedule.",
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: "MatchMaker" })
+  return {
+    title: t("metaTitle"),
+    description: t("metaDescription"),
+  }
 }
 
-export default function MatchMakerPage() {
+export default async function MatchMakerPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  setRequestLocale(locale)
   return <MatchMakerView />
 }
