@@ -15,6 +15,7 @@ import {
   type Court,
   type SportKey,
 } from "@/components/dashboard/data"
+import { useBooking } from "@/components/dashboard/booking"
 import { SportTag } from "@/components/dashboard/shared"
 
 // Decorative pin positions for the mini map (percent of panel box).
@@ -104,6 +105,7 @@ export function FindCourtsView() {
 
 function CourtCard({ court }: { court: Court }) {
   const t = useTranslations("FindCourts")
+  const { openBooking } = useBooking()
   return (
     <div className="flex flex-col gap-4 rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 transition-shadow hover:shadow-lg dark:ring-foreground/10">
       <div className="flex items-start justify-between gap-3">
@@ -162,7 +164,11 @@ function CourtCard({ court }: { court: Court }) {
             <Clock className="size-3" />
             {court.nextSlot}
           </Badge>
-          <Button size="sm" className="rounded-full">
+          <Button
+            size="sm"
+            className="rounded-full"
+            onClick={() => openBooking(court.id)}
+          >
             {t("book")}
           </Button>
         </div>
