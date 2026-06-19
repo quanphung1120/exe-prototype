@@ -72,8 +72,7 @@
     "yourLevel": "Your level"
   },
   "Topbar": {
-    "notifications": "Notifications",
-    "newMatch": "New match"
+    "notifications": "Notifications"
   },
   "ActiveRoom": {
     "pill": "In a match room",

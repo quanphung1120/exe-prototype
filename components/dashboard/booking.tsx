@@ -212,7 +212,7 @@ export function BookingProvider({ children }: { children: React.ReactNode }) {
       players = room.players.map((init) =>
         init === USER.initials
           ? host
-          : { ...playerByInitials(init), status: "going" as const }
+          : { ...playerByInitials(init), status: "pending" as const }
       )
       linkedRoomId = room.id
       attachBooking(room.id, id, { day: day.label, time, venue: court.name })

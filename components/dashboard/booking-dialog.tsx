@@ -107,6 +107,17 @@ export function BookingDialog() {
 
   // Slot step grid
   const slots = courtId ? courtSlots(courtId, draft.dayKey) : []
+  const bookedTimes = new Set(
+    bookings
+      .filter(
+        (b) =>
+          b.status === "confirmed" &&
+          !!court &&
+          b.venue === court.name &&
+          b.dayKey === draft.dayKey
+      )
+      .map((b) => b.time)
+  )
 
   // Players step
   const maxInvites = capacityFor(draft.format) - 1
@@ -263,24 +274,27 @@ export function BookingDialog() {
               <div className="flex flex-col gap-1.5">
                 <Label>{t("slotsFor")}</Label>
                 <div className="grid grid-cols-3 gap-1.5">
-                  {slots.map((s) => (
-                    <button
-                      key={s.time}
-                      type="button"
-                      disabled={s.taken}
-                      onClick={() => setSlot(s.time)}
-                      className={cn(
-                        "rounded-2xl border px-2 py-2 text-center text-sm font-medium tabular-nums transition-colors",
-                        s.taken
-                          ? "cursor-not-allowed border-transparent bg-muted/50 text-muted-foreground/50 line-through"
-                          : draft.slot === s.time
-                            ? "border-brand bg-brand/12 text-brand"
-                            : "border-border hover:bg-muted/60"
-                      )}
-                    >
-                      {slotRange(s.time).split(" – ")[0]}
-                    </button>
-                  ))}
+                  {slots.map((s) => {
+                    const isTaken = s.taken || bookedTimes.has(slotRange(s.time))
+                    return (
+                      <button
+                        key={s.time}
+                        type="button"
+                        disabled={isTaken}
+                        onClick={() => !isTaken && setSlot(s.time)}
+                        className={cn(
+                          "rounded-2xl border px-2 py-2 text-center text-sm font-medium tabular-nums transition-colors",
+                          isTaken
+                            ? "cursor-not-allowed border-transparent bg-muted/50 text-muted-foreground/50 line-through"
+                            : draft.slot === s.time
+                              ? "border-brand bg-brand/12 text-brand"
+                              : "border-border hover:bg-muted/60"
+                        )}
+                      >
+                        {slotRange(s.time).split(" – ")[0]}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </>
@@ -291,14 +305,16 @@ export function BookingDialog() {
             <>
               <div className="flex flex-col gap-1.5">
                 <Label>{t("format")}</Label>
-                <Segmented
-                  value={draft.format}
-                  onChange={(v) => !roomId && setFormat(v)}
-                  options={[
-                    { value: "Singles", label: tc("format.singles") },
-                    { value: "Doubles", label: tc("format.doubles") },
-                  ]}
-                />
+                <div className={roomId ? "pointer-events-none opacity-50" : undefined}>
+                  <Segmented
+                    value={draft.format}
+                    onChange={(v) => !roomId && setFormat(v)}
+                    options={[
+                      { value: "Singles", label: tc("format.singles") },
+                      { value: "Doubles", label: tc("format.doubles") },
+                    ]}
+                  />
+                </div>
               </div>
 
               {roomId ? (
