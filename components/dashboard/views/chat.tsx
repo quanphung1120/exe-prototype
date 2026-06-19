@@ -1,0 +1,210 @@
+"use client"
+
+import * as React from "react"
+import { Phone, Search, Send, Users, Video } from "lucide-react"
+
+import { cn } from "@/lib/utils"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { CHATS, THREAD, USER, type Chat, type Message } from "@/components/dashboard/data"
+
+export function ChatView() {
+  const [activeId, setActiveId] = React.useState(CHATS[0].id)
+  const [messages, setMessages] = React.useState<Message[]>(THREAD)
+  const [draft, setDraft] = React.useState("")
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+
+  const active = CHATS.find((c) => c.id === activeId)!
+
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
+  }, [messages])
+
+  const send = () => {
+    const text = draft.trim()
+    if (!text) return
+    setMessages((prev) => [
+      ...prev,
+      { id: `m${prev.length + 1}`, mine: true, author: USER.first, text, time: "now" },
+    ])
+    setDraft("")
+  }
+
+  return (
+    <div className="flex h-full min-h-[28rem] overflow-hidden rounded-4xl bg-card shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
+      {/* Conversation list */}
+      <aside className="hidden w-72 shrink-0 flex-col border-r border-border sm:flex">
+        <div className="flex flex-col gap-3 border-b border-border p-4">
+          <h2 className="font-heading text-base font-semibold">Messages</h2>
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search chats…" className="h-8 pl-8" />
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {CHATS.map((c) => (
+            <ChatListItem
+              key={c.id}
+              chat={c}
+              active={c.id === activeId}
+              onSelect={() => setActiveId(c.id)}
+            />
+          ))}
+        </div>
+      </aside>
+
+      {/* Active thread */}
+      <section className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between gap-3 border-b border-border p-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar>
+              <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
+                {active.initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="truncate font-medium">{active.name}</p>
+              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                {active.group ? (
+                  <>
+                    <Users className="size-3" />4 members
+                  </>
+                ) : active.online ? (
+                  <>
+                    <span className="size-1.5 rounded-full bg-brand" />
+                    Online
+                  </>
+                ) : (
+                  "Offline"
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon-sm" aria-label="Call">
+              <Phone />
+            </Button>
+            <Button variant="ghost" size="icon-sm" aria-label="Video call">
+              <Video />
+            </Button>
+          </div>
+        </header>
+
+        <div
+          ref={scrollRef}
+          className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
+        >
+          <div className="mx-auto rounded-full bg-muted px-3 py-1 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
+            Today
+          </div>
+          {messages.map((m) => (
+            <MessageBubble key={m.id} message={m} group={active.group} />
+          ))}
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            send()
+          }}
+          className="flex items-center gap-2 border-t border-border p-3"
+        >
+          <Input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Write a message…"
+            className="rounded-full"
+            aria-label="Message"
+          />
+          <Button
+            type="submit"
+            size="icon"
+            className="shrink-0 rounded-full"
+            aria-label="Send"
+            disabled={!draft.trim()}
+          >
+            <Send />
+          </Button>
+        </form>
+      </section>
+    </div>
+  )
+}
+
+function ChatListItem({
+  chat,
+  active,
+  onSelect,
+}: {
+  chat: Chat
+  active: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "flex w-full items-center gap-3 rounded-3xl p-2.5 text-left transition-colors",
+        active ? "bg-secondary" : "hover:bg-muted/60"
+      )}
+    >
+      <div className="relative">
+        <Avatar>
+          <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
+            {chat.initials}
+          </AvatarFallback>
+        </Avatar>
+        {chat.online ? (
+          <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-brand ring-2 ring-card" />
+        ) : null}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-sm font-medium">{chat.name}</span>
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+            {chat.time}
+          </span>
+        </div>
+        <p className="truncate text-xs text-muted-foreground">{chat.last}</p>
+      </div>
+      {chat.unread ? (
+        <span className="grid size-5 shrink-0 place-items-center rounded-full bg-brand text-[10px] font-semibold text-brand-foreground tabular-nums">
+          {chat.unread}
+        </span>
+      ) : null}
+    </button>
+  )
+}
+
+function MessageBubble({
+  message,
+  group,
+}: {
+  message: Message
+  group: boolean
+}) {
+  return (
+    <div className={cn("flex flex-col", message.mine ? "items-end" : "items-start")}>
+      {group && !message.mine ? (
+        <span className="mb-0.5 px-3 text-[11px] font-medium text-muted-foreground">
+          {message.author}
+        </span>
+      ) : null}
+      <div
+        className={cn(
+          "max-w-[78%] rounded-3xl px-4 py-2 text-sm",
+          message.mine
+            ? "rounded-br-md bg-primary text-primary-foreground"
+            : "rounded-bl-md bg-muted text-foreground"
+        )}
+      >
+        {message.text}
+      </div>
+      <span className="mt-0.5 px-3 font-mono text-[10px] text-muted-foreground">
+        {message.time}
+      </span>
+    </div>
+  )
+}
