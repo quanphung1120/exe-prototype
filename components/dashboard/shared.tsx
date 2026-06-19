@@ -6,16 +6,40 @@ import { ArrowDownRight, ArrowUpRight, MapPin, Star } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   type Court,
   type Player,
+  type RoomLevel,
   type SportKey,
   formatVnd,
+  levelAccent,
   sportAccent,
   sportLabel,
 } from "@/components/dashboard/data"
+
+/** Small tinted chip for a self-declared level (or "Any level"). */
+export function LevelChip({
+  level,
+  className,
+}: {
+  level: RoomLevel
+  className?: string
+}) {
+  const tc = useTranslations("Common")
+  const label = level === "any" ? tc("level.any") : tc(`levels.${level}`)
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+        levelAccent[level],
+        className
+      )}
+    >
+      {label}
+    </span>
+  )
+}
 
 /** Small accent dot encoding the sport. */
 export function SportDot({
@@ -209,9 +233,7 @@ export function PlayerRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-medium">{player.name}</span>
-          <Badge variant="outline" className="font-mono tabular-nums">
-            {player.rating.toFixed(2)}
-          </Badge>
+          <LevelChip level={player.level} />
         </div>
         <div className="flex items-center gap-2 truncate text-xs text-muted-foreground">
           <SportTag sport={player.sport} />

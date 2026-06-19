@@ -8,41 +8,28 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  CHATS,
-  THREAD,
-  USER,
-  type Chat,
-  type Message,
-} from "@/components/dashboard/data"
+import { type Chat, type Message } from "@/components/dashboard/data"
+import { useChat } from "@/components/dashboard/chat-store"
 
 export function ChatView() {
   const t = useTranslations("Chat")
   const tc = useTranslations("Common")
-  const [activeId, setActiveId] = React.useState(CHATS[0].id)
-  const [messages, setMessages] = React.useState<Message[]>(THREAD)
+  const { chats, activeChatId, setActiveChatId, threadFor, sendMessage } =
+    useChat()
   const [draft, setDraft] = React.useState("")
   const scrollRef = React.useRef<HTMLDivElement>(null)
 
-  const active = CHATS.find((c) => c.id === activeId)!
+  const active = chats.find((c) => c.id === activeChatId) ?? chats[0]
+  const messages = threadFor(active.id)
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
-  }, [messages])
+  }, [active.id, messages.length])
 
   const send = () => {
     const text = draft.trim()
     if (!text) return
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `m${prev.length + 1}`,
-        mine: true,
-        author: USER.first,
-        text,
-        time: "now",
-      },
-    ])
+    sendMessage(active.id, text)
     setDraft("")
   }
 
@@ -60,14 +47,18 @@ export function ChatView() {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto p-2">
-          {CHATS.map((c) => (
+          {chats.map((c) => (
             <ChatListItem
               key={c.id}
               chat={c}
-              active={c.id === activeId}
-              onSelect={() => setActiveId(c.id)}
-              last={t(`chats.${c.id}.last`)}
-              time={t(`chats.${c.id}.time`)}
+              active={c.id === active.id}
+              onSelect={() => setActiveChatId(c.id)}
+              last={
+                t.has(`chats.${c.id}.last`) ? t(`chats.${c.id}.last`) : c.last
+              }
+              time={
+                t.has(`chats.${c.id}.time`) ? t(`chats.${c.id}.time`) : c.time
+              }
             />
           ))}
         </div>
@@ -88,7 +79,7 @@ export function ChatView() {
                 {active.group ? (
                   <>
                     <Users className="size-3" />
-                    {t("members", { count: 4 })}
+                    {t("members", { count: active.members ?? 4 })}
                   </>
                 ) : active.online ? (
                   <>

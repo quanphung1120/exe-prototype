@@ -25,15 +25,42 @@ export const sportAccent = (k: SportKey) => sportBy(k)?.accent ?? "bg-muted"
 /** Format a VND amount as a compact "180K" string. */
 export const formatVnd = (vnd: number) => `${Math.round(vnd / 1000)}K`
 
+/** Self-declared skill level. The platform never computes or changes this. */
+export type Level = "beginner" | "intermediate" | "advanced"
+/** A room targets one level, or welcomes any level. */
+export type RoomLevel = Level | "any"
+
+/** The three levels in order, each with a theme tint for chips. */
+export const LEVELS: { value: Level; accent: string }[] = [
+  { value: "beginner", accent: "bg-chart-2/12 text-chart-2" },
+  { value: "intermediate", accent: "bg-brand/12 text-brand" },
+  { value: "advanced", accent: "bg-chart-5/15 text-chart-5" },
+]
+
+/** Tint classes per room level (includes "any"). */
+export const levelAccent: Record<RoomLevel, string> = {
+  beginner: "bg-chart-2/12 text-chart-2",
+  intermediate: "bg-brand/12 text-brand",
+  advanced: "bg-chart-5/15 text-chart-5",
+  any: "bg-muted text-muted-foreground",
+}
+
+/** Whether a player of `playerLevel` fits a room targeting `roomLevel`. */
+export function levelMatches(
+  playerLevel: Level,
+  roomLevel: RoomLevel
+): boolean {
+  return roomLevel === "any" || roomLevel === playerLevel
+}
+
 export const USER = {
   name: "Nguyễn Minh",
   first: "Minh",
   initials: "NM",
   handle: "@minh",
   city: "Hà Nội",
-  tier: "Intermediate",
-  rating: 4.12,
-  ratingDelta: 0.08,
+  /** Default self-declared level; mutable at runtime via the sidebar picker. */
+  level: "intermediate" as Level,
   /** Reliability/reputation score, 0–100. */
   trust: 92,
 }
@@ -42,7 +69,7 @@ export interface Player {
   id: string
   name: string
   initials: string
-  rating: number
+  level: Level
   sport: SportKey
   distanceKm: number
   /** AI compatibility score, 0–100. */
@@ -58,7 +85,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     id: "p1",
     name: "Trần Huy",
     initials: "TH",
-    rating: 4.18,
+    level: "advanced",
     sport: "badminton",
     distanceKm: 1.2,
     matchPct: 96,
@@ -70,7 +97,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     id: "p2",
     name: "Lê Lan",
     initials: "LL",
-    rating: 4.05,
+    level: "intermediate",
     sport: "pickleball",
     distanceKm: 2.4,
     matchPct: 92,
@@ -82,7 +109,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     id: "p3",
     name: "Phạm Quân",
     initials: "PQ",
-    rating: 4.21,
+    level: "advanced",
     sport: "tennis",
     distanceKm: 3.1,
     matchPct: 89,
@@ -94,7 +121,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     id: "p4",
     name: "Đỗ Anh",
     initials: "ĐA",
-    rating: 3.98,
+    level: "beginner",
     sport: "pickleball",
     distanceKm: 0.8,
     matchPct: 87,
@@ -106,7 +133,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     id: "p5",
     name: "Vũ Hà",
     initials: "VH",
-    rating: 4.3,
+    level: "advanced",
     sport: "tennis",
     distanceKm: 4.6,
     matchPct: 84,
@@ -118,7 +145,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     id: "p6",
     name: "Bùi Khang",
     initials: "BK",
-    rating: 4.09,
+    level: "intermediate",
     sport: "badminton",
     distanceKm: 2.0,
     matchPct: 81,
@@ -132,8 +159,8 @@ export const MATCH_SUGGESTIONS: Player[] = [
 export interface RosterEntry {
   name: string
   initials: string
-  /** Skill rating, when the participant is a known player. */
-  rating?: number
+  /** Self-declared level. For the user, the live value comes from the provider. */
+  level: Level
   /** Reliability/reputation score, 0–100. */
   trust: number
 }
@@ -143,23 +170,24 @@ const ROSTER: RosterEntry[] = [
   {
     name: USER.name,
     initials: USER.initials,
-    rating: USER.rating,
+    level: USER.level,
     trust: USER.trust,
   },
   ...MATCH_SUGGESTIONS.map((p) => ({
     name: p.name,
     initials: p.initials,
-    rating: p.rating,
+    level: p.level,
     trust: p.trust,
   })),
 ]
 
-/** Resolve a room participant's initials to their name, rating and trust. */
+/** Resolve a room participant's initials to their name, level and trust. */
 export function playerByInitials(initials: string): RosterEntry {
   return (
     ROSTER.find((p) => p.initials === initials) ?? {
       name: initials,
       initials,
+      level: "intermediate",
       trust: 70,
     }
   )
@@ -289,9 +317,8 @@ export interface MatchRoom {
   distanceKm: number
   day: string
   time: string
-  /** Skill window the host is happy to play, inclusive. */
-  skillMin: number
-  skillMax: number
+  /** Level the room is for (or "any"). A stated preference, not a hard gate. */
+  level: RoomLevel
   /** Total seats including the host. */
   capacity: number
   /** Seats already taken. `players` holds their initials. */
@@ -312,8 +339,7 @@ export const ROOMS: MatchRoom[] = [
     distanceKm: 1.2,
     day: "Today",
     time: "18:30 – 19:30",
-    skillMin: 3.8,
-    skillMax: 4.4,
+    level: "intermediate",
     capacity: 4,
     joined: 2,
     players: ["TH", "LL"],
@@ -330,8 +356,7 @@ export const ROOMS: MatchRoom[] = [
     distanceKm: 2.6,
     day: "Today",
     time: "19:00 – 20:00",
-    skillMin: 4.0,
-    skillMax: 4.6,
+    level: "advanced",
     capacity: 2,
     joined: 1,
     players: ["PQ"],
@@ -348,8 +373,7 @@ export const ROOMS: MatchRoom[] = [
     distanceKm: 0.9,
     day: "Today",
     time: "17:45 – 18:45",
-    skillMin: 3.5,
-    skillMax: 4.2,
+    level: "beginner",
     capacity: 4,
     joined: 3,
     players: ["ĐA", "VH", "BK"],
@@ -366,8 +390,7 @@ export const ROOMS: MatchRoom[] = [
     distanceKm: 3.4,
     day: "Today",
     time: "20:15 – 21:15",
-    skillMin: 4.3,
-    skillMax: 4.9,
+    level: "advanced",
     capacity: 4,
     joined: 2,
     players: ["VH", "PQ"],
@@ -384,8 +407,7 @@ export const ROOMS: MatchRoom[] = [
     distanceKm: 5.1,
     day: "Tomorrow",
     time: "18:00 – 19:00",
-    skillMin: 3.6,
-    skillMax: 4.3,
+    level: "intermediate",
     capacity: 4,
     joined: 4,
     players: ["LL", "BK", "ĐA", "TH"],
@@ -402,8 +424,7 @@ export const ROOMS: MatchRoom[] = [
     distanceKm: 3.4,
     day: "Tomorrow",
     time: "19:00 – 20:00",
-    skillMin: 3.9,
-    skillMax: 4.5,
+    level: "any",
     capacity: 4,
     joined: 1,
     players: ["BK"],
@@ -420,24 +441,6 @@ export const ROOM_TIME_SLOTS = [
   "Tomorrow 19:00 – 20:00",
   "Sat 09:30 – 10:30",
 ]
-
-export type OpenToKey = "my-level" | "any" | "above"
-
-/** How wide a skill window each "open to" preset spans around a rating. */
-export const OPEN_TO: { value: OpenToKey; label: string }[] = [
-  { value: "my-level", label: "My level (±0.3)" },
-  { value: "any", label: "Any level" },
-  { value: "above", label: "Stronger players" },
-]
-
-export function skillWindow(
-  openTo: OpenToKey,
-  rating: number
-): [number, number] {
-  if (openTo === "any") return [1, 7]
-  if (openTo === "above") return [rating, rating + 0.8]
-  return [Math.max(1, rating - 0.3), rating + 0.3]
-}
 
 export type BookingStatus = "confirmed" | "pending" | "completed" | "cancelled"
 
@@ -535,6 +538,8 @@ export interface Chat {
   unread: number
   online: boolean
   group: boolean
+  /** Member count for group chats (defaults to 4 when omitted). */
+  members?: number
 }
 
 export const CHATS: Chat[] = [
@@ -651,8 +656,6 @@ export const STREAK = {
 export const STATS = {
   matches: 48,
   winRate: 67,
-  rating: USER.rating,
-  ratingDelta: USER.ratingDelta,
   hours: 32,
   hoursDelta: 5,
 }
@@ -674,12 +677,6 @@ export const ACTIVITY: ActivityItem[] = [
     time: "2h ago",
   },
   {
-    id: "a2",
-    kind: "rating",
-    text: "Your skill rating rose to 4.12 (+0.08)",
-    time: "Yesterday",
-  },
-  {
     id: "a3",
     kind: "win",
     text: "Won doubles at Rally Point Club · 6–3, 6–4",
@@ -696,5 +693,53 @@ export const ACTIVITY: ActivityItem[] = [
     kind: "loss",
     text: "Close singles loss to Vũ Hà · 4–6, 6–7",
     time: "6 days ago",
+  },
+]
+
+export type NotificationKind =
+  | "match"
+  | "chat"
+  | "booking"
+  | "rating"
+  | "streak"
+
+export interface NotificationItem {
+  id: string
+  kind: NotificationKind
+  /** English fallback text; localized seeds live under `Notifications.items`. */
+  text: string
+  time: string
+  read: boolean
+  /** In-app destination opened when the notification is clicked. */
+  href?: string
+  /** Chat to select when clicked (paired with an href to `/dashboard/chat`). */
+  chatId?: string
+}
+
+export const NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: "n1",
+    kind: "chat",
+    text: "New message in Badminton Crew",
+    time: "12m",
+    read: false,
+    href: "/dashboard/chat",
+    chatId: "ch1",
+  },
+  {
+    id: "n2",
+    kind: "match",
+    text: "AI matched you with Trần Huy for badminton tonight",
+    time: "2h",
+    read: false,
+    href: "/dashboard/match-maker",
+  },
+  {
+    id: "n3",
+    kind: "booking",
+    text: "Court 3 at Shuttle Republic confirmed · 18:30",
+    time: "5h",
+    read: true,
+    href: "/dashboard/bookings",
   },
 ]

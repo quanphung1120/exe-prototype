@@ -9,15 +9,17 @@ import {
   Check,
   ChevronDown,
   Clock,
+  LogOut,
   MapPin,
+  Minus,
   Plus,
   Sparkles,
   Users,
   Zap,
 } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -54,17 +56,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SportTag } from "@/components/dashboard/shared"
+import { LevelChip, SportTag } from "@/components/dashboard/shared"
 import {
   COURTS,
-  OPEN_TO,
+  LEVELS,
   ROOM_TIME_SLOTS,
   SPORTS,
   USER,
   formatVnd,
-  skillWindow,
   type MatchRoom,
-  type OpenToKey,
+  type RoomLevel,
   type SportKey,
 } from "@/components/dashboard/data"
 import {
@@ -125,7 +126,15 @@ function FilterChips<T extends string>({
 export function MatchMakerView() {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
-  const { rooms, joinedIds, joinRoom, quickJoin, addRoom } = useMatchmaking()
+  const {
+    rooms,
+    joinedIds,
+    userLevel,
+    joinRoom,
+    leaveRoom,
+    quickJoin,
+    addRoom,
+  } = useMatchmaking()
   const [sport, setSport] = React.useState<SportKey | "all">("all")
   const [createOpen, setCreateOpen] = React.useState(false)
   const [quickOpen, setQuickOpen] = React.useState(false)
@@ -133,7 +142,7 @@ export function MatchMakerView() {
   const [day, setDay] =
     React.useState<QuickJoinFilters["day"]>("today-tomorrow")
   const [format, setFormat] = React.useState<QuickJoinFilters["format"]>("any")
-  const [level, setLevel] = React.useState<OpenToKey>("my-level")
+  const [level, setLevel] = React.useState<QuickJoinFilters["level"]>("my")
 
   const buildFilters = (): QuickJoinFilters => ({
     sport,
@@ -165,7 +174,7 @@ export function MatchMakerView() {
             </h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {t.rich("heroBody", {
-                rating: USER.rating.toFixed(2),
+                level: tc(`levels.${userLevel}`),
                 strong: (chunks) => (
                   <span className="font-medium text-foreground">{chunks}</span>
                 ),
@@ -190,7 +199,7 @@ export function MatchMakerView() {
             ))}
           </TabsList>
         </Tabs>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Popover open={quickOpen} onOpenChange={setQuickOpen}>
             <PopoverTrigger
               render={
@@ -239,10 +248,14 @@ export function MatchMakerView() {
                   label={t("quickFilter.level")}
                   value={level}
                   onChange={setLevel}
-                  options={OPEN_TO.map((o) => ({
-                    value: o.value,
-                    label: t(`openTo.${o.value}`),
-                  }))}
+                  options={[
+                    { value: "my", label: t("quickFilter.myLevel") },
+                    { value: "any", label: t("quickFilter.any") },
+                    ...LEVELS.map((l) => ({
+                      value: l.value,
+                      label: tc(`levels.${l.value}`),
+                    })),
+                  ]}
                 />
                 <Button className="rounded-full" onClick={runQuickJoin}>
                   <Zap />
@@ -260,13 +273,14 @@ export function MatchMakerView() {
 
       {/* Room grid */}
       {visibleRooms.length ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visibleRooms.map((room) => (
             <RoomCard
               key={room.id}
               room={room}
               joined={joinedIds.has(room.id)}
               onJoin={() => joinRoom(room)}
+              onLeave={() => leaveRoom(room.id)}
             />
           ))}
         </div>
@@ -311,13 +325,16 @@ function RoomCard({
   room,
   joined,
   onJoin,
+  onLeave,
 }: {
   room: MatchRoom
   joined: boolean
   onJoin: () => void
+  onLeave: () => void
 }) {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
+  const [leaveHint, setLeaveHint] = React.useState(false)
   const full = room.joined >= room.capacity
   const openSeats = room.capacity - room.joined
   const title = t.has(`rooms.${room.id}.title`)
@@ -339,21 +356,21 @@ function RoomCard({
             {title}
           </p>
         </div>
-        <Badge variant="outline" className="shrink-0 font-mono tabular-nums">
-          {room.skillMin.toFixed(1)}–{room.skillMax.toFixed(1)}
-        </Badge>
+        <LevelChip level={room.level} className="shrink-0" />
       </div>
 
       <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5">
           <MapPin className="size-3.5 shrink-0" />
-          <span className="truncate">
+          <span className="min-w-0 truncate">
             {room.venue} · {room.district} · {room.distanceKm} km
           </span>
         </span>
-        <span className="inline-flex items-center gap-1.5">
+        <span className="flex min-w-0 items-center gap-1.5">
           <Clock className="size-3.5 shrink-0" />
-          {day} · {room.time}
+          <span className="min-w-0 truncate">
+            {day} · {room.time}
+          </span>
         </span>
       </div>
 
@@ -388,28 +405,47 @@ function RoomCard({
       </div>
 
       <div className="mt-auto flex items-center gap-2 pt-1">
-        <span className="truncate text-xs text-muted-foreground">
+        <span className="min-w-0 truncate text-xs text-muted-foreground">
           {t("hostedBy", { name: room.host.name })}
           {!joined && !full ? ` · ${t("openSeats", { count: openSeats })}` : ""}
         </span>
-        <Button
-          size="sm"
-          className="ml-auto shrink-0 rounded-full"
-          variant={joined ? "secondary" : full ? "outline" : "default"}
-          disabled={joined || full}
-          onClick={onJoin}
-        >
-          {joined ? (
-            <>
-              <Check />
-              {t("joined")}
-            </>
-          ) : full ? (
-            t("full")
-          ) : (
-            t("join")
-          )}
-        </Button>
+        {joined ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onLeave}
+            onMouseEnter={() => setLeaveHint(true)}
+            onMouseLeave={() => setLeaveHint(false)}
+            onFocus={() => setLeaveHint(true)}
+            onBlur={() => setLeaveHint(false)}
+            className={cn(
+              "ml-auto shrink-0 rounded-full",
+              leaveHint && "bg-destructive/10 text-destructive"
+            )}
+          >
+            {leaveHint ? (
+              <>
+                <LogOut />
+                {t("leave")}
+              </>
+            ) : (
+              <>
+                <Check />
+                {t("joined")}
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            className="ml-auto shrink-0 rounded-full"
+            variant={full ? "outline" : "default"}
+            disabled={full}
+            onClick={onJoin}
+          >
+            {full ? t("full") : t("join")}
+          </Button>
+        )}
       </div>
     </div>
   )
@@ -426,6 +462,7 @@ function CreateRoomDialog({
 }) {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
+  const { userLevel } = useMatchmaking()
   const idRef = React.useRef(0)
   const courtName = (id: string) =>
     COURTS.find((c) => c.id === id)?.name ?? t("selectCourt")
@@ -437,9 +474,10 @@ function CreateRoomDialog({
       .max(40, t("validation.titleMax")),
     sport: z.enum(["tennis", "pickleball", "badminton"]),
     format: z.enum(["Singles", "Doubles"]),
+    maxPlayers: z.number().int().min(2).max(8),
     courtId: z.string().min(1, t("validation.court")),
     time: z.string().min(1, t("validation.time")),
-    openTo: z.enum(["my-level", "any", "above"]),
+    level: z.enum(["beginner", "intermediate", "advanced", "any"]),
     note: z.string().max(120, t("validation.noteMax")),
   })
 
@@ -448,9 +486,10 @@ function CreateRoomDialog({
       title: "",
       sport: "badminton" as SportKey,
       format: "Doubles" as "Singles" | "Doubles",
+      maxPlayers: 4,
       courtId: "c1",
       time: ROOM_TIME_SLOTS[0],
-      openTo: "my-level" as OpenToKey,
+      level: userLevel as RoomLevel,
       note: "",
     },
     validators: {
@@ -458,8 +497,7 @@ function CreateRoomDialog({
     },
     onSubmit: async ({ value }) => {
       const court = COURTS.find((c) => c.id === value.courtId) ?? COURTS[0]
-      const [skillMin, skillMax] = skillWindow(value.openTo, USER.rating)
-      const capacity = value.format === "Doubles" ? 4 : 2
+      const capacity = value.maxPlayers
       const [day, ...rest] = value.time.split(" ")
       onCreate({
         id: `r-new-${idRef.current++}`,
@@ -472,8 +510,7 @@ function CreateRoomDialog({
         distanceKm: court.distanceKm,
         day,
         time: rest.join(" "),
-        skillMin,
-        skillMax,
+        level: value.level,
         capacity,
         joined: 1,
         players: [USER.initials],
@@ -595,6 +632,48 @@ function CreateRoomDialog({
               </form.Field>
             </div>
 
+            <form.Field name="maxPlayers">
+              {(field) => {
+                const value = field.state.value
+                return (
+                  <Field>
+                    <FieldLabel>{t("dialog.maxPlayers")}</FieldLabel>
+                    <div className="flex h-9 items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        className="rounded-full"
+                        disabled={value <= 2}
+                        aria-label={t("dialog.maxPlayersDec")}
+                        onClick={() =>
+                          field.handleChange(Math.max(2, value - 1))
+                        }
+                      >
+                        <Minus />
+                      </Button>
+                      <span className="w-6 text-center font-mono text-sm tabular-nums">
+                        {value}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        className="rounded-full"
+                        disabled={value >= 8}
+                        aria-label={t("dialog.maxPlayersInc")}
+                        onClick={() =>
+                          field.handleChange(Math.min(8, value + 1))
+                        }
+                      >
+                        <Plus />
+                      </Button>
+                    </div>
+                  </Field>
+                )
+              }}
+            </form.Field>
+
             <form.Subscribe selector={(s) => s.values.sport}>
               {(selectedSport) => (
                 <form.Field name="courtId">
@@ -652,29 +731,36 @@ function CreateRoomDialog({
                 )}
               </form.Field>
 
-              <form.Field name="openTo">
-                {(field) => (
-                  <Field>
-                    <FieldLabel>{t("dialog.openTo")}</FieldLabel>
-                    <Select
-                      value={field.state.value}
-                      onValueChange={(v) => field.handleChange(v as OpenToKey)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {(v) => (v ? t(`openTo.${v as OpenToKey}`) : "")}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {OPEN_TO.map((o) => (
-                          <SelectItem key={o.value} value={o.value}>
-                            {t(`openTo.${o.value}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
+              <form.Field name="level">
+                {(field) => {
+                  const levelLabel = (v: RoomLevel) =>
+                    v === "any" ? tc("level.any") : tc(`levels.${v}`)
+                  return (
+                    <Field>
+                      <FieldLabel>{t("dialog.level")}</FieldLabel>
+                      <Select
+                        value={field.state.value}
+                        onValueChange={(v) =>
+                          field.handleChange(v as RoomLevel)
+                        }
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue>
+                            {(v) => (v ? levelLabel(v as RoomLevel) : "")}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LEVELS.map((l) => (
+                            <SelectItem key={l.value} value={l.value}>
+                              {tc(`levels.${l.value}`)}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="any">{tc("level.any")}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )
+                }}
               </form.Field>
             </div>
 

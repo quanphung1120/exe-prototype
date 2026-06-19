@@ -8,16 +8,19 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 type Audience = "player" | "venue"
+type Tone = "light" | "onDark"
 type Status = "idle" | "loading" | "success"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function WaitlistForm({
   audience = "player",
+  tone = "light",
   className,
   inputId = "waitlist-email",
 }: {
   audience?: Audience
+  tone?: Tone
   className?: string
   inputId?: string
 }) {
@@ -25,6 +28,7 @@ export function WaitlistForm({
   const [email, setEmail] = React.useState("")
   const [status, setStatus] = React.useState<Status>("idle")
   const [error, setError] = React.useState<string | null>(null)
+  const onDark = tone === "onDark"
   const copy = {
     placeholder: t(`${audience}.placeholder`),
     cta: t(`${audience}.cta`),
@@ -57,16 +61,19 @@ export function WaitlistForm({
     return (
       <div
         className={cn(
-          "flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/10 p-4 text-left",
+          "flex items-center gap-3 rounded-2xl border p-4 text-left",
+          onDark
+            ? "border-white/15 bg-white/10 text-white"
+            : "border-primary/30 bg-primary/10 text-foreground",
           className
         )}
         role="status"
         aria-live="polite"
       >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-lime text-lime-foreground">
           <CheckCircle2 className="size-5" />
         </span>
-        <p className="text-sm font-medium text-foreground">{copy.success}</p>
+        <p className="text-sm font-medium">{copy.success}</p>
       </div>
     )
   }
@@ -102,13 +109,23 @@ export function WaitlistForm({
               if (e.target.value) setError(validate(e.target.value))
             }}
             className={cn(
-              "h-12 w-full rounded-2xl border bg-background px-4 text-base text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none disabled:opacity-60",
-              error ? "border-destructive" : "border-input"
+              "h-12 w-full rounded-2xl border px-4 text-base shadow-sm transition-colors focus-visible:ring-3 focus-visible:outline-none disabled:opacity-60",
+              onDark
+                ? "border-white/20 bg-white/10 text-white placeholder:text-white/50 focus-visible:border-white/50 focus-visible:ring-white/20"
+                : "bg-background text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/30",
+              error
+                ? onDark
+                  ? "border-red-400/70"
+                  : "border-destructive"
+                : onDark
+                  ? ""
+                  : "border-input"
             )}
           />
         </div>
         <Button
           type="submit"
+          variant="lime"
           size="lg"
           disabled={status === "loading"}
           className="h-12 cursor-pointer px-6 text-base"
@@ -130,11 +147,25 @@ export function WaitlistForm({
 
       <div className="mt-2 min-h-5">
         {error ? (
-          <p id={errorId} role="alert" className="text-sm text-destructive">
+          <p
+            id={errorId}
+            role="alert"
+            className={cn(
+              "text-sm",
+              onDark ? "text-red-300" : "text-destructive"
+            )}
+          >
             {error}
           </p>
         ) : (
-          <p className="text-xs text-muted-foreground">{copy.note}</p>
+          <p
+            className={cn(
+              "text-xs",
+              onDark ? "text-white/60" : "text-muted-foreground"
+            )}
+          >
+            {copy.note}
+          </p>
         )}
       </div>
     </form>

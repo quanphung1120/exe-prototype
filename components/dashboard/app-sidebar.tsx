@@ -18,6 +18,8 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -36,15 +38,18 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { USER } from "@/components/dashboard/data"
+import { LEVELS, USER, type Level } from "@/components/dashboard/data"
 import { NAV, isNavActive } from "@/components/dashboard/nav"
+import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import { Link, usePathname } from "@/i18n/navigation"
 
 export function AppSidebar() {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
+  const { userLevel, setUserLevel } = useMatchmaking()
   const tNav = useTranslations("Nav")
   const t = useTranslations("Sidebar")
+  const tc = useTranslations("Common")
 
   // Collapse the mobile drawer once a destination is chosen.
   const handleNavigate = () => {
@@ -71,7 +76,7 @@ export function AppSidebar() {
                         SportMatch AI
                       </span>
                       <span className="truncate text-xs text-sidebar-foreground/60">
-                        {USER.city} · {USER.tier}
+                        {USER.city} · {tc(`levels.${userLevel}`)}
                       </span>
                     </div>
                     <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/60" />
@@ -195,11 +200,25 @@ export function AppSidebar() {
                     <div className="grid leading-tight">
                       <span className="text-sm font-medium">{USER.name}</span>
                       <span className="text-xs text-muted-foreground">
-                        {t("rating", { value: USER.rating.toFixed(2) })}
+                        {USER.handle}
                       </span>
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={userLevel}
+                  onValueChange={(v) => setUserLevel(v as Level)}
+                >
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    {t("yourLevel")}
+                  </DropdownMenuLabel>
+                  {LEVELS.map((l) => (
+                    <DropdownMenuRadioItem key={l.value} value={l.value}>
+                      {tc(`levels.${l.value}`)}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <UserRound />

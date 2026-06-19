@@ -1,7 +1,9 @@
 import {
+  ArrowRight,
   BarChart3,
   CalendarCheck,
   CheckCircle2,
+  ImageIcon,
   MapPin,
   MessageSquare,
   MessagesSquare,
@@ -12,10 +14,13 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react"
+import Image from "next/image"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
+import { cn } from "@/lib/utils"
 import { Faq, type FaqItem } from "@/components/faq"
 import { Logo } from "@/components/logo"
+import { Pricing } from "@/components/pricing"
 import { Reveal } from "@/components/reveal"
 import { SiteHeader } from "@/components/site-header"
 import { WaitlistForm } from "@/components/waitlist-form"
@@ -50,6 +55,8 @@ const TESTIMONIAL_META = [
 ]
 
 const containerCx = "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8"
+// Editorial display headings: Barlow (wide grotesque) at semibold weight.
+const displayCx = "font-sans font-semibold tracking-tight"
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
@@ -57,6 +64,21 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
       <span className="h-px w-6 bg-primary/50" aria-hidden="true" />
       {children}
     </p>
+  )
+}
+
+/** Neutral image placeholder — section imagery is intentionally left blank. */
+function Placeholder({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "bg-court-lines flex items-center justify-center overflow-hidden rounded-3xl border border-border bg-muted",
+        className
+      )}
+      aria-hidden="true"
+    >
+      <ImageIcon className="size-8 text-muted-foreground/40" />
+    </div>
   )
 }
 
@@ -110,42 +132,86 @@ export default async function Page({
       <SiteHeader />
       <main id="top">
         {/* ── Hero ─────────────────────────────────────────── */}
-        <section className="relative overflow-hidden">
-          {/* Decorative background */}
+        {/* Pulled up behind the transparent navbar so the photo bleeds under it. */}
+        <section className="relative isolate -mt-32 overflow-hidden">
+          {/* Hero photograph — anchored to the right, blended into the page. */}
           <div
-            className="pointer-events-none absolute -top-32 -left-24 size-[28rem] rounded-full bg-primary/20 blur-[120px]"
+            className="absolute inset-0 -z-10 overflow-hidden"
             aria-hidden="true"
-          />
-          <div
-            className="pointer-events-none absolute -top-20 right-0 size-[26rem] rounded-full bg-lime/20 blur-[120px]"
-            aria-hidden="true"
-          />
+          >
+            <div className="absolute inset-y-0 right-0 w-full overflow-hidden sm:w-[50%]">
+              <Image
+                src="/hero-modern.png"
+                alt=""
+                fill
+                priority
+                sizes="(min-width: 640px) 50vw, 100vw"
+                className="object-cover object-center sm:translate-y-[16%] sm:scale-[1.15] sm:object-[5%_center]"
+              />
+              {/* Blend the image's left edge into the page. */}
+              <div className="absolute inset-0 bg-gradient-to-r from-background via-background/55 to-transparent sm:via-background/15" />
+            </div>
+            {/* Lighten the very top so the transparent navbar stays legible. */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/50 to-transparent" />
+            {/* Mobile: a flat veil so the headline stays readable over the photo. */}
+            <div className="absolute inset-0 bg-background/45 sm:hidden" />
+            {/* Fade the bottom into the page so the trust strip sits clean. */}
+            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-background" />
+          </div>
 
-          <div className={`${containerCx} relative py-16 sm:py-24 lg:py-28`}>
-            <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
-              <h1 className="mt-6 font-heading text-5xl leading-[1.1] font-bold tracking-tight uppercase sm:text-6xl lg:text-7xl">
+          <div
+            className={`${containerCx} pt-40 pb-20 sm:pt-48 sm:pb-28 lg:pt-56 lg:pb-32`}
+          >
+            <div className="max-w-2xl">
+              <h1
+                className={`${displayCx} text-5xl leading-[0.95] uppercase sm:text-6xl lg:text-7xl`}
+              >
                 {t("hero.titleLine1")}
-                <span className="block bg-gradient-to-r from-primary to-lime bg-clip-text pb-2 text-transparent">
-                  {t("hero.titleLine2")}
-                </span>
+                <span className="block">{t("hero.titleLine2")}</span>
               </h1>
 
-              <p className="mt-5 max-w-xl text-lg text-muted-foreground sm:text-xl">
+              {/* Lime "tennis-ball" accent rule. */}
+              <span
+                className="mt-6 block h-1.5 w-24 rounded-full bg-lime"
+                aria-hidden="true"
+              />
+
+              <p className="mt-6 max-w-xl text-lg text-muted-foreground sm:text-xl">
                 {t("hero.subtitle")}
               </p>
 
-              <div id="waitlist" className="mt-8 w-full max-w-xl scroll-mt-24">
-                <WaitlistForm audience="player" inputId="hero-email" />
+              <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-5">
+                <a
+                  href="#waitlist"
+                  className="inline-flex h-12 cursor-pointer items-center gap-2 rounded-4xl bg-lime px-7 text-base font-medium text-lime-foreground transition-colors hover:bg-lime/90 focus-visible:ring-3 focus-visible:ring-lime/40 focus-visible:outline-none"
+                >
+                  {t("hero.cta")}
+                  <ArrowRight className="size-4" />
+                </a>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex -space-x-2.5" aria-hidden="true">
+                    {[0, 1, 2, 3].map((i) => (
+                      <span
+                        key={i}
+                        className="size-9 rounded-full border-2 border-background bg-gradient-to-br from-muted-foreground/30 to-muted-foreground/5"
+                      />
+                    ))}
+                  </div>
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {t("hero.socialProof")}
+                  </span>
+                </div>
               </div>
 
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+              <div className="mt-8 flex flex-wrap items-center gap-2">
                 <span className="text-sm text-muted-foreground">
                   {t("hero.sportsLabel")}
                 </span>
                 {SPORT_KEYS.map((sport) => (
                   <span
                     key={sport}
-                    className="rounded-full border border-border bg-card px-3 py-1 text-sm font-medium text-foreground"
+                    className="rounded-full border border-border bg-card/70 px-3 py-1 text-sm font-medium text-foreground backdrop-blur-sm"
                   >
                     {tc(`sports.${sport}`)}
                   </span>
@@ -155,26 +221,58 @@ export default async function Page({
           </div>
         </section>
 
-        {/* ── Trust marquee ────────────────────────────────── */}
-        <section className="border-y border-border bg-muted/40 py-8">
+        {/* ── Trust strip (sliding marquee, overlaps the hero) ─ */}
+        <section className="relative z-10 -mt-32 pt-32 sm:-mt-14">
           <div className={containerCx}>
-            <p className="text-center text-sm font-medium text-muted-foreground">
-              {t("trust.caption")}
-            </p>
+            <div className="overflow-hidden rounded-2xl border border-border bg-background/80 px-6 py-5 shadow-sm backdrop-blur-md sm:px-8">
+              <p className="text-center text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {t("trust.caption")}
+              </p>
+              <div
+                className="group/marquee relative mt-4 flex overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_8%,#000_92%,transparent)]"
+                aria-hidden="true"
+              >
+                <div className="animate-marquee flex w-max items-center gap-x-12 pr-12">
+                  {[...TRUST_LOGOS, ...TRUST_LOGOS].map((name, i) => (
+                    <span
+                      key={i}
+                      className="font-heading text-lg font-semibold whitespace-nowrap text-muted-foreground/60 sm:text-xl"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-          <div
-            className="group/marquee relative mt-6 flex overflow-hidden [mask-image:linear-gradient(to_right,transparent,#000_8%,#000_92%,transparent)]"
-            aria-hidden="true"
-          >
-            <div className="animate-marquee flex w-max items-center gap-x-12 pr-12">
-              {[...TRUST_LOGOS, ...TRUST_LOGOS].map((name, i) => (
-                <span
-                  key={i}
-                  className="font-heading text-xl font-semibold whitespace-nowrap text-muted-foreground/70"
-                >
-                  {name}
-                </span>
-              ))}
+        </section>
+
+        {/* ── About ────────────────────────────────────────── */}
+        <section id="about" className="scroll-mt-20 py-20 sm:py-28">
+          <div className={containerCx}>
+            <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
+              <Reveal>
+                <Eyebrow>{t("aboutSection.eyebrow")}</Eyebrow>
+                <h2 className={`${displayCx} text-3xl sm:text-4xl lg:text-5xl`}>
+                  <span className="text-foreground">
+                    {t("aboutSection.titleStrong")}
+                  </span>{" "}
+                  <span className="text-muted-foreground">
+                    {t("aboutSection.titleMuted")}
+                  </span>
+                </h2>
+                <p className="mt-6 max-w-xl text-lg text-muted-foreground">
+                  {t("aboutSection.body")}
+                </p>
+                <div className="mt-8 grid grid-cols-2 gap-4">
+                  <Placeholder className="aspect-[4/3]" />
+                  <Placeholder className="aspect-[4/3]" />
+                </div>
+              </Reveal>
+
+              <Reveal delayMs={120}>
+                <Placeholder className="aspect-[4/5] lg:aspect-[3/4]" />
+              </Reveal>
             </div>
           </div>
         </section>
@@ -184,7 +282,7 @@ export default async function Page({
           <div className={containerCx}>
             <Reveal className="max-w-2xl">
               <Eyebrow>{t("playerFeaturesSection.eyebrow")}</Eyebrow>
-              <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+              <h2 className={`${displayCx} text-4xl sm:text-5xl`}>
                 {t("playerFeaturesSection.title")}
               </h2>
               <p className="mt-4 text-lg text-muted-foreground">
@@ -209,7 +307,7 @@ export default async function Page({
                     <span className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                       <feature.icon className="size-6" />
                     </span>
-                    <h3 className="mt-5 font-heading text-xl font-bold">
+                    <h3 className="mt-5 font-heading text-xl font-semibold">
                       {feature.title}
                     </h3>
                     <p className="mt-2 text-muted-foreground">{feature.body}</p>
@@ -228,7 +326,7 @@ export default async function Page({
           <div className={containerCx}>
             <Reveal className="mx-auto max-w-2xl text-center">
               <Eyebrow>{t("stepsSection.eyebrow")}</Eyebrow>
-              <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+              <h2 className={`${displayCx} text-4xl sm:text-5xl`}>
                 {t("stepsSection.title")}
               </h2>
             </Reveal>
@@ -244,11 +342,11 @@ export default async function Page({
                   <div className="relative flex flex-col items-center text-center">
                     <span className="relative z-10 flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30">
                       <step.icon className="size-6" />
-                      <span className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-lime font-mono text-xs font-bold text-lime-foreground">
+                      <span className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full bg-lime font-mono text-xs font-semibold text-lime-foreground">
                         {i + 1}
                       </span>
                     </span>
-                    <h3 className="mt-5 font-heading text-xl font-bold">
+                    <h3 className="mt-5 font-heading text-xl font-semibold">
                       {step.title}
                     </h3>
                     <p className="mt-2 max-w-xs text-muted-foreground">
@@ -272,7 +370,7 @@ export default async function Page({
                     className="flex flex-col items-center gap-1 bg-card px-6 py-10 text-center"
                   >
                     <dt className="sr-only">{stat.label}</dt>
-                    <dd className="font-heading text-4xl font-bold tracking-tight text-primary tabular-nums sm:text-5xl">
+                    <dd className="font-heading text-4xl font-semibold tracking-tight text-primary tabular-nums sm:text-5xl">
                       {stat.value}
                     </dd>
                     <p className="text-sm font-medium text-muted-foreground">
@@ -306,7 +404,7 @@ export default async function Page({
                     />
                     {t("venuesSection.eyebrow")}
                   </p>
-                  <h2 className="font-heading text-4xl font-bold tracking-tight sm:text-5xl">
+                  <h2 className={`${displayCx} text-4xl sm:text-5xl`}>
                     {t("venuesSection.titleLine1")}
                     <br />
                     {t("venuesSection.titleLine2")}
@@ -322,7 +420,7 @@ export default async function Page({
                           <benefit.icon className="size-5" />
                         </span>
                         <div>
-                          <dt className="font-heading text-lg font-bold">
+                          <dt className="font-heading text-lg font-semibold">
                             {benefit.title}
                           </dt>
                           <dd className="mt-0.5 text-sm text-zinc-400">
@@ -338,7 +436,7 @@ export default async function Page({
                 <div className="lg:pl-6">
                   <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
                     <div className="flex items-center justify-between">
-                      <p className="font-heading text-lg font-bold">
+                      <p className="font-heading text-lg font-semibold">
                         {t("occupancy.title")}
                       </p>
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
@@ -366,7 +464,7 @@ export default async function Page({
                     </div>
                     <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/10 pt-5 text-center">
                       <div>
-                        <p className="font-heading text-2xl font-bold tabular-nums">
+                        <p className="font-heading text-2xl font-semibold tabular-nums">
                           86%
                         </p>
                         <p className="text-xs text-zinc-500">
@@ -374,7 +472,7 @@ export default async function Page({
                         </p>
                       </div>
                       <div>
-                        <p className="font-heading text-2xl font-bold tabular-nums">
+                        <p className="font-heading text-2xl font-semibold tabular-nums">
                           128
                         </p>
                         <p className="text-xs text-zinc-500">
@@ -382,7 +480,7 @@ export default async function Page({
                         </p>
                       </div>
                       <div>
-                        <p className="font-heading text-2xl font-bold tabular-nums">
+                        <p className="font-heading text-2xl font-semibold tabular-nums">
                           4.9
                         </p>
                         <p className="text-xs text-zinc-500">
@@ -393,7 +491,11 @@ export default async function Page({
                   </div>
 
                   <div className="mt-5">
-                    <WaitlistForm audience="venue" inputId="venue-email" />
+                    <WaitlistForm
+                      audience="venue"
+                      tone="onDark"
+                      inputId="venue-email"
+                    />
                   </div>
                 </div>
               </div>
@@ -406,7 +508,7 @@ export default async function Page({
           <div className={containerCx}>
             <Reveal className="mx-auto max-w-2xl text-center">
               <Eyebrow>{t("testimonialsSection.eyebrow")}</Eyebrow>
-              <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+              <h2 className={`${displayCx} text-4xl sm:text-5xl`}>
                 {t("testimonialsSection.title")}
               </h2>
             </Reveal>
@@ -431,7 +533,7 @@ export default async function Page({
                       “{testimonial.quote}”
                     </blockquote>
                     <figcaption className="mt-5 flex items-center gap-3 border-t border-border pt-4">
-                      <span className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-lime text-sm font-bold text-primary-foreground">
+                      <span className="flex size-10 items-center justify-center rounded-full bg-gradient-to-br from-primary to-lime text-sm font-semibold text-primary-foreground">
                         {testimonial.initials}
                       </span>
                       <div>
@@ -450,12 +552,30 @@ export default async function Page({
           </div>
         </section>
 
+        {/* ── Pricing ──────────────────────────────────────── */}
+        <section id="pricing" className="scroll-mt-20 py-20 sm:py-28">
+          <div className={containerCx}>
+            <Reveal className="mx-auto max-w-2xl text-center">
+              <Eyebrow>{t("pricingSection.eyebrow")}</Eyebrow>
+              <h2 className={`${displayCx} text-4xl sm:text-5xl`}>
+                {t("pricingSection.title")}
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                {t("pricingSection.subtitle")}
+              </p>
+            </Reveal>
+            <Reveal className="mt-12">
+              <Pricing />
+            </Reveal>
+          </div>
+        </section>
+
         {/* ── FAQ ──────────────────────────────────────────── */}
         <section id="faq" className="scroll-mt-20 bg-muted/40 py-20 sm:py-28">
           <div className={`${containerCx} max-w-3xl`}>
             <Reveal className="text-center">
               <Eyebrow>{t("faqSection.eyebrow")}</Eyebrow>
-              <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+              <h2 className={`${displayCx} text-4xl sm:text-5xl`}>
                 {t("faqSection.title")}
               </h2>
             </Reveal>
@@ -466,7 +586,7 @@ export default async function Page({
         </section>
 
         {/* ── Final CTA ────────────────────────────────────── */}
-        <section className="py-20 sm:py-28">
+        <section id="waitlist" className="scroll-mt-24 py-20 sm:py-28">
           <div className={containerCx}>
             <div className="relative overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-lime/10 px-6 py-16 text-center sm:px-12 sm:py-20">
               <div
@@ -474,7 +594,7 @@ export default async function Page({
                 aria-hidden="true"
               />
               <div className="relative mx-auto max-w-2xl">
-                <h2 className="mt-5 font-heading text-4xl font-bold tracking-tight uppercase sm:text-6xl">
+                <h2 className={`${displayCx} text-4xl uppercase sm:text-6xl`}>
                   {t("cta.title")}
                 </h2>
                 <p className="mt-4 text-lg text-muted-foreground">
@@ -543,7 +663,7 @@ export default async function Page({
             <FooterColumn
               title={t("footer.company.title")}
               links={[
-                { label: t("footer.company.about"), href: "#top" },
+                { label: t("footer.company.about"), href: "#about" },
                 { label: t("footer.company.privacy"), href: "#top" },
                 { label: t("footer.company.terms"), href: "#top" },
               ]}
@@ -575,7 +695,7 @@ function FooterColumn({
 }) {
   return (
     <div>
-      <h3 className="font-heading text-sm font-bold tracking-wide uppercase">
+      <h3 className="font-heading text-sm font-semibold tracking-wide uppercase">
         {title}
       </h3>
       <ul className="mt-4 space-y-3">

@@ -11,8 +11,10 @@ import { LocaleSwitcher } from "@/components/locale-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 
 const NAV_LINKS = [
+  { key: "about", href: "#about" },
   { key: "features", href: "#features" },
   { key: "howItWorks", href: "#how-it-works" },
+  { key: "pricing", href: "#pricing" },
   { key: "venues", href: "#venues" },
   { key: "faq", href: "#faq" },
 ]
@@ -74,6 +76,7 @@ export function SiteHeader() {
           <LocaleSwitcher />
           <ThemeToggle className="cursor-pointer" />
           <Button
+            variant="lime"
             size="lg"
             className="hidden cursor-pointer sm:inline-flex"
             nativeButton={false}
@@ -114,6 +117,7 @@ export function SiteHeader() {
             </a>
           ))}
           <Button
+            variant="lime"
             size="lg"
             className="mt-2 cursor-pointer"
             nativeButton={false}

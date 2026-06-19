@@ -24,6 +24,14 @@
       "today": "Hôm nay",
       "tomorrow": "Ngày mai",
       "yesterday": "Hôm qua"
+    },
+    "levels": {
+      "beginner": "Mới chơi",
+      "intermediate": "Trung cấp",
+      "advanced": "Nâng cao"
+    },
+    "level": {
+      "any": "Mọi trình độ"
     }
   },
   "Nav": {
@@ -61,7 +69,7 @@
     "profile": "Hồ sơ",
     "settings": "Cài đặt",
     "logout": "Đăng xuất",
-    "rating": "Điểm {value}"
+    "yourLevel": "Trình độ của bạn"
   },
   "Topbar": {
     "notifications": "Thông báo",
@@ -78,7 +86,16 @@
       "trusted": "Tin cậy",
       "reliable": "Ổn định",
       "new": "Mới"
-    }
+    },
+    "leave": "Rời trận",
+    "openChat": "Mở chat nhóm",
+    "hostControls": "Quản lý phòng",
+    "maxPlayers": "Số người tối đa",
+    "maxPlayersDec": "Bớt người",
+    "maxPlayersInc": "Thêm người",
+    "invitePlayers": "Mời người chơi",
+    "invite": "Mời",
+    "roomFull": "Phòng đã đầy — tăng số người tối đa để mời thêm"
   },
   "LocaleSwitcher": {
     "label": "Ngôn ngữ",
@@ -206,10 +223,102 @@
   },
   "Landing": {
     "hero": {
-      "titleLine1": "Tìm sân.",
+      "titleLine1": "Tìm sân",
       "titleLine2": "Tìm đối thủ phù hợp.",
       "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân tennis, pickleball và cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
+      "cta": "Bắt đầu ngay",
+      "socialProof": "1.000+ người chơi đã tham gia",
       "sportsLabel": "Dành cho:"
+    },
+    "aboutSection": {
+      "eyebrow": "Về SportMatch AI",
+      "titleStrong": "Một trợ lý thông minh phía sau mỗi trận đấu —",
+      "titleMuted": "đặt sân, ghép người chơi và lấp đầy mọi khung giờ trống cho Quý khách.",
+      "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. SportMatch AI lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để tennis, pickleball và cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân."
+    },
+    "pricingSection": {
+      "eyebrow": "Bảng giá",
+      "title": "Gói linh hoạt cho người chơi và địa điểm",
+      "subtitle": "Bắt đầu miễn phí, nâng cấp khi Quý khách sẵn sàng, và hủy bất cứ lúc nào.",
+      "tabs": {
+        "customers": "Cho người chơi",
+        "venues": "Cho địa điểm"
+      },
+      "mostPopular": "Phổ biến nhất"
+    },
+    "pricing": {
+      "customers": {
+        "free": {
+          "name": "Free",
+          "price": "0₫",
+          "period": "trọn đời",
+          "tagline": "Mọi thứ Quý khách cần để tìm sân và chơi.",
+          "features": [
+            "Xem các sân trống gần đây",
+            "Tự tham gia ghép trận",
+            "Một môn thể thao vợt",
+            "Trò chuyện nhóm cho các trận"
+          ],
+          "cta": "Bắt đầu"
+        },
+        "plus": {
+          "name": "Plus",
+          "price": "99K",
+          "period": "/tháng",
+          "tagline": "Đặt sân bằng AI và ghép trận theo trình độ cho người chơi thường xuyên.",
+          "features": [
+            "Mọi thứ trong gói Free",
+            "Trợ lý đặt sân AI",
+            "Ghép trận theo trình độ",
+            "Cả ba môn thể thao vợt",
+            "Nhắc lịch thông minh"
+          ],
+          "cta": "Dùng gói Plus"
+        },
+        "pro": {
+          "name": "Pro",
+          "price": "199K",
+          "period": "/tháng",
+          "tagline": "Ưu tiên ghép trận và phân tích cho người chơi năng động nhất.",
+          "features": [
+            "Mọi thứ trong gói Plus",
+            "Ưu tiên ghép trận",
+            "Phân tích phong độ nâng cao",
+            "Ưu tiên đặt sân",
+            "Truy cập sớm các địa điểm mới"
+          ],
+          "cta": "Dùng gói Pro"
+        }
+      },
+      "venues": {
+        "starter": {
+          "name": "Starter",
+          "price": "499K",
+          "period": "/tháng",
+          "tagline": "Đưa địa điểm của Quý khách lên hệ thống và bắt đầu nhận lượt đặt từ AI.",
+          "features": [
+            "Hồ sơ và hiển thị địa điểm",
+            "Lịch đặt sân theo thời gian thực",
+            "Danh sách chờ người chơi",
+            "Báo cáo công suất cơ bản"
+          ],
+          "cta": "Trở thành đối tác"
+        },
+        "growth": {
+          "name": "Growth",
+          "price": "1.499K",
+          "period": "/tháng",
+          "tagline": "Lấp đầy mọi sân với ghép trận tự động và phân tích chuyên sâu.",
+          "features": [
+            "Mọi thứ trong gói Starter",
+            "Ghép trận tự động lấp đầy sân",
+            "Phân tích công suất sân",
+            "Ưu tiên hiển thị tới người chơi gần đó",
+            "Xác nhận hạn chế vắng mặt"
+          ],
+          "cta": "Trở thành đối tác"
+        }
+      }
     },
     "trust": {
       "caption": "Được các câu lạc bộ và người chơi trong giới thể thao vợt tin dùng"
@@ -273,7 +382,7 @@
         "label": "Từ yêu cầu đến đặt xong"
       },
       "3": {
-        "value": "5",
+        "value": "3",
         "label": "Môn thể thao vợt được hỗ trợ"
       }
     },
@@ -394,8 +503,10 @@
   "Header": {
     "homeAria": "SportMatch AI — trang chủ",
     "nav": {
+      "about": "Giới thiệu",
       "features": "Tính năng",
       "howItWorks": "Cách hoạt động",
+      "pricing": "Bảng giá",
       "venues": "Dành cho địa điểm",
       "faq": "Câu hỏi thường gặp"
     },
@@ -428,7 +539,7 @@
     "metaTitle": "Ghép trận",
     "metaDescription": "AI gợi ý người chơi hợp trình độ và lịch của bạn.",
     "heroTitle": "Phòng đang mở gần trình độ của bạn",
-    "heroBody": "Các phòng quanh mức điểm <strong>{rating}</strong> của bạn. <strong>Tham gia nhanh</strong> đưa bạn vào phòng hợp nhất — hoặc xếp hàng ghép trận mới khi chưa có phòng phù hợp.",
+    "heroBody": "Phòng mở cho người chơi trình độ <strong>{level}</strong> gần bạn. <strong>Tham gia nhanh</strong> đưa bạn vào phòng hợp nhất — hoặc tìm bạn chơi khi chưa có phòng phù hợp.",
     "allSports": "Tất cả môn",
     "quickJoin": "Tham gia nhanh",
     "quickFilter": {
@@ -441,7 +552,8 @@
       "dayTodayTomorrow": "Hôm nay + Ngày mai",
       "format": "Hình thức",
       "level": "Trình độ",
-      "find": "Tìm trận"
+      "find": "Tìm trận",
+      "myLevel": "Trình độ của tôi"
     },
     "createRoom": "Tạo phòng",
     "emptyRooms": "Chưa có phòng nào mở cho môn này.",
@@ -475,11 +587,6 @@
         "title": "Tennis đôi, chào đón tất cả"
       }
     },
-    "openTo": {
-      "my-level": "Cùng trình độ (±0.3)",
-      "any": "Mọi trình độ",
-      "above": "Người chơi mạnh hơn"
-    },
     "timeSlots": {
       "0": "Hôm nay 18:30 – 19:30",
       "1": "Hôm nay 19:30 – 20:30",
@@ -497,10 +604,13 @@
       "format": "Hình thức",
       "court": "Sân",
       "when": "Thời gian",
-      "openTo": "Mở cho",
       "note": "Ghi chú cho người chơi (tùy chọn)",
       "notePlaceholder": "Mang vợt của bạn. Chúng ta sẽ vào sân sớm 10 phút.",
-      "cancel": "Hủy"
+      "cancel": "Hủy",
+      "maxPlayers": "Số người tối đa",
+      "maxPlayersDec": "Bớt người",
+      "maxPlayersInc": "Thêm người",
+      "level": "Trình độ"
     },
     "validation": {
       "titleMin": "Đặt tên phòng ít nhất 5 ký tự.",
@@ -515,14 +625,22 @@
       "quickJoined": "Đã tham gia nhanh một phòng",
       "noRoomTitle": "Không có phòng phù hợp — đang tìm trận cho bạn",
       "noRoomBody": "Chờ chút nhé, chúng tôi đang xếp phòng cho bạn.",
-      "matchReady": "Trận đã sẵn sàng!"
+      "matchReady": "Trận đã sẵn sàng!",
+      "left": "Bạn đã rời phòng",
+      "searchingPartner": "Đang tìm người chơi đầu tiên cho bạn…"
     },
     "dock": {
       "matchReady": "Trận đã sẵn sàng",
       "finding": "Đang tìm người chơi…",
       "accept": "Chấp nhận",
-      "cancelSearch": "Hủy tìm kiếm"
-    }
+      "cancelSearch": "Hủy tìm kiếm",
+      "findingPartner": "Đang tìm bạn chơi…",
+      "found": "Đã tìm thấy {name} 👋",
+      "roomReady": "Phòng đã sẵn sàng",
+      "manage": "Quản lý",
+      "dismiss": "Đóng"
+    },
+    "leave": "Rời"
   },
   "Overview": {
     "metaTitle": "Tổng quan",
@@ -549,10 +667,6 @@
       "a1": {
         "text": "AI đã ghép bạn với Trần Huy chơi cầu lông tối nay",
         "time": "2 giờ trước"
-      },
-      "a2": {
-        "text": "Điểm trình của bạn tăng lên 4.12 (+0.08)",
-        "time": "Hôm qua"
       },
       "a3": {
         "text": "Thắng trận đôi tại Rally Point Club · 6–3, 6–4",
@@ -666,6 +780,29 @@
       },
       "m4": {
         "text": "Hẹn gặp ở Sân 3 lúc 6:30 👊"
+      }
+    },
+    "teamWelcome": "Chào mừng 👋 Hẹn gặp tại {venue}.",
+    "teamCreated": "Bạn đã tạo phòng này."
+  },
+  "Notifications": {
+    "title": "Thông báo",
+    "markAllRead": "Đánh dấu đã đọc",
+    "empty": "Chưa có thông báo",
+    "newTeamChat": "Chat nhóm mới — {title}",
+    "justNow": "Vừa xong",
+    "items": {
+      "n1": {
+        "text": "Tin nhắn mới trong Badminton Crew",
+        "time": "12 phút"
+      },
+      "n2": {
+        "text": "AI đã ghép bạn với Trần Huy cho cầu lông tối nay",
+        "time": "2 giờ"
+      },
+      "n3": {
+        "text": "Sân 3 tại Shuttle Republic đã xác nhận · 18:30",
+        "time": "5 giờ"
       }
     }
   }

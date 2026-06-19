@@ -2,20 +2,38 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import { ChevronRight, Clock, MapPin, Star, Users } from "lucide-react"
+import {
+  ChevronRight,
+  Clock,
+  LogOut,
+  MapPin,
+  MessageSquare,
+  Minus,
+  Plus,
+  Star,
+  UserPlus,
+  Users,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { PlayerAvatar, SportDot, SportTag } from "@/components/dashboard/shared"
 import {
+  LevelChip,
+  PlayerAvatar,
+  SportDot,
+  SportTag,
+} from "@/components/dashboard/shared"
+import {
+  MATCH_SUGGESTIONS,
   USER,
   formatVnd,
   playerByInitials,
@@ -24,6 +42,8 @@ import {
   type MatchRoom,
 } from "@/components/dashboard/data"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
+import { roomChatId, useChat } from "@/components/dashboard/chat-store"
+import { useRouter } from "@/i18n/navigation"
 
 /** Map a stored English day word ("Today"/"Tomorrow") to a localized label. */
 function roomDayLabel(day: string, tc: (key: string) => string) {
@@ -42,15 +62,15 @@ function roomDayLabel(day: string, tc: (key: string) => string) {
 export function ActiveRoomPill() {
   const t = useTranslations("ActiveRoom")
   const tc = useTranslations("Common")
-  const { joinedRooms, activeRoom } = useMatchmaking()
-  const [open, setOpen] = React.useState(false)
+  const { joinedRooms, activeRoom, managerOpen, setManagerOpen } =
+    useMatchmaking()
 
   if (!activeRoom) return null
 
   const extra = joinedRooms.length - 1
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={managerOpen} onOpenChange={setManagerOpen}>
       <SheetTrigger
         className={cn(
           "inline-flex items-center gap-2 rounded-full border border-brand/30 bg-brand/10 py-1.5 pr-3 pl-2.5 text-xs font-medium text-foreground transition-colors hover:bg-brand/15 focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
@@ -73,22 +93,57 @@ export function ActiveRoomPill() {
       </SheetTrigger>
 
       <SheetContent className="w-full gap-0 p-0 sm:max-w-sm">
-        <RoomDetail room={activeRoom} />
+        <RoomDetail room={activeRoom} onClose={() => setManagerOpen(false)} />
       </SheetContent>
     </Sheet>
   )
 }
 
-function RoomDetail({ room }: { room: MatchRoom }) {
+function RoomDetail({
+  room,
+  onClose,
+}: {
+  room: MatchRoom
+  onClose: () => void
+}) {
   const t = useTranslations("ActiveRoom")
   const tc = useTranslations("Common")
   const tm = useTranslations("MatchMaker")
-  const { joinedRooms, setActiveRoomId } = useMatchmaking()
+  const {
+    joinedRooms,
+    setActiveRoomId,
+    leaveRoom,
+    setRoomCapacity,
+    invitePlayer,
+  } = useMatchmaking()
+  const { setActiveChatId } = useChat()
+  const router = useRouter()
 
   const title = tm.has(`rooms.${room.id}.title`)
     ? tm(`rooms.${room.id}.title`)
     : room.title
   const others = joinedRooms.filter((r) => r.id !== room.id)
+  const isHost = room.host.initials === USER.initials
+  const full = room.joined >= room.capacity
+  // People to invite: not already in the room, same-sport listed first.
+  const invitable = [...MATCH_SUGGESTIONS]
+    .filter((p) => !room.players.includes(p.initials))
+    .sort(
+      (a, b) =>
+        (a.sport === room.sport ? 0 : 1) - (b.sport === room.sport ? 0 : 1) ||
+        b.matchPct - a.matchPct
+    )
+
+  const openChat = () => {
+    setActiveChatId(roomChatId(room.id))
+    router.push("/dashboard/chat")
+    onClose()
+  }
+
+  const leave = () => {
+    leaveRoom(room.id)
+    onClose()
+  }
 
   return (
     <>
@@ -136,6 +191,76 @@ function RoomDetail({ room }: { room: MatchRoom }) {
           </div>
         </section>
 
+        {/* Host controls — only for rooms the user owns */}
+        {isHost ? (
+          <section className="flex flex-col gap-3">
+            <SectionLabel>{t("hostControls")}</SectionLabel>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm">{t("maxPlayers")}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className="rounded-full"
+                  disabled={room.capacity <= room.joined}
+                  aria-label={t("maxPlayersDec")}
+                  onClick={() => setRoomCapacity(room.id, room.capacity - 1)}
+                >
+                  <Minus />
+                </Button>
+                <span className="w-6 text-center font-mono text-sm tabular-nums">
+                  {room.capacity}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  className="rounded-full"
+                  disabled={room.capacity >= 8}
+                  aria-label={t("maxPlayersInc")}
+                  onClick={() => setRoomCapacity(room.id, room.capacity + 1)}
+                >
+                  <Plus />
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
+                {t("invitePlayers")}
+              </span>
+              {full ? (
+                <p className="rounded-2xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  {t("roomFull")}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {invitable.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2.5 p-1">
+                      <PlayerAvatar initials={p.initials} />
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-sm">{p.name}</span>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <LevelChip level={p.level} />
+                          {tc(`sports.${p.sport}`)}
+                        </span>
+                      </div>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        className="shrink-0 rounded-full"
+                        onClick={() => invitePlayer(room.id, p.initials)}
+                      >
+                        <UserPlus />
+                        {t("invite")}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        ) : null}
+
         {/* Other joined rooms */}
         {others.length ? (
           <section className="flex flex-col gap-2">
@@ -168,13 +293,33 @@ function RoomDetail({ room }: { room: MatchRoom }) {
           </section>
         ) : null}
       </div>
+
+      <SheetFooter className="flex-row gap-2 border-t border-border">
+        <Button
+          variant="outline"
+          className="flex-1 rounded-full"
+          onClick={openChat}
+        >
+          <MessageSquare />
+          {t("openChat")}
+        </Button>
+        <Button
+          variant="destructive"
+          className="flex-1 rounded-full"
+          onClick={leave}
+        >
+          <LogOut />
+          {t("leave")}
+        </Button>
+      </SheetFooter>
     </>
   )
 }
 
 function ParticipantRow({ initials }: { initials: string }) {
   const t = useTranslations("ActiveRoom")
-  const { name, rating, trust } = playerByInitials(initials)
+  const { userLevel } = useMatchmaking()
+  const { name, level, trust } = playerByInitials(initials)
   const tier = trustTier(trust)
   const isYou = initials === USER.initials
 
@@ -189,11 +334,7 @@ function ParticipantRow({ initials }: { initials: string }) {
               <span className="text-muted-foreground"> ({t("you")})</span>
             ) : null}
           </span>
-          {typeof rating === "number" ? (
-            <Badge variant="outline" className="font-mono tabular-nums">
-              {rating.toFixed(2)}
-            </Badge>
-          ) : null}
+          <LevelChip level={isYou ? userLevel : level} />
         </div>
         <div
           className={cn(

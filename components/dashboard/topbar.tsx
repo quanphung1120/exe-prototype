@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, Plus } from "lucide-react"
+import { Plus } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { LocaleSwitcher } from "@/components/locale-switcher"
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ActiveRoomPill } from "@/components/dashboard/active-room"
 import { activeNavItem } from "@/components/dashboard/nav"
+import { NotificationsButton } from "@/components/dashboard/notifications"
 import { usePathname } from "@/i18n/navigation"
 
 /** Sticky dashboard header — its title tracks the active route. */
@@ -31,15 +32,7 @@ export function DashboardTopbar() {
         </p>
       </div>
       <ActiveRoomPill />
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={t("notifications")}
-        className="relative"
-      >
-        <Bell />
-        <span className="absolute top-1 right-1 size-1.5 rounded-full bg-brand" />
-      </Button>
+      <NotificationsButton />
       <LocaleSwitcher />
       <ThemeToggle />
       <Button size="sm" className="rounded-full">
