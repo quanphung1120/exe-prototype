@@ -3,6 +3,8 @@
 import * as React from "react"
 import { useTranslations } from "next-intl"
 import {
+  CalendarCheck,
+  CalendarPlus,
   ChevronRight,
   Clock,
   LogOut,
@@ -33,14 +35,17 @@ import {
   SportTag,
 } from "@/components/dashboard/shared"
 import {
+  COURTS,
   MATCH_SUGGESTIONS,
   USER,
+  courtByVenue,
   formatVnd,
   playerByInitials,
   trustTier,
   trustTierAccent,
   type MatchRoom,
 } from "@/components/dashboard/data"
+import { useBooking } from "@/components/dashboard/booking"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import { roomChatId, useChat } from "@/components/dashboard/chat-store"
 import { useRouter } from "@/i18n/navigation"
@@ -117,6 +122,7 @@ function RoomDetail({
     invitePlayer,
   } = useMatchmaking()
   const { setActiveChatId } = useChat()
+  const { openBooking } = useBooking()
   const router = useRouter()
 
   const title = tm.has(`rooms.${room.id}.title`)
@@ -177,6 +183,48 @@ function RoomDetail({
               {formatVnd(room.pricePerHour)}/h
             </DetailRow>
           </div>
+          {isHost ? (
+            room.bookingId ? (
+              <div className="flex items-center justify-between gap-2 rounded-2xl bg-brand/10 px-3 py-2 text-sm">
+                <span className="inline-flex items-center gap-1.5 text-brand">
+                  <CalendarCheck className="size-4" />
+                  {t("booked", {
+                    day: roomDayLabel(room.day, tc),
+                    time: room.time,
+                  })}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="rounded-full"
+                  onClick={() => {
+                    router.push("/dashboard/bookings")
+                    onClose()
+                  }}
+                >
+                  {t("viewInBookings")}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full rounded-full"
+                onClick={() => {
+                  const c =
+                    courtByVenue(room.venue) ??
+                    COURTS.filter((x) => x.sports.includes(room.sport)).sort(
+                      (a, b) => a.distanceKm - b.distanceKm
+                    )[0]
+                  openBooking(c?.id ?? null, { roomId: room.id })
+                  onClose()
+                }}
+              >
+                <CalendarPlus />
+                {t("bookCourt")}
+              </Button>
+            )
+          ) : null}
         </section>
 
         {/* Participants */}
