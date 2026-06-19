@@ -123,7 +123,15 @@ export function MatchMakerView() {
           <Button
             variant="outline"
             className="rounded-full"
-            onClick={() => quickJoin(sport)}
+            onClick={() =>
+              quickJoin({
+                sport,
+                maxDistanceKm: null,
+                day: "today-tomorrow",
+                format: "any",
+                level: "my-level",
+              })
+            }
           >
             <Zap />
             {t("quickJoin")}
@@ -157,7 +165,15 @@ export function MatchMakerView() {
             <Button
               size="sm"
               className="rounded-full"
-              onClick={() => quickJoin(sport)}
+              onClick={() =>
+                quickJoin({
+                  sport,
+                  maxDistanceKm: null,
+                  day: "today-tomorrow",
+                  format: "any",
+                  level: "my-level",
+                })
+              }
             >
               <Zap />
               {t("findMatch")}

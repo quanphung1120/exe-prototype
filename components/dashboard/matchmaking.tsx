@@ -14,6 +14,7 @@ import {
   USER,
   skillWindow,
   type MatchRoom,
+  type OpenToKey,
   type SportKey,
 } from "@/components/dashboard/data"
 
@@ -30,6 +31,16 @@ export interface Queue {
   matched: boolean
 }
 
+/** Constraints the Quick Join popover applies to the auto-pick. */
+export interface QuickJoinFilters {
+  sport: SportKey | "all"
+  /** Max distance in km, or null for no limit. */
+  maxDistanceKm: number | null
+  day: "today" | "today-tomorrow"
+  format: "Singles" | "Doubles" | "any"
+  level: OpenToKey
+}
+
 interface MatchmakingContextValue {
   rooms: MatchRoom[]
   joinedIds: Set<string>
@@ -43,7 +54,7 @@ interface MatchmakingContextValue {
   isSuitable: (room: MatchRoom) => boolean
   joinRoom: (room: MatchRoom, quick?: boolean) => void
   addRoom: (room: MatchRoom) => void
-  quickJoin: (sport: SportKey | "all") => void
+  quickJoin: (filters: QuickJoinFilters) => void
   cancelQueue: () => void
   acceptMatch: () => void
 }
@@ -99,11 +110,24 @@ export function MatchmakingProvider({
   // Tidy up any pending search timers when the dashboard unmounts.
   React.useEffect(() => stopTimers, [stopTimers])
 
+  // Joinable = has an open seat and the user is not already in it. The skill
+  // window check now lives in matchesQuickFilters (the Level filter).
   const isSuitable = (room: MatchRoom) =>
-    USER.rating >= room.skillMin &&
-    USER.rating <= room.skillMax &&
-    room.joined < room.capacity &&
-    !joinedIds.has(room.id)
+    room.joined < room.capacity && !joinedIds.has(room.id)
+
+  const matchesQuickFilters = (room: MatchRoom, f: QuickJoinFilters) => {
+    if (f.sport !== "all" && room.sport !== f.sport) return false
+    if (f.maxDistanceKm !== null && room.distanceKm > f.maxDistanceKm)
+      return false
+    const day = room.day.toLowerCase()
+    if (f.day === "today" && day !== "today") return false
+    if (f.day === "today-tomorrow" && day !== "today" && day !== "tomorrow")
+      return false
+    if (f.format !== "any" && room.format !== f.format) return false
+    const [min, max] = skillWindow(f.level, USER.rating)
+    const mid = (room.skillMin + room.skillMax) / 2
+    return mid >= min && mid <= max
+  }
 
   const joinRoom = (room: MatchRoom, quick = false) => {
     setRooms((prev) =>
@@ -133,12 +157,15 @@ export function MatchmakingProvider({
     setActiveRoomId(room.id)
   }
 
-  const startQueue = (forSport: SportKey) => {
+  const startQueue = (
+    forSport: SportKey,
+    format: "Singles" | "Doubles" = "Doubles"
+  ) => {
     stopTimers()
-    const capacity = 4
+    const capacity = format === "Singles" ? 2 : 4
     setQueue({
       sport: forSport,
-      format: "Doubles",
+      format,
       capacity,
       found: 1,
       elapsed: 0,
@@ -164,9 +191,10 @@ export function MatchmakingProvider({
     }
   }
 
-  const quickJoin = (sport: SportKey | "all") => {
-    const visible = rooms.filter((r) => sport === "all" || r.sport === sport)
-    const pool = visible.filter(isSuitable)
+  const quickJoin = (filters: QuickJoinFilters) => {
+    const pool = rooms.filter(
+      (r) => isSuitable(r) && matchesQuickFilters(r, filters)
+    )
     if (pool.length) {
       const best = [...pool].sort((a, b) => {
         const am = Math.abs((a.skillMin + a.skillMax) / 2 - USER.rating)
@@ -178,7 +206,10 @@ export function MatchmakingProvider({
       joinRoom(best, true)
       return
     }
-    startQueue(sport === "all" ? "badminton" : sport)
+    startQueue(
+      filters.sport === "all" ? "badminton" : filters.sport,
+      filters.format === "any" ? "Doubles" : filters.format
+    )
     toast(t("toast.noRoomTitle"), {
       description: t("toast.noRoomBody"),
     })
