@@ -431,6 +431,18 @@
     "heroBody": "Các phòng quanh mức điểm <strong>{rating}</strong> của bạn. <strong>Tham gia nhanh</strong> đưa bạn vào phòng hợp nhất — hoặc xếp hàng ghép trận mới khi chưa có phòng phù hợp.",
     "allSports": "Tất cả môn",
     "quickJoin": "Tham gia nhanh",
+    "quickFilter": {
+      "distance": "Trong vòng",
+      "distance2": "≤2km",
+      "distance5": "≤5km",
+      "any": "Tất cả",
+      "when": "Thời gian",
+      "dayToday": "Hôm nay",
+      "dayTodayTomorrow": "Hôm nay + Ngày mai",
+      "format": "Hình thức",
+      "level": "Trình độ",
+      "find": "Tìm trận"
+    },
     "createRoom": "Tạo phòng",
     "emptyRooms": "Chưa có phòng nào mở cho môn này.",
     "findMatch": "Tìm trận cho tôi",

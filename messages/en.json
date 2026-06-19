@@ -431,6 +431,18 @@
     "heroBody": "Lobbies around your <strong>{rating}</strong> rating. <strong>Quick Join</strong> drops you into the best fit — or queues you for a fresh match when nothing fits.",
     "allSports": "All sports",
     "quickJoin": "Quick join",
+    "quickFilter": {
+      "distance": "Within",
+      "distance2": "≤2km",
+      "distance5": "≤5km",
+      "any": "Any",
+      "when": "When",
+      "dayToday": "Today",
+      "dayTodayTomorrow": "Today + Tomorrow",
+      "format": "Format",
+      "level": "Level",
+      "find": "Find match"
+    },
     "createRoom": "Create room",
     "emptyRooms": "No open rooms for this sport yet.",
     "findMatch": "Find me a match",
