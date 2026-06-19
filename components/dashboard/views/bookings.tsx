@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  BOOKINGS,
+  courtByVenue,
   type Booking,
   type BookingStatus,
 } from "@/components/dashboard/data"
+import { useBooking } from "@/components/dashboard/booking"
 import { SportTag } from "@/components/dashboard/shared"
 
 type Filter = "upcoming" | "past" | "all"
@@ -23,8 +24,9 @@ const UPCOMING: BookingStatus[] = ["confirmed", "pending"]
 export function BookingsView() {
   const t = useTranslations("Bookings")
   const [filter, setFilter] = React.useState<Filter>("upcoming")
+  const { bookings, openPlay } = useBooking()
 
-  const bookings = BOOKINGS.filter((b) => {
+  const visible = bookings.filter((b) => {
     if (filter === "all") return true
     const upcoming = UPCOMING.includes(b.status)
     return filter === "upcoming" ? upcoming : !upcoming
@@ -40,15 +42,15 @@ export function BookingsView() {
             <TabsTrigger value="all">{t("tabs.all")}</TabsTrigger>
           </TabsList>
         </Tabs>
-        <Button size="sm" className="rounded-full">
+        <Button size="sm" className="rounded-full" onClick={openPlay}>
           <CalendarPlus />
           {t("newBooking")}
         </Button>
       </div>
 
-      {bookings.length ? (
+      {visible.length ? (
         <div className="flex flex-col gap-3">
-          {bookings.map((b) => (
+          {visible.map((b) => (
             <BookingCard key={b.id} booking={b} />
           ))}
         </div>
@@ -71,12 +73,22 @@ const WHEN_KEY: Record<string, string> = {
 function BookingCard({ booking }: { booking: Booking }) {
   const t = useTranslations("Bookings")
   const tc = useTranslations("Common")
+  const { cancelBooking, openBooking } = useBooking()
   const done = booking.status === "completed"
+  const cancelled = booking.status === "cancelled"
 
+  const going = booking.withPlayers.filter((p) => p.status !== "pending").length
+  const invited = booking.withPlayers.filter(
+    (p) => p.status === "pending"
+  ).length
+
+  const tb = useTranslations("Booking")
   const whenKey = WHEN_KEY[booking.day]
-  const dayLabel = whenKey
-    ? tc(`when.${whenKey}`)
-    : t(`records.${booking.id}.day`)
+  const dayLabel = booking.dayKey
+    ? tb(`days.${booking.dayKey}`)
+    : whenKey
+      ? tc(`when.${whenKey}`)
+      : t(`records.${booking.id}.day`)
   const courtNo = booking.court.match(/\d+/)?.[0]
   const courtLabel = courtNo ? t("courtLabel", { n: courtNo }) : booking.court
 
@@ -117,6 +129,11 @@ function BookingCard({ booking }: { booking: Booking }) {
             <Clock className="size-3" />
             {dayLabel} · {booking.time}
           </span>
+          {invited > 0 ? (
+            <span className="inline-flex items-center gap-1">
+              {t("goingInvited", { going, invited })}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -154,24 +171,26 @@ function BookingCard({ booking }: { booking: Booking }) {
       </div>
 
       {/* Action */}
-      {!done ? (
-        <div className="shrink-0 sm:ml-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full rounded-full sm:w-auto"
-          >
-            {t("manage")}
-          </Button>
-        </div>
-      ) : (
+      {done || cancelled ? (
         <div className="shrink-0 sm:ml-2">
           <Button
             variant="ghost"
             size="sm"
             className="w-full rounded-full sm:w-auto"
+            onClick={() => openBooking(courtByVenue(booking.venue)?.id ?? null)}
           >
             {t("rebook")}
+          </Button>
+        </div>
+      ) : (
+        <div className="shrink-0 sm:ml-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full rounded-full sm:w-auto"
+            onClick={() => cancelBooking(booking.id)}
+          >
+            {t("cancel")}
           </Button>
         </div>
       )}
