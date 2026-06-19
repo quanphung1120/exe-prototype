@@ -5,7 +5,16 @@ import { useForm } from "@tanstack/react-form"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import * as z from "zod"
-import { Check, Clock, MapPin, Plus, Sparkles, Users, Zap } from "lucide-react"
+import {
+  Check,
+  ChevronDown,
+  Clock,
+  MapPin,
+  Plus,
+  Sparkles,
+  Users,
+  Zap,
+} from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -39,6 +48,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SportTag } from "@/components/dashboard/shared"
 import {
@@ -53,7 +67,10 @@ import {
   type OpenToKey,
   type SportKey,
 } from "@/components/dashboard/data"
-import { useMatchmaking } from "@/components/dashboard/matchmaking"
+import {
+  useMatchmaking,
+  type QuickJoinFilters,
+} from "@/components/dashboard/matchmaking"
 
 /** Map a stored English day word ("Today"/"Tomorrow") to a localized label. */
 function roomDayLabel(day: string, tc: (key: string) => string) {
@@ -70,12 +87,65 @@ function timeSlotLabel(slot: string, t: (key: string) => string) {
   return i >= 0 ? t(`timeSlots.${i}`) : slot
 }
 
+/** One row of single-select segmented chips built from Button. */
+function FilterChips({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((o) => (
+          <Button
+            key={o.value}
+            type="button"
+            size="sm"
+            variant={o.value === value ? "default" : "outline"}
+            className="rounded-full"
+            onClick={() => onChange(o.value)}
+          >
+            {o.label}
+          </Button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function MatchMakerView() {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
   const { rooms, joinedIds, joinRoom, quickJoin, addRoom } = useMatchmaking()
   const [sport, setSport] = React.useState<SportKey | "all">("all")
   const [createOpen, setCreateOpen] = React.useState(false)
+  const [quickOpen, setQuickOpen] = React.useState(false)
+  const [maxDistance, setMaxDistance] = React.useState("any") // "2" | "5" | "any"
+  const [day, setDay] = React.useState("today-tomorrow") // "today" | "today-tomorrow"
+  const [format, setFormat] = React.useState("any") // "any" | "Singles" | "Doubles"
+  const [level, setLevel] = React.useState<OpenToKey>("my-level")
+
+  const buildFilters = (): QuickJoinFilters => ({
+    sport,
+    maxDistanceKm: maxDistance === "any" ? null : Number(maxDistance),
+    day: day as QuickJoinFilters["day"],
+    format: format as QuickJoinFilters["format"],
+    level,
+  })
+
+  const runQuickJoin = () => {
+    quickJoin(buildFilters())
+    setQuickOpen(false)
+  }
 
   const visibleRooms = rooms.filter((r) => sport === "all" || r.sport === sport)
 
@@ -120,22 +190,66 @@ export function MatchMakerView() {
           </TabsList>
         </Tabs>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() =>
-              quickJoin({
-                sport,
-                maxDistanceKm: null,
-                day: "today-tomorrow",
-                format: "any",
-                level: "my-level",
-              })
-            }
-          >
-            <Zap />
-            {t("quickJoin")}
-          </Button>
+          <Popover open={quickOpen} onOpenChange={setQuickOpen}>
+            <PopoverTrigger
+              render={
+                <Button variant="outline" className="rounded-full">
+                  <Zap />
+                  {t("quickJoin")}
+                  <ChevronDown className="text-muted-foreground" />
+                </Button>
+              }
+            />
+            <PopoverContent align="end" className="w-72">
+              <div className="flex flex-col gap-4">
+                <FilterChips
+                  label={t("quickFilter.distance")}
+                  value={maxDistance}
+                  onChange={setMaxDistance}
+                  options={[
+                    { value: "2", label: t("quickFilter.distance2") },
+                    { value: "5", label: t("quickFilter.distance5") },
+                    { value: "any", label: t("quickFilter.any") },
+                  ]}
+                />
+                <FilterChips
+                  label={t("quickFilter.when")}
+                  value={day}
+                  onChange={setDay}
+                  options={[
+                    { value: "today", label: t("quickFilter.dayToday") },
+                    {
+                      value: "today-tomorrow",
+                      label: t("quickFilter.dayTodayTomorrow"),
+                    },
+                  ]}
+                />
+                <FilterChips
+                  label={t("quickFilter.format")}
+                  value={format}
+                  onChange={setFormat}
+                  options={[
+                    { value: "any", label: t("quickFilter.any") },
+                    { value: "Singles", label: tc("format.singles") },
+                    { value: "Doubles", label: tc("format.doubles") },
+                  ]}
+                />
+                <FilterChips
+                  label={t("quickFilter.level")}
+                  value={level}
+                  onChange={(v) => setLevel(v as OpenToKey)}
+                  options={OPEN_TO.map((o) => ({
+                    value: o.value,
+                    label: t(`openTo.${o.value}`),
+                  }))}
+                />
+                <Button className="rounded-full" onClick={runQuickJoin}>
+                  <Zap />
+                  {t("quickFilter.find")}
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
           <Button className="rounded-full" onClick={() => setCreateOpen(true)}>
             <Plus />
             {t("createRoom")}
@@ -165,15 +279,7 @@ export function MatchMakerView() {
             <Button
               size="sm"
               className="rounded-full"
-              onClick={() =>
-                quickJoin({
-                  sport,
-                  maxDistanceKm: null,
-                  day: "today-tomorrow",
-                  format: "any",
-                  level: "my-level",
-                })
-              }
+              onClick={() => quickJoin(buildFilters())}
             >
               <Zap />
               {t("findMatch")}
