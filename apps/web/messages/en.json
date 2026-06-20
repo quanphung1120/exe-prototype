@@ -1,0 +1,1432 @@
+{
+  "Common": {
+    "appName": "SportMatch AI",
+    "allSports": "All",
+    "filterSport": "Filter by sport",
+    "sports": {
+      "tennis": "Tennis",
+      "pickleball": "Pickleball",
+      "badminton": "Badminton"
+    },
+    "format": {
+      "singles": "Singles",
+      "doubles": "Doubles"
+    },
+    "status": {
+      "confirmed": "Confirmed",
+      "pending": "Pending",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "result": {
+      "win": "Won",
+      "loss": "Lost"
+    },
+    "when": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "yesterday": "Yesterday"
+    },
+    "levels": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    },
+    "level": {
+      "any": "Any level"
+    }
+  },
+  "Nav": {
+    "groupPlay": "Play",
+    "dashboard": {
+      "label": "Dashboard",
+      "caption": "Your court at a glance"
+    },
+    "match-maker": {
+      "label": "Match Maker",
+      "caption": "Find, host or queue a match"
+    },
+    "find-courts": {
+      "label": "Find Courts",
+      "caption": "Open slots near you"
+    },
+    "chat": {
+      "label": "Chat",
+      "caption": "Coordinate your next match"
+    },
+    "bookings": {
+      "label": "Bookings",
+      "caption": "Upcoming and past matches"
+    },
+    "streak": {
+      "label": "Streak",
+      "caption": "Keep the momentum alive"
+    },
+    "group": "Play"
+  },
+  "Sidebar": {
+    "workspaces": "Workspaces",
+    "playerWorkspace": "Player workspace",
+    "venueWorkspace": "Shuttle Republic · Venue",
+    "searchPlaceholder": "Search players, courts…",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Log out",
+    "yourLevel": "Your level",
+    "venueTag": "Venue",
+    "operatorRole": "Operations",
+    "searchVenue": "Search bookings, players…",
+    "venues": "Your venues"
+  },
+  "Topbar": {
+    "notifications": "Notifications"
+  },
+  "ActiveRoom": {
+    "pill": "In a match room",
+    "location": "Location",
+    "participants": "Participants ({count})",
+    "you": "you",
+    "otherRooms": "Other rooms",
+    "more": "+{count}",
+    "trust": {
+      "trusted": "Trusted",
+      "reliable": "Reliable",
+      "new": "New"
+    },
+    "leave": "Leave match",
+    "openChat": "Open team chat",
+    "hostControls": "Host controls",
+    "maxPlayers": "Max players",
+    "maxPlayersDec": "Fewer players",
+    "maxPlayersInc": "More players",
+    "invitePlayers": "Invite players",
+    "invite": "Invite",
+    "roomFull": "Room's full — raise max players to invite more",
+    "bookCourt": "Book court",
+    "booked": "Booked · {day} · {time}",
+    "viewInBookings": "View in Bookings",
+    "noCourtShort": "No court yet",
+    "noCourtYet": "No court booked yet",
+    "hostNoCourt": "The host hasn't booked a court yet.",
+    "bill": "Bill split",
+    "perHead": "{amount}/player",
+    "collected": "{paid} / {total}",
+    "pay": "Pay {amount}",
+    "paid": "Paid",
+    "remove": "Remove from room",
+    "leaveTitle": "Leave this match?",
+    "leaveBody": "You'll be removed from this room.",
+    "leaveHostBody": "You host this room — leaving disbands it for everyone.",
+    "leaveBookedBody": "You host this room — leaving cancels the court booking and disbands the room for everyone.",
+    "leaveCancel": "Stay",
+    "leaveConfirm": "Leave match"
+  },
+  "LocaleSwitcher": {
+    "label": "Language",
+    "vi": "Tiếng Việt",
+    "en": "English"
+  },
+  "ThemeToggle": {
+    "toggleAria": "Toggle light and dark theme",
+    "toggleTitle": "Toggle theme (L)"
+  },
+  "Meta": {
+    "titleDefault": "SportMatch AI — Find a court. Find your match.",
+    "titleTemplate": "%s · SportMatch AI",
+    "description": "SportMatch AI is your AI-powered court-booking assistant for racquet sports. Book tennis, pickleball and badminton in seconds and get matched with players at your level. Early access is now open.",
+    "ogTitle": "SportMatch AI — Find a court. Find your match.",
+    "ogDescription": "AI-powered court booking and player matchmaking for racquet sports. Join the early-access waitlist.",
+    "twitterTitle": "SportMatch AI — Find a court. Find your match.",
+    "twitterDescription": "AI-powered court booking and player matchmaking for racquet sports. Join the early-access waitlist.",
+    "keywords": [
+      "court booking",
+      "player matchmaking",
+      "tennis",
+      "pickleball",
+      "badminton",
+      "AI assistant",
+      "racquet sports"
+    ]
+  },
+  "Assistant": {
+    "title": "Court Assistant",
+    "subtitle": "AI · finds courts near you",
+    "greeting": "Hi — I'm your court assistant. Tell me a sport, a budget, or how close you want to play, and I'll pull up courts near you.",
+    "placeholder": "Ask for a court…",
+    "thinking": "Thinking…",
+    "thoughtFor": "Thought for {seconds}s",
+    "inputAria": "Ask the court assistant",
+    "sendAria": "Send",
+    "closeAria": "Close assistant",
+    "toggleOpen": "Open court assistant",
+    "toggleClose": "Close court assistant",
+    "book": "Book",
+    "bookFind": "Book + find players",
+    "courtsCount": "{count, plural, one {# court} other {# courts}}",
+    "suggestions": {
+      "badminton": "Badminton courts near me tonight",
+      "cheapest": "Cheapest courts",
+      "tennis": "Tennis this evening"
+    },
+    "steps": {
+      "location": "Reading your location (Hà Nội)",
+      "scanning": "Scanning {count} {sport}venues nearby",
+      "slots": "Checking open slots for today",
+      "ranking": "Ranking by {rank}",
+      "selecting": "Selecting your top {count} matches"
+    },
+    "rank": {
+      "price": "price (low to high)",
+      "distance": "distance from you",
+      "rating": "rating and availability"
+    },
+    "reply": {
+      "found": "Found {count} {sport}{count, plural, one {court} other {courts}} for you, ranked by {rank}.",
+      "none": "I couldn't find a match — try another sport or filter."
+    }
+  },
+  "Play": {
+    "button": "Play",
+    "title": "What do you want to do?",
+    "bookCourt": "Book a court",
+    "bookCourtDesc": "Reserve a slot — solo or with people you know",
+    "findTeammates": "Find teammates",
+    "findTeammatesDesc": "Let AI find players to join you",
+    "both": "Both",
+    "bothDesc": "Find players and book a court"
+  },
+  "Booking": {
+    "title": "Book · {court}",
+    "pickTitle": "Book a court",
+    "description": "Pick a slot, choose your format, and fill the court.",
+    "steps": {
+      "court": "Court",
+      "slot": "Slot",
+      "players": "Players",
+      "confirm": "Confirm",
+      "pay": "Payment"
+    },
+    "courtSearch": "Search court name or district…",
+    "noCourts": "No courts found",
+    "anyDay": "Day",
+    "days": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "sat": "Sat",
+      "sun": "Sun",
+      "mon": "Mon"
+    },
+    "slotsFor": "Open slots",
+    "taken": "Taken",
+    "format": "Format",
+    "fillMode": "How are you filling the court?",
+    "teamGate": "Do you have a team yet?",
+    "gateHint": {
+      "court": "Just book the court — play solo or bring your own group.",
+      "invite": "Pick players you know and invite them.",
+      "find": "We'll find and invite compatible players to fill the court."
+    },
+    "fill": {
+      "court": "Just the court",
+      "invite": "I have players",
+      "find": "Find teammates",
+      "findHint": "We'll open the remaining seats and find compatible players to fill them."
+    },
+    "invite": "Invite",
+    "added": "Added",
+    "invited": "Invited",
+    "going": "Going",
+    "host": "Host",
+    "roster": "Players",
+    "summary": "Summary",
+    "when": "When",
+    "players": "Players",
+    "price": "Price",
+    "perHead": "{amount}/player",
+    "perHour": "/h",
+    "justYou": "Just you",
+    "goingInvited": "{going} going · {invited} invited",
+    "goingCount": "{count} going",
+    "finding": "Finding teammates…",
+    "conflictWarning": "Heads up — this overlaps another confirmed booking.",
+    "conflictCourt": "That court is already booked at this time — pick another slot.",
+    "conflictSelf": "You already have a booking at this time — pick another slot.",
+    "back": "Back",
+    "next": "Next",
+    "confirm": "Confirm booking",
+    "toPayment": "Continue to payment",
+    "pay": {
+      "amountDue": "Amount due",
+      "courtFee": "court fee",
+      "method": "Payment method",
+      "qr": "VietQR",
+      "card": "Card",
+      "ewallet": "E-wallet",
+      "cardNumber": "Card number",
+      "cardNumberPlaceholder": "1234 5678 9012 3456",
+      "expiry": "Expiry",
+      "cvc": "CVC",
+      "cardName": "Name on card",
+      "qrAccount": "SPORTMATCH AI JSC",
+      "qrHint": "Scan with your banking app to pay",
+      "ewalletHint": "You'll be redirected to {wallet} to approve the payment.",
+      "wallets": {
+        "momo": "MoMo",
+        "zalopay": "ZaloPay"
+      },
+      "collectHint": "You'll collect {amount}/player from your team afterward",
+      "payNow": "Pay {amount}",
+      "processing": "Processing…",
+      "secure": "Demo payment — no card is charged"
+    },
+    "roomTitle": "{sport} at {court}",
+    "toast": {
+      "booked": "Court booked",
+      "cancelled": "Booking cancelled",
+      "conflict": "That slot was just taken — choose another time."
+    },
+    "startTime": "Start time",
+    "duration": "Duration",
+    "durationLabel": "Duration",
+    "quickDuration": "Quick pick",
+    "durationLess": "Decrease duration",
+    "durationMore": "Increase duration",
+    "available": "Available",
+    "pickStartHint": "Pick a start time to check availability.",
+    "endTime": "End time"
+  },
+  "Session": {
+    "toast": {
+      "activeNow": "Now showing {title}",
+      "activeNone": "No active room",
+      "disbanded": "Room disbanded",
+      "rsvpGoing": "Is in",
+      "rsvpDeclined": "Can't make it",
+      "addTeam": "Invite players to share this court",
+      "billPaid": "Paid their share"
+    }
+  },
+  "Shared": {
+    "next": "next {time}",
+    "perHour": "/h"
+  },
+  "FindCourts": {
+    "metaTitle": "Find Courts",
+    "metaDescription": "Open court slots near you, ready to book.",
+    "allSports": "All sports",
+    "empty": "No courts for this sport nearby. Try another filter.",
+    "nearby": "Nearby · {count, plural, one {# court} other {# courts}}",
+    "distance": "{km} km",
+    "openSlots": "{count, plural, one {# slot open today} other {# slots open today}}",
+    "freePct": "{pct}% free",
+    "perHour": "/hour",
+    "book": "Book",
+    "courts": {
+      "c1": {
+        "surface": "Glass · panoramic"
+      },
+      "c2": {
+        "surface": "Hard · Plexicushion"
+      },
+      "c3": {
+        "surface": "Cushioned acrylic"
+      },
+      "c4": {
+        "surface": "Clay · outdoor"
+      },
+      "c5": {
+        "surface": "Sprung timber"
+      },
+      "c6": {
+        "surface": "Tournament glass"
+      }
+    }
+  },
+  "Bookings": {
+    "metaTitle": "Bookings",
+    "metaDescription": "Your upcoming and past court bookings.",
+    "tabs": {
+      "upcoming": "Upcoming",
+      "past": "Past",
+      "all": "All"
+    },
+    "summary": {
+      "thisWeek": "This week",
+      "confirmed": "Confirmed",
+      "pending": "Pending",
+      "played": "Played"
+    },
+    "calendar": {
+      "title": "Your week",
+      "now": "Now",
+      "liveAt": "Now · {time}",
+      "bookDay": "Book a court · {day}",
+      "empty": "No bookings this week yet. Click an open slot to book a court."
+    },
+    "past": {
+      "title": "Past games"
+    },
+    "newBooking": "New booking",
+    "empty": "Nothing here yet. Book a court to get your next match on the calendar.",
+    "manage": "Manage",
+    "rebook": "Rebook",
+    "addTeam": "Find teammates",
+    "courtLabel": "Court {n}",
+    "cancel": "Cancel booking",
+    "cancelTitle": "Cancel this booking?",
+    "cancelSoloBody": "The court hold will be released. This can't be undone.",
+    "cancelTeamBody": "The court hold will be released, but your team room stays open so you can book again.",
+    "keep": "Keep booking",
+    "cancelConfirm": "Cancel booking",
+    "goingInvited": "{going} going · {invited} invited",
+    "records": {
+      "b3": {
+        "day": "Sat, 21 Jun"
+      },
+      "b4": {
+        "day": "Mon, 16 Jun"
+      },
+      "b5": {
+        "day": "Fri, 13 Jun"
+      }
+    }
+  },
+  "Landing": {
+    "hero": {
+      "titleLine1": "Find a court.",
+      "titleLine2": "Find your match.",
+      "subtitle": "Your AI booking assistant for racquet sports. Book tennis, pickleball and badminton in seconds — and get matched with players at your level.",
+      "cta": "Get started",
+      "socialProof": "1,000+ players joined",
+      "sportsLabel": "Built for:"
+    },
+    "aboutSection": {
+      "eyebrow": "About SportMatch AI",
+      "titleStrong": "An intelligent assistant behind every match —",
+      "titleMuted": "booking courts, matching players, and filling every empty slot for you.",
+      "body": "We believe playing should be the easy part. SportMatch AI handles the logistics — finding open courts near you, matching you with players at your level, and keeping your group in sync — so tennis, pickleball and badminton are always one message away. From first-timers to club regulars, we're building the fastest way to get on court."
+    },
+    "pricingSection": {
+      "eyebrow": "Pricing",
+      "title": "Simple plans for players and venues",
+      "subtitle": "Start free, upgrade when you're ready, and cancel anytime.",
+      "tabs": {
+        "customers": "For players",
+        "venues": "For venues"
+      },
+      "mostPopular": "Most popular"
+    },
+    "pricing": {
+      "customers": {
+        "free": {
+          "name": "Free",
+          "price": "0₫",
+          "period": "forever",
+          "tagline": "Everything you need to find a court and play.",
+          "features": [
+            "Browse open courts nearby",
+            "Join matches manually",
+            "One racquet sport",
+            "Group chat for your matches"
+          ],
+          "cta": "Get started"
+        },
+        "plus": {
+          "name": "Plus",
+          "price": "99K",
+          "period": "/month",
+          "tagline": "AI booking and skill matching for regular players.",
+          "features": [
+            "Everything in Free",
+            "AI booking assistant",
+            "Skill-based matchmaking",
+            "All three racquet sports",
+            "Smart reminders"
+          ],
+          "cta": "Start Plus"
+        },
+        "pro": {
+          "name": "Pro",
+          "price": "199K",
+          "period": "/month",
+          "tagline": "Priority matching and insights for the most active players.",
+          "features": [
+            "Everything in Plus",
+            "Priority matchmaking",
+            "Advanced performance insights",
+            "Priority court booking",
+            "Early access to new venues"
+          ],
+          "cta": "Start Pro"
+        }
+      },
+      "venues": {
+        "starter": {
+          "name": "Starter",
+          "price": "499K",
+          "period": "/month",
+          "tagline": "List your venue and start taking AI-driven bookings.",
+          "features": [
+            "Venue profile and listing",
+            "Real-time booking calendar",
+            "Player waitlists",
+            "Basic occupancy reports"
+          ],
+          "cta": "Become a partner"
+        },
+        "growth": {
+          "name": "Growth",
+          "price": "1.499K",
+          "period": "/month",
+          "tagline": "Fill every court with automatic matchmaking and analytics.",
+          "features": [
+            "Everything in Starter",
+            "Automatic court-filling matchmaking",
+            "Court utilization analytics",
+            "Priority placement to nearby players",
+            "No-show-resistant confirmations"
+          ],
+          "cta": "Become a partner"
+        }
+      }
+    },
+    "trust": {
+      "caption": "Trusted by clubs and players across the racquet sports scene"
+    },
+    "playerFeaturesSection": {
+      "eyebrow": "For players",
+      "title": "Less organizing. More playing.",
+      "subtitle": "Everything you need to get on court and into a great match — without the chaotic group chats."
+    },
+    "playerFeatures": {
+      "0": {
+        "title": "AI booking assistant",
+        "body": "Just say what you want — “badminton tonight after 7, nearby, players at my level.” The assistant handles the rest: court, time and players."
+      },
+      "1": {
+        "title": "Skill-based matching",
+        "body": "Get matched with players at your level so every match is competitive — no more one-sided games."
+      },
+      "2": {
+        "title": "Instant booking",
+        "body": "Real-time court availability at venues near you. Reserve in seconds, no phone calls needed."
+      },
+      "3": {
+        "title": "Courts near you",
+        "body": "Real-time open slots at clubs around you, sorted by distance, price and surface."
+      },
+      "4": {
+        "title": "Chat & coordinate",
+        "body": "Built-in chat, reminders and shared bookings keep your whole group on the same page."
+      }
+    },
+    "stepsSection": {
+      "eyebrow": "How it works",
+      "title": "Book and match in three taps."
+    },
+    "steps": {
+      "0": {
+        "title": "Tell the AI what you want",
+        "body": "Type it like you'd text a friend: “Pickleball doubles, Saturday morning, intermediate level.”"
+      },
+      "1": {
+        "title": "AI finds courts + players",
+        "body": "The assistant scans nearby venues, open slots and players at your level — then suggests the best fit."
+      },
+      "2": {
+        "title": "Confirm and play",
+        "body": "One tap to book the court and notify everyone. Just show up and play."
+      }
+    },
+    "stats": {
+      "0": {
+        "value": "3,200+",
+        "label": "Players on the waitlist"
+      },
+      "1": {
+        "value": "40+",
+        "label": "Partner clubs onboard"
+      },
+      "2": {
+        "value": "<60s",
+        "label": "From request to booked"
+      },
+      "3": {
+        "value": "3",
+        "label": "Racquet sports supported"
+      }
+    },
+    "venuesSection": {
+      "eyebrow": "For venues & clubs",
+      "titleLine1": "Fill every court.",
+      "titleLine2": "Let the AI do the rest.",
+      "subtitle": "Connect your booking calendar and SportMatch AI quietly steers players into your open courts — matching, scheduling and reminding so you don't have to."
+    },
+    "venueBenefits": {
+      "0": {
+        "title": "Fill off-peak hours",
+        "body": "The AI gently nudges nearby players toward your empty slots, turning quiet hours into bookings."
+      },
+      "1": {
+        "title": "Automatic matchmaking",
+        "body": "Matches short on players are filled automatically with players at the right level."
+      },
+      "2": {
+        "title": "Court utilization analytics",
+        "body": "See utilization, peak demand and revenue trends for each court in real time."
+      },
+      "3": {
+        "title": "No-show-resistant bookings",
+        "body": "Smart confirmations and waitlists cut no-shows and keep your courts profitable."
+      }
+    },
+    "occupancy": {
+      "title": "Court occupancy",
+      "offPeakBadge": "+32% off-peak",
+      "weekdays": {
+        "0": "Mon",
+        "1": "Tue",
+        "2": "Wed",
+        "3": "Thu",
+        "4": "Fri",
+        "5": "Sat",
+        "6": "Sun"
+      },
+      "utilization": "Utilization",
+      "bookingsPerWeek": "Bookings / week",
+      "playerRating": "Player rating"
+    },
+    "testimonialsSection": {
+      "eyebrow": "Loved by early testers",
+      "title": "Players are hooked.",
+      "ratingAria": "Rated 5 out of 5 stars"
+    },
+    "testimonials": {
+      "0": {
+        "quote": "I used to spend more time texting in group chats than actually playing. Now I just tell the app and it handles both the court and the players.",
+        "role": "Badminton · 3.5"
+      },
+      "1": {
+        "quote": "The skill matching is uncannily accurate. Every match is competitive — something I never got with random pickup games.",
+        "role": "Tennis · 4.0"
+      },
+      "2": {
+        "quote": "As a club, our weekday 2–5pm slots used to sit empty. Now matchmaking quietly fills them. It all just runs in the background.",
+        "role": "Club manager"
+      }
+    },
+    "faqSection": {
+      "eyebrow": "FAQ",
+      "title": "Answers to your questions."
+    },
+    "faq": {
+      "0": {
+        "question": "Which sports does SportMatch AI support?",
+        "answer": "We're launching with the racquet sports family: tennis, pickleball and badminton. More will be added based on where our community plays most."
+      },
+      "1": {
+        "question": "How does the AI assistant actually book a court?",
+        "answer": "You describe what you want in natural language. The assistant checks real-time availability at partner venues, finds players near your level and proposes a complete plan — court, time and players. You confirm with a single tap."
+      },
+      "2": {
+        "question": "How does player matching work?",
+        "answer": "Every player has a skill rating that rises as you play. Matches are suggested within a close skill window and distance you set, so games stay competitive and convenient."
+      },
+      "3": {
+        "question": "Is the app live yet?",
+        "answer": "We're in early access and expanding city by city. Join the waitlist and we'll email you the moment courts in your area go live."
+      },
+      "4": {
+        "question": "I run a club — how do I get listed?",
+        "answer": "Request a partner demo below. We'll connect your booking calendar, surface your open courts to nearby players and help you fill off-peak slots — no need to replace your whole system."
+      }
+    },
+    "cta": {
+      "title": "Be the first on court.",
+      "subtitle": "Join the waitlist and we'll email your invite the moment SportMatch AI launches in your city."
+    },
+    "footer": {
+      "tagline": "The AI booking assistant for racquet sports. Find a court, find your match, and just play.",
+      "product": {
+        "title": "Product",
+        "features": "Features",
+        "howItWorks": "How it works",
+        "faq": "FAQ",
+        "waitlist": "Join the waitlist"
+      },
+      "venues": {
+        "title": "For venues",
+        "partner": "Partner program",
+        "demo": "Request a demo",
+        "analytics": "Analytics"
+      },
+      "company": {
+        "title": "Company",
+        "about": "About",
+        "privacy": "Privacy",
+        "terms": "Terms"
+      },
+      "copyright": "© 2026 SportMatch AI. Built for players.",
+      "themeHint": "Press <kbd>L</kbd> to switch theme"
+    }
+  },
+  "Header": {
+    "homeAria": "SportMatch AI — home",
+    "nav": {
+      "about": "About",
+      "features": "Features",
+      "howItWorks": "How it works",
+      "pricing": "Pricing",
+      "venues": "For venues",
+      "faq": "FAQ"
+    },
+    "cta": "Sign up now",
+    "waitlistCta": "Join the waitlist",
+    "menuOpen": "Open menu",
+    "menuClose": "Close menu"
+  },
+  "Waitlist": {
+    "emailLabel": "Email address",
+    "submitting": "Sending…",
+    "errors": {
+      "required": "Please enter your email address.",
+      "invalid": "That email address doesn't look valid."
+    },
+    "player": {
+      "placeholder": "your-email@example.com",
+      "cta": "Join the waitlist",
+      "success": "You're on the list! We'll email your early-access invite soon.",
+      "note": "Free to join · No spam · Early-access invites sent weekly."
+    },
+    "venue": {
+      "placeholder": "your work email",
+      "cta": "Request a partner demo",
+      "success": "Thank you! Our venues team will be in touch within 2 business days.",
+      "note": "For clubs & facilities · See how AI fills your off-peak courts."
+    }
+  },
+  "MatchMaker": {
+    "metaTitle": "Match Maker",
+    "metaDescription": "AI-picked players matched to your level and schedule.",
+    "heroTitle": "Open rooms near your level",
+    "heroBody": "Open rooms for <strong>{level}</strong> players near you. <strong>Quick Join</strong> drops you into the best fit — or finds you a partner when nothing fits.",
+    "allSports": "All sports",
+    "quickJoin": "Quick join",
+    "quickFilter": {
+      "distance": "Within",
+      "distance2": "≤2km",
+      "distance5": "≤5km",
+      "any": "Any",
+      "when": "When",
+      "dayToday": "Today",
+      "dayTodayTomorrow": "Today + Tomorrow",
+      "format": "Format",
+      "level": "Level",
+      "find": "Find match",
+      "myLevel": "My level",
+      "sport": "Sport",
+      "court": "Court",
+      "anyCourt": "Any court",
+      "courtSearch": "Search court name or district…",
+      "noCourts": "No courts found",
+      "description": "Set your filters and we'll find the best match."
+    },
+    "createRoom": "Create room",
+    "emptyRooms": "No open rooms for this sport yet.",
+    "findMatch": "Find me a match",
+    "hostOne": "Host one",
+    "hostedBy": "Hosted by {name}",
+    "openSeats": "{count, plural, one {# open} other {# open}}",
+    "joined": "Joined",
+    "full": "Full",
+    "join": "Join",
+    "selectCourt": "Select a court",
+    "players": "{count, plural, one {# player} other {# players}}",
+    "matchmadeTitle": "Matchmade {sport} {format}",
+    "rooms": {
+      "r1": {
+        "title": "Evening badminton, friendly doubles"
+      },
+      "r2": {
+        "title": "Competitive tennis singles"
+      },
+      "r3": {
+        "title": "Casual pickleball rally"
+      },
+      "r4": {
+        "title": "Advanced pickleball doubles"
+      },
+      "r5": {
+        "title": "Badminton doubles night"
+      },
+      "r6": {
+        "title": "Tennis doubles, all welcome"
+      }
+    },
+    "timeSlots": {
+      "0": "Today 18:30 – 19:30",
+      "1": "Today 19:30 – 20:30",
+      "2": "Today 20:30 – 21:30",
+      "3": "Tomorrow 07:00 – 08:00",
+      "4": "Tomorrow 19:00 – 20:00",
+      "5": "Sat 09:30 – 10:30"
+    },
+    "dialog": {
+      "title": "Host a room",
+      "description": "Set up a lobby and we'll surface it to players near your level.",
+      "roomTitle": "Room title",
+      "roomTitlePlaceholder": "Evening badminton, friendly doubles",
+      "sport": "Sport",
+      "format": "Format",
+      "court": "Court",
+      "when": "When",
+      "note": "Note for players (optional)",
+      "notePlaceholder": "Bring your own paddle. We'll grab the court 10 min early.",
+      "cancel": "Cancel",
+      "maxPlayers": "Max players",
+      "maxPlayersDec": "Fewer players",
+      "maxPlayersInc": "More players",
+      "level": "Level"
+    },
+    "validation": {
+      "titleMin": "Give your room a title of at least 5 characters.",
+      "titleMax": "Keep the title under 40 characters.",
+      "court": "Pick a court.",
+      "time": "Pick a time.",
+      "noteMax": "Keep your note under 120 characters."
+    },
+    "toast": {
+      "roomCreated": "Room created",
+      "joined": "You're in",
+      "quickJoined": "Quick joined a room",
+      "noRoomTitle": "No open room fits — finding you a match",
+      "noRoomBody": "Hang tight, we're filling a lobby for you.",
+      "matchReady": "Match ready!",
+      "left": "You left the room",
+      "searchingPartner": "Finding your first partner…"
+    },
+    "dock": {
+      "matchReady": "Match ready",
+      "finding": "Finding players…",
+      "accept": "Accept",
+      "cancelSearch": "Cancel search",
+      "findingPartner": "Finding a partner…",
+      "found": "Found {name} 👋",
+      "roomReady": "Room ready",
+      "manage": "Manage",
+      "dismiss": "Dismiss"
+    },
+    "leave": "Leave"
+  },
+  "Overview": {
+    "metaTitle": "Dashboard",
+    "metaDescription": "Your SportMatch AI command center — next match, AI player suggestions, nearby courts, bookings and streak.",
+    "greeting": "Good evening, {name}",
+    "streakTeaser": "You're on a <streak>{count}-day streak</streak>. One match today keeps it alive.",
+    "filterAll": "All",
+    "nextMatch": "Next match",
+    "with": "with",
+    "directions": "Directions",
+    "checkIn": "Check in",
+    "currentStreak": "Current streak",
+    "days": "days",
+    "weeklyGoal": "Weekly goal",
+    "matchMaker": "AI Match Maker",
+    "courtsNearYou": "Courts near you",
+    "seeAll": "See all",
+    "invite": "Invite",
+    "book": "Book",
+    "emptyPlayers": "No players for this sport yet — try another filter.",
+    "emptyCourts": "No open courts for this sport — try another filter.",
+    "recentActivity": "Recent activity",
+    "activity": {
+      "a1": {
+        "text": "AI matched you with Trần Huy for badminton tonight",
+        "time": "2h ago"
+      },
+      "a3": {
+        "text": "Won doubles at Rally Point Club · 6–3, 6–4",
+        "time": "3 days ago"
+      },
+      "a4": {
+        "text": "Booked Court 1 at Ace Tennis Club",
+        "time": "4 days ago"
+      },
+      "a5": {
+        "text": "Close singles loss to Vũ Hà · 4–6, 6–7",
+        "time": "6 days ago"
+      }
+    }
+  },
+  "Streak": {
+    "metaTitle": "Streak",
+    "metaDescription": "Track your play streak and keep the momentum alive.",
+    "currentStreak": "Current streak",
+    "daysUnit": "days",
+    "daysCount": "{count, plural, one {# day} other {# days}}",
+    "longestLabel": "Longest:",
+    "weeklyGoal": "Weekly goal",
+    "weeklyProgress": "{done}/{goal} matches",
+    "longestStreak": "Longest streak",
+    "activeDays": "Active days · 12w",
+    "goalHitRate": "Goal hit rate",
+    "last12Weeks": "Last 12 weeks",
+    "less": "Less",
+    "more": "More",
+    "matchesCount": "{count, plural, one {# match} other {# matches}}",
+    "restDay": "Rest day",
+    "milestones": "Milestones",
+    "weekdays": {
+      "0": "M",
+      "1": "T",
+      "2": "W",
+      "3": "T",
+      "4": "F",
+      "5": "S",
+      "6": "S"
+    },
+    "milestoneList": {
+      "firstServe": {
+        "label": "First serve",
+        "hint": "Play your first match"
+      },
+      "weekWarrior": {
+        "label": "Week warrior",
+        "hint": "7-day streak"
+      },
+      "fortnight": {
+        "label": "Fortnight",
+        "hint": "14-day streak"
+      },
+      "allRounder": {
+        "label": "All-rounder",
+        "hint": "Play all 5 sports"
+      },
+      "hotHand": {
+        "label": "Hot hand",
+        "hint": "Win 5 in a row"
+      },
+      "nightOwl": {
+        "label": "Night owl",
+        "hint": "10 evening matches"
+      }
+    }
+  },
+  "Chat": {
+    "metaTitle": "Chat",
+    "metaDescription": "Coordinate your next match with players and venues.",
+    "messages": "Messages",
+    "searchPlaceholder": "Search chats…",
+    "members": "{count, plural, one {# member} other {# members}}",
+    "online": "Online",
+    "offline": "Offline",
+    "call": "Call",
+    "videoCall": "Video call",
+    "inputPlaceholder": "Write a message…",
+    "messageLabel": "Message",
+    "send": "Send",
+    "now": "now",
+    "chats": {
+      "ch1": {
+        "last": "Huy: See you at Court 3 at 6:30 👊",
+        "time": "12m"
+      },
+      "ch2": {
+        "last": "Bring an extra grip if you have one",
+        "time": "1h"
+      },
+      "ch3": {
+        "last": "Confirmed for tonight ✅",
+        "time": "3h"
+      },
+      "ch4": {
+        "last": "Rematch this weekend? 🎾",
+        "time": "Yesterday"
+      }
+    },
+    "thread": {
+      "m1": {
+        "text": "Court 3 is booked for tonight 🔥"
+      },
+      "m2": {
+        "text": "Confirmed for tonight ✅"
+      },
+      "m3": {
+        "text": "Perfect. I'll warm up the serves 😅"
+      },
+      "m4": {
+        "text": "See you at Court 3 at 6:30 👊"
+      }
+    },
+    "teamWelcome": "Welcome 👋 See you at {venue}.",
+    "teamCreated": "You created this room."
+  },
+  "Notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications yet",
+    "newTeamChat": "New team chat — {title}",
+    "justNow": "Just now",
+    "items": {
+      "n1": {
+        "text": "New message in Badminton Crew",
+        "time": "12m"
+      },
+      "n2": {
+        "text": "AI matched you with Trần Huy for badminton tonight",
+        "time": "2h"
+      },
+      "n3": {
+        "text": "Court 3 at Shuttle Republic confirmed · 18:30",
+        "time": "5h"
+      }
+    }
+  },
+  "VenueNav": {
+    "group": "Manage",
+    "newBooking": "New booking",
+    "command": {
+      "label": "Command Center",
+      "caption": "Your venue, live"
+    },
+    "schedule": {
+      "label": "Schedule",
+      "caption": "Courts × hours, at a glance"
+    },
+    "reservations": {
+      "label": "Reservations",
+      "caption": "Requests, holds and walk-ins"
+    },
+    "monitor": {
+      "label": "AI Monitor",
+      "caption": "Always-on operations intelligence"
+    },
+    "analytics": {
+      "label": "Analytics",
+      "caption": "Revenue, utilization and demand"
+    },
+    "customers": {
+      "label": "Players",
+      "caption": "Regulars, retention and reach"
+    },
+    "manage": {
+      "label": "Venues",
+      "caption": "Add, edit and switch your venues"
+    }
+  },
+  "VenueManage": {
+    "metaTitle": "Venues · SportMatch AI",
+    "metaDescription": "Manage the venues you operate — add, edit and remove venues and their courts, and switch which one the dashboard is scoped to.",
+    "title": "Venues",
+    "subtitle": "Add, edit and switch between the venues you operate.",
+    "yourVenues": "Your venues",
+    "newVenue": "New venue",
+    "editVenue": "Edit venue",
+    "courtsAt": "Courts at {venue}",
+    "addCourt": "Add court",
+    "editCourt": "Edit court",
+    "noCourts": "No courts yet. Add your first court to start taking bookings.",
+    "perHour": "/h",
+    "active": "Active",
+    "current": "Current",
+    "switchTo": "Switch to",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "create": "Create",
+    "save": "Save changes",
+    "error": "Something went wrong",
+    "form": {
+      "description": "These details appear across the operator dashboard.",
+      "name": "Venue name",
+      "namePlaceholder": "e.g. Shuttle Republic",
+      "district": "District",
+      "city": "City",
+      "sports": "Sports offered",
+      "openFrom": "Opens",
+      "openTo": "Closes",
+      "manager": "Manager",
+      "managerPlaceholder": "e.g. Lê Quang"
+    },
+    "courtForm": {
+      "description": "Courts power the schedule, live monitor and bookings.",
+      "name": "Court name",
+      "namePlaceholder": "e.g. Court 1",
+      "sport": "Sport",
+      "state": "Status",
+      "surface": "Surface",
+      "surfacePlaceholder": "e.g. Sprung timber",
+      "price": "Price per hour (₫)"
+    },
+    "courtState": {
+      "available": "Available",
+      "in-play": "In play",
+      "upcoming": "Upcoming",
+      "maintenance": "Maintenance"
+    },
+    "deleteVenue": {
+      "title": "Delete this venue?",
+      "description": "{name} and all of its courts will be removed. This cannot be undone."
+    },
+    "deleteCourt": {
+      "title": "Delete this court?",
+      "description": "{name} will be removed from this venue. This cannot be undone."
+    },
+    "validation": {
+      "name": "Please enter at least 2 characters",
+      "required": "This field is required",
+      "sports": "Pick at least one sport",
+      "time": "Use HH:MM (e.g. 06:00)",
+      "price": "Price must be 0 or more"
+    },
+    "toast": {
+      "venueCreated": "{name} created",
+      "venueUpdated": "{name} updated",
+      "venueDeleted": "{name} deleted",
+      "courtCreated": "{name} added",
+      "courtUpdated": "{name} updated",
+      "courtDeleted": "{name} removed"
+    }
+  },
+  "VenueDock": {
+    "label": "AI Monitor",
+    "watching": "Watching {count} courts",
+    "newInsight": "New insight",
+    "applied": "Recommendation applied",
+    "review": "Review"
+  },
+  "VenueCommand": {
+    "metaTitle": "Command Center · SportMatch AI",
+    "metaDescription": "Live overview of your venue — occupancy, revenue, courts in play, arrivals and the top AI recommendation.",
+    "greeting": "Welcome back, {manager}",
+    "subtitle": "Here is how {venue} is running right now.",
+    "asOf": "Live · as of {time}",
+    "newBooking": "New booking",
+    "kpi": {
+      "occupancy": "Occupancy today",
+      "revenueToday": "Revenue today",
+      "bookingsToday": "Bookings today",
+      "noShowRate": "No-show rate"
+    },
+    "courtsNow": "Courts now",
+    "liveOccupancy": "Today's occupancy",
+    "courtsLive": "{live} of {total} in play",
+    "state": {
+      "inPlay": "In play",
+      "upcoming": "Upcoming",
+      "available": "Open",
+      "maintenance": "Maintenance"
+    },
+    "courtMaintenance": "Closed for maintenance",
+    "courtFrom": "from {time}",
+    "courtUntil": "until {time}",
+    "courtOpen": "Open to book",
+    "topInsight": "Top AI insight",
+    "severity": {
+      "info": "Opportunity",
+      "warn": "Watch",
+      "critical": "Act now"
+    },
+    "reviewInMonitor": "Review in AI Monitor",
+    "emptyInsight": "No open recommendations — the AI monitor will surface new ones as they arrive.",
+    "upcomingArrivals": "Upcoming arrivals",
+    "seeAll": "See all",
+    "checkIn": "Check in",
+    "checkedIn": "Checked in",
+    "emptyArrivals": "No more arrivals expected today.",
+    "revenueWeek": "Revenue this week",
+    "today": "Today",
+    "revenueCaption": "Trailing 7-day average utilization is {util}%."
+  },
+  "VenueSchedule": {
+    "metaTitle": "Schedule",
+    "metaDescription": "The court-by-hour booking grid for your venue — see who is on, what is free, and fill open slots.",
+    "title": "Schedule",
+    "subtitle": "Court-by-hour booking grid · {day}",
+    "summary": {
+      "occupancy": "Occupancy",
+      "booked": "Booked slots",
+      "free": "Free slots",
+      "ofSlots": "of {count} sellable",
+      "openToSell": "open to sell",
+      "dayUtil": "7-day utilization",
+      "trailing7": "trailing average"
+    },
+    "grid": {
+      "title": "Courts × hours",
+      "court": "Court",
+      "liveAt": "Live · {time}",
+      "now": "Now"
+    },
+    "legend": {
+      "title": "Legend",
+      "booked": "Booked",
+      "walk-in": "Walk-in",
+      "free": "Free",
+      "blocked": "Blocked"
+    },
+    "popover": {
+      "title": "Open slot",
+      "slot": "{court} · {hour}",
+      "addWalkIn": "Add walk-in",
+      "blockCourt": "Block court",
+      "suggestFill": "Suggest fill"
+    },
+    "toast": {
+      "walkInTitle": "Walk-in added",
+      "blockTitle": "Court blocked",
+      "suggestTitle": "Finding players to fill this slot",
+      "messaged": "Message sent",
+      "rescheduled": "Reschedule started",
+      "cancelledEvent": "Booking cancelled",
+      "reopened": "Court reopened"
+    },
+    "event": {
+      "maintenance": "Maintenance",
+      "message": "Message customer",
+      "reschedule": "Reschedule",
+      "cancel": "Cancel booking",
+      "reopen": "Reopen court"
+    }
+  },
+  "VenueReservations": {
+    "metaTitle": "Reservations · Venue Workspace",
+    "metaDescription": "Approve, track and review every booking across your courts.",
+    "title": "Reservations",
+    "subtitle": "Approve incoming requests, track today's holds and review past bookings.",
+    "listTitle": "Bookings",
+    "empty": "No reservations match this filter.",
+    "summary": {
+      "pending": "Awaiting approval",
+      "pendingHint": "Requests needing a decision",
+      "todayConfirmed": "Confirmed today",
+      "todayConfirmedHint": "Holds locked in for today"
+    },
+    "filters": {
+      "all": "All",
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "today": "Today",
+      "history": "History"
+    },
+    "regular": "Regular",
+    "party": "{count} players",
+    "col": {
+      "customer": "Customer",
+      "when": "When",
+      "party": "Players",
+      "channel": "Channel",
+      "status": "Status",
+      "price": "Price",
+      "actions": "Actions"
+    },
+    "source": {
+      "app": "App",
+      "walk-in": "Walk-in"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "checked-in": "Checked in",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no-show": "No-show"
+    },
+    "approve": "Approve",
+    "decline": "Decline",
+    "decidedApproved": "Approved · customer notified",
+    "decidedDeclined": "Declined · slot released",
+    "toast": {
+      "approved": "Approved {name}'s booking",
+      "declined": "Declined {name}'s request"
+    }
+  },
+  "VenueMonitor": {
+    "metaTitle": "AI Monitor",
+    "metaDescription": "Always-on AI watching your courts — surfacing demand, no-show, revenue and retention recommendations in real time.",
+    "live": "Live",
+    "title": "AI Monitor",
+    "watching": "Monitoring {count} courts in real time",
+    "statActive": "Active insights",
+    "statCritical": "Need attention",
+    "statApplied": "Applied",
+    "filterAll": "All",
+    "severity": {
+      "critical": "Critical",
+      "warn": "Attention",
+      "info": "Info"
+    },
+    "kind": {
+      "demand-surge": "Demand surge",
+      "underutilized": "Underutilized",
+      "no-show-risk": "No-show risk",
+      "maintenance": "Maintenance",
+      "revenue": "Revenue",
+      "retention": "Retention",
+      "weather": "Weather"
+    },
+    "feedTitle": "Recommendations",
+    "feedCaption": "Updated live",
+    "emptyFilter": "No insights match this filter.",
+    "thoughtFor": "Reasoned through {count} steps",
+    "dismiss": "Dismiss",
+    "resolvedTitle": "Resolved",
+    "resolvedCount": "{count} actioned",
+    "clearTitle": "All clear",
+    "clearDetail": "The AI is watching every court. New recommendations will appear here the moment something needs your attention."
+  },
+  "VenueAnalytics": {
+    "metaTitle": "Analytics · Venue",
+    "metaDescription": "Revenue, utilization and demand trends for your venue — weekly revenue, an hourly utilization heatmap, sport mix, booking channels and peak hours.",
+    "title": "Analytics",
+    "subtitle": "Revenue, utilization and demand across the last 7 days.",
+    "kpi": {
+      "revenue": "Revenue · 7d",
+      "utilization": "Utilization",
+      "noShow": "No-show rate",
+      "newCustomers": "New customers"
+    },
+    "revenue": {
+      "title": "Revenue (last 7 days)",
+      "weeklyTotal": "Weekly total",
+      "today": "Today",
+      "peakDay": "Peak {day} · {amount}"
+    },
+    "heatmap": {
+      "title": "Utilization heatmap",
+      "caption": "By hour × day",
+      "low": "Low",
+      "high": "High",
+      "unit": "% booked"
+    },
+    "sportMix": {
+      "title": "Sport mix",
+      "bookings": "{count} bookings"
+    },
+    "channels": {
+      "title": "Booking channels",
+      "source": {
+        "app": "App",
+        "walk-in": "Walk-in"
+      },
+      "note": "{pct}% of bookings now come through the app."
+    },
+    "peak": {
+      "title": "Peak hours",
+      "caption": "Busiest windows",
+      "note": "These windows sell out first — price and staff them accordingly."
+    }
+  },
+  "VenueCustomers": {
+    "metaTitle": "Customers · Venue Workspace",
+    "metaDescription": "Player CRM for your venue — tiers, lifetime value, retention risk and AI win-back actions.",
+    "title": "Customers",
+    "subtitle": "Player relationships, lifetime value and retention at a glance.",
+    "summary": {
+      "total": "Total customers",
+      "totalNote": "Players with a booking history here",
+      "vip": "VIP players",
+      "vipShare": "{pct}%",
+      "vipNote": "Top spenders by lifetime value",
+      "atRisk": "At-risk players",
+      "aiTag": "AI",
+      "atRiskUnit": "{count, plural, one {need win-back} other {need win-back}}",
+      "winBackCta": "Review retention plays in Monitor"
+    },
+    "listTitle": "All customers",
+    "segments": {
+      "all": "All",
+      "vip": "VIP",
+      "regular": "Regular",
+      "new": "New",
+      "at-risk": "At risk"
+    },
+    "tiers": {
+      "vip": "VIP",
+      "regular": "Regular",
+      "new": "New",
+      "at-risk": "At risk"
+    },
+    "col": {
+      "customer": "Customer",
+      "sport": "Sport",
+      "visits": "Visits",
+      "lastVisit": "Last visit",
+      "ltv": "LTV",
+      "noShow": "No-show"
+    },
+    "visitsUnit": "{count, plural, one {# visit} other {# visits}}",
+    "noShowSuffix": "%",
+    "sendWinBack": "Send win-back",
+    "winBackSent": "Win-back offer sent",
+    "winBackDesc": "A free off-peak hour was sent to {name}.",
+    "empty": "No customers in this segment yet.",
+    "leaderTitle": "Top players by value"
+  },
+  "VenueCopilot": {
+    "metaTitle": "Venue Copilot",
+    "metaDescription": "An operator AI assistant for Shuttle Republic — surface idle courts, revenue, peak hours and promos on demand.",
+    "title": "Venue Copilot",
+    "subtitle": "Operations AI · {venue}",
+    "greeting": "Hi {manager} — I'm watching the floor. Ask me about tonight's free courts, today's revenue, peak hours, or off-peak promos.",
+    "tryAsking": "Try asking",
+    "placeholder": "Ask about courts, revenue, peak hours…",
+    "thinking": "Analyzing…",
+    "thoughtFor": "Reasoned for {seconds}s",
+    "queued": "Queued",
+    "closeAria": "Close copilot",
+    "inputAria": "Message the venue copilot",
+    "sendAria": "Send",
+    "toggleOpen": "Open venue copilot",
+    "toggleClose": "Close venue copilot",
+    "suggestions": {
+      "free": "What's free tonight?",
+      "revenue": "How's revenue today?",
+      "peak": "When are peak hours?",
+      "promo": "Draft an off-peak promo"
+    },
+    "steps": {
+      "scanGrid": "Reading tonight's grid ({window})",
+      "filterFree": "Filtering for unsold court-hours",
+      "crossPeak": "Keeping only peak slots (17:00+)",
+      "draftFix": "Drafting a fill recommendation",
+      "pullLedger": "Pulling the 7-day revenue ledger",
+      "sumWeek": "Summing the weekly total",
+      "compareAvg": "Comparing today to the daily average",
+      "findSoft": "Finding soft demand windows",
+      "priceOffPeak": "Modeling an off-peak discount",
+      "composeMsg": "Composing a broadcast message",
+      "aggregateWeek": "Aggregating utilization across the week",
+      "rankHours": "Ranking the busiest hours",
+      "parse": "Reading your request",
+      "surveyData": "Surveying venue signals"
+    },
+    "reply": {
+      "free": "You have {count} unsold peak court-hours tonight. Filling them at an off-peak rate is the fastest revenue lift.",
+      "freeNone": "Nice — every peak court-hour tonight is already booked. Nothing to fill.",
+      "revenueUp": "Today is tracking {today} — that's {pct}% above the 7-day daily average. Strong day.",
+      "revenueDown": "Today is tracking {today} — that's {pct}% below the 7-day daily average. Worth a push.",
+      "promo": "Here's a ready-to-send off-peak promo to fill the quiet hours. Review and broadcast when you're happy.",
+      "peak": "Your busiest hour is {hour} at {util}% utilization. Prime-time demand is where pricing matters most.",
+      "default": "I can help you run {venue}. Ask me anything below and I'll pull from your live floor data."
+    },
+    "metric": {
+      "today": "Today",
+      "week": "This week",
+      "dailyAvg": "Daily average"
+    },
+    "promo": {
+      "draft": "🏸 {venue} off-peak hours just got better — book a quiet slot today and save 15%. {open} courts open now!"
+    },
+    "actions": {
+      "offPeak": "Apply off-peak discount",
+      "broadcast": "Broadcast to players"
+    },
+    "can": {
+      "free": "Find idle courts to fill tonight",
+      "revenue": "Summarize today vs the week",
+      "peak": "Rank the busiest hours",
+      "promo": "Draft an off-peak promo"
+    }
+  }
+}

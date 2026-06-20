@@ -1,0 +1,28 @@
+{
+  "name": "api",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.0.5",
+    "@hono/zod-validator": "^0.8.0",
+    "@repo/shared": "workspace:*",
+    "hono": "^4.12.26",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9",
+    "@types/node": "^22.15.0",
+    "eslint": "^9",
+    "tsx": "^4.20.0",
+    "typescript": "^5",
+    "typescript-eslint": "^8"
+  }
+}

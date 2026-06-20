@@ -1,0 +1,23 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "globalPassThroughEnv": ["PORT", "NODE_ENV"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "dist/**"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "start": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {},
+    "typecheck": {}
+  }
+}

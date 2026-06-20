@@ -1,4 +1,6 @@
-packages: []
+packages:
+  - apps/*
+  - packages/*
 
 allowBuilds:
   sharp: true
@@ -6,3 +8,4 @@ allowBuilds:
   msw: false
   '@parcel/watcher': false
   '@swc/core': false
+  esbuild: true
