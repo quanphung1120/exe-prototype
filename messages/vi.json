@@ -1,6 +1,8 @@
 {
   "Common": {
     "appName": "SportMatch AI",
+    "allSports": "Tất cả",
+    "filterSport": "Lọc theo môn",
     "sports": {
       "tennis": "Tennis",
       "pickleball": "Pickleball",
@@ -59,7 +61,8 @@
     "streak": {
       "label": "Chuỗi ngày",
       "caption": "Giữ vững phong độ"
-    }
+    },
+    "group": "Chơi"
   },
   "Sidebar": {
     "workspaces": "Không gian làm việc",
@@ -69,7 +72,10 @@
     "profile": "Hồ sơ",
     "settings": "Cài đặt",
     "logout": "Đăng xuất",
-    "yourLevel": "Trình độ của bạn"
+    "yourLevel": "Trình độ của bạn",
+    "venueTag": "Địa điểm",
+    "operatorRole": "Vận hành",
+    "searchVenue": "Tìm lượt đặt, khách…"
   },
   "Topbar": {
     "notifications": "Thông báo"
@@ -277,7 +283,16 @@
       "booked": "Đã đặt sân",
       "cancelled": "Đã hủy đặt sân",
       "conflict": "Khung giờ này vừa có người đặt — hãy chọn giờ khác."
-    }
+    },
+    "startTime": "Giờ bắt đầu",
+    "duration": "Thời lượng",
+    "durationLabel": "Thời lượng",
+    "quickDuration": "Chọn nhanh",
+    "durationLess": "Giảm thời lượng",
+    "durationMore": "Tăng thời lượng",
+    "available": "Còn trống",
+    "pickStartHint": "Chọn giờ bắt đầu để kiểm tra tình trạng trống.",
+    "endTime": "Giờ kết thúc"
   },
   "Session": {
     "toast": {
@@ -948,6 +963,375 @@
         "text": "Sân 3 tại Shuttle Republic đã xác nhận · 18:30",
         "time": "5 giờ"
       }
+    }
+  },
+  "VenueNav": {
+    "group": "Quản lý",
+    "newBooking": "Đặt sân mới",
+    "command": {
+      "label": "Trung tâm điều hành",
+      "caption": "Sân của bạn, theo thời gian thực"
+    },
+    "schedule": {
+      "label": "Lịch sân",
+      "caption": "Sân × giờ, trong một màn hình"
+    },
+    "reservations": {
+      "label": "Đặt sân",
+      "caption": "Yêu cầu, giữ chỗ và khách vãng lai"
+    },
+    "monitor": {
+      "label": "Giám sát AI",
+      "caption": "Trí tuệ vận hành luôn bật"
+    },
+    "analytics": {
+      "label": "Phân tích",
+      "caption": "Doanh thu, công suất và nhu cầu"
+    },
+    "customers": {
+      "label": "Khách chơi",
+      "caption": "Khách quen, giữ chân và tiếp cận"
+    }
+  },
+  "VenueDock": {
+    "label": "Giám sát AI",
+    "watching": "Đang giám sát {count} sân",
+    "newInsight": "Phát hiện mới",
+    "applied": "Đã áp dụng đề xuất",
+    "review": "Xem"
+  },
+  "VenueCommand": {
+    "metaTitle": "Trung tâm điều hành · SportMatch AI",
+    "metaDescription": "Tổng quan trực tiếp về cơ sở — công suất, doanh thu, sân đang chơi, khách đến và khuyến nghị AI hàng đầu.",
+    "greeting": "Chào {manager}",
+    "subtitle": "Tình hình vận hành của {venue} ngay lúc này.",
+    "asOf": "Trực tiếp · tính đến {time}",
+    "newBooking": "Tạo đặt sân",
+    "kpi": {
+      "occupancy": "Công suất hôm nay",
+      "revenueToday": "Doanh thu hôm nay",
+      "bookingsToday": "Lượt đặt hôm nay",
+      "noShowRate": "Tỷ lệ vắng mặt"
+    },
+    "courtsNow": "Sân hiện tại",
+    "liveOccupancy": "Công suất hôm nay",
+    "courtsLive": "{live}/{total} đang chơi",
+    "state": {
+      "inPlay": "Đang chơi",
+      "upcoming": "Sắp tới",
+      "available": "Còn trống",
+      "maintenance": "Bảo trì"
+    },
+    "courtMaintenance": "Đóng để bảo trì",
+    "courtFrom": "từ {time}",
+    "courtUntil": "đến {time}",
+    "courtOpen": "Sẵn sàng đặt",
+    "topInsight": "Khuyến nghị AI hàng đầu",
+    "severity": {
+      "info": "Cơ hội",
+      "warn": "Cần theo dõi",
+      "critical": "Cần xử lý ngay"
+    },
+    "reviewInMonitor": "Xem trong Giám sát AI",
+    "emptyInsight": "Chưa có khuyến nghị nào đang chờ — bộ giám sát AI sẽ hiển thị ngay khi có.",
+    "upcomingArrivals": "Khách sắp đến",
+    "seeAll": "Xem tất cả",
+    "checkIn": "Nhận sân",
+    "checkedIn": "Đã nhận sân",
+    "emptyArrivals": "Hôm nay không còn khách đến dự kiến.",
+    "revenueWeek": "Doanh thu tuần này",
+    "today": "Hôm nay",
+    "revenueCaption": "Công suất trung bình 7 ngày gần nhất đạt {util}%."
+  },
+  "VenueSchedule": {
+    "metaTitle": "Lịch sân",
+    "metaDescription": "Lưới đặt sân theo giờ của cơ sở — nắm rõ sân nào đang chơi, khung nào còn trống và lấp đầy các khung mở.",
+    "title": "Lịch sân",
+    "subtitle": "Lưới đặt sân theo giờ · {day}",
+    "summary": {
+      "occupancy": "Công suất",
+      "booked": "Khung đã đặt",
+      "free": "Khung trống",
+      "ofSlots": "trên {count} khung bán được",
+      "openToSell": "còn mở để bán",
+      "dayUtil": "Công suất 7 ngày",
+      "trailing7": "trung bình gần đây"
+    },
+    "grid": {
+      "title": "Sân × giờ",
+      "court": "Sân",
+      "liveAt": "Trực tiếp · {time}",
+      "now": "Bây giờ"
+    },
+    "legend": {
+      "title": "Chú thích",
+      "booked": "Đã đặt",
+      "walk-in": "Khách vãng lai",
+      "free": "Trống",
+      "blocked": "Đã khóa"
+    },
+    "popover": {
+      "title": "Khung trống",
+      "slot": "{court} · {hour}",
+      "addWalkIn": "Thêm khách vãng lai",
+      "blockCourt": "Khóa sân",
+      "suggestFill": "Gợi ý lấp đầy"
+    },
+    "toast": {
+      "walkInTitle": "Đã thêm khách vãng lai",
+      "blockTitle": "Đã khóa sân",
+      "suggestTitle": "Đang tìm người chơi để lấp khung này",
+      "messaged": "Đã gửi tin nhắn",
+      "rescheduled": "Bắt đầu đổi giờ",
+      "cancelledEvent": "Đã hủy đặt sân",
+      "reopened": "Đã mở lại sân"
+    },
+    "event": {
+      "maintenance": "Bảo trì",
+      "message": "Nhắn khách",
+      "reschedule": "Đổi giờ",
+      "cancel": "Hủy đặt sân",
+      "reopen": "Mở lại sân"
+    }
+  },
+  "VenueReservations": {
+    "metaTitle": "Đặt sân · Không gian vận hành",
+    "metaDescription": "Duyệt, theo dõi và rà soát mọi lượt đặt trên các sân.",
+    "title": "Đặt sân",
+    "subtitle": "Duyệt yêu cầu đến, theo dõi lượt giữ chỗ hôm nay và rà soát lịch sử đặt sân.",
+    "listTitle": "Lượt đặt",
+    "empty": "Không có lượt đặt nào khớp bộ lọc này.",
+    "summary": {
+      "pending": "Chờ duyệt",
+      "pendingHint": "Yêu cầu cần quyết định",
+      "todayConfirmed": "Đã xác nhận hôm nay",
+      "todayConfirmedHint": "Lượt giữ chỗ chắc chắn hôm nay"
+    },
+    "filters": {
+      "all": "Tất cả",
+      "pending": "Chờ duyệt",
+      "confirmed": "Đã xác nhận",
+      "today": "Hôm nay",
+      "history": "Lịch sử"
+    },
+    "regular": "Khách quen",
+    "party": "{count} người chơi",
+    "col": {
+      "customer": "Khách hàng",
+      "when": "Thời gian",
+      "party": "Số người",
+      "channel": "Kênh đặt",
+      "status": "Trạng thái",
+      "price": "Giá",
+      "actions": "Thao tác"
+    },
+    "source": {
+      "app": "Ứng dụng",
+      "walk-in": "Khách vãng lai"
+    },
+    "status": {
+      "pending": "Chờ duyệt",
+      "confirmed": "Đã xác nhận",
+      "checked-in": "Đã nhận sân",
+      "completed": "Hoàn tất",
+      "cancelled": "Đã hủy",
+      "no-show": "Vắng mặt"
+    },
+    "approve": "Duyệt",
+    "decline": "Từ chối",
+    "decidedApproved": "Đã duyệt · đã báo khách",
+    "decidedDeclined": "Đã từ chối · đã mở lại khung giờ",
+    "toast": {
+      "approved": "Đã duyệt lượt đặt của {name}",
+      "declined": "Đã từ chối yêu cầu của {name}"
+    }
+  },
+  "VenueMonitor": {
+    "metaTitle": "Giám sát AI",
+    "metaDescription": "AI túc trực theo dõi các sân — đề xuất về nhu cầu, vắng mặt, doanh thu và giữ chân khách theo thời gian thực.",
+    "live": "Trực tiếp",
+    "title": "Giám sát AI",
+    "watching": "Đang giám sát {count} sân theo thời gian thực",
+    "statActive": "Đề xuất đang chờ",
+    "statCritical": "Cần xử lý",
+    "statApplied": "Đã áp dụng",
+    "filterAll": "Tất cả",
+    "severity": {
+      "critical": "Khẩn cấp",
+      "warn": "Cần lưu ý",
+      "info": "Thông tin"
+    },
+    "kind": {
+      "demand-surge": "Nhu cầu tăng",
+      "underutilized": "Chưa khai thác",
+      "no-show-risk": "Nguy cơ vắng mặt",
+      "maintenance": "Bảo trì",
+      "revenue": "Doanh thu",
+      "retention": "Giữ chân khách",
+      "weather": "Thời tiết"
+    },
+    "feedTitle": "Đề xuất",
+    "feedCaption": "Cập nhật trực tiếp",
+    "emptyFilter": "Không có đề xuất nào khớp bộ lọc này.",
+    "thoughtFor": "Suy luận qua {count} bước",
+    "dismiss": "Bỏ qua",
+    "resolvedTitle": "Đã xử lý",
+    "resolvedCount": "Đã thực hiện {count}",
+    "clearTitle": "Mọi thứ ổn định",
+    "clearDetail": "AI đang theo dõi từng sân. Đề xuất mới sẽ hiện ở đây ngay khi có việc cần Quý khách xử lý."
+  },
+  "VenueAnalytics": {
+    "metaTitle": "Phân tích · Sân",
+    "metaDescription": "Xu hướng doanh thu, công suất và nhu cầu của sân — doanh thu tuần, bản đồ nhiệt công suất theo giờ, cơ cấu môn, kênh đặt sân và khung giờ cao điểm.",
+    "title": "Phân tích",
+    "subtitle": "Doanh thu, công suất và nhu cầu trong 7 ngày gần nhất.",
+    "kpi": {
+      "revenue": "Doanh thu · 7 ngày",
+      "utilization": "Công suất",
+      "noShow": "Tỷ lệ vắng mặt",
+      "newCustomers": "Khách mới"
+    },
+    "revenue": {
+      "title": "Doanh thu (7 ngày gần nhất)",
+      "weeklyTotal": "Tổng tuần",
+      "today": "Hôm nay",
+      "peakDay": "Cao nhất {day} · {amount}"
+    },
+    "heatmap": {
+      "title": "Bản đồ nhiệt công suất",
+      "caption": "Theo giờ × ngày",
+      "low": "Thấp",
+      "high": "Cao",
+      "unit": "% lấp đầy"
+    },
+    "sportMix": {
+      "title": "Cơ cấu môn",
+      "bookings": "{count} lượt đặt"
+    },
+    "channels": {
+      "title": "Kênh đặt sân",
+      "source": {
+        "app": "Ứng dụng",
+        "walk-in": "Khách vãng lai"
+      },
+      "note": "{pct}% lượt đặt hiện đến từ ứng dụng."
+    },
+    "peak": {
+      "title": "Khung giờ cao điểm",
+      "caption": "Khung bận nhất",
+      "note": "Những khung này hết chỗ trước tiên — hãy định giá và bố trí nhân sự phù hợp."
+    }
+  },
+  "VenueCustomers": {
+    "metaTitle": "Khách hàng · Không gian vận hành",
+    "metaDescription": "Quản lý khách chơi của sân — phân hạng, giá trị trọn đời, nguy cơ rời bỏ và đề xuất kéo lại từ AI.",
+    "title": "Khách hàng",
+    "subtitle": "Quan hệ khách chơi, giá trị trọn đời và khả năng giữ chân trong một màn hình.",
+    "summary": {
+      "total": "Tổng khách hàng",
+      "totalNote": "Khách đã có lịch sử đặt sân tại đây",
+      "vip": "Khách VIP",
+      "vipShare": "{pct}%",
+      "vipNote": "Khách chi tiêu cao nhất theo giá trị trọn đời",
+      "atRisk": "Khách nguy cơ rời",
+      "aiTag": "AI",
+      "atRiskUnit": "{count, plural, other {cần kéo lại}}",
+      "winBackCta": "Xem phương án giữ chân trong Giám sát"
+    },
+    "listTitle": "Toàn bộ khách hàng",
+    "segments": {
+      "all": "Tất cả",
+      "vip": "VIP",
+      "regular": "Thường xuyên",
+      "new": "Mới",
+      "at-risk": "Nguy cơ rời"
+    },
+    "tiers": {
+      "vip": "VIP",
+      "regular": "Thường xuyên",
+      "new": "Mới",
+      "at-risk": "Nguy cơ rời"
+    },
+    "col": {
+      "customer": "Khách hàng",
+      "sport": "Môn",
+      "visits": "Lượt",
+      "lastVisit": "Lần cuối",
+      "ltv": "Giá trị",
+      "noShow": "Vắng mặt"
+    },
+    "visitsUnit": "{count, plural, other {# lượt}}",
+    "noShowSuffix": "%",
+    "sendWinBack": "Gửi ưu đãi kéo lại",
+    "winBackSent": "Đã gửi ưu đãi kéo lại",
+    "winBackDesc": "Đã tặng {name} một giờ chơi giờ thấp điểm.",
+    "empty": "Chưa có khách hàng trong nhóm này.",
+    "leaderTitle": "Khách giá trị cao nhất"
+  },
+  "VenueCopilot": {
+    "metaTitle": "Trợ lý vận hành",
+    "metaDescription": "Trợ lý AI cho người vận hành Shuttle Republic — nắm ngay sân trống, doanh thu, giờ cao điểm và ưu đãi.",
+    "title": "Trợ lý vận hành",
+    "subtitle": "AI vận hành · {venue}",
+    "greeting": "Chào {manager} — tôi đang theo dõi sân. Quý vị có thể hỏi về sân trống tối nay, doanh thu hôm nay, giờ cao điểm hoặc ưu đãi giờ thấp điểm.",
+    "tryAsking": "Gợi ý câu hỏi",
+    "placeholder": "Hỏi về sân, doanh thu, giờ cao điểm…",
+    "thinking": "Đang phân tích…",
+    "thoughtFor": "Đã suy luận {seconds}s",
+    "queued": "Đã xếp hàng",
+    "closeAria": "Đóng trợ lý",
+    "inputAria": "Nhắn cho trợ lý vận hành",
+    "sendAria": "Gửi",
+    "toggleOpen": "Mở trợ lý vận hành",
+    "toggleClose": "Đóng trợ lý vận hành",
+    "suggestions": {
+      "free": "Tối nay còn sân trống không?",
+      "revenue": "Doanh thu hôm nay thế nào?",
+      "peak": "Giờ cao điểm là khi nào?",
+      "promo": "Soạn ưu đãi giờ thấp điểm"
+    },
+    "steps": {
+      "scanGrid": "Đọc lịch sân tối nay ({window})",
+      "filterFree": "Lọc các giờ sân chưa bán",
+      "crossPeak": "Chỉ giữ khung cao điểm (từ 17:00)",
+      "draftFix": "Soạn đề xuất lấp đầy",
+      "pullLedger": "Lấy sổ doanh thu 7 ngày",
+      "sumWeek": "Cộng tổng tuần",
+      "compareAvg": "So hôm nay với mức trung bình ngày",
+      "findSoft": "Tìm khung cầu yếu",
+      "priceOffPeak": "Mô phỏng giảm giá giờ thấp điểm",
+      "composeMsg": "Soạn tin nhắn gửi đi",
+      "aggregateWeek": "Tổng hợp công suất cả tuần",
+      "rankHours": "Xếp hạng giờ đông nhất",
+      "parse": "Đọc yêu cầu của quý vị",
+      "surveyData": "Rà soát tín hiệu của sân"
+    },
+    "reply": {
+      "free": "Tối nay quý vị còn {count} giờ sân cao điểm chưa bán. Lấp bằng giá giờ thấp điểm là cách tăng doanh thu nhanh nhất.",
+      "freeNone": "Tốt — mọi giờ sân cao điểm tối nay đã được đặt. Không còn gì để lấp.",
+      "revenueUp": "Hôm nay đang đạt {today} — cao hơn {pct}% so với mức trung bình ngày của 7 ngày. Ngày tốt.",
+      "revenueDown": "Hôm nay đang đạt {today} — thấp hơn {pct}% so với mức trung bình ngày của 7 ngày. Nên đẩy thêm.",
+      "promo": "Đây là ưu đãi giờ thấp điểm soạn sẵn để lấp các khung vắng. Quý vị xem lại rồi gửi khi ưng ý.",
+      "peak": "Giờ đông nhất là {hour} với công suất {util}%. Cầu giờ vàng là nơi định giá có ý nghĩa nhất.",
+      "default": "Tôi có thể hỗ trợ quý vị vận hành {venue}. Cứ hỏi bên dưới, tôi sẽ tra cứu từ dữ liệu sân theo thời gian thực."
+    },
+    "metric": {
+      "today": "Hôm nay",
+      "week": "Tuần này",
+      "dailyAvg": "Trung bình ngày"
+    },
+    "promo": {
+      "draft": "🏸 Giờ thấp điểm tại {venue} ưu đãi hơn — đặt khung vắng hôm nay, giảm ngay 15%. {open} sân đang trống!"
+    },
+    "actions": {
+      "offPeak": "Áp giá giờ thấp điểm",
+      "broadcast": "Gửi đến người chơi"
+    },
+    "can": {
+      "free": "Tìm sân trống để lấp tối nay",
+      "revenue": "Tóm tắt hôm nay so với cả tuần",
+      "peak": "Xếp hạng giờ đông nhất",
+      "promo": "Soạn ưu đãi giờ thấp điểm"
     }
   }
 }

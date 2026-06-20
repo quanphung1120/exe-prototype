@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button"
 import { playerByInitials } from "@/components/dashboard/data"
 import { useSession } from "@/components/dashboard/session"
 
-export type { PartnerSearch, QuickJoinFilters } from "@/components/dashboard/session"
+export type {
+  PartnerSearch,
+  QuickJoinFilters,
+} from "@/components/dashboard/session"
 
 /**
  * Back-compat facade over the unified {@link useSession} store. The Match Maker
@@ -42,6 +45,12 @@ export function useMatchmaking() {
     managerOpen: s.managerOpen,
     setManagerOpen: s.setManagerOpen,
     openManager: s.openManager,
+    quickJoinOpen: s.quickJoinOpen,
+    setQuickJoinOpen: s.setQuickJoinOpen,
+    openQuickJoin: s.openQuickJoin,
+    createRoomOpen: s.createRoomOpen,
+    setCreateRoomOpen: s.setCreateRoomOpen,
+    openCreateRoom: s.openCreateRoom,
   }
 }
 
@@ -114,7 +123,9 @@ export function MatchmakingDock() {
                   variant="ghost"
                   size="icon-sm"
                   className="rounded-full"
-                  aria-label={ready ? t("dock.dismiss") : t("dock.cancelSearch")}
+                  aria-label={
+                    ready ? t("dock.dismiss") : t("dock.cancelSearch")
+                  }
                   onClick={ready ? dismissSearch : cancelSearch}
                 >
                   <X />

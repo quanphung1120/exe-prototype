@@ -16,8 +16,8 @@ export type SectionKey =
   | "bookings"
   | "streak"
 
-export interface NavItem {
-  key: SectionKey
+export interface NavItem<K extends string = string> {
+  key: K
   /** App Router path for this section. */
   href: string
   label: string
@@ -27,7 +27,7 @@ export interface NavItem {
   badge?: string
 }
 
-export const NAV: NavItem[] = [
+export const NAV: NavItem<SectionKey>[] = [
   {
     key: "dashboard",
     href: "/dashboard",
@@ -83,6 +83,6 @@ export function isNavActive(href: string, pathname: string): boolean {
 }
 
 /** The nav item matching the current pathname (falls back to the overview). */
-export function activeNavItem(pathname: string): NavItem {
+export function activeNavItem(pathname: string): NavItem<SectionKey> {
   return NAV.find((item) => isNavActive(item.href, pathname)) ?? NAV[0]
 }

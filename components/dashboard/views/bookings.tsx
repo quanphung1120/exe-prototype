@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CalendarPlus, Clock, MapPin, Trophy, UserPlus } from "lucide-react"
+import { Clock, MapPin, Trophy, UserPlus } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
@@ -31,7 +31,7 @@ const UPCOMING: BookingStatus[] = ["confirmed", "pending"]
 export function BookingsView() {
   const t = useTranslations("Bookings")
   const [filter, setFilter] = React.useState<Filter>("upcoming")
-  const { bookings, openPlay } = useBooking()
+  const { bookings } = useBooking()
 
   const visible = bookings.filter((b) => {
     if (filter === "all") return true
@@ -41,19 +41,13 @@ export function BookingsView() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-          <TabsList>
-            <TabsTrigger value="upcoming">{t("tabs.upcoming")}</TabsTrigger>
-            <TabsTrigger value="past">{t("tabs.past")}</TabsTrigger>
-            <TabsTrigger value="all">{t("tabs.all")}</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Button size="sm" className="rounded-full" onClick={openPlay}>
-          <CalendarPlus />
-          {t("newBooking")}
-        </Button>
-      </div>
+      <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
+        <TabsList>
+          <TabsTrigger value="upcoming">{t("tabs.upcoming")}</TabsTrigger>
+          <TabsTrigger value="past">{t("tabs.past")}</TabsTrigger>
+          <TabsTrigger value="all">{t("tabs.all")}</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {visible.length ? (
         <div className="flex flex-col gap-3">
@@ -207,7 +201,9 @@ function BookingCard({ booking }: { booking: Booking }) {
           ) : null}
           <AlertDialog>
             <AlertDialogTrigger
-              render={<Button variant="ghost" size="sm" className="rounded-full" />}
+              render={
+                <Button variant="ghost" size="sm" className="rounded-full" />
+              }
             >
               {t("cancel")}
             </AlertDialogTrigger>

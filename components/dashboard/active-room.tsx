@@ -54,6 +54,7 @@ import {
   activeRoster,
   formatVnd,
   playerByInitials,
+  priceFor,
   trustTier,
   trustTierAccent,
   type MatchRoom,
@@ -373,7 +374,10 @@ function RoomDetail({
                     <SportDot sport={r.sport} />
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {rTitle}
-                      <span className="text-muted-foreground"> · {r.venue}</span>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · {r.venue}
+                      </span>
                     </span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                   </button>
@@ -432,7 +436,9 @@ function BillSplit({
   const { payShare } = useSession()
   const members = activeRoster(session)
   const headCount = Math.max(1, members.length)
-  const perHead = Math.round(room.pricePerHour / headCount)
+  const perHead = Math.round(
+    priceFor(room.pricePerHour, session.durationMin) / headCount
+  )
   const paidCount = members.filter((m) => m.paid).length
 
   return (
@@ -443,7 +449,7 @@ function BillSplit({
           <Wallet className="size-4" />
           {t("perHead", { amount: formatVnd(perHead) })}
         </span>
-        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+        <span className="font-mono text-xs text-muted-foreground tabular-nums">
           {t("collected", {
             paid: formatVnd(perHead * paidCount),
             total: formatVnd(perHead * headCount),

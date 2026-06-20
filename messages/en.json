@@ -1,6 +1,8 @@
 {
   "Common": {
     "appName": "SportMatch AI",
+    "allSports": "All",
+    "filterSport": "Filter by sport",
     "sports": {
       "tennis": "Tennis",
       "pickleball": "Pickleball",
@@ -59,7 +61,8 @@
     "streak": {
       "label": "Streak",
       "caption": "Keep the momentum alive"
-    }
+    },
+    "group": "Play"
   },
   "Sidebar": {
     "workspaces": "Workspaces",
@@ -69,7 +72,10 @@
     "profile": "Profile",
     "settings": "Settings",
     "logout": "Log out",
-    "yourLevel": "Your level"
+    "yourLevel": "Your level",
+    "venueTag": "Venue",
+    "operatorRole": "Operations",
+    "searchVenue": "Search bookings, players…"
   },
   "Topbar": {
     "notifications": "Notifications"
@@ -277,7 +283,16 @@
       "booked": "Court booked",
       "cancelled": "Booking cancelled",
       "conflict": "That slot was just taken — choose another time."
-    }
+    },
+    "startTime": "Start time",
+    "duration": "Duration",
+    "durationLabel": "Duration",
+    "quickDuration": "Quick pick",
+    "durationLess": "Decrease duration",
+    "durationMore": "Increase duration",
+    "available": "Available",
+    "pickStartHint": "Pick a start time to check availability.",
+    "endTime": "End time"
   },
   "Session": {
     "toast": {
@@ -948,6 +963,375 @@
         "text": "Court 3 at Shuttle Republic confirmed · 18:30",
         "time": "5h"
       }
+    }
+  },
+  "VenueNav": {
+    "group": "Manage",
+    "newBooking": "New booking",
+    "command": {
+      "label": "Command Center",
+      "caption": "Your venue, live"
+    },
+    "schedule": {
+      "label": "Schedule",
+      "caption": "Courts × hours, at a glance"
+    },
+    "reservations": {
+      "label": "Reservations",
+      "caption": "Requests, holds and walk-ins"
+    },
+    "monitor": {
+      "label": "AI Monitor",
+      "caption": "Always-on operations intelligence"
+    },
+    "analytics": {
+      "label": "Analytics",
+      "caption": "Revenue, utilization and demand"
+    },
+    "customers": {
+      "label": "Players",
+      "caption": "Regulars, retention and reach"
+    }
+  },
+  "VenueDock": {
+    "label": "AI Monitor",
+    "watching": "Watching {count} courts",
+    "newInsight": "New insight",
+    "applied": "Recommendation applied",
+    "review": "Review"
+  },
+  "VenueCommand": {
+    "metaTitle": "Command Center · SportMatch AI",
+    "metaDescription": "Live overview of your venue — occupancy, revenue, courts in play, arrivals and the top AI recommendation.",
+    "greeting": "Welcome back, {manager}",
+    "subtitle": "Here is how {venue} is running right now.",
+    "asOf": "Live · as of {time}",
+    "newBooking": "New booking",
+    "kpi": {
+      "occupancy": "Occupancy today",
+      "revenueToday": "Revenue today",
+      "bookingsToday": "Bookings today",
+      "noShowRate": "No-show rate"
+    },
+    "courtsNow": "Courts now",
+    "liveOccupancy": "Today's occupancy",
+    "courtsLive": "{live} of {total} in play",
+    "state": {
+      "inPlay": "In play",
+      "upcoming": "Upcoming",
+      "available": "Open",
+      "maintenance": "Maintenance"
+    },
+    "courtMaintenance": "Closed for maintenance",
+    "courtFrom": "from {time}",
+    "courtUntil": "until {time}",
+    "courtOpen": "Open to book",
+    "topInsight": "Top AI insight",
+    "severity": {
+      "info": "Opportunity",
+      "warn": "Watch",
+      "critical": "Act now"
+    },
+    "reviewInMonitor": "Review in AI Monitor",
+    "emptyInsight": "No open recommendations — the AI monitor will surface new ones as they arrive.",
+    "upcomingArrivals": "Upcoming arrivals",
+    "seeAll": "See all",
+    "checkIn": "Check in",
+    "checkedIn": "Checked in",
+    "emptyArrivals": "No more arrivals expected today.",
+    "revenueWeek": "Revenue this week",
+    "today": "Today",
+    "revenueCaption": "Trailing 7-day average utilization is {util}%."
+  },
+  "VenueSchedule": {
+    "metaTitle": "Schedule",
+    "metaDescription": "The court-by-hour booking grid for your venue — see who is on, what is free, and fill open slots.",
+    "title": "Schedule",
+    "subtitle": "Court-by-hour booking grid · {day}",
+    "summary": {
+      "occupancy": "Occupancy",
+      "booked": "Booked slots",
+      "free": "Free slots",
+      "ofSlots": "of {count} sellable",
+      "openToSell": "open to sell",
+      "dayUtil": "7-day utilization",
+      "trailing7": "trailing average"
+    },
+    "grid": {
+      "title": "Courts × hours",
+      "court": "Court",
+      "liveAt": "Live · {time}",
+      "now": "Now"
+    },
+    "legend": {
+      "title": "Legend",
+      "booked": "Booked",
+      "walk-in": "Walk-in",
+      "free": "Free",
+      "blocked": "Blocked"
+    },
+    "popover": {
+      "title": "Open slot",
+      "slot": "{court} · {hour}",
+      "addWalkIn": "Add walk-in",
+      "blockCourt": "Block court",
+      "suggestFill": "Suggest fill"
+    },
+    "toast": {
+      "walkInTitle": "Walk-in added",
+      "blockTitle": "Court blocked",
+      "suggestTitle": "Finding players to fill this slot",
+      "messaged": "Message sent",
+      "rescheduled": "Reschedule started",
+      "cancelledEvent": "Booking cancelled",
+      "reopened": "Court reopened"
+    },
+    "event": {
+      "maintenance": "Maintenance",
+      "message": "Message customer",
+      "reschedule": "Reschedule",
+      "cancel": "Cancel booking",
+      "reopen": "Reopen court"
+    }
+  },
+  "VenueReservations": {
+    "metaTitle": "Reservations · Venue Workspace",
+    "metaDescription": "Approve, track and review every booking across your courts.",
+    "title": "Reservations",
+    "subtitle": "Approve incoming requests, track today's holds and review past bookings.",
+    "listTitle": "Bookings",
+    "empty": "No reservations match this filter.",
+    "summary": {
+      "pending": "Awaiting approval",
+      "pendingHint": "Requests needing a decision",
+      "todayConfirmed": "Confirmed today",
+      "todayConfirmedHint": "Holds locked in for today"
+    },
+    "filters": {
+      "all": "All",
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "today": "Today",
+      "history": "History"
+    },
+    "regular": "Regular",
+    "party": "{count} players",
+    "col": {
+      "customer": "Customer",
+      "when": "When",
+      "party": "Players",
+      "channel": "Channel",
+      "status": "Status",
+      "price": "Price",
+      "actions": "Actions"
+    },
+    "source": {
+      "app": "App",
+      "walk-in": "Walk-in"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "checked-in": "Checked in",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no-show": "No-show"
+    },
+    "approve": "Approve",
+    "decline": "Decline",
+    "decidedApproved": "Approved · customer notified",
+    "decidedDeclined": "Declined · slot released",
+    "toast": {
+      "approved": "Approved {name}'s booking",
+      "declined": "Declined {name}'s request"
+    }
+  },
+  "VenueMonitor": {
+    "metaTitle": "AI Monitor",
+    "metaDescription": "Always-on AI watching your courts — surfacing demand, no-show, revenue and retention recommendations in real time.",
+    "live": "Live",
+    "title": "AI Monitor",
+    "watching": "Monitoring {count} courts in real time",
+    "statActive": "Active insights",
+    "statCritical": "Need attention",
+    "statApplied": "Applied",
+    "filterAll": "All",
+    "severity": {
+      "critical": "Critical",
+      "warn": "Attention",
+      "info": "Info"
+    },
+    "kind": {
+      "demand-surge": "Demand surge",
+      "underutilized": "Underutilized",
+      "no-show-risk": "No-show risk",
+      "maintenance": "Maintenance",
+      "revenue": "Revenue",
+      "retention": "Retention",
+      "weather": "Weather"
+    },
+    "feedTitle": "Recommendations",
+    "feedCaption": "Updated live",
+    "emptyFilter": "No insights match this filter.",
+    "thoughtFor": "Reasoned through {count} steps",
+    "dismiss": "Dismiss",
+    "resolvedTitle": "Resolved",
+    "resolvedCount": "{count} actioned",
+    "clearTitle": "All clear",
+    "clearDetail": "The AI is watching every court. New recommendations will appear here the moment something needs your attention."
+  },
+  "VenueAnalytics": {
+    "metaTitle": "Analytics · Venue",
+    "metaDescription": "Revenue, utilization and demand trends for your venue — weekly revenue, an hourly utilization heatmap, sport mix, booking channels and peak hours.",
+    "title": "Analytics",
+    "subtitle": "Revenue, utilization and demand across the last 7 days.",
+    "kpi": {
+      "revenue": "Revenue · 7d",
+      "utilization": "Utilization",
+      "noShow": "No-show rate",
+      "newCustomers": "New customers"
+    },
+    "revenue": {
+      "title": "Revenue (last 7 days)",
+      "weeklyTotal": "Weekly total",
+      "today": "Today",
+      "peakDay": "Peak {day} · {amount}"
+    },
+    "heatmap": {
+      "title": "Utilization heatmap",
+      "caption": "By hour × day",
+      "low": "Low",
+      "high": "High",
+      "unit": "% booked"
+    },
+    "sportMix": {
+      "title": "Sport mix",
+      "bookings": "{count} bookings"
+    },
+    "channels": {
+      "title": "Booking channels",
+      "source": {
+        "app": "App",
+        "walk-in": "Walk-in"
+      },
+      "note": "{pct}% of bookings now come through the app."
+    },
+    "peak": {
+      "title": "Peak hours",
+      "caption": "Busiest windows",
+      "note": "These windows sell out first — price and staff them accordingly."
+    }
+  },
+  "VenueCustomers": {
+    "metaTitle": "Customers · Venue Workspace",
+    "metaDescription": "Player CRM for your venue — tiers, lifetime value, retention risk and AI win-back actions.",
+    "title": "Customers",
+    "subtitle": "Player relationships, lifetime value and retention at a glance.",
+    "summary": {
+      "total": "Total customers",
+      "totalNote": "Players with a booking history here",
+      "vip": "VIP players",
+      "vipShare": "{pct}%",
+      "vipNote": "Top spenders by lifetime value",
+      "atRisk": "At-risk players",
+      "aiTag": "AI",
+      "atRiskUnit": "{count, plural, one {need win-back} other {need win-back}}",
+      "winBackCta": "Review retention plays in Monitor"
+    },
+    "listTitle": "All customers",
+    "segments": {
+      "all": "All",
+      "vip": "VIP",
+      "regular": "Regular",
+      "new": "New",
+      "at-risk": "At risk"
+    },
+    "tiers": {
+      "vip": "VIP",
+      "regular": "Regular",
+      "new": "New",
+      "at-risk": "At risk"
+    },
+    "col": {
+      "customer": "Customer",
+      "sport": "Sport",
+      "visits": "Visits",
+      "lastVisit": "Last visit",
+      "ltv": "LTV",
+      "noShow": "No-show"
+    },
+    "visitsUnit": "{count, plural, one {# visit} other {# visits}}",
+    "noShowSuffix": "%",
+    "sendWinBack": "Send win-back",
+    "winBackSent": "Win-back offer sent",
+    "winBackDesc": "A free off-peak hour was sent to {name}.",
+    "empty": "No customers in this segment yet.",
+    "leaderTitle": "Top players by value"
+  },
+  "VenueCopilot": {
+    "metaTitle": "Venue Copilot",
+    "metaDescription": "An operator AI assistant for Shuttle Republic — surface idle courts, revenue, peak hours and promos on demand.",
+    "title": "Venue Copilot",
+    "subtitle": "Operations AI · {venue}",
+    "greeting": "Hi {manager} — I'm watching the floor. Ask me about tonight's free courts, today's revenue, peak hours, or off-peak promos.",
+    "tryAsking": "Try asking",
+    "placeholder": "Ask about courts, revenue, peak hours…",
+    "thinking": "Analyzing…",
+    "thoughtFor": "Reasoned for {seconds}s",
+    "queued": "Queued",
+    "closeAria": "Close copilot",
+    "inputAria": "Message the venue copilot",
+    "sendAria": "Send",
+    "toggleOpen": "Open venue copilot",
+    "toggleClose": "Close venue copilot",
+    "suggestions": {
+      "free": "What's free tonight?",
+      "revenue": "How's revenue today?",
+      "peak": "When are peak hours?",
+      "promo": "Draft an off-peak promo"
+    },
+    "steps": {
+      "scanGrid": "Reading tonight's grid ({window})",
+      "filterFree": "Filtering for unsold court-hours",
+      "crossPeak": "Keeping only peak slots (17:00+)",
+      "draftFix": "Drafting a fill recommendation",
+      "pullLedger": "Pulling the 7-day revenue ledger",
+      "sumWeek": "Summing the weekly total",
+      "compareAvg": "Comparing today to the daily average",
+      "findSoft": "Finding soft demand windows",
+      "priceOffPeak": "Modeling an off-peak discount",
+      "composeMsg": "Composing a broadcast message",
+      "aggregateWeek": "Aggregating utilization across the week",
+      "rankHours": "Ranking the busiest hours",
+      "parse": "Reading your request",
+      "surveyData": "Surveying venue signals"
+    },
+    "reply": {
+      "free": "You have {count} unsold peak court-hours tonight. Filling them at an off-peak rate is the fastest revenue lift.",
+      "freeNone": "Nice — every peak court-hour tonight is already booked. Nothing to fill.",
+      "revenueUp": "Today is tracking {today} — that's {pct}% above the 7-day daily average. Strong day.",
+      "revenueDown": "Today is tracking {today} — that's {pct}% below the 7-day daily average. Worth a push.",
+      "promo": "Here's a ready-to-send off-peak promo to fill the quiet hours. Review and broadcast when you're happy.",
+      "peak": "Your busiest hour is {hour} at {util}% utilization. Prime-time demand is where pricing matters most.",
+      "default": "I can help you run {venue}. Ask me anything below and I'll pull from your live floor data."
+    },
+    "metric": {
+      "today": "Today",
+      "week": "This week",
+      "dailyAvg": "Daily average"
+    },
+    "promo": {
+      "draft": "🏸 {venue} off-peak hours just got better — book a quiet slot today and save 15%. {open} courts open now!"
+    },
+    "actions": {
+      "offPeak": "Apply off-peak discount",
+      "broadcast": "Broadcast to players"
+    },
+    "can": {
+      "free": "Find idle courts to fill tonight",
+      "revenue": "Summarize today vs the week",
+      "peak": "Rank the busiest hours",
+      "promo": "Draft an off-peak promo"
     }
   }
 }

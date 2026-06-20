@@ -349,6 +349,8 @@ export interface MatchRoom {
   joined: number
   players: string[]
   pricePerHour: number
+  /** Session length in minutes; derived from `time` when omitted. */
+  durationMin?: number
   /** Set once a court has been booked for this room. */
   bookingId?: string
 }
@@ -587,14 +589,47 @@ export const BOOKING_DAYS: { key: string; label: string }[] = [
   { key: "mon", label: "Mon" },
 ]
 
-/** Add one hour to a "HH:MM" start, returning "HH:MM – HH:MM". */
-export function slotRange(start: string): string {
-  const [h, m] = start.split(":").map(Number)
-  const end = `${String((h + 1) % 24).padStart(2, "0")}:${String(m).padStart(
-    2,
-    "0"
-  )}`
-  return `${start} – ${end}`
+/** Add minutes to a "HH:MM" time (wraps within a day), returning "HH:MM". */
+export function addMinutes(hhmm: string, mins: number): string {
+  const [h, m] = hhmm.split(":").map(Number)
+  const total = ((((h || 0) * 60 + (m || 0) + mins) % 1440) + 1440) % 1440
+  const hh = String(Math.floor(total / 60)).padStart(2, "0")
+  const mm = String(total % 60).padStart(2, "0")
+  return `${hh}:${mm}`
+}
+
+/** A "HH:MM – HH:MM" label for a start + duration (defaults to one hour). */
+export function slotRange(start: string, durationMin = 60): string {
+  return `${start} – ${addMinutes(start, durationMin)}`
+}
+
+/** Signed minutes from one "HH:MM" to another (end − start). */
+export function diffMinutes(start: string, end: string): number {
+  const [sh, sm] = start.split(":").map(Number)
+  const [eh, em] = end.split(":").map(Number)
+  return (eh || 0) * 60 + (em || 0) - ((sh || 0) * 60 + (sm || 0))
+}
+
+/** Minutes spanned by a "HH:MM – HH:MM" range (falls back to 60). */
+export function durationOf(timeRange: string): number {
+  const [a, b] = timeRange.split(" – ")
+  if (!a || !b) return 60
+  const d = toMinutes(b) - toMinutes(a)
+  return d > 0 ? d : 60
+}
+
+/** Prorate an hourly rate over a duration in minutes (VND). */
+export function priceFor(pricePerHour: number, durationMin: number): number {
+  return Math.round((pricePerHour * durationMin) / 60)
+}
+
+/** Compact duration label, e.g. "1h", "1h 30m", "45m". */
+export function formatDuration(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  if (h && m) return `${h}h ${m}m`
+  if (h) return `${h}h`
+  return `${m}m`
 }
 
 /** Tiny deterministic FNV-1a-style hash; stable across server and client. */
@@ -674,6 +709,8 @@ export interface PlaySession {
   dayLabel: string
   /** "HH:MM" start — proposed while forming, held once booked. */
   slot: string | null
+  /** Session length in minutes. Free-form (e.g. 65); defaults to 60. */
+  durationMin: number
   /** Cosmetic "Court N", set when a court is booked. */
   courtLabel: string | null
   host: { name: string; initials: string }
@@ -711,11 +748,16 @@ function toMinutes(hhmm: string): number {
   return (h || 0) * 60 + (m || 0)
 }
 
-/** Whether two one-hour slots (by "HH:MM" start) overlap. */
-function slotsOverlap(a: string, b: string): boolean {
-  const x = toMinutes(a)
-  const y = toMinutes(b)
-  return x < y + 60 && y < x + 60
+/** Whether two intervals (start "HH:MM" + length in minutes) overlap. */
+function rangesOverlap(
+  aStart: string,
+  aDur: number,
+  bStart: string,
+  bDur: number
+): boolean {
+  const x = toMinutes(aStart)
+  const y = toMinutes(bStart)
+  return x < y + bDur && y < x + aDur
 }
 
 /** Booked sessions that actually hold a court (the only ones that block). */
@@ -736,14 +778,17 @@ export interface ConflictQuery {
   courtId: string | null
   dayKey: string
   slot: string | null
+  /** Requested length in minutes (the booking need not align to the hour). */
+  durationMin: number
   /** Session being (re)booked — excluded from the check. */
   ignoreId?: string
 }
 
 /**
- * The single conflict predicate, used by both the slot grid and Confirm.
- * Interval-based so off-grid seed/room times (e.g. 18:30, 17:45) correctly
- * block the overlapping on-the-hour tiles. Order: court-taken > self-overlap.
+ * The single conflict predicate. Fully interval-based: a free-form request
+ * (e.g. 06:40 for 65 min) is checked against the house's taken hours AND any
+ * held court, by real time-range overlap — so off-grid starts and arbitrary
+ * durations collide correctly. Order: court-taken > self-overlap.
  */
 export function conflictFor(
   sessions: PlaySession[],
@@ -751,21 +796,23 @@ export function conflictFor(
 ): Conflict {
   if (q.courtId == null || q.slot == null) return null
   if (!BOOKING_DAYS.some((d) => d.key === q.dayKey)) return null
-  // (a) house availability for this court/day
-  const house = courtSlots(q.courtId, q.dayKey).find((s) => s.time === q.slot)
-  if (house?.taken) return "court-taken"
+  const dur = q.durationMin || 60
+  // (a) house availability — any taken hour overlapping the requested range
+  const houseTaken = courtSlots(q.courtId, q.dayKey).filter((s) => s.taken)
+  if (houseTaken.some((s) => rangesOverlap(q.slot!, dur, s.time, 60)))
+    return "court-taken"
   const holds = courtHolds(sessions, q.ignoreId)
-  // (b) another held court at the same venue/day overlapping this slot
+  // (b) another held court at the same venue/day overlapping this range
   if (
     holds.some(
       (s) =>
         s.courtId === q.courtId &&
         s.dayKey === q.dayKey &&
-        slotsOverlap(s.slot!, q.slot!)
+        rangesOverlap(q.slot!, dur, s.slot!, s.durationMin)
     )
   )
     return "court-taken"
-  // (c) the user's own held court (any venue) overlapping this slot/day
+  // (c) the user's own held court (any venue) overlapping this range/day
   if (
     holds.some(
       (s) =>
@@ -773,22 +820,26 @@ export function conflictFor(
         s.roster.some(
           (p) => p.initials === USER.initials && p.rsvp !== "declined"
         ) &&
-        slotsOverlap(s.slot!, q.slot!)
+        rangesOverlap(q.slot!, dur, s.slot!, s.durationMin)
     )
   )
     return "self-overlap"
   return null
 }
 
-/** Whether a court/day/slot tile is unavailable (house or any held court). */
+/** Whether a court/day range is unavailable (house or any held court). */
 export function isSlotTaken(
   sessions: PlaySession[],
   courtId: string,
   dayKey: string,
   slot: string,
+  durationMin = 60,
   ignoreId?: string
 ): boolean {
-  return conflictFor(sessions, { courtId, dayKey, slot, ignoreId }) !== null
+  return (
+    conflictFor(sessions, { courtId, dayKey, slot, durationMin, ignoreId }) !==
+    null
+  )
 }
 
 /** Active (non-declined) roster members. */
@@ -829,12 +880,13 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
     district: s.district,
     distanceKm: s.distanceKm,
     day: s.dayLabel,
-    time: s.slot ? slotRange(s.slot) : "",
+    time: s.slot ? slotRange(s.slot, s.durationMin) : "",
     level: s.level,
     capacity: s.capacity,
     joined: active.length,
     players: active.map((p) => p.initials),
     pricePerHour: s.pricePerHour,
+    durationMin: s.durationMin,
     bookingId: s.status === "booked" ? s.id : undefined,
   }
 }
@@ -849,7 +901,7 @@ export function sessionToBooking(s: PlaySession): Booking {
     court: s.courtLabel ?? (s.courtId ? courtNumberFor(s.courtId) : ""),
     day: s.dayLabel,
     dayKey: BOOKING_DAYS.some((d) => d.key === s.dayKey) ? s.dayKey : undefined,
-    time: s.slot ? slotRange(s.slot) : "",
+    time: s.slot ? slotRange(s.slot, s.durationMin) : "",
     status: bookingStatusOf(s),
     withPlayers: rosterToBookingPlayers(s.roster),
     roomId: s.listed ? s.id : undefined,
@@ -902,6 +954,7 @@ function bookingToSession(b: Booking): PlaySession {
     dayKey: SEED_BOOKING_DAYKEY[b.id] ?? "today",
     dayLabel: b.day,
     slot: startOf(b.time),
+    durationMin: durationOf(b.time),
     courtLabel: b.court,
     host: { name: USER.name, initials: USER.initials },
     capacity: capacityFor(b.format),
@@ -931,6 +984,7 @@ function roomToSession(r: MatchRoom): PlaySession {
     dayKey: dayKeyForRoom(r),
     dayLabel: r.day,
     slot: startOf(r.time),
+    durationMin: durationOf(r.time),
     courtLabel: null,
     host: r.host,
     capacity: r.capacity,

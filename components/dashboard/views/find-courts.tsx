@@ -1,21 +1,14 @@
 "use client"
 
-import * as React from "react"
 import { Clock, MapPin, Star } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  COURTS,
-  SPORTS,
-  formatVnd,
-  type Court,
-  type SportKey,
-} from "@/components/dashboard/data"
+import { COURTS, formatVnd, type Court } from "@/components/dashboard/data"
 import { useBooking } from "@/components/dashboard/booking"
+import { useSportFilter } from "@/components/dashboard/sport-filter"
 import { SportTag } from "@/components/dashboard/shared"
 
 // Decorative pin positions for the mini map (percent of panel box).
@@ -30,28 +23,13 @@ const PINS = [
 
 export function FindCourtsView() {
   const t = useTranslations("FindCourts")
-  const tc = useTranslations("Common")
-  const [sport, setSport] = React.useState<SportKey | "all">("all")
+  const { sport } = useSportFilter()
   const courts = COURTS.filter(
     (c) => sport === "all" || c.sports.includes(sport)
   )
 
   return (
     <div className="flex flex-col gap-5">
-      <Tabs
-        value={sport}
-        onValueChange={(v) => setSport(v as SportKey | "all")}
-      >
-        <TabsList variant="line" className="flex-wrap">
-          <TabsTrigger value="all">{t("allSports")}</TabsTrigger>
-          {SPORTS.map((s) => (
-            <TabsTrigger key={s.key} value={s.key}>
-              {tc(`sports.${s.key}`)}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2">
           {courts.map((c) => (

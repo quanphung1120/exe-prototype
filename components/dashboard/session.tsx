@@ -15,6 +15,7 @@ import {
   conflictFor,
   courtByVenue,
   courtNumberFor,
+  durationOf,
   levelMatches,
   playerByInitials,
   sessionToBooking,
@@ -45,6 +46,8 @@ export type FillMode = "court" | "invite" | "find"
 interface BookingDraft {
   dayKey: string
   slot: string | null
+  /** Free-form session length in minutes (not tied to the hour). */
+  durationMin: number
   format: "Singles" | "Doubles"
   fillMode: FillMode
   invitees: string[]
@@ -101,6 +104,13 @@ interface SessionContextValue {
   managerOpen: boolean
   setManagerOpen: (open: boolean) => void
   openManager: (sessionId: string) => void
+  // ── Match Maker dialogs (triggered from the topbar) ──
+  quickJoinOpen: boolean
+  setQuickJoinOpen: (open: boolean) => void
+  openQuickJoin: () => void
+  createRoomOpen: boolean
+  setCreateRoomOpen: (open: boolean) => void
+  openCreateRoom: () => void
   // ── Play / booking wizard ──
   playOpen: boolean
   openPlay: () => void
@@ -126,6 +136,7 @@ interface SessionContextValue {
   setCourt: (courtId: string) => void
   setDay: (dayKey: string) => void
   setSlot: (slot: string) => void
+  setDuration: (durationMin: number) => void
   setFormat: (format: "Singles" | "Doubles") => void
   setFillMode: (mode: FillMode) => void
   toggleInvite: (initials: string) => void
@@ -155,6 +166,7 @@ export function useSession() {
 const EMPTY_DRAFT: BookingDraft = {
   dayKey: "today",
   slot: null,
+  durationMin: 60,
   format: "Doubles",
   fillMode: "court",
   invitees: [],
@@ -212,6 +224,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [userLevel, setUserLevel] = React.useState<Level>(USER.level)
   const [search, setSearch] = React.useState<PartnerSearch | null>(null)
   const [managerOpen, setManagerOpen] = React.useState(false)
+  const [quickJoinOpen, setQuickJoinOpen] = React.useState(false)
+  const [createRoomOpen, setCreateRoomOpen] = React.useState(false)
 
   const [playOpen, setPlayOpen] = React.useState(false)
   const [open, setOpen] = React.useState(false)
@@ -424,6 +438,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       dayKey: "today",
       dayLabel: room.day,
       slot: room.time ? room.time.split(" – ")[0] : null,
+      durationMin: room.durationMin ?? durationOf(room.time),
       courtLabel: null,
       host: room.host,
       capacity: room.capacity,
@@ -644,6 +659,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       dayKey: "today",
       dayLabel: tc("when.today"),
       slot: c.nextSlot,
+      durationMin: 60,
       courtLabel: null,
       host: { name: USER.name, initials: USER.initials },
       capacity: opts.maxPlayers,
@@ -766,6 +782,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setDraft({
       dayKey: linked ? linked.dayKey : "today",
       slot: null,
+      durationMin: linked ? linked.durationMin : 60,
       format: linked?.format ?? "Doubles",
       fillMode: linked ? "court" : (opts?.fillMode ?? "court"),
       invitees: linked
@@ -835,7 +852,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
   const setDay = (dayKey: string) =>
     setDraft((d) => ({ ...d, dayKey, slot: null }))
-  const setSlot = (slot: string) => setDraft((d) => ({ ...d, slot }))
+  const setSlot = (slot: string) =>
+    setDraft((d) => ({ ...d, slot: slot || null }))
+  const setDuration = (durationMin: number) =>
+    setDraft((d) => ({
+      ...d,
+      durationMin: Math.max(15, Math.min(300, durationMin)),
+    }))
   const setFormat = (format: "Singles" | "Doubles") =>
     setDraft((d) => ({
       ...d,
@@ -858,6 +881,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           courtId: court.id,
           dayKey: draft.dayKey,
           slot,
+          durationMin: draft.durationMin,
           ignoreId: linkedId ?? undefined,
         }) !== null
       : false
@@ -868,6 +892,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           courtId: court.id,
           dayKey: draft.dayKey,
           slot: draft.slot,
+          durationMin: draft.durationMin,
           ignoreId: linkedId ?? undefined,
         })
       : null
@@ -878,6 +903,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       courtId: court.id,
       dayKey: draft.dayKey,
       slot: draft.slot,
+      durationMin: draft.durationMin,
       ignoreId: linkedId ?? undefined,
     }
     if (conflictFor(sessions, q)) {
@@ -886,7 +912,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     const dayLabel =
       BOOKING_DAYS.find((d) => d.key === draft.dayKey)?.label ?? "Today"
-    const time = slotRange(draft.slot)
+    const time = slotRange(draft.slot, draft.durationMin)
     const linked = linkedId ? sessions.find((s) => s.id === linkedId) : null
     const sport = linked?.sport ?? court.sports[0]
     const courtLabel = courtNumberFor(court.id)
@@ -905,6 +931,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                 dayKey: draft.dayKey,
                 dayLabel,
                 slot: draft.slot,
+                durationMin: draft.durationMin,
                 venue: court.name,
                 district: court.district,
                 distanceKm: court.distanceKm,
@@ -952,6 +979,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       dayKey: draft.dayKey,
       dayLabel,
       slot: draft.slot,
+      durationMin: draft.durationMin,
       courtLabel,
       host: { name: USER.name, initials: USER.initials },
       capacity: capacityFor(draft.format),
@@ -1110,6 +1138,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     managerOpen,
     setManagerOpen,
     openManager,
+    quickJoinOpen,
+    setQuickJoinOpen,
+    openQuickJoin: () => setQuickJoinOpen(true),
+    createRoomOpen,
+    setCreateRoomOpen,
+    openCreateRoom: () => setCreateRoomOpen(true),
     playOpen,
     openPlay,
     closePlay,
@@ -1131,6 +1165,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setCourt,
     setDay,
     setSlot,
+    setDuration,
     setFormat,
     setFillMode,
     toggleInvite,

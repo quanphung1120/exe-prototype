@@ -34,6 +34,7 @@ export function useBooking() {
     setCourt: s.setCourt,
     setDay: s.setDay,
     setSlot: s.setSlot,
+    setDuration: s.setDuration,
     setFormat: s.setFormat,
     setFillMode: s.setFillMode,
     toggleInvite: s.toggleInvite,

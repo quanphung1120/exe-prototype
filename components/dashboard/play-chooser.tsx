@@ -50,7 +50,9 @@ export function PlayChooser() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription className="sr-only">{t("title")}</DialogDescription>
+          <DialogDescription className="sr-only">
+            {t("title")}
+          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2">
           {options.map((o) => (

@@ -4,6 +4,7 @@ import * as React from "react"
 import { useTranslations } from "next-intl"
 import {
   Check,
+  Clock,
   CreditCard,
   Loader2,
   Lock,
@@ -11,6 +12,7 @@ import {
   QrCode,
   Search,
   ShieldCheck,
+  TriangleAlert,
   Users,
   Wallet,
 } from "lucide-react"
@@ -32,10 +34,13 @@ import {
   COURTS,
   MATCH_SUGGESTIONS,
   USER,
-  courtSlots,
+  addMinutes,
+  diffMinutes,
+  formatDuration,
   formatVnd,
   formatVndFull,
   playerByInitials,
+  priceFor,
   slotRange,
 } from "@/components/dashboard/data"
 import { useBooking, type FillMode } from "@/components/dashboard/booking"
@@ -162,7 +167,6 @@ export function BookingDialog() {
     steps,
     step,
     draft,
-    slotBlocked,
     draftConflict,
     capacityFor,
     next,
@@ -170,6 +174,7 @@ export function BookingDialog() {
     setCourt,
     setDay,
     setSlot,
+    setDuration,
     setFormat,
     setFillMode,
     toggleInvite,
@@ -199,6 +204,15 @@ export function BookingDialog() {
   const stepName = steps[step]
   const sport = court?.sports[0]
 
+  // Free-form booking: a start + end time (any minute), priced pro-rata.
+  const total = court ? priceFor(court.pricePerHour, draft.durationMin) : 0
+  const endTime = draft.slot ? addMinutes(draft.slot, draft.durationMin) : ""
+  const setEnd = (end: string) => {
+    if (!draft.slot || !end) return
+    const d = diffMinutes(draft.slot, end)
+    if (d > 0) setDuration(d)
+  }
+
   // Court step search
   const needle = courtQuery.trim().toLowerCase()
   const courtResults = needle
@@ -208,10 +222,6 @@ export function BookingDialog() {
           c.district.toLowerCase().includes(needle)
       )
     : COURTS
-
-  // Slot step grid — the time list comes from the court; availability (house
-  // bookings + the user's own conflicts) is the single `slotBlocked` predicate.
-  const slots = courtId ? courtSlots(courtId, draft.dayKey) : []
 
   // Players step
   const maxInvites = capacityFor(draft.format) - 1
@@ -242,7 +252,7 @@ export function BookingDialog() {
     stepName === "court"
       ? Boolean(courtId)
       : stepName === "slot"
-        ? Boolean(draft.slot)
+        ? Boolean(draft.slot) && !draftConflict
         : true
 
   // Pay step — light formatting so the inputs feel real (all cosmetic).
@@ -265,7 +275,7 @@ export function BookingDialog() {
     card.replace(/\s/g, "").length >= 16 && exp.length >= 4 && cvc.length >= 3
   const canPay = !paying && (method !== "card" || cardReady)
   const perHead = court
-    ? formatVnd(Math.round(court.pricePerHour / Math.max(1, headCount)))
+    ? formatVnd(Math.round(total / Math.max(1, headCount)))
     : ""
 
   const title = court ? t("title", { court: court.name }) : t("pickTitle")
@@ -382,32 +392,90 @@ export function BookingDialog() {
                   }))}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>{t("slotsFor")}</Label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {slots.map((s) => {
-                    const isTaken = slotBlocked(s.time)
-                    return (
-                      <button
-                        key={s.time}
-                        type="button"
-                        disabled={isTaken}
-                        onClick={() => !isTaken && setSlot(s.time)}
-                        className={cn(
-                          "rounded-2xl border px-2 py-2 text-center text-sm font-medium tabular-nums transition-colors",
-                          isTaken
-                            ? "cursor-not-allowed border-transparent bg-muted/50 text-muted-foreground/50 line-through"
-                            : draft.slot === s.time
-                              ? "border-brand bg-brand/12 text-brand"
-                              : "border-border hover:bg-muted/60"
-                        )}
-                      >
-                        {slotRange(s.time).split(" – ")[0]}
-                      </button>
-                    )
-                  })}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label>{t("startTime")}</Label>
+                  <div className="relative">
+                    <Clock className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="time"
+                      value={draft.slot ?? ""}
+                      min="06:00"
+                      max="22:00"
+                      onChange={(e) => setSlot(e.target.value)}
+                      aria-label={t("startTime")}
+                      className="h-9 pl-8 tabular-nums"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>{t("endTime")}</Label>
+                  <div className="relative">
+                    <Clock className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="time"
+                      value={endTime}
+                      min={draft.slot ?? "06:00"}
+                      max="23:00"
+                      disabled={!draft.slot}
+                      onChange={(e) => setEnd(e.target.value)}
+                      aria-label={t("endTime")}
+                      className="h-9 pl-8 tabular-nums"
+                    />
+                  </div>
                 </div>
               </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>{t("quickDuration")}</Label>
+                <Segmented
+                  value={String(draft.durationMin)}
+                  onChange={(v) => setDuration(Number(v))}
+                  options={[60, 90, 120].map((m) => ({
+                    value: String(m),
+                    label: formatDuration(m),
+                  }))}
+                />
+              </div>
+
+              {draft.slot ? (
+                <div
+                  className={cn(
+                    "flex flex-wrap items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-sm ring-1",
+                    draftConflict
+                      ? "bg-destructive/8 ring-destructive/20"
+                      : "bg-brand/8 ring-brand/15"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 font-medium",
+                      draftConflict ? "text-destructive" : "text-brand"
+                    )}
+                  >
+                    {draftConflict ? (
+                      <TriangleAlert className="size-4 shrink-0" />
+                    ) : (
+                      <Check className="size-4 shrink-0" />
+                    )}
+                    {draftConflict === "self-overlap"
+                      ? t("conflictSelf")
+                      : draftConflict === "court-taken"
+                        ? t("conflictCourt")
+                        : t("available")}
+                  </span>
+                  {!draftConflict ? (
+                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                      {draft.slot} – {endTime} ·{" "}
+                      {formatDuration(draft.durationMin)} · {formatVnd(total)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {t("pickStartHint")}
+                </p>
+              )}
             </>
           ) : null}
 
@@ -530,7 +598,14 @@ export function BookingDialog() {
               <SummaryRow label={t("steps.court")} value={court.name} />
               <SummaryRow
                 label={t("when")}
-                value={`${t(`days.${draft.dayKey}`)} · ${slotRange(draft.slot)}`}
+                value={`${t(`days.${draft.dayKey}`)} · ${slotRange(
+                  draft.slot,
+                  draft.durationMin
+                )}`}
+              />
+              <SummaryRow
+                label={t("durationLabel")}
+                value={formatDuration(draft.durationMin)}
               />
               <SummaryRow
                 label={t("format")}
@@ -539,14 +614,9 @@ export function BookingDialog() {
               <SummaryRow label={t("players")} value={playersLine} />
               <SummaryRow
                 label={t("price")}
-                value={`${formatVnd(court.pricePerHour)}${t("perHour")} · ${t(
-                  "perHead",
-                  {
-                    amount: formatVnd(
-                      Math.round(court.pricePerHour / Math.max(1, headCount))
-                    ),
-                  }
-                )}`}
+                value={`${formatVnd(total)} · ${t("perHead", {
+                  amount: perHead,
+                })}`}
               />
               {conflict ? (
                 <p className="text-xs font-medium text-destructive">
@@ -566,7 +636,7 @@ export function BookingDialog() {
                 <Label>{t("pay.amountDue")}</Label>
                 <div className="flex items-baseline gap-2">
                   <span className="font-heading text-3xl leading-none font-bold tracking-tight tabular-nums">
-                    {formatVndFull(court.pricePerHour)}
+                    {formatVndFull(total)}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {t("pay.courtFee")}
@@ -574,7 +644,7 @@ export function BookingDialog() {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {court.name} · {t(`days.${draft.dayKey}`)} ·{" "}
-                  {slotRange(draft.slot)}
+                  {slotRange(draft.slot, draft.durationMin)}
                 </p>
                 {headCount > 1 ? (
                   <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-brand">
@@ -663,7 +733,7 @@ export function BookingDialog() {
                   <div className="text-center">
                     <p className="text-sm font-medium">{t("pay.qrAccount")}</p>
                     <p className="font-mono text-xs text-muted-foreground tabular-nums">
-                      {formatVndFull(court.pricePerHour)}
+                      {formatVndFull(total)}
                     </p>
                   </div>
                   <p className="inline-flex items-center gap-1.5 text-center text-xs text-muted-foreground">
@@ -745,7 +815,7 @@ export function BookingDialog() {
                 <>
                   <Lock />
                   {t("pay.payNow", {
-                    amount: court ? formatVnd(court.pricePerHour) : "",
+                    amount: court ? formatVnd(total) : "",
                   })}
                 </>
               )}

@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  Check,
   ChevronsUpDown,
   Flame,
   LogOut,
@@ -38,22 +39,35 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 import { LEVELS, USER, type Level } from "@/components/dashboard/data"
-import { NAV, isNavActive } from "@/components/dashboard/nav"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
-import { Link, usePathname } from "@/i18n/navigation"
+import { VENUE } from "@/components/dashboard/venue/data"
+import { WORKSPACES, navContext } from "@/components/dashboard/workspace"
+import { Link, usePathname, useRouter } from "@/i18n/navigation"
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { isMobile, setOpenMobile } = useSidebar()
   const { userLevel, setUserLevel } = useMatchmaking()
-  const tNav = useTranslations("Nav")
+
+  const { workspace, ns, items, active } = navContext(pathname)
+  const isVenue = workspace === "venue"
+
+  // One translator, namespace chosen by the active workspace.
+  const tNav = useTranslations(ns)
   const t = useTranslations("Sidebar")
   const tc = useTranslations("Common")
 
   // Collapse the mobile drawer once a destination is chosen.
   const handleNavigate = () => {
     if (isMobile) setOpenMobile(false)
+  }
+
+  const switchTo = (key: keyof typeof WORKSPACES) => {
+    router.push(WORKSPACES[key].home)
+    handleNavigate()
   }
 
   return (
@@ -68,15 +82,28 @@ export function AppSidebar() {
                     size="lg"
                     className="data-popup-open:bg-sidebar-accent"
                   >
-                    <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-primary">
-                      <LogoMark className="size-5 text-primary-foreground" />
+                    <div
+                      className={cn(
+                        "flex aspect-square size-8 items-center justify-center rounded-xl",
+                        isVenue
+                          ? "bg-secondary text-xs font-bold text-secondary-foreground"
+                          : "bg-primary"
+                      )}
+                    >
+                      {isVenue ? (
+                        VENUE.initials
+                      ) : (
+                        <LogoMark className="size-5 text-primary-foreground" />
+                      )}
                     </div>
                     <div className="grid flex-1 text-left leading-tight">
                       <span className="truncate font-heading text-sm font-bold tracking-tight">
-                        SportMatch AI
+                        {isVenue ? VENUE.name : "SportMatch AI"}
                       </span>
                       <span className="truncate text-xs text-sidebar-foreground/60">
-                        {USER.city} · {tc(`levels.${userLevel}`)}
+                        {isVenue
+                          ? `${t("venueTag")} · ${VENUE.district}`
+                          : `${USER.city} · ${tc(`levels.${userLevel}`)}`}
                       </span>
                     </div>
                     <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/60" />
@@ -91,17 +118,19 @@ export function AppSidebar() {
               >
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>{t("workspaces")}</DropdownMenuLabel>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => switchTo("player")}>
                     <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
                       <LogoMark className="size-4 text-primary-foreground" />
                     </div>
-                    {t("playerWorkspace")}
+                    <span className="flex-1">{t("playerWorkspace")}</span>
+                    {!isVenue ? <Check className="size-4 text-brand" /> : null}
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => switchTo("venue")}>
                     <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
-                      PR
+                      {VENUE.initials}
                     </div>
-                    {t("venueWorkspace")}
+                    <span className="flex-1">{t("venueWorkspace")}</span>
+                    {isVenue ? <Check className="size-4 text-brand" /> : null}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
               </DropdownMenuContent>
@@ -112,21 +141,21 @@ export function AppSidebar() {
         <div className="relative group-data-[collapsible=icon]:hidden">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <SidebarInput
-            placeholder={t("searchPlaceholder")}
+            placeholder={isVenue ? t("searchVenue") : t("searchPlaceholder")}
             className="pl-8"
-            aria-label={t("searchPlaceholder")}
+            aria-label={isVenue ? t("searchVenue") : t("searchPlaceholder")}
           />
         </div>
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>{tNav("groupPlay")}</SidebarGroupLabel>
+          <SidebarGroupLabel>{tNav("group")}</SidebarGroupLabel>
           <SidebarMenu>
-            {NAV.map((item) => (
+            {items.map((item) => (
               <SidebarMenuItem key={item.key}>
                 <SidebarMenuButton
-                  isActive={isNavActive(item.href, pathname)}
+                  isActive={item.key === active.key}
                   tooltip={tNav(`${item.key}.label`)}
                   render={<Link href={item.href} onClick={handleNavigate} />}
                 >
@@ -169,15 +198,15 @@ export function AppSidebar() {
                   >
                     <Avatar size="sm" className="size-8">
                       <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-                        {USER.initials}
+                        {isVenue ? VENUE.manager.initials : USER.initials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left leading-tight">
                       <span className="truncate text-sm font-medium">
-                        {USER.name}
+                        {isVenue ? VENUE.manager.name : USER.name}
                       </span>
                       <span className="truncate text-xs text-sidebar-foreground/60">
-                        {USER.handle}
+                        {isVenue ? t("operatorRole") : USER.handle}
                       </span>
                     </div>
                     <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/60" />
@@ -194,31 +223,37 @@ export function AppSidebar() {
                   <DropdownMenuLabel className="flex items-center gap-2 py-2 text-foreground">
                     <Avatar size="sm" className="size-8">
                       <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-                        {USER.initials}
+                        {isVenue ? VENUE.manager.initials : USER.initials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid leading-tight">
-                      <span className="text-sm font-medium">{USER.name}</span>
+                      <span className="text-sm font-medium">
+                        {isVenue ? VENUE.manager.name : USER.name}
+                      </span>
                       <span className="text-xs text-muted-foreground">
-                        {USER.handle}
+                        {isVenue ? t("operatorRole") : USER.handle}
                       </span>
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup
-                  value={userLevel}
-                  onValueChange={(v) => setUserLevel(v as Level)}
-                >
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    {t("yourLevel")}
-                  </DropdownMenuLabel>
-                  {LEVELS.map((l) => (
-                    <DropdownMenuRadioItem key={l.value} value={l.value}>
-                      {tc(`levels.${l.value}`)}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
+                {!isVenue ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={userLevel}
+                      onValueChange={(v) => setUserLevel(v as Level)}
+                    >
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        {t("yourLevel")}
+                      </DropdownMenuLabel>
+                      {LEVELS.map((l) => (
+                        <DropdownMenuRadioItem key={l.value} value={l.value}>
+                          {tc(`levels.${l.value}`)}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </>
+                ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <UserRound />

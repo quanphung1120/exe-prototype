@@ -9,7 +9,6 @@ import {
   Clock,
   Flame,
   Navigation,
-  Play,
   Sparkles,
   Star,
   Swords,
@@ -22,19 +21,17 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   ACTIVITY,
   BOOKINGS,
   COURTS,
   MATCH_SUGGESTIONS,
   STREAK,
-  SPORTS,
   USER,
   type ActivityKind,
-  type SportKey,
 } from "@/components/dashboard/data"
 import { useBooking } from "@/components/dashboard/booking"
+import { useSportFilter } from "@/components/dashboard/sport-filter"
 import {
   CourtRow,
   PlayerRow,
@@ -57,9 +54,8 @@ const ACTIVITY_ICON: Record<
 export function OverviewView() {
   const t = useTranslations("Overview")
   const tc = useTranslations("Common")
-  const tPlay = useTranslations("Play")
-  const { openPlay, openBooking } = useBooking()
-  const [sport, setSport] = React.useState<SportKey | "all">("all")
+  const { openBooking } = useBooking()
+  const { sport } = useSportFilter()
 
   const nextMatch = BOOKINGS.find((b) => b.status === "confirmed")!
   const players = MATCH_SUGGESTIONS.filter(
@@ -71,40 +67,19 @@ export function OverviewView() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Greeting + sport filter */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-heading text-3xl font-bold tracking-tight">
-            {t("greeting", { name: USER.first })} 👋
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t.rich("streakTeaser", {
-              count: STREAK.current,
-              streak: (chunks) => (
-                <span className="font-semibold text-brand">{chunks}</span>
-              ),
-            })}
-          </p>
-          <div className="mt-3 flex items-center gap-2">
-            <Button className="rounded-full" onClick={openPlay}>
-              <Play />
-              {tPlay("button")}
-            </Button>
-          </div>
-        </div>
-        <Tabs
-          value={sport}
-          onValueChange={(v) => setSport(v as SportKey | "all")}
-        >
-          <TabsList variant="line" className="flex-wrap">
-            <TabsTrigger value="all">{t("filterAll")}</TabsTrigger>
-            {SPORTS.map((s) => (
-              <TabsTrigger key={s.key} value={s.key}>
-                {tc(`sports.${s.key}`)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+      {/* Greeting */}
+      <div>
+        <h1 className="font-heading text-3xl font-bold tracking-tight">
+          {t("greeting", { name: USER.first })} 👋
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t.rich("streakTeaser", {
+            count: STREAK.current,
+            streak: (chunks) => (
+              <span className="font-semibold text-brand">{chunks}</span>
+            ),
+          })}
+        </p>
       </div>
 
       {/* Hero row: next match + streak */}
