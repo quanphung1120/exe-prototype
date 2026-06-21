@@ -501,6 +501,18 @@ export interface VenueInsight {
   impact: Localized
   /** What the insight is about (court/slot/customer), shown as a chip. */
   target?: Localized
+  /**
+   * When set, this insight is a simple adaptive-pricing move — raise or lower
+   * the hourly rate. Drives the minimal AI price-suggestions sheet in analytics.
+   */
+  priceMove?: {
+    direction: "up" | "down"
+    /** Magnitude of the change as a percentage (e.g. 10 for ±10%). */
+    pct: number
+    /** Current and suggested price per hour, VND. */
+    from: number
+    to: number
+  }
   /** Signed nudge applied to a KPI when the action is taken. */
   effect?: {
     metric: "revenueToday" | "occupancy" | "noShowRate"

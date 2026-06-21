@@ -42,13 +42,9 @@
       "label": "Tổng quan",
       "caption": "Sân của Quý khách trong nháy mắt"
     },
-    "match-maker": {
-      "label": "Ghép trận",
-      "caption": "Tìm, tạo hoặc xếp hàng một trận"
-    },
-    "find-courts": {
-      "label": "Tìm sân",
-      "caption": "Khung giờ trống gần Quý khách"
+    "play": {
+      "label": "Chơi",
+      "caption": "Tìm trận hoặc sân"
     },
     "chat": {
       "label": "Trò chuyện",
@@ -58,9 +54,9 @@
       "label": "Lịch đặt",
       "caption": "Trận sắp tới và đã qua"
     },
-    "streak": {
-      "label": "Chuỗi ngày",
-      "caption": "Giữ vững phong độ"
+    "book": {
+      "label": "Đặt sân",
+      "caption": "Chọn khung giờ và đặt sân"
     },
     "group": "Chơi"
   },
@@ -71,12 +67,37 @@
     "searchPlaceholder": "Tìm người chơi, sân…",
     "profile": "Hồ sơ",
     "settings": "Cài đặt",
+    "workspaceSettings": "Cài đặt không gian",
     "logout": "Đăng xuất",
     "yourLevel": "Trình độ của bạn",
     "venueTag": "Địa điểm",
     "operatorRole": "Vận hành",
     "searchVenue": "Tìm lượt đặt, khách…",
     "venues": "Địa điểm của bạn"
+  },
+  "WorkspaceSettings": {
+    "title": "Cài đặt không gian",
+    "playerDescription": "Cập nhật cách bạn hiển thị trên SportMatch.",
+    "venueDescription": "Cập nhật hồ sơ địa điểm và đội ngũ của bạn.",
+    "playerScope": "Hồ sơ người chơi",
+    "venueScope": "Địa điểm đang chọn",
+    "nameLabel": "Tên hiển thị",
+    "venueNameLabel": "Tên địa điểm",
+    "namePlaceholder": "Nhập tên",
+    "save": "Lưu thay đổi",
+    "cancel": "Hủy",
+    "nameUpdated": "Đã cập nhật tên",
+    "error": "Đã xảy ra lỗi",
+    "validation": {
+      "name": "Vui lòng nhập ít nhất 2 ký tự"
+    },
+    "staff": {
+      "title": "Đội ngũ & nhân viên",
+      "description": "Mời quản lý và nhân viên lễ tân cùng vận hành địa điểm này.",
+      "emailPlaceholder": "ten@diadiem.com",
+      "invite": "Mời",
+      "soon": "Sắp ra mắt"
+    }
   },
   "Topbar": {
     "notifications": "Thông báo"
@@ -163,6 +184,8 @@
     "book": "Đặt",
     "bookFind": "Đặt + tìm người chơi",
     "courtsCount": "{count} sân",
+    "scrollPrev": "Sân trước",
+    "scrollNext": "Thêm sân",
     "suggestions": {
       "badminton": "Sân cầu lông gần tôi tối nay",
       "cheapest": "Sân rẻ nhất",
@@ -193,12 +216,19 @@
     "findTeammates": "Tìm đồng đội",
     "findTeammatesDesc": "Để AI tìm người chơi cùng bạn",
     "both": "Cả hai",
-    "bothDesc": "Tìm người chơi và đặt sân"
+    "bothDesc": "Tìm người chơi và đặt sân",
+    "matches": "Trận đấu",
+    "courts": "Sân",
+    "metaTitle": "Chơi",
+    "metaDescription": "Tìm người chơi cho một trận hoặc sân trống gần Quý khách — trong cùng một nơi."
   },
   "Booking": {
     "title": "Đặt · {court}",
     "pickTitle": "Đặt sân",
     "description": "Chọn khung giờ, chọn hình thức và lấp đầy sân.",
+    "metaTitle": "Đặt sân",
+    "metaDescription": "Đặt sân — chọn khung giờ, chọn hình thức và lấp đầy sân.",
+    "close": "Đóng",
     "steps": {
       "court": "Sân",
       "slot": "Khung giờ",
@@ -293,7 +323,13 @@
     "durationMore": "Tăng thời lượng",
     "available": "Còn trống",
     "pickStartHint": "Chọn giờ bắt đầu để kiểm tra tình trạng trống.",
-    "endTime": "Giờ kết thúc"
+    "endTime": "Giờ kết thúc",
+    "calendar": "Lịch sân",
+    "calendarHint": "Chạm vào khung trống",
+    "busy": "Đã đặt",
+    "free": "Trống",
+    "freeAt": "Trống từ {time}",
+    "yourSlot": "Khung của bạn"
   },
   "Session": {
     "toast": {
@@ -786,14 +822,17 @@
       "maxPlayers": "Số người tối đa",
       "maxPlayersDec": "Bớt người",
       "maxPlayersInc": "Thêm người",
-      "level": "Trình độ"
+      "level": "Trình độ",
+      "startTime": "Giờ bắt đầu",
+      "endTime": "Giờ kết thúc"
     },
     "validation": {
       "titleMin": "Đặt tên phòng ít nhất 5 ký tự.",
       "titleMax": "Tên phòng dưới 40 ký tự.",
       "court": "Hãy chọn sân.",
       "time": "Hãy chọn thời gian.",
-      "noteMax": "Ghi chú dưới 120 ký tự."
+      "noteMax": "Ghi chú dưới 120 ký tự.",
+      "endAfterStart": "Giờ kết thúc phải sau giờ bắt đầu."
     },
     "toast": {
       "roomCreated": "Đã tạo phòng",
@@ -993,21 +1032,9 @@
       "label": "Lịch sân",
       "caption": "Sân × giờ, trong một màn hình"
     },
-    "reservations": {
-      "label": "Đặt sân",
-      "caption": "Yêu cầu, giữ chỗ và khách vãng lai"
-    },
-    "monitor": {
-      "label": "Giám sát AI",
-      "caption": "Trí tuệ vận hành luôn bật"
-    },
     "analytics": {
       "label": "Phân tích",
-      "caption": "Doanh thu, công suất và nhu cầu"
-    },
-    "customers": {
-      "label": "Khách chơi",
-      "caption": "Khách quen, giữ chân và tiếp cận"
+      "caption": "Doanh thu, nhu cầu và khách chơi"
     },
     "manage": {
       "label": "Địa điểm",
@@ -1088,12 +1115,19 @@
       "courtDeleted": "Đã xóa {name}"
     }
   },
-  "VenueDock": {
-    "label": "Giám sát AI",
-    "watching": "Đang giám sát {count} sân",
-    "newInsight": "Phát hiện mới",
-    "applied": "Đã áp dụng đề xuất",
-    "review": "Xem"
+  "VenuePricing": {
+    "trigger": "Gợi ý giá từ AI",
+    "sheetTitle": "Định giá thích ứng AI",
+    "sheetDescription": "Đề xuất tăng hoặc giảm giá theo nhu cầu. Áp dụng một đề xuất để cập nhật bảng giá.",
+    "increase": "Tăng giá",
+    "decrease": "Giảm giá",
+    "perHour": "/giờ",
+    "apply": "Áp dụng",
+    "dismiss": "Bỏ qua",
+    "applied": "Đã áp dụng điều chỉnh giá",
+    "appliedCount": "Đã áp dụng {count}",
+    "emptyTitle": "Bảng giá đã tối ưu",
+    "emptyDetail": "Hiện chưa cần điều chỉnh giá. Đề xuất mới sẽ xuất hiện khi nhu cầu thay đổi."
   },
   "VenueCommand": {
     "metaTitle": "Trung tâm điều hành · SportMatch AI",
@@ -1121,14 +1155,14 @@
     "courtFrom": "từ {time}",
     "courtUntil": "đến {time}",
     "courtOpen": "Sẵn sàng đặt",
-    "topInsight": "Khuyến nghị AI hàng đầu",
+    "topInsight": "Điều chỉnh giá hàng đầu",
     "severity": {
       "info": "Cơ hội",
       "warn": "Cần theo dõi",
       "critical": "Cần xử lý ngay"
     },
-    "reviewInMonitor": "Xem trong Giám sát AI",
-    "emptyInsight": "Chưa có khuyến nghị nào đang chờ — bộ giám sát AI sẽ hiển thị ngay khi có.",
+    "reviewInAnalytics": "Xem trong Phân tích",
+    "emptyInsight": "Chưa có điều chỉnh giá nào đang chờ — đề xuất mới xuất hiện trong Phân tích khi nhu cầu thay đổi.",
     "upcomingArrivals": "Khách sắp đến",
     "seeAll": "Xem tất cả",
     "checkIn": "Nhận sân",
@@ -1187,6 +1221,11 @@
       "reschedule": "Đổi giờ",
       "cancel": "Hủy đặt sân",
       "reopen": "Mở lại sân"
+    },
+    "workspaceSubtitle": "Lưới trực tiếp và yêu cầu mới",
+    "tabs": {
+      "calendar": "Lịch",
+      "reservations": "Đặt sân"
     }
   },
   "VenueReservations": {
@@ -1241,40 +1280,6 @@
       "declined": "Đã từ chối yêu cầu của {name}"
     }
   },
-  "VenueMonitor": {
-    "metaTitle": "Giám sát AI",
-    "metaDescription": "AI túc trực theo dõi các sân — đề xuất về nhu cầu, vắng mặt, doanh thu và giữ chân khách theo thời gian thực.",
-    "live": "Trực tiếp",
-    "title": "Giám sát AI",
-    "watching": "Đang giám sát {count} sân theo thời gian thực",
-    "statActive": "Đề xuất đang chờ",
-    "statCritical": "Cần xử lý",
-    "statApplied": "Đã áp dụng",
-    "filterAll": "Tất cả",
-    "severity": {
-      "critical": "Khẩn cấp",
-      "warn": "Cần lưu ý",
-      "info": "Thông tin"
-    },
-    "kind": {
-      "demand-surge": "Nhu cầu tăng",
-      "underutilized": "Chưa khai thác",
-      "no-show-risk": "Nguy cơ vắng mặt",
-      "maintenance": "Bảo trì",
-      "revenue": "Doanh thu",
-      "retention": "Giữ chân khách",
-      "weather": "Thời tiết"
-    },
-    "feedTitle": "Đề xuất",
-    "feedCaption": "Cập nhật trực tiếp",
-    "emptyFilter": "Không có đề xuất nào khớp bộ lọc này.",
-    "thoughtFor": "Suy luận qua {count} bước",
-    "dismiss": "Bỏ qua",
-    "resolvedTitle": "Đã xử lý",
-    "resolvedCount": "Đã thực hiện {count}",
-    "clearTitle": "Mọi thứ ổn định",
-    "clearDetail": "AI đang theo dõi từng sân. Đề xuất mới sẽ hiện ở đây ngay khi có việc cần Quý khách xử lý."
-  },
   "VenueAnalytics": {
     "metaTitle": "Phân tích · Sân",
     "metaDescription": "Xu hướng doanh thu, công suất và nhu cầu của sân — doanh thu tuần, bản đồ nhiệt công suất theo giờ, cơ cấu môn, kênh đặt sân và khung giờ cao điểm.",
@@ -1317,6 +1322,16 @@
       "note": "Những khung này hết chỗ trước tiên — hãy định giá và bố trí nhân sự phù hợp."
     }
   },
+  "VenueInsights": {
+    "metaTitle": "Phân tích · Sân",
+    "metaDescription": "Doanh thu, công suất, nhu cầu và danh sách khách chơi — trong cùng một nơi.",
+    "title": "Phân tích",
+    "subtitle": "Doanh thu, nhu cầu và khách chơi của cơ sở.",
+    "tabs": {
+      "performance": "Hiệu suất",
+      "players": "Khách chơi"
+    }
+  },
   "VenueCustomers": {
     "metaTitle": "Khách hàng · Không gian vận hành",
     "metaDescription": "Quản lý khách chơi của sân — phân hạng, giá trị trọn đời, nguy cơ rời bỏ và đề xuất kéo lại từ AI.",
@@ -1331,7 +1346,7 @@
       "atRisk": "Khách nguy cơ rời",
       "aiTag": "AI",
       "atRiskUnit": "{count, plural, other {cần kéo lại}}",
-      "winBackCta": "Xem phương án giữ chân trong Giám sát"
+      "winBackCta": "AI đã đánh dấu các khách này để kéo lại"
     },
     "listTitle": "Toàn bộ khách hàng",
     "segments": {

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { MatchMakerView } from "@/components/dashboard/views/match-maker"
+import { BookView } from "@/components/dashboard/views/book"
 
 export async function generateMetadata({
   params,
@@ -9,19 +9,16 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>
 }): Promise<Metadata> {
   const { locale } = await params
-  const t = await getTranslations({ locale, namespace: "MatchMaker" })
-  return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
-  }
+  const t = await getTranslations({ locale, namespace: "Booking" })
+  return { title: t("metaTitle"), description: t("metaDescription") }
 }
 
-export default async function MatchMakerPage({
+export default async function BookPage({
   params,
 }: {
   params: Promise<{ locale: string }>
 }) {
   const { locale } = await params
   setRequestLocale(locale)
-  return <MatchMakerView />
+  return <BookView />
 }

@@ -21,9 +21,17 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { type ActivityKind } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
 import { useBooking } from "@/components/dashboard/booking"
+import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import { useSportFilter } from "@/components/dashboard/sport-filter"
 import {
   CourtRow,
@@ -32,6 +40,7 @@ import {
   SportTag,
   StreakStrip,
 } from "@/components/dashboard/shared"
+import { StreakView } from "@/components/dashboard/views/streak"
 
 const ACTIVITY_ICON: Record<
   ActivityKind,
@@ -47,8 +56,11 @@ const ACTIVITY_ICON: Record<
 export function OverviewView() {
   const t = useTranslations("Overview")
   const tc = useTranslations("Common")
+  const tStreak = useTranslations("Streak")
   const { openBooking } = useBooking()
   const { sport } = useSportFilter()
+  const { userName } = useMatchmaking()
+  const [streakOpen, setStreakOpen] = React.useState(false)
   const {
     activity: ACTIVITY,
     bookings: BOOKINGS,
@@ -57,6 +69,9 @@ export function OverviewView() {
     streak: STREAK,
     user: USER,
   } = useData()
+
+  // Greet by the player's editable display name (its first word), seed fallback.
+  const firstName = userName.trim().split(/\s+/)[0] || USER.first
 
   const nextMatch = BOOKINGS.find((b) => b.status === "confirmed")!
   const players = MATCH_SUGGESTIONS.filter(
@@ -71,7 +86,7 @@ export function OverviewView() {
       {/* Greeting */}
       <div>
         <h1 className="font-heading text-3xl font-bold tracking-tight">
-          {t("greeting", { name: USER.first })} 👋
+          {t("greeting", { name: firstName })} 👋
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t.rich("streakTeaser", {
@@ -156,10 +171,11 @@ export function OverviewView() {
           </div>
         </div>
 
-        {/* Streak (signature) */}
-        <Link
-          href="/dashboard/streak"
-          className="group/streak relative overflow-hidden rounded-4xl bg-card p-6 text-left shadow-md ring-1 ring-foreground/5 transition-shadow hover:shadow-lg focus-visible:ring-2 focus-visible:ring-ring dark:ring-foreground/10"
+        {/* Streak (signature) — opens the full streak detail in a dialog */}
+        <button
+          type="button"
+          onClick={() => setStreakOpen(true)}
+          className="group/streak relative w-full overflow-hidden rounded-4xl bg-card p-6 text-left shadow-md ring-1 ring-foreground/5 transition-shadow hover:shadow-lg focus-visible:ring-2 focus-visible:ring-ring dark:ring-foreground/10"
         >
           <div className="absolute -top-10 -right-8 size-32 rounded-full bg-lime/20 blur-2xl" />
           <div className="relative flex h-full flex-col gap-4">
@@ -189,7 +205,7 @@ export function OverviewView() {
               </span>
             </div>
           </div>
-        </Link>
+        </button>
       </div>
 
       {/* Match maker + courts */}
@@ -203,7 +219,7 @@ export function OverviewView() {
               size="sm"
               className="rounded-full"
               nativeButton={false}
-              render={<Link href="/dashboard/match-maker" />}
+              render={<Link href="/dashboard/play" />}
             >
               {t("seeAll")}
             </Button>
@@ -233,7 +249,7 @@ export function OverviewView() {
               size="sm"
               className="rounded-full"
               nativeButton={false}
-              render={<Link href="/dashboard/find-courts" />}
+              render={<Link href="/dashboard/play?tab=courts" />}
             >
               {t("seeAll")}
             </Button>
@@ -294,6 +310,19 @@ export function OverviewView() {
           })}
         </ol>
       </Panel>
+
+      {/* Full streak detail — milestones + heatmap, one tap from the hero card */}
+      <Dialog open={streakOpen} onOpenChange={setStreakOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{tStreak("currentStreak")}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {tStreak("metaDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <StreakView />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

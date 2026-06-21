@@ -7,9 +7,13 @@ import {
   ArrowDown,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
+  MapPin,
   Send,
   Sparkles,
+  Star,
   X,
 } from "lucide-react"
 
@@ -18,8 +22,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useBooking } from "@/components/dashboard/booking"
 import { useData } from "@/components/dashboard/data-provider"
-import { CourtRow, RowAction } from "@/components/dashboard/shared"
-import { SPORTS, type Court, type SportKey } from "@/components/dashboard/data"
+import {
+  SPORTS,
+  formatVnd,
+  type Court,
+  type SportKey,
+} from "@/components/dashboard/data"
 
 // Delay between each fake "chain of thought" step revealing.
 const STEP_MS = 600
@@ -435,7 +443,6 @@ function ThinkingBlock({
 
 function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
   const t = useTranslations("Assistant")
-  const { openBooking } = useBooking()
   const { courts: COURTS } = useData()
   const courts = msg.courtIds
     .map((id) => COURTS.find((c) => c.id === id))
@@ -450,28 +457,174 @@ function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
             <ArrowDown className="size-3" />
             {t("courtsCount", { count: courts.length })}
           </p>
-          <div className="flex flex-col gap-1 rounded-3xl bg-muted/40 p-1.5 ring-1 ring-foreground/5 dark:ring-foreground/10">
-            {courts.map((c) => (
-              <CourtRow
-                key={c.id}
-                court={c}
-                action={
-                  <div className="flex items-center gap-1">
-                    <RowAction
-                      onClick={() => openBooking(c.id, { fillMode: "find" })}
-                    >
-                      {t("bookFind")}
-                    </RowAction>
-                    <RowAction onClick={() => openBooking(c.id)}>
-                      {t("book")}
-                    </RowAction>
-                  </div>
-                }
-              />
-            ))}
-          </div>
+          <CourtCarousel courts={courts} />
         </>
       ) : null}
+    </div>
+  )
+}
+
+/**
+ * Horizontally sliding list of court cards. The chat panel is too narrow for a
+ * full court row, so each result becomes its own snap-scrolling card; a peek of
+ * the next card plus the transparent edge arrows signal there's more to scroll.
+ */
+function CourtCarousel({ courts }: { courts: Court[] }) {
+  const t = useTranslations("Assistant")
+  const scroller = React.useRef<HTMLDivElement>(null)
+  const [atStart, setAtStart] = React.useState(true)
+  const [atEnd, setAtEnd] = React.useState(false)
+
+  const sync = React.useCallback(() => {
+    const el = scroller.current
+    if (!el) return
+    const max = el.scrollWidth - el.clientWidth
+    setAtStart(el.scrollLeft <= 2)
+    setAtEnd(el.scrollLeft >= max - 2)
+  }, [])
+
+  // Recompute reachability once cards have laid out.
+  React.useEffect(() => {
+    sync()
+  }, [sync, courts])
+
+  const nudge = (dir: 1 | -1) => {
+    const el = scroller.current
+    if (!el) return
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" })
+  }
+
+  const single = courts.length < 2
+
+  return (
+    <div className="relative">
+      <div
+        ref={scroller}
+        onScroll={sync}
+        className="flex snap-x snap-mandatory [scrollbar-width:none] gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {courts.map((c) => (
+          <CourtCard key={c.id} court={c} solo={single} />
+        ))}
+      </div>
+
+      {/* Edge fades + transparent arrows — only while there's room to scroll. */}
+      {!atStart ? (
+        <>
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 rounded-l-3xl bg-gradient-to-r from-card to-transparent" />
+          <CarouselArrow
+            dir="left"
+            label={t("scrollPrev")}
+            onClick={() => nudge(-1)}
+          />
+        </>
+      ) : null}
+      {!atEnd ? (
+        <>
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-3xl bg-gradient-to-l from-card to-transparent" />
+          <CarouselArrow
+            dir="right"
+            label={t("scrollNext")}
+            onClick={() => nudge(1)}
+          />
+        </>
+      ) : null}
+    </div>
+  )
+}
+
+/** Mostly-transparent circular scroll control overlaid on a carousel edge. */
+function CarouselArrow({
+  dir,
+  label,
+  onClick,
+}: {
+  dir: "left" | "right"
+  label: string
+  onClick: () => void
+}) {
+  const Icon = dir === "left" ? ChevronLeft : ChevronRight
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={cn(
+        "absolute top-1/2 z-10 grid size-7 -translate-y-1/2 place-items-center rounded-full bg-card/60 text-foreground/80 shadow-md ring-1 ring-foreground/10 backdrop-blur-sm transition hover:bg-card hover:text-foreground",
+        dir === "left" ? "left-1" : "right-1"
+      )}
+    >
+      <Icon className="size-4" />
+    </button>
+  )
+}
+
+/** A single court rendered as a self-contained card inside the carousel. */
+function CourtCard({ court, solo }: { court: Court; solo?: boolean }) {
+  const t = useTranslations("Assistant")
+  const ts = useTranslations("Shared")
+  const { openBooking } = useBooking()
+  const initials = court.name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 snap-start flex-col gap-3 rounded-3xl bg-muted/50 p-3 ring-1 ring-foreground/5 dark:ring-foreground/10",
+        solo ? "w-full" : "w-[15rem]"
+      )}
+    >
+      <div className="flex items-center gap-2.5">
+        <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-secondary font-heading text-sm font-bold text-secondary-foreground">
+          {initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{court.name}</p>
+          <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+            <MapPin className="size-3 shrink-0" />
+            <span className="truncate">
+              {court.district} · {court.distanceKm} km
+            </span>
+          </p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-muted-foreground tabular-nums">
+          <Star className="size-3 fill-lime text-lime" />
+          {court.rating}
+        </span>
+      </div>
+
+      <div className="flex items-end justify-between gap-2">
+        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+          {ts("next", { time: court.nextSlot })}
+        </span>
+        <span className="font-heading text-lg leading-none font-bold tabular-nums">
+          {formatVnd(court.pricePerHour)}
+          <span className="text-xs font-normal text-muted-foreground">
+            {ts("perHour")}
+          </span>
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Button
+          size="sm"
+          className="rounded-full"
+          onClick={() => openBooking(court.id, { fillMode: "find" })}
+        >
+          {t("bookFind")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-full"
+          onClick={() => openBooking(court.id)}
+        >
+          {t("book")}
+        </Button>
+      </div>
     </div>
   )
 }

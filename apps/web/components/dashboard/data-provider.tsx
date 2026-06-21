@@ -7,7 +7,9 @@ import {
   conflictFor as conflictForFn,
   courtByVenue as courtByVenueFn,
   courtById as courtByIdFn,
+  courtDayBusy as courtDayBusyFn,
   courtDayEvents as courtDayEventsFn,
+  courtDayGaps as courtDayGapsFn,
   courtDaySlots as courtDaySlotsFn,
   courtNumberFor as courtNumberForFn,
   courtSlots as courtSlotsFn,
@@ -22,6 +24,7 @@ import {
   type Conflict,
   type ConflictQuery,
   type Court,
+  type CourtBand,
   type MatchRoom,
   type Message,
   type NotificationItem,
@@ -90,6 +93,18 @@ interface DataContextValue {
     dayKey: string
   ) => { time: string; taken: boolean }[]
   conflictFor: (sessions: PlaySession[], q: ConflictQuery) => Conflict
+  courtDayBusy: (
+    sessions: PlaySession[],
+    courtId: string,
+    dayKey: string,
+    ignoreId?: string
+  ) => CourtBand[]
+  courtDayGaps: (
+    sessions: PlaySession[],
+    courtId: string,
+    dayKey: string,
+    ignoreId?: string
+  ) => CourtBand[]
   sessionToBooking: (s: PlaySession) => Booking
   courtById: (id: string) => VenueCourt | undefined
   courtDayEvents: (courtId: string, dayKey: string) => ScheduleEvent[]
@@ -157,6 +172,10 @@ export function DataProvider({
       courtSlots: (courtId, dayKey) => courtSlotsFn(courts, courtId, dayKey),
       conflictFor: (sessions, q) =>
         conflictForFn(courts, player.user, sessions, q),
+      courtDayBusy: (sessions, courtId, dayKey, ignoreId) =>
+        courtDayBusyFn(courts, sessions, courtId, dayKey, ignoreId),
+      courtDayGaps: (sessions, courtId, dayKey, ignoreId) =>
+        courtDayGapsFn(courts, sessions, courtId, dayKey, ignoreId),
       sessionToBooking: (s) => sessionToBookingFn(courts, s),
       courtById: (id) => courtByIdFn(venue.courts, id),
       courtDayEvents: (courtId, dayKey) =>

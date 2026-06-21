@@ -5,6 +5,8 @@
 
 import {
   BOOKING_DAYS,
+  COURT_OPEN_FROM,
+  COURT_OPEN_TO,
   HEATMAP_DAYS,
   HEATMAP_HOURS,
   LEVEL_ORDER,
@@ -327,6 +329,82 @@ export function isSlotTaken(
       ignoreId,
     }) !== null
   )
+}
+
+// ── Court day calendar (player booking) ──────────────────────────────────────
+
+/** A start ("HH:MM") + length in minutes — a calendar band. */
+export interface CourtBand {
+  start: string
+  durationMin: number
+}
+
+/**
+ * Merged, sorted busy intervals on a court for a day: the house's already-taken
+ * hours (from {@link courtSlots}) plus any confirmed court holds on that
+ * court/day. Drives the booking calendar — its free gaps are the complement
+ * within the court's open window. Cross-venue self-overlaps are *not* folded in
+ * (they belong to the player, not the court) — {@link conflictFor} still warns.
+ */
+export function courtDayBusy(
+  courts: Court[],
+  sessions: PlaySession[],
+  courtId: string,
+  dayKey: string,
+  ignoreId?: string
+): CourtBand[] {
+  if (!BOOKING_DAYS.some((d) => d.key === dayKey)) return []
+  const raw: { start: number; end: number }[] = []
+  for (const s of courtSlots(courts, courtId, dayKey)) {
+    if (s.taken) {
+      const start = toMinutes(s.time)
+      raw.push({ start, end: start + 60 })
+    }
+  }
+  for (const s of courtHolds(sessions, ignoreId)) {
+    if (s.courtId === courtId && s.dayKey === dayKey && s.slot) {
+      const start = toMinutes(s.slot)
+      raw.push({ start, end: start + s.durationMin })
+    }
+  }
+  raw.sort((a, b) => a.start - b.start)
+  const merged: { start: number; end: number }[] = []
+  for (const r of raw) {
+    const last = merged[merged.length - 1]
+    if (last && r.start <= last.end) last.end = Math.max(last.end, r.end)
+    else merged.push({ ...r })
+  }
+  return merged.map((m) => ({
+    start: addMinutes("00:00", m.start),
+    durationMin: m.end - m.start,
+  }))
+}
+
+/** Free gaps (complement of {@link courtDayBusy}) within the open window. */
+export function courtDayGaps(
+  courts: Court[],
+  sessions: PlaySession[],
+  courtId: string,
+  dayKey: string,
+  ignoreId?: string
+): CourtBand[] {
+  if (!BOOKING_DAYS.some((d) => d.key === dayKey)) return []
+  const openStart = toMinutes(COURT_OPEN_FROM)
+  const openEnd = toMinutes(COURT_OPEN_TO)
+  const gaps: CourtBand[] = []
+  let cursor = openStart
+  for (const b of courtDayBusy(courts, sessions, courtId, dayKey, ignoreId)) {
+    const s = toMinutes(b.start)
+    if (s > cursor)
+      gaps.push({ start: addMinutes("00:00", cursor), durationMin: s - cursor })
+    cursor = Math.max(cursor, s + b.durationMin)
+  }
+  if (cursor < openEnd)
+    gaps.push({
+      start: addMinutes("00:00", cursor),
+      durationMin: openEnd - cursor,
+    })
+  return gaps
 }
 
 // ── Session projections ──────────────────────────────────────────────────────

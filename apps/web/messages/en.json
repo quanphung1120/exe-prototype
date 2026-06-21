@@ -42,13 +42,9 @@
       "label": "Dashboard",
       "caption": "Your court at a glance"
     },
-    "match-maker": {
-      "label": "Match Maker",
-      "caption": "Find, host or queue a match"
-    },
-    "find-courts": {
-      "label": "Find Courts",
-      "caption": "Open slots near you"
+    "play": {
+      "label": "Play",
+      "caption": "Find a match or a court"
     },
     "chat": {
       "label": "Chat",
@@ -58,9 +54,9 @@
       "label": "Bookings",
       "caption": "Upcoming and past matches"
     },
-    "streak": {
-      "label": "Streak",
-      "caption": "Keep the momentum alive"
+    "book": {
+      "label": "Book a court",
+      "caption": "Pick a slot and reserve"
     },
     "group": "Play"
   },
@@ -71,12 +67,37 @@
     "searchPlaceholder": "Search players, courts…",
     "profile": "Profile",
     "settings": "Settings",
+    "workspaceSettings": "Workspace settings",
     "logout": "Log out",
     "yourLevel": "Your level",
     "venueTag": "Venue",
     "operatorRole": "Operations",
     "searchVenue": "Search bookings, players…",
     "venues": "Your venues"
+  },
+  "WorkspaceSettings": {
+    "title": "Workspace settings",
+    "playerDescription": "Update how you appear across SportMatch.",
+    "venueDescription": "Update your venue profile and team.",
+    "playerScope": "Your player profile",
+    "venueScope": "Active venue",
+    "nameLabel": "Display name",
+    "venueNameLabel": "Venue name",
+    "namePlaceholder": "Enter a name",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "nameUpdated": "Name updated",
+    "error": "Something went wrong",
+    "validation": {
+      "name": "Please enter at least 2 characters"
+    },
+    "staff": {
+      "title": "Team & staff",
+      "description": "Invite managers and front-desk staff to help run this venue.",
+      "emailPlaceholder": "name@venue.com",
+      "invite": "Invite",
+      "soon": "Coming soon"
+    }
   },
   "Topbar": {
     "notifications": "Notifications"
@@ -163,6 +184,8 @@
     "book": "Book",
     "bookFind": "Book + find players",
     "courtsCount": "{count, plural, one {# court} other {# courts}}",
+    "scrollPrev": "Previous courts",
+    "scrollNext": "More courts",
     "suggestions": {
       "badminton": "Badminton courts near me tonight",
       "cheapest": "Cheapest courts",
@@ -193,12 +216,19 @@
     "findTeammates": "Find teammates",
     "findTeammatesDesc": "Let AI find players to join you",
     "both": "Both",
-    "bothDesc": "Find players and book a court"
+    "bothDesc": "Find players and book a court",
+    "matches": "Matches",
+    "courts": "Courts",
+    "metaTitle": "Play",
+    "metaDescription": "Find players for a match or an open court near you — in one place."
   },
   "Booking": {
     "title": "Book · {court}",
     "pickTitle": "Book a court",
     "description": "Pick a slot, choose your format, and fill the court.",
+    "metaTitle": "Book a court",
+    "metaDescription": "Reserve a court — pick a slot, choose your format, and fill it.",
+    "close": "Close",
     "steps": {
       "court": "Court",
       "slot": "Slot",
@@ -293,7 +323,13 @@
     "durationMore": "Increase duration",
     "available": "Available",
     "pickStartHint": "Pick a start time to check availability.",
-    "endTime": "End time"
+    "endTime": "End time",
+    "calendar": "Court schedule",
+    "calendarHint": "Tap a free slot",
+    "busy": "Booked",
+    "free": "Free",
+    "freeAt": "Free from {time}",
+    "yourSlot": "Your slot"
   },
   "Session": {
     "toast": {
@@ -786,14 +822,17 @@
       "maxPlayers": "Max players",
       "maxPlayersDec": "Fewer players",
       "maxPlayersInc": "More players",
-      "level": "Level"
+      "level": "Level",
+      "startTime": "Start time",
+      "endTime": "End time"
     },
     "validation": {
       "titleMin": "Give your room a title of at least 5 characters.",
       "titleMax": "Keep the title under 40 characters.",
       "court": "Pick a court.",
       "time": "Pick a time.",
-      "noteMax": "Keep your note under 120 characters."
+      "noteMax": "Keep your note under 120 characters.",
+      "endAfterStart": "End time must be after start time."
     },
     "toast": {
       "roomCreated": "Room created",
@@ -993,21 +1032,9 @@
       "label": "Schedule",
       "caption": "Courts × hours, at a glance"
     },
-    "reservations": {
-      "label": "Reservations",
-      "caption": "Requests, holds and walk-ins"
-    },
-    "monitor": {
-      "label": "AI Monitor",
-      "caption": "Always-on operations intelligence"
-    },
     "analytics": {
-      "label": "Analytics",
-      "caption": "Revenue, utilization and demand"
-    },
-    "customers": {
-      "label": "Players",
-      "caption": "Regulars, retention and reach"
+      "label": "Insights",
+      "caption": "Revenue, demand and players"
     },
     "manage": {
       "label": "Venues",
@@ -1088,12 +1115,19 @@
       "courtDeleted": "{name} removed"
     }
   },
-  "VenueDock": {
-    "label": "AI Monitor",
-    "watching": "Watching {count} courts",
-    "newInsight": "New insight",
-    "applied": "Recommendation applied",
-    "review": "Review"
+  "VenuePricing": {
+    "trigger": "AI price suggestions",
+    "sheetTitle": "AI Adaptive Pricing",
+    "sheetDescription": "Demand-based moves to raise or lower your rates. Apply one to update pricing.",
+    "increase": "Increase price",
+    "decrease": "Decrease price",
+    "perHour": "/h",
+    "apply": "Apply",
+    "dismiss": "Dismiss",
+    "applied": "Price move applied",
+    "appliedCount": "{count} applied",
+    "emptyTitle": "Rates are dialed in",
+    "emptyDetail": "No price moves to make right now. New suggestions appear as demand shifts."
   },
   "VenueCommand": {
     "metaTitle": "Command Center · SportMatch AI",
@@ -1121,14 +1155,14 @@
     "courtFrom": "from {time}",
     "courtUntil": "until {time}",
     "courtOpen": "Open to book",
-    "topInsight": "Top AI insight",
+    "topInsight": "Top pricing move",
     "severity": {
       "info": "Opportunity",
       "warn": "Watch",
       "critical": "Act now"
     },
-    "reviewInMonitor": "Review in AI Monitor",
-    "emptyInsight": "No open recommendations — the AI monitor will surface new ones as they arrive.",
+    "reviewInAnalytics": "Review in Analytics",
+    "emptyInsight": "No open pricing moves — new suggestions appear in Analytics as demand shifts.",
     "upcomingArrivals": "Upcoming arrivals",
     "seeAll": "See all",
     "checkIn": "Check in",
@@ -1187,6 +1221,11 @@
       "reschedule": "Reschedule",
       "cancel": "Cancel booking",
       "reopen": "Reopen court"
+    },
+    "workspaceSubtitle": "Live grid and incoming requests",
+    "tabs": {
+      "calendar": "Calendar",
+      "reservations": "Reservations"
     }
   },
   "VenueReservations": {
@@ -1241,40 +1280,6 @@
       "declined": "Declined {name}'s request"
     }
   },
-  "VenueMonitor": {
-    "metaTitle": "AI Monitor",
-    "metaDescription": "Always-on AI watching your courts — surfacing demand, no-show, revenue and retention recommendations in real time.",
-    "live": "Live",
-    "title": "AI Monitor",
-    "watching": "Monitoring {count} courts in real time",
-    "statActive": "Active insights",
-    "statCritical": "Need attention",
-    "statApplied": "Applied",
-    "filterAll": "All",
-    "severity": {
-      "critical": "Critical",
-      "warn": "Attention",
-      "info": "Info"
-    },
-    "kind": {
-      "demand-surge": "Demand surge",
-      "underutilized": "Underutilized",
-      "no-show-risk": "No-show risk",
-      "maintenance": "Maintenance",
-      "revenue": "Revenue",
-      "retention": "Retention",
-      "weather": "Weather"
-    },
-    "feedTitle": "Recommendations",
-    "feedCaption": "Updated live",
-    "emptyFilter": "No insights match this filter.",
-    "thoughtFor": "Reasoned through {count} steps",
-    "dismiss": "Dismiss",
-    "resolvedTitle": "Resolved",
-    "resolvedCount": "{count} actioned",
-    "clearTitle": "All clear",
-    "clearDetail": "The AI is watching every court. New recommendations will appear here the moment something needs your attention."
-  },
   "VenueAnalytics": {
     "metaTitle": "Analytics · Venue",
     "metaDescription": "Revenue, utilization and demand trends for your venue — weekly revenue, an hourly utilization heatmap, sport mix, booking channels and peak hours.",
@@ -1317,6 +1322,16 @@
       "note": "These windows sell out first — price and staff them accordingly."
     }
   },
+  "VenueInsights": {
+    "metaTitle": "Insights · Venue",
+    "metaDescription": "Revenue, utilization, demand and your player roster — in one place.",
+    "title": "Insights",
+    "subtitle": "Revenue, demand and players across your venue.",
+    "tabs": {
+      "performance": "Performance",
+      "players": "Players"
+    }
+  },
   "VenueCustomers": {
     "metaTitle": "Customers · Venue Workspace",
     "metaDescription": "Player CRM for your venue — tiers, lifetime value, retention risk and AI win-back actions.",
@@ -1331,7 +1346,7 @@
       "atRisk": "At-risk players",
       "aiTag": "AI",
       "atRiskUnit": "{count, plural, one {need win-back} other {need win-back}}",
-      "winBackCta": "Review retention plays in Monitor"
+      "winBackCta": "AI has flagged these players for win-back"
     },
     "listTitle": "All customers",
     "segments": {

@@ -1,13 +1,12 @@
 "use client"
 
 import type { ComponentType } from "react"
-import { CalendarPlus, Play, Plus, Zap } from "lucide-react"
+import { CalendarPlus, Play, Plus } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
 import { Link } from "@/i18n/navigation"
 import { useBooking } from "@/components/dashboard/booking"
-import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import type { SectionKey } from "@/components/dashboard/nav"
 import {
   VENUE_BASE,
@@ -50,29 +49,6 @@ function NewBookingAction() {
   )
 }
 
-/** Match Maker override — Quick Join + Create Room (dialogs live in chrome). */
-function MatchMakerActions() {
-  const t = useTranslations("MatchMaker")
-  const { openQuickJoin, openCreateRoom } = useMatchmaking()
-  return (
-    <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="rounded-full"
-        onClick={openQuickJoin}
-      >
-        <Zap />
-        <span className="hidden sm:inline">{t("quickJoin")}</span>
-      </Button>
-      <Button size="sm" className="rounded-full" onClick={openCreateRoom}>
-        <Plus />
-        <span className="hidden sm:inline">{t("createRoom")}</span>
-      </Button>
-    </>
-  )
-}
-
 /** Venue default — jump to the schedule to add a booking. */
 function VenueNewBookingAction() {
   const tNav = useTranslations("VenueNav")
@@ -91,8 +67,12 @@ function VenueNewBookingAction() {
 
 /** Sections whose topbar action differs from the workspace default. */
 const PLAYER_ACTIONS: Partial<Record<SectionKey, ComponentType>> = {
-  "match-maker": MatchMakerActions,
+  // Play hosts its own segmented toolbar (Matches/Courts + Quick Join), so the
+  // topbar carries no extra CTA there.
+  play: () => null,
   bookings: NewBookingAction,
+  // The booking wizard is itself the action — no topbar CTA needed.
+  book: () => null,
 }
 
 const VENUE_ACTIONS: Partial<Record<VenueSectionKey, ComponentType>> = {}

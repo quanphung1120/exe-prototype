@@ -3,7 +3,6 @@
 import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Link } from "@/i18n/navigation"
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -40,7 +39,11 @@ const SEGMENTS: Segment[] = ["all", "vip", "regular", "new", "at-risk"]
 
 const RANK_RING = ["text-lime", "text-brand", "text-chart-3"]
 
-export function VenueCustomersView() {
+export function VenueCustomersView({
+  embedded = false,
+}: {
+  embedded?: boolean
+} = {}) {
   const t = useTranslations("VenueCustomers")
   const locale = useLocale()
   const { venueCustomers: VENUE_CUSTOMERS } = useData()
@@ -81,12 +84,14 @@ export function VenueCustomersView() {
   return (
     <div className="flex flex-col gap-5">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-3xl font-bold tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </div>
+      {!embedded ? (
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-3xl font-bold tracking-tight">
+            {t("title")}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        </div>
+      ) : null}
 
       {/* Summary */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -126,10 +131,7 @@ export function VenueCustomersView() {
         </div>
 
         {/* At-risk — AI win-back callout */}
-        <Link
-          href="/dashboard/venue/monitor"
-          className="group relative flex flex-col gap-3 overflow-hidden rounded-4xl bg-card p-5 shadow-md ring-1 ring-destructive/20 transition-shadow hover:shadow-lg focus-visible:ring-2 focus-visible:ring-ring dark:ring-destructive/25"
-        >
+        <div className="relative flex flex-col gap-3 overflow-hidden rounded-4xl bg-card p-5 shadow-md ring-1 ring-destructive/20 dark:ring-destructive/25">
           <div className="pointer-events-none absolute -top-10 -right-8 size-32 rounded-full bg-destructive/10 blur-2xl" />
           <div className="relative flex items-center justify-between">
             <MicroLabel className="text-destructive/80">
@@ -149,10 +151,10 @@ export function VenueCustomersView() {
             </span>
           </div>
           <p className="relative inline-flex items-center gap-1 text-xs font-medium text-brand">
+            <Sparkles className="size-3.5" />
             {t("summary.winBackCta")}
-            <ArrowUpRight className="size-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
           </p>
-        </Link>
+        </div>
       </div>
 
       {/* Customer list */}

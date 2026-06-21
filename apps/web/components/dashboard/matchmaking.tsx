@@ -30,6 +30,8 @@ export function useMatchmaking() {
     setActiveRoomId: s.setActiveRoomId,
     userLevel: s.userLevel,
     setUserLevel: s.setUserLevel,
+    userName: s.userName,
+    setUserName: s.setUserName,
     search: s.search,
     isSuitable: s.isSuitable,
     joinRoom: s.joinRoom,

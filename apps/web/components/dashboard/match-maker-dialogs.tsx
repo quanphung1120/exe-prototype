@@ -39,9 +39,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  BOOKING_DAYS,
   LEVELS,
-  ROOM_TIME_SLOTS,
   SPORTS,
+  diffMinutes,
   type RoomLevel,
   type SportKey,
 } from "@/components/dashboard/data"
@@ -50,12 +51,6 @@ import {
   useMatchmaking,
   type QuickJoinFilters,
 } from "@/components/dashboard/matchmaking"
-
-/** Localize a stored time-slot string by looking up its index in ROOM_TIME_SLOTS. */
-function timeSlotLabel(slot: string, t: (key: string) => string) {
-  const i = ROOM_TIME_SLOTS.indexOf(slot)
-  return i >= 0 ? t(`timeSlots.${i}`) : slot
-}
 
 /** One row of single-select segmented chips built from Button. */
 function FilterChips<T extends string>({
@@ -287,6 +282,7 @@ function QuickJoinDialog() {
 function CreateRoomDialog() {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
+  const tb = useTranslations("Booking")
   const { courts: COURTS, user: USER } = useData()
   const { userLevel, addRoom, createRoomOpen, setCreateRoomOpen } =
     useMatchmaking()
@@ -294,19 +290,26 @@ function CreateRoomDialog() {
   const courtName = (id: string) =>
     COURTS.find((c) => c.id === id)?.name ?? t("selectCourt")
 
-  const createRoomSchema = z.object({
-    title: z
-      .string()
-      .min(5, t("validation.titleMin"))
-      .max(40, t("validation.titleMax")),
-    sport: z.enum(["tennis", "pickleball", "badminton"]),
-    format: z.enum(["Singles", "Doubles"]),
-    maxPlayers: z.number().int().min(2).max(8),
-    courtId: z.string().min(1, t("validation.court")),
-    time: z.string().min(1, t("validation.time")),
-    level: z.enum(["beginner", "intermediate", "advanced", "any"]),
-    note: z.string().max(120, t("validation.noteMax")),
-  })
+  const createRoomSchema = z
+    .object({
+      title: z
+        .string()
+        .min(5, t("validation.titleMin"))
+        .max(40, t("validation.titleMax")),
+      sport: z.enum(["tennis", "pickleball", "badminton"]),
+      format: z.enum(["Singles", "Doubles"]),
+      maxPlayers: z.number().int().min(2).max(8),
+      courtId: z.string().min(1, t("validation.court")),
+      day: z.enum(["today", "tomorrow", "sat", "sun", "mon"]),
+      startTime: z.string().min(1, t("validation.time")),
+      endTime: z.string().min(1, t("validation.time")),
+      level: z.enum(["beginner", "intermediate", "advanced", "any"]),
+      note: z.string().max(120, t("validation.noteMax")),
+    })
+    .refine((d) => d.endTime > d.startTime, {
+      message: t("validation.endAfterStart"),
+      path: ["endTime"],
+    })
 
   const form = useForm({
     defaultValues: {
@@ -315,7 +318,9 @@ function CreateRoomDialog() {
       format: "Doubles" as "Singles" | "Doubles",
       maxPlayers: 4,
       courtId: "c1",
-      time: ROOM_TIME_SLOTS[0],
+      day: "today" as "today" | "tomorrow" | "sat" | "sun" | "mon",
+      startTime: "18:30",
+      endTime: "19:30",
       level: userLevel as RoomLevel,
       note: "",
     },
@@ -325,7 +330,8 @@ function CreateRoomDialog() {
     onSubmit: async ({ value }) => {
       const court = COURTS.find((c) => c.id === value.courtId) ?? COURTS[0]
       const capacity = value.maxPlayers
-      const [day, ...rest] = value.time.split(" ")
+      const dayLabel =
+        BOOKING_DAYS.find((d) => d.key === value.day)?.label ?? value.day
       addRoom({
         id: `r-new-${idRef.current++}`,
         host: { name: USER.name, initials: USER.initials },
@@ -335,8 +341,9 @@ function CreateRoomDialog() {
         venue: court.name,
         district: court.district,
         distanceKm: court.distanceKm,
-        day,
-        time: rest.join(" "),
+        day: dayLabel,
+        time: `${value.startTime} – ${value.endTime}`,
+        durationMin: diffMinutes(value.startTime, value.endTime),
         level: value.level,
         capacity,
         joined: 1,
@@ -532,64 +539,107 @@ function CreateRoomDialog() {
               )}
             </form.Subscribe>
 
+            <form.Field name="day">
+              {(field) => (
+                <Field>
+                  <FieldLabel>{t("dialog.when")}</FieldLabel>
+                  <FilterChips
+                    label=""
+                    value={field.state.value}
+                    options={BOOKING_DAYS.map((d) => ({
+                      value: d.key as
+                        | "today"
+                        | "tomorrow"
+                        | "sat"
+                        | "sun"
+                        | "mon",
+                      label: tb(`days.${d.key}`),
+                    }))}
+                    onChange={(v) => field.handleChange(v)}
+                  />
+                </Field>
+              )}
+            </form.Field>
+
             <div className="grid gap-7 sm:grid-cols-2">
-              <form.Field name="time">
-                {(field) => (
-                  <Field>
-                    <FieldLabel>{t("dialog.when")}</FieldLabel>
-                    <Select
-                      value={field.state.value}
-                      onValueChange={(v) => field.handleChange(v as string)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {(v) => timeSlotLabel(v as string, t)}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ROOM_TIME_SLOTS.map((slot, i) => (
-                          <SelectItem key={slot} value={slot}>
-                            {t(`timeSlots.${i}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
+              <form.Field name="startTime">
+                {(field) => {
+                  const invalid =
+                    field.state.meta.isTouched && !field.state.meta.isValid
+                  return (
+                    <Field data-invalid={invalid}>
+                      <FieldLabel>{t("dialog.startTime")}</FieldLabel>
+                      <Input
+                        type="time"
+                        min="06:00"
+                        max="22:00"
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        aria-invalid={invalid}
+                      />
+                      {invalid && (
+                        <FieldError errors={field.state.meta.errors} />
+                      )}
+                    </Field>
+                  )
+                }}
               </form.Field>
 
-              <form.Field name="level">
+              <form.Field name="endTime">
                 {(field) => {
-                  const levelLabel = (v: RoomLevel) =>
-                    v === "any" ? tc("level.any") : tc(`levels.${v}`)
+                  const invalid =
+                    field.state.meta.isTouched && !field.state.meta.isValid
                   return (
-                    <Field>
-                      <FieldLabel>{t("dialog.level")}</FieldLabel>
-                      <Select
+                    <Field data-invalid={invalid}>
+                      <FieldLabel>{t("dialog.endTime")}</FieldLabel>
+                      <Input
+                        type="time"
+                        min="06:00"
+                        max="23:00"
                         value={field.state.value}
-                        onValueChange={(v) =>
-                          field.handleChange(v as RoomLevel)
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue>
-                            {(v) => (v ? levelLabel(v as RoomLevel) : "")}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {LEVELS.map((l) => (
-                            <SelectItem key={l.value} value={l.value}>
-                              {tc(`levels.${l.value}`)}
-                            </SelectItem>
-                          ))}
-                          <SelectItem value="any">{tc("level.any")}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        aria-invalid={invalid}
+                      />
+                      {invalid && (
+                        <FieldError errors={field.state.meta.errors} />
+                      )}
                     </Field>
                   )
                 }}
               </form.Field>
             </div>
+
+            <form.Field name="level">
+              {(field) => {
+                const levelLabel = (v: RoomLevel) =>
+                  v === "any" ? tc("level.any") : tc(`levels.${v}`)
+                return (
+                  <Field>
+                    <FieldLabel>{t("dialog.level")}</FieldLabel>
+                    <Select
+                      value={field.state.value}
+                      onValueChange={(v) => field.handleChange(v as RoomLevel)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue>
+                          {(v) => (v ? levelLabel(v as RoomLevel) : "")}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LEVELS.map((l) => (
+                          <SelectItem key={l.value} value={l.value}>
+                            {tc(`levels.${l.value}`)}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="any">{tc("level.any")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )
+              }}
+            </form.Field>
 
             <form.Field name="note">
               {(field) => {

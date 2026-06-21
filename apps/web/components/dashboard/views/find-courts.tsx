@@ -1,10 +1,9 @@
 "use client"
 
-import { Clock, MapPin, Star } from "lucide-react"
+import { MapPin, Star } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { formatVnd, type Court } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
@@ -139,19 +138,13 @@ function CourtCard({ court }: { court: Court }) {
           </span>
           <span className="text-xs text-muted-foreground">{t("perHour")}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1 font-mono tabular-nums">
-            <Clock className="size-3" />
-            {court.nextSlot}
-          </Badge>
-          <Button
-            size="sm"
-            className="rounded-full"
-            onClick={() => openBooking(court.id)}
-          >
-            {t("book")}
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          className="rounded-full"
+          onClick={() => openBooking(court.id)}
+        >
+          {t("book")}
+        </Button>
       </div>
     </div>
   )

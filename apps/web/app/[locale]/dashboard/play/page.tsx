@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { FindCourtsView } from "@/components/dashboard/views/find-courts"
+import { PlayView, type PlayTab } from "@/components/dashboard/views/play"
 
 export async function generateMetadata({
   params,
@@ -9,16 +9,20 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>
 }): Promise<Metadata> {
   const { locale } = await params
-  const t = await getTranslations({ locale, namespace: "FindCourts" })
+  const t = await getTranslations({ locale, namespace: "Play" })
   return { title: t("metaTitle"), description: t("metaDescription") }
 }
 
-export default async function FindCourtsPage({
+export default async function PlayPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>
+  searchParams: Promise<{ tab?: string }>
 }) {
   const { locale } = await params
+  const { tab } = await searchParams
   setRequestLocale(locale)
-  return <FindCourtsView />
+  const initialTab: PlayTab = tab === "courts" ? "courts" : "matches"
+  return <PlayView initialTab={initialTab} />
 }

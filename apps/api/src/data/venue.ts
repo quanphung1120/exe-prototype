@@ -418,6 +418,7 @@ export const VENUE_INSIGHTS: VenueInsight[] = [
     },
     impact: { en: "+1.2M / week", vi: "+1,2Tr / tuần" },
     target: { en: "Court 5–6 · 14:00–16:00", vi: "Sân 5–6 · 14:00–16:00" },
+    priceMove: { direction: "down", pct: 15, from: 240000, to: 204000 },
     effect: { metric: "revenueToday", delta: 280000 },
   },
   {
@@ -488,7 +489,8 @@ export const VENUE_INSIGHTS: VenueInsight[] = [
       vi: "Tăng giá giờ vàng T7 +10%",
     },
     impact: { en: "+1.8M / week", vi: "+1,8Tr / tuần" },
-    target: { en: "Sat · 19:00–21:00", vi: "T7 · 19:00–21:00" },
+    target: { en: "Court 1 · Sat 19:00–21:00", vi: "Sân 1 · T7 19:00–21:00" },
+    priceMove: { direction: "up", pct: 10, from: 360000, to: 396000 },
     effect: { metric: "revenueToday", delta: 360000 },
   },
   {

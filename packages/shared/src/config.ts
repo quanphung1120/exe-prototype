@@ -56,6 +56,13 @@ export const trustTierAccent: Record<TrustTier, string> = {
 /** Fixed hourly start times offered when booking a court. One-hour slots. */
 export const SLOT_TIMES = ["17:00", "18:00", "19:00", "20:00", "21:00"]
 
+/**
+ * Open window the player court-booking calendar renders (HH:MM, end exclusive).
+ * Free gaps the player can tap are confined to this window.
+ */
+export const COURT_OPEN_FROM = "06:00"
+export const COURT_OPEN_TO = "23:00"
+
 /** The booking date strip: a fixed 5-day window (static so SSR stays in sync). */
 export const BOOKING_DAYS: { key: string; label: string }[] = [
   { key: "today", label: "Today" },

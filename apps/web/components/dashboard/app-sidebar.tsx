@@ -1,12 +1,13 @@
 "use client"
 
+import * as React from "react"
 import {
   Check,
   ChevronsUpDown,
-  Flame,
   LogOut,
   Search,
   Settings,
+  Settings2,
   UserRound,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -19,8 +20,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -40,9 +39,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
-import { LEVELS, type Level } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
+import { WorkspaceSettingsDialog } from "@/components/dashboard/workspace-settings"
 import { WORKSPACES, navContext } from "@/components/dashboard/workspace"
 import { setActiveVenue } from "@/lib/venue-actions"
 import { Link, usePathname, useRouter } from "@/i18n/navigation"
@@ -51,21 +50,20 @@ export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { isMobile, setOpenMobile } = useSidebar()
-  const { userLevel, setUserLevel } = useMatchmaking()
-  const {
-    user: USER,
-    venue: VENUE,
-    venues: VENUES,
-    activeVenueId,
-  } = useData()
+  const { userName } = useMatchmaking()
+  const { user: USER, venue: VENUE, venues: VENUES, activeVenueId } = useData()
+
+  const [settingsOpen, setSettingsOpen] = React.useState(false)
 
   const { workspace, ns, items, active } = navContext(pathname)
   const isVenue = workspace === "venue"
 
+  // The name shown for the current operator/player identity.
+  const displayName = isVenue ? VENUE.manager.name : userName
+
   // One translator, namespace chosen by the active workspace.
   const tNav = useTranslations(ns)
   const t = useTranslations("Sidebar")
-  const tc = useTranslations("Common")
 
   // Collapse the mobile drawer once a destination is chosen.
   const handleNavigate = () => {
@@ -122,7 +120,7 @@ export function AppSidebar() {
                       <span className="truncate text-xs text-sidebar-foreground/60">
                         {isVenue
                           ? `${t("venueTag")} · ${VENUE.district}`
-                          : `${USER.city} · ${tc(`levels.${userLevel}`)}`}
+                          : USER.city}
                       </span>
                     </div>
                     <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/60" />
@@ -193,7 +191,9 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupLabel>{tNav("group")}</SidebarGroupLabel>
           <SidebarMenu>
-            {items.map((item) => (
+            {items
+              .filter((item) => !item.hidden)
+              .map((item) => (
               <SidebarMenuItem key={item.key}>
                 <SidebarMenuButton
                   isActive={item.key === active.key}
@@ -205,20 +205,9 @@ export function AppSidebar() {
                 </SidebarMenuButton>
                 {item.badge ? (
                   <SidebarMenuBadge
-                    className={
-                      item.key === "streak" || item.badge === "AI"
-                        ? "text-brand"
-                        : undefined
-                    }
+                    className={item.badge === "AI" ? "text-brand" : undefined}
                   >
-                    {item.key === "streak" ? (
-                      <span className="inline-flex items-center gap-0.5">
-                        <Flame className="size-3" />
-                        {item.badge}
-                      </span>
-                    ) : (
-                      item.badge
-                    )}
+                    {item.badge}
                   </SidebarMenuBadge>
                 ) : null}
               </SidebarMenuItem>
@@ -229,6 +218,15 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={t("workspaceSettings")}
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings2 />
+              <span>{t("workspaceSettings")}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -244,7 +242,7 @@ export function AppSidebar() {
                     </Avatar>
                     <div className="grid flex-1 text-left leading-tight">
                       <span className="truncate text-sm font-medium">
-                        {isVenue ? VENUE.manager.name : USER.name}
+                        {displayName}
                       </span>
                       <span className="truncate text-xs text-sidebar-foreground/60">
                         {isVenue ? t("operatorRole") : USER.handle}
@@ -268,39 +266,19 @@ export function AppSidebar() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid leading-tight">
-                      <span className="text-sm font-medium">
-                        {isVenue ? VENUE.manager.name : USER.name}
-                      </span>
+                      <span className="text-sm font-medium">{displayName}</span>
                       <span className="text-xs text-muted-foreground">
                         {isVenue ? t("operatorRole") : USER.handle}
                       </span>
                     </div>
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
-                {!isVenue ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuRadioGroup
-                      value={userLevel}
-                      onValueChange={(v) => setUserLevel(v as Level)}
-                    >
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">
-                        {t("yourLevel")}
-                      </DropdownMenuLabel>
-                      {LEVELS.map((l) => (
-                        <DropdownMenuRadioItem key={l.value} value={l.value}>
-                          {tc(`levels.${l.value}`)}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </>
-                ) : null}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <UserRound />
                   {t("profile")}
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
                   <Settings />
                   {t("settings")}
                 </DropdownMenuItem>
@@ -316,6 +294,15 @@ export function AppSidebar() {
       </SidebarFooter>
 
       <SidebarRail />
+
+      <WorkspaceSettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        isVenue={isVenue}
+        venue={VENUE}
+        activeVenueId={activeVenueId}
+        initials={USER.initials}
+      />
     </Sidebar>
   )
 }

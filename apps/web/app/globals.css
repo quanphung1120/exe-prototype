@@ -170,6 +170,15 @@
   }
 }
 
+/* Hide the native scrollbar while keeping the area scrollable (the calendars) */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* ── Motion ───────────────────────────────────────────────── */
 @keyframes marquee {
   from { transform: translateX(0); }

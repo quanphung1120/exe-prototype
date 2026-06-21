@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useForm } from "@tanstack/react-form"
+import { useForm, type AnyFieldApi } from "@tanstack/react-form"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import * as z from "zod"
@@ -61,7 +61,7 @@ import {
 } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
 import { SportTag } from "@/components/dashboard/shared"
-import { VenuePanel } from "@/components/dashboard/venue/shared"
+import { VenueEmpty, VenuePanel } from "@/components/dashboard/venue/shared"
 import {
   addCourt,
   createVenue,
@@ -80,6 +80,87 @@ const COURT_STATES: CourtState[] = [
   "upcoming",
   "maintenance",
 ]
+
+// Status dot color per court state, for the courts list.
+const STATE_DOT: Record<CourtState, string> = {
+  available: "bg-brand",
+  "in-play": "bg-lime",
+  upcoming: "bg-chart-4",
+  maintenance: "bg-muted-foreground",
+}
+
+// ── Shared form field ─────────────────────────────────────────────────────────
+
+/**
+ * A labelled text/number input bound to a TanStack field — factors out the
+ * touched/invalid/error wiring repeated by every field in the forms below.
+ */
+function TextField({
+  field,
+  label,
+  numeric,
+  ...input
+}: {
+  field: AnyFieldApi
+  label: React.ReactNode
+  numeric?: boolean
+} & Omit<
+  React.ComponentProps<typeof Input>,
+  "id" | "name" | "value" | "onChange" | "onBlur"
+>) {
+  const invalid = field.state.meta.isTouched && !field.state.meta.isValid
+  return (
+    <Field data-invalid={invalid}>
+      <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
+      <Input
+        id={field.name}
+        name={field.name}
+        value={String(field.state.value ?? "")}
+        onBlur={field.handleBlur}
+        onChange={(e) =>
+          field.handleChange(
+            numeric ? Math.max(0, Number(e.target.value) || 0) : e.target.value
+          )
+        }
+        aria-invalid={invalid}
+        {...input}
+      />
+      {invalid ? <FieldError errors={field.state.meta.errors} /> : null}
+    </Field>
+  )
+}
+
+/** One Dialog shell shared by both forms — content is keyed/mounted by callers. */
+function FormDialog({
+  open,
+  onClose,
+  srTitle,
+  className,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  srTitle: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose()
+      }}
+    >
+      <DialogContent className={cn("max-h-[88vh] overflow-y-auto", className)}>
+        {open ? (
+          children
+        ) : (
+          <DialogTitle className="sr-only">{srTitle}</DialogTitle>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 // ── Main view ────────────────────────────────────────────────────────────────
 
@@ -114,9 +195,10 @@ export function VenueManageView() {
   const confirmRemoveVenue = async () => {
     if (!removeVenueTarget) return
     const name = removeVenueTarget.name
+    const id = removeVenueTarget.id
     setRemoveVenueTarget(null)
     try {
-      await deleteVenue(removeVenueTarget.id)
+      await deleteVenue(id)
       router.refresh()
       toast.success(t("toast.venueDeleted", { name }))
     } catch (e) {
@@ -162,7 +244,17 @@ export function VenueManageView() {
       </div>
 
       {/* ── Venues ──────────────────────────────────────────────────── */}
-      <VenuePanel title={t("yourVenues")} icon={Store}>
+      <VenuePanel
+        title={
+          <span className="inline-flex items-center gap-2">
+            {t("yourVenues")}
+            <Badge variant="secondary" className="tabular-nums">
+              {venues.length}
+            </Badge>
+          </span>
+        }
+        icon={Store}
+      >
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {venues.map((v) => (
             <VenueCard
@@ -195,9 +287,7 @@ export function VenueManageView() {
         }
       >
         {venueCourts.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            {t("noCourts")}
-          </p>
+          <VenueEmpty text={t("noCourts")} />
         ) : (
           <div className="flex flex-col divide-y divide-border">
             {venueCourts.map((court) => (
@@ -213,77 +303,59 @@ export function VenueManageView() {
       </VenuePanel>
 
       {/* ── Dialogs ─────────────────────────────────────────────────── */}
-      <VenueFormDialog
-        state={venueDialog}
+      <FormDialog
+        open={venueDialog !== null}
         onClose={() => setVenueDialog(null)}
-        onDone={() => router.refresh()}
-      />
-      <CourtFormDialog
-        venueId={activeVenueId}
-        state={courtDialog}
+        srTitle={t("editVenue")}
+        className="sm:max-w-lg"
+      >
+        {venueDialog ? (
+          <VenueForm
+            key={venueDialog.venue?.id ?? "new"}
+            mode={venueDialog.mode}
+            venue={venueDialog.venue}
+            onClose={() => setVenueDialog(null)}
+            onDone={() => router.refresh()}
+          />
+        ) : null}
+      </FormDialog>
+
+      <FormDialog
+        open={courtDialog !== null}
         onClose={() => setCourtDialog(null)}
-        onDone={() => router.refresh()}
-      />
+        srTitle={t("addCourt")}
+        className="sm:max-w-md"
+      >
+        {courtDialog ? (
+          <CourtForm
+            key={courtDialog.court?.id ?? "new"}
+            venueId={activeVenueId}
+            mode={courtDialog.mode}
+            court={courtDialog.court}
+            onClose={() => setCourtDialog(null)}
+            onDone={() => router.refresh()}
+          />
+        ) : null}
+      </FormDialog>
 
-      <AlertDialog
+      <RemoveDialog
         open={removeVenueTarget !== null}
-        onOpenChange={(o) => {
-          if (!o) setRemoveVenueTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteVenue.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteVenue.description", {
-                name: removeVenueTarget?.name ?? "",
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full">
-              {t("cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              className="rounded-full"
-              onClick={confirmRemoveVenue}
-            >
-              {t("delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
+        onCancel={() => setRemoveVenueTarget(null)}
+        onConfirm={confirmRemoveVenue}
+        title={t("deleteVenue.title")}
+        description={t("deleteVenue.description", {
+          name: removeVenueTarget?.name ?? "",
+        })}
+      />
+      <RemoveDialog
         open={removeCourtTarget !== null}
-        onOpenChange={(o) => {
-          if (!o) setRemoveCourtTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteCourt.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteCourt.description", {
-                name: removeCourtTarget?.name ?? "",
-              })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-full">
-              {t("cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              className="rounded-full"
-              onClick={confirmRemoveCourt}
-            >
-              {t("delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onCancel={() => setRemoveCourtTarget(null)}
+        onConfirm={confirmRemoveCourt}
+        title={t("deleteCourt.title")}
+        description={t("deleteCourt.description", {
+          name: removeCourtTarget?.name ?? "",
+        })}
+      />
     </div>
   )
 }
@@ -355,25 +427,15 @@ function VenueCard({
       </div>
 
       <div className="flex items-center gap-2">
-        {active ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="rounded-full"
-            disabled
-          >
-            {t("current")}
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-full"
-            onClick={onSwitch}
-          >
-            {t("switchTo")}
-          </Button>
-        )}
+        <Button
+          size="sm"
+          variant={active ? "secondary" : "outline"}
+          className="rounded-full"
+          disabled={active}
+          onClick={onSwitch}
+        >
+          {active ? t("current") : t("switchTo")}
+        </Button>
         <div className="ml-auto flex items-center gap-1">
           <Button
             size="icon-sm"
@@ -426,9 +488,16 @@ function CourtRow({
           <span className="truncate font-medium">{court.name}</span>
           <SportTag sport={court.sport} />
         </div>
-        <div className="truncate text-xs text-muted-foreground">
-          {court.surface} · {formatVnd(court.pricePerHour)}
-          {t("perHour")}
+        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span
+            className={cn("size-1.5 rounded-full", STATE_DOT[court.state])}
+          />
+          <span>{t(`courtState.${court.state}`)}</span>
+          <span aria-hidden>·</span>
+          <span className="truncate">
+            {court.surface} · {formatVnd(court.pricePerHour)}
+            {t("perHour")}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-1">
@@ -455,40 +524,52 @@ function CourtRow({
   )
 }
 
-// ── Venue form dialog ────────────────────────────────────────────────────────
+// ── Remove confirmation ──────────────────────────────────────────────────────
 
-function VenueFormDialog({
-  state,
-  onClose,
-  onDone,
+function RemoveDialog({
+  open,
+  onCancel,
+  onConfirm,
+  title,
+  description,
 }: {
-  state: { mode: "create" | "edit"; venue?: Venue } | null
-  onClose: () => void
-  onDone: () => void
+  open: boolean
+  onCancel: () => void
+  onConfirm: () => void
+  title: string
+  description: string
 }) {
   const t = useTranslations("VenueManage")
   return (
-    <Dialog
-      open={state !== null}
+    <AlertDialog
+      open={open}
       onOpenChange={(o) => {
-        if (!o) onClose()
+        if (!o) onCancel()
       }}
     >
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
-        {state ? (
-          <VenueForm
-            key={state.venue?.id ?? "new"}
-            mode={state.mode}
-            venue={state.venue}
-            onClose={onClose}
-            onDone={onDone}
-          />
-        ) : null}
-        {!state ? <DialogTitle className="sr-only">{t("title")}</DialogTitle> : null}
-      </DialogContent>
-    </Dialog>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription>{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="rounded-full">
+            {t("cancel")}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            className="rounded-full"
+            onClick={onConfirm}
+          >
+            {t("delete")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
+
+// ── Venue form ───────────────────────────────────────────────────────────────
 
 function VenueForm({
   mode,
@@ -508,7 +589,9 @@ function VenueForm({
     name: z.string().min(2, t("validation.name")).max(60),
     district: z.string().min(1, t("validation.required")).max(60),
     city: z.string().min(1, t("validation.required")).max(60),
-    sports: z.array(z.enum(["tennis", "pickleball", "badminton"])).min(1, t("validation.sports")),
+    sports: z
+      .array(z.enum(["tennis", "pickleball", "badminton"]))
+      .min(1, t("validation.sports")),
     openFrom: z.string().regex(TIME_RE, t("validation.time")),
     openTo: z.string().regex(TIME_RE, t("validation.time")),
     managerName: z.string().min(2, t("validation.name")).max(60),
@@ -560,78 +643,34 @@ function VenueForm({
 
       <FieldGroup className="my-5 gap-5">
         <form.Field name="name">
-          {(field) => {
-            const invalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
-            return (
-              <Field data-invalid={invalid}>
-                <FieldLabel htmlFor={field.name}>{t("form.name")}</FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={invalid}
-                  placeholder={t("form.namePlaceholder")}
-                  autoComplete="off"
-                />
-                {invalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            )
-          }}
+          {(field) => (
+            <TextField
+              field={field}
+              label={t("form.name")}
+              placeholder={t("form.namePlaceholder")}
+              autoComplete="off"
+            />
+          )}
         </form.Field>
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <form.Field name="district">
-            {(field) => {
-              const invalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
-              return (
-                <Field data-invalid={invalid}>
-                  <FieldLabel htmlFor={field.name}>
-                    {t("form.district")}
-                  </FieldLabel>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    aria-invalid={invalid}
-                    autoComplete="off"
-                  />
-                  {invalid ? (
-                    <FieldError errors={field.state.meta.errors} />
-                  ) : null}
-                </Field>
-              )
-            }}
+            {(field) => (
+              <TextField
+                field={field}
+                label={t("form.district")}
+                autoComplete="off"
+              />
+            )}
           </form.Field>
           <form.Field name="city">
-            {(field) => {
-              const invalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
-              return (
-                <Field data-invalid={invalid}>
-                  <FieldLabel htmlFor={field.name}>{t("form.city")}</FieldLabel>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    aria-invalid={invalid}
-                    autoComplete="off"
-                  />
-                  {invalid ? (
-                    <FieldError errors={field.state.meta.errors} />
-                  ) : null}
-                </Field>
-              )
-            }}
+            {(field) => (
+              <TextField
+                field={field}
+                label={t("form.city")}
+                autoComplete="off"
+              />
+            )}
           </form.Field>
         </div>
 
@@ -676,82 +715,26 @@ function VenueForm({
 
         <div className="grid grid-cols-2 gap-5">
           <form.Field name="openFrom">
-            {(field) => {
-              const invalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
-              return (
-                <Field data-invalid={invalid}>
-                  <FieldLabel htmlFor={field.name}>
-                    {t("form.openFrom")}
-                  </FieldLabel>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    type="time"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    aria-invalid={invalid}
-                  />
-                  {invalid ? (
-                    <FieldError errors={field.state.meta.errors} />
-                  ) : null}
-                </Field>
-              )
-            }}
+            {(field) => (
+              <TextField field={field} label={t("form.openFrom")} type="time" />
+            )}
           </form.Field>
           <form.Field name="openTo">
-            {(field) => {
-              const invalid =
-                field.state.meta.isTouched && !field.state.meta.isValid
-              return (
-                <Field data-invalid={invalid}>
-                  <FieldLabel htmlFor={field.name}>
-                    {t("form.openTo")}
-                  </FieldLabel>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    type="time"
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                    aria-invalid={invalid}
-                  />
-                  {invalid ? (
-                    <FieldError errors={field.state.meta.errors} />
-                  ) : null}
-                </Field>
-              )
-            }}
+            {(field) => (
+              <TextField field={field} label={t("form.openTo")} type="time" />
+            )}
           </form.Field>
         </div>
 
         <form.Field name="managerName">
-          {(field) => {
-            const invalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
-            return (
-              <Field data-invalid={invalid}>
-                <FieldLabel htmlFor={field.name}>
-                  {t("form.manager")}
-                </FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={invalid}
-                  placeholder={t("form.managerPlaceholder")}
-                  autoComplete="off"
-                />
-                {invalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            )
-          }}
+          {(field) => (
+            <TextField
+              field={field}
+              label={t("form.manager")}
+              placeholder={t("form.managerPlaceholder")}
+              autoComplete="off"
+            />
+          )}
         </form.Field>
       </FieldGroup>
 
@@ -766,7 +749,11 @@ function VenueForm({
         </Button>
         <form.Subscribe selector={(s) => s.isSubmitting}>
           {(submitting) => (
-            <Button type="submit" className="rounded-full" disabled={submitting}>
+            <Button
+              type="submit"
+              className="rounded-full"
+              disabled={submitting}
+            >
               {mode === "create" ? t("create") : t("save")}
             </Button>
           )}
@@ -776,44 +763,7 @@ function VenueForm({
   )
 }
 
-// ── Court form dialog ────────────────────────────────────────────────────────
-
-function CourtFormDialog({
-  venueId,
-  state,
-  onClose,
-  onDone,
-}: {
-  venueId: string
-  state: { mode: "create" | "edit"; court?: VenueCourt } | null
-  onClose: () => void
-  onDone: () => void
-}) {
-  const t = useTranslations("VenueManage")
-  return (
-    <Dialog
-      open={state !== null}
-      onOpenChange={(o) => {
-        if (!o) onClose()
-      }}
-    >
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-md">
-        {state ? (
-          <CourtForm
-            key={state.court?.id ?? "new"}
-            venueId={venueId}
-            mode={state.mode}
-            court={state.court}
-            onClose={onClose}
-            onDone={onDone}
-          />
-        ) : (
-          <DialogTitle className="sr-only">{t("addCourt")}</DialogTitle>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
-}
+// ── Court form ───────────────────────────────────────────────────────────────
 
 function CourtForm({
   venueId,
@@ -887,30 +837,14 @@ function CourtForm({
 
       <FieldGroup className="my-5 gap-5">
         <form.Field name="name">
-          {(field) => {
-            const invalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
-            return (
-              <Field data-invalid={invalid}>
-                <FieldLabel htmlFor={field.name}>
-                  {t("courtForm.name")}
-                </FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={invalid}
-                  placeholder={t("courtForm.namePlaceholder")}
-                  autoComplete="off"
-                />
-                {invalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            )
-          }}
+          {(field) => (
+            <TextField
+              field={field}
+              label={t("courtForm.name")}
+              placeholder={t("courtForm.namePlaceholder")}
+              autoComplete="off"
+            />
+          )}
         </form.Field>
 
         <div className="grid grid-cols-2 gap-5">
@@ -966,61 +900,28 @@ function CourtForm({
         </div>
 
         <form.Field name="surface">
-          {(field) => {
-            const invalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
-            return (
-              <Field data-invalid={invalid}>
-                <FieldLabel htmlFor={field.name}>
-                  {t("courtForm.surface")}
-                </FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  value={field.state.value}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  aria-invalid={invalid}
-                  placeholder={t("courtForm.surfacePlaceholder")}
-                  autoComplete="off"
-                />
-                {invalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            )
-          }}
+          {(field) => (
+            <TextField
+              field={field}
+              label={t("courtForm.surface")}
+              placeholder={t("courtForm.surfacePlaceholder")}
+              autoComplete="off"
+            />
+          )}
         </form.Field>
 
         <form.Field name="pricePerHour">
-          {(field) => {
-            const invalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
-            return (
-              <Field data-invalid={invalid}>
-                <FieldLabel htmlFor={field.name}>
-                  {t("courtForm.price")}
-                </FieldLabel>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  step={10000}
-                  value={String(field.state.value)}
-                  onBlur={field.handleBlur}
-                  onChange={(e) =>
-                    field.handleChange(Math.max(0, Number(e.target.value) || 0))
-                  }
-                  aria-invalid={invalid}
-                />
-                {invalid ? (
-                  <FieldError errors={field.state.meta.errors} />
-                ) : null}
-              </Field>
-            )
-          }}
+          {(field) => (
+            <TextField
+              field={field}
+              label={t("courtForm.price")}
+              numeric
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={10000}
+            />
+          )}
         </form.Field>
       </FieldGroup>
 
@@ -1035,7 +936,11 @@ function CourtForm({
         </Button>
         <form.Subscribe selector={(s) => s.isSubmitting}>
           {(submitting) => (
-            <Button type="submit" className="rounded-full" disabled={submitting}>
+            <Button
+              type="submit"
+              className="rounded-full"
+              disabled={submitting}
+            >
               {mode === "create" ? t("create") : t("save")}
             </Button>
           )}

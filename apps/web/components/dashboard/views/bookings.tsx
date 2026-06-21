@@ -53,8 +53,6 @@ const PX_PER_MIN = HOUR_PX / 60
 // The calendar spans the full day: hour labels 00:00–23:00 over a 24h grid.
 const FULL_DAY_HOURS = Array.from({ length: 24 }, (_, i) => i)
 const DAY_MIN = 24 * 60
-// Top breathing room so the 00:00 label isn't clipped by the grid's top edge.
-const GRID_PAD = 12
 
 /** The booking-week columns (Today → Mon), labelled per-locale. */
 const DAY_KEYS = VENUE_DAYS.map((d) => d.key)
@@ -111,7 +109,7 @@ export function BookingsView() {
   React.useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    el.scrollTop = Math.max(0, GRID_PAD + nowTop - el.clientHeight / 3)
+    el.scrollTop = Math.max(0, nowTop - el.clientHeight / 3)
   }, [nowTop])
 
   const stats = {
@@ -153,7 +151,7 @@ export function BookingsView() {
 
         <div
           ref={scrollRef}
-          className="relative max-h-[640px] overflow-auto rounded-3xl ring-1 ring-border/60"
+          className="no-scrollbar relative max-h-[640px] overflow-auto rounded-3xl ring-1 ring-border/60"
         >
           <div className="min-w-[680px]">
             {/* Sticky day header */}
@@ -189,7 +187,7 @@ export function BookingsView() {
             </div>
 
             {/* Body: time gutter + day columns */}
-            <div className="flex" style={{ paddingTop: GRID_PAD }}>
+            <div className="flex">
               {/* Time gutter */}
               <div
                 className="sticky left-0 z-20 w-12 shrink-0 bg-card"
@@ -198,7 +196,12 @@ export function BookingsView() {
                 {hours.map((h, i) => (
                   <span
                     key={h}
-                    className="absolute right-1.5 -translate-y-1/2 font-mono text-[10px] text-muted-foreground tabular-nums"
+                    className={cn(
+                      "absolute right-1.5 font-mono text-[10px] text-muted-foreground tabular-nums",
+                      // Center labels on their gridline, except 00:00 — it would
+                      // clip above the grid, so let it sit just below the top.
+                      i > 0 && "-translate-y-1/2"
+                    )}
                     style={{ top: i * HOUR_PX }}
                   >
                     {String(h).padStart(2, "0")}:00

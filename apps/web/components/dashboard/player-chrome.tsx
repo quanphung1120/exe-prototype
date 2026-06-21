@@ -1,6 +1,5 @@
 "use client"
 
-import { BookingDialog } from "@/components/dashboard/booking-dialog"
 import { CourtAssistant } from "@/components/dashboard/court-assistant"
 import { MatchMakerDialogs } from "@/components/dashboard/match-maker-dialogs"
 import { MatchmakingDock } from "@/components/dashboard/matchmaking"
@@ -19,12 +18,15 @@ import { usePathname } from "@/i18n/navigation"
 export function PlayerChrome() {
   const pathname = usePathname()
   if (workspaceForPath(pathname) === "venue") return null
+  // The booking wizard is a focused, full-width flow with its own action bar in
+  // the bottom corner — keep the floating assistant out of it so they don't
+  // overlap (and so the page stays distraction-free while paying).
+  const onBookingPage = pathname === "/dashboard/book"
   return (
     <>
-      <CourtAssistant />
+      {onBookingPage ? null : <CourtAssistant />}
       <MatchmakingDock />
       <PlayChooser />
-      <BookingDialog />
       <MatchMakerDialogs />
     </>
   )

@@ -4,25 +4,41 @@ import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
 import {
   ArrowDownRight,
+  ArrowRight,
   ArrowUpRight,
   BarChart3,
+  Check,
+  ChevronRight,
   Flame,
   Footprints,
   Grid3x3,
   Smartphone,
+  Sparkles,
   TrendingUp,
   UserPlus,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { formatVnd, formatVndFull } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
+import { useVenue } from "@/components/dashboard/venue/venue-provider"
 import {
   HEATMAP_DAYS,
   HEATMAP_HOURS,
   UTILIZATION_HEATMAP,
   locStr,
   type BookingSource,
+  type VenueInsight,
 } from "@/components/dashboard/venue/data"
 import {
   Meter,
@@ -46,7 +62,11 @@ const SPORT_RING: Record<string, string> = {
   pickleball: "text-chart-2",
 }
 
-export function VenueAnalyticsView() {
+export function VenueAnalyticsView({
+  embedded = false,
+}: {
+  embedded?: boolean
+} = {}) {
   const t = useTranslations("VenueAnalytics")
   const tc = useTranslations("Common")
   const locale = useLocale()
@@ -67,12 +87,14 @@ export function VenueAnalyticsView() {
   return (
     <div className="flex flex-col gap-5">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-3xl font-bold tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </div>
+      {!embedded ? (
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-3xl font-bold tracking-tight">
+            {t("title")}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        </div>
+      ) : null}
 
       {/* KPI row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -108,13 +130,16 @@ export function VenueAnalyticsView() {
         />
       </div>
 
+      {/* AI adaptive pricing — minimal trigger tucked behind the stats */}
+      <PriceMovesSheet />
+
       {/* Revenue + Heatmap */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
         {/* Revenue (last 7 days) */}
         <VenuePanel
           title={t("revenue.title")}
           icon={TrendingUp}
-          className="lg:col-span-2"
+          className="lg:col-span-3"
           action={
             <span
               className={cn(
@@ -161,35 +186,35 @@ export function VenueAnalyticsView() {
           </div>
         </VenuePanel>
 
-        {/* Utilization heatmap (the highlight) */}
+        {/* Utilization heatmap — compact */}
         <VenuePanel
           title={t("heatmap.title")}
           icon={Grid3x3}
-          className="lg:col-span-3"
+          className="lg:col-span-2"
           action={<MicroLabel>{t("heatmap.caption")}</MicroLabel>}
         >
           <div className="overflow-x-auto">
-            <div className="min-w-[26rem]">
+            <div className="mx-auto min-w-[17rem] max-w-[20rem]">
               {/* Column (hour) labels */}
-              <div className="mb-1.5 grid grid-cols-[2.6rem_repeat(7,minmax(0,1fr))] gap-1.5">
+              <div className="mb-1 grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] gap-1">
                 <span />
                 {HEATMAP_HOURS.map((h) => (
                   <span
                     key={h}
-                    className="text-center font-mono text-[10px] tracking-wider text-muted-foreground tabular-nums"
+                    className="text-center font-mono text-[9px] tracking-wider text-muted-foreground tabular-nums"
                   >
                     {h}
                   </span>
                 ))}
               </div>
               {/* Rows: one per day */}
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1">
                 {UTILIZATION_HEATMAP.map((row, d) => (
                   <div
                     key={d}
-                    className="grid grid-cols-[2.6rem_repeat(7,minmax(0,1fr))] items-center gap-1.5"
+                    className="grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] items-center gap-1"
                   >
-                    <span className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
+                    <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
                       {locStr(HEATMAP_DAYS[d], locale)}
                     </span>
                     {row.map((v, h) => (
@@ -208,7 +233,7 @@ export function VenueAnalyticsView() {
                 {[0.12, 0.3, 0.5, 0.7, 0.9].map((o, i) => (
                   <span
                     key={i}
-                    className="size-3.5 rounded-[4px] bg-brand"
+                    className="size-3 rounded-[3px] bg-brand"
                     style={{ opacity: o }}
                   />
                 ))}
@@ -348,6 +373,181 @@ export function VenueAnalyticsView() {
 }
 
 /**
+ * AI adaptive pricing — a minimal, understated trigger that sits just behind the
+ * headline statistics. Opens a sheet of simple raise/lower price moves; applying
+ * one nudges the live KPIs through {@link useVenue}.
+ */
+function PriceMovesSheet() {
+  const t = useTranslations("VenuePricing")
+  const locale = useLocale()
+  const { priceSuggestions, applyInsight, dismissInsight, appliedCount } =
+    useVenue()
+
+  return (
+    <Sheet>
+      <SheetTrigger
+        render={
+          <button
+            type="button"
+            className="group flex w-full items-center justify-between gap-3 rounded-3xl bg-card px-4 py-3 text-left shadow-sm ring-1 ring-foreground/5 transition-colors hover:bg-muted/40 dark:ring-foreground/10"
+          />
+        }
+      >
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-lime to-brand text-brand-foreground">
+            <Sparkles className="size-4" />
+          </span>
+          <span className="truncate text-sm font-medium">{t("trigger")}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
+          {priceSuggestions.length ? (
+            <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-brand-foreground tabular-nums">
+              {priceSuggestions.length}
+            </span>
+          ) : null}
+          <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        </span>
+      </SheetTrigger>
+
+      <SheetContent className="w-full gap-0 sm:max-w-md">
+        <SheetHeader className="border-b border-border/60">
+          <SheetTitle className="inline-flex items-center gap-2">
+            <Sparkles className="size-4 text-brand" />
+            {t("sheetTitle")}
+          </SheetTitle>
+          <SheetDescription>{t("sheetDescription")}</SheetDescription>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {priceSuggestions.length ? (
+            <ul className="flex flex-col gap-3">
+              {priceSuggestions.map((s) => (
+                <PriceMoveRow
+                  key={s.id}
+                  insight={s}
+                  locale={locale}
+                  onApply={() => applyInsight(s.id)}
+                  onDismiss={() => dismissInsight(s.id)}
+                  t={t}
+                />
+              ))}
+            </ul>
+          ) : (
+            <PriceMovesEmpty t={t} />
+          )}
+        </div>
+
+        {appliedCount > 0 ? (
+          <SheetFooter className="border-t border-border/60 py-4">
+            <p className="inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+              <Check className="size-3.5 text-brand" />
+              {t("appliedCount", { count: appliedCount })}
+            </p>
+          </SheetFooter>
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+/** One minimal raise/lower price move with a before → after rate. */
+function PriceMoveRow({
+  insight,
+  locale,
+  onApply,
+  onDismiss,
+  t,
+}: {
+  insight: VenueInsight
+  locale: string
+  onApply: () => void
+  onDismiss: () => void
+  t: ReturnType<typeof useTranslations>
+}) {
+  const move = insight.priceMove
+  if (!move) return null
+  const up = move.direction === "up"
+
+  return (
+    <li className="flex flex-col gap-3 rounded-3xl bg-muted/40 p-4 ring-1 ring-foreground/5 dark:ring-foreground/10">
+      <div className="flex items-center justify-between gap-3">
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
+            up ? "bg-brand/12 text-brand" : "bg-chart-2/15 text-chart-2"
+          )}
+        >
+          {up ? (
+            <ArrowUpRight className="size-3.5" />
+          ) : (
+            <ArrowDownRight className="size-3.5" />
+          )}
+          {up ? t("increase") : t("decrease")}
+        </span>
+        <span
+          className={cn(
+            "font-heading text-sm font-bold tabular-nums",
+            up ? "text-brand" : "text-chart-2"
+          )}
+        >
+          {up ? "+" : "−"}
+          {move.pct}%
+        </span>
+      </div>
+
+      {insight.target ? (
+        <p className="text-sm font-medium">{locStr(insight.target, locale)}</p>
+      ) : null}
+
+      {/* Current → suggested rate */}
+      <div className="flex items-center gap-2 font-mono text-sm tabular-nums">
+        <span className="text-muted-foreground line-through">
+          {formatVnd(move.from)}
+        </span>
+        <ArrowRight className="size-3.5 text-muted-foreground" />
+        <span className="font-semibold">{formatVnd(move.to)}</span>
+        <span className="text-xs text-muted-foreground">{t("perHour")}</span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-3">
+        <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand tabular-nums">
+          <TrendingUp className="size-3.5" />
+          {locStr(insight.impact, locale)}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-full"
+            onClick={onDismiss}
+          >
+            {t("dismiss")}
+          </Button>
+          <Button size="sm" className="rounded-full" onClick={onApply}>
+            {t("apply")}
+          </Button>
+        </div>
+      </div>
+    </li>
+  )
+}
+
+/** Reassuring empty state when every price move has been decided. */
+function PriceMovesEmpty({ t }: { t: ReturnType<typeof useTranslations> }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-10 text-center">
+      <span className="grid size-12 place-items-center rounded-full bg-brand/12 text-brand">
+        <Check className="size-6" />
+      </span>
+      <p className="font-heading text-base font-semibold">{t("emptyTitle")}</p>
+      <p className="max-w-xs text-sm text-muted-foreground">
+        {t("emptyDetail")}
+      </p>
+    </div>
+  )
+}
+
+/**
  * Vertical revenue bars with VND value tooltips on top. Mirrors MiniBars but
  * shows the formatted amount above each bar and accents today.
  */
@@ -403,13 +603,13 @@ function HeatCell({ value }: { value: number }) {
   return (
     <div
       className={cn(
-        "group/cell relative aspect-square w-full rounded-[5px] bg-muted/40 ring-1 ring-foreground/5 transition-transform ring-inset hover:scale-110 hover:ring-foreground/15",
+        "group/cell relative aspect-square w-full rounded-[4px] bg-muted/40 ring-1 ring-foreground/5 transition-transform ring-inset hover:scale-110 hover:ring-foreground/15",
         hot && "ring-lime/30"
       )}
       title={`${value}%`}
     >
       <div
-        className="absolute inset-0 rounded-[5px] bg-brand"
+        className="absolute inset-0 rounded-[4px] bg-brand"
         style={{ opacity }}
       />
       <span className="absolute inset-0 grid place-items-center font-mono text-[9px] font-semibold text-brand-foreground tabular-nums opacity-0 transition-opacity group-hover/cell:opacity-100">

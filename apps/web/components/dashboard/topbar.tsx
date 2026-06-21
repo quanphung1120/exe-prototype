@@ -13,7 +13,7 @@ import { navContext } from "@/components/dashboard/workspace"
 import { usePathname } from "@/i18n/navigation"
 
 /** Player sections whose content is filtered by the global sport selection. */
-const SPORT_FILTERED = new Set(["dashboard", "match-maker", "find-courts"])
+const SPORT_FILTERED = new Set(["dashboard", "play"])
 
 /** Sticky dashboard header — its title and actions track the active workspace. */
 export function DashboardTopbar() {

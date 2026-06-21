@@ -25,6 +25,7 @@ export function useBooking() {
     draft: s.draft,
     capacityFor: s.capacityFor,
     openBooking: s.openBooking,
+    armBooking: s.armBooking,
     bookCourtForSession: s.bookCourtForSession,
     addTeamToSession: s.addTeamToSession,
     rebookFrom: s.rebookFrom,
@@ -35,6 +36,7 @@ export function useBooking() {
     setDay: s.setDay,
     setSlot: s.setSlot,
     setDuration: s.setDuration,
+    pickSlot: s.pickSlot,
     setFormat: s.setFormat,
     setFillMode: s.setFillMode,
     toggleInvite: s.toggleInvite,
@@ -44,6 +46,8 @@ export function useBooking() {
     cancelBooking: s.cancelBooking,
     slotBlocked: s.slotBlocked,
     draftConflict: s.draftConflict,
+    courtBusy: s.courtBusy,
+    courtGaps: s.courtGaps,
     payShare: s.payShare,
   }
 }

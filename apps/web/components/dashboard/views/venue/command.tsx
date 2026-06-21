@@ -48,9 +48,9 @@ export function VenueCommandView() {
     venue: VENUE,
     venueCourts: VENUE_COURTS,
   } = useData()
-  const { stats, activeInsights } = useVenue()
+  const { stats, priceSuggestions } = useVenue()
 
-  const insight = activeInsights[0] ?? null
+  const insight = priceSuggestions[0] ?? null
 
   // Today's arrivals still to come through the door.
   const arrivals = RESERVATIONS.filter(
@@ -275,9 +275,9 @@ export function VenueCommandView() {
                 size="sm"
                 className="rounded-full"
                 nativeButton={false}
-                render={<Link href="/dashboard/venue/monitor" />}
+                render={<Link href="/dashboard/venue/analytics" />}
               >
-                {t("reviewInMonitor")}
+                {t("reviewInAnalytics")}
                 <ArrowUpRight />
               </Button>
             </div>
@@ -299,7 +299,9 @@ export function VenueCommandView() {
               size="sm"
               className="rounded-full"
               nativeButton={false}
-              render={<Link href="/dashboard/venue/reservations" />}
+              render={
+                <Link href="/dashboard/venue/schedule?tab=reservations" />
+              }
             >
               {t("seeAll")}
             </Button>

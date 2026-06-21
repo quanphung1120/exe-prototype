@@ -15,6 +15,7 @@ import {
   type Booking,
   type Conflict,
   type Court,
+  type CourtBand,
   type Level,
   type MatchRoom,
   type PlaySession,
@@ -24,6 +25,12 @@ import {
   type SportKey,
 } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
+import { useRouter } from "@/i18n/navigation"
+
+/** The dedicated booking-wizard route the Play / book actions navigate to. */
+const BOOK_PATH = "/dashboard/book"
+/** Where a finished or abandoned booking lands when there's no history. */
+const BOOKINGS_PATH = "/dashboard/bookings"
 
 // How long the faked partner search runs before it finds someone.
 const SEARCH_MS = 1800
@@ -72,6 +79,9 @@ interface SessionContextValue {
   joinedIds: Set<string>
   userLevel: Level
   setUserLevel: (level: Level) => void
+  /** The player's editable display name (defaults to the seed user's name). */
+  userName: string
+  setUserName: (name: string) => void
   search: PartnerSearch | null
   // ── Derived projections (legacy shapes) ──
   rooms: MatchRoom[]
@@ -119,6 +129,11 @@ interface SessionContextValue {
     courtId: string | null,
     opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
   ) => void
+  /** Arm the wizard without navigating (used by the book page on cold load). */
+  armBooking: (
+    courtId: string | null,
+    opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
+  ) => void
   bookCourtForSession: (sessionId: string) => void
   addTeamToSession: (sessionId: string) => void
   rebookFrom: (bookingId: string) => void
@@ -129,6 +144,7 @@ interface SessionContextValue {
   setDay: (dayKey: string) => void
   setSlot: (slot: string) => void
   setDuration: (durationMin: number) => void
+  pickSlot: (slot: string, durationMin: number) => void
   setFormat: (format: "Singles" | "Doubles") => void
   setFillMode: (mode: FillMode) => void
   toggleInvite: (initials: string) => void
@@ -141,6 +157,10 @@ interface SessionContextValue {
   // ── Conflict (decision 2) ──
   slotBlocked: (slot: string) => boolean
   draftConflict: Conflict
+  /** Booked blocks on the draft court/day (calendar). */
+  courtBusy: CourtBand[]
+  /** Tappable free gaps on the draft court/day (calendar). */
+  courtGaps: CourtBand[]
   // ── Bill sharing (decision 7) ──
   payShare: (sessionId: string, initials: string) => void
 }
@@ -179,6 +199,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const tb = useTranslations("Booking")
   const tc = useTranslations("Common")
   const ts = useTranslations("Session")
+  const router = useRouter()
 
   // Records + record-bound helpers, served by the API via the DataProvider.
   const {
@@ -190,6 +211,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     courtByVenue,
     courtNumberFor,
     conflictFor,
+    courtDayBusy,
+    courtDayGaps,
     sessionToBooking,
   } = useData()
 
@@ -224,6 +247,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     null
   )
   const [userLevel, setUserLevel] = React.useState<Level>(USER.level)
+  const [userName, setUserName] = React.useState<string>(USER.name)
   const [search, setSearch] = React.useState<PartnerSearch | null>(null)
   const [managerOpen, setManagerOpen] = React.useState(false)
   const [quickJoinOpen, setQuickJoinOpen] = React.useState(false)
@@ -373,7 +397,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
               roster: [
                 ...s.roster,
                 {
-                  name: USER.name,
+                  name: userName,
                   initials: USER.initials,
                   rsvp: "going" as Rsvp,
                 },
@@ -663,10 +687,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       slot: c.nextSlot,
       durationMin: 60,
       courtLabel: null,
-      host: { name: USER.name, initials: USER.initials },
+      host: { name: userName, initials: USER.initials },
       capacity: opts.maxPlayers,
       roster: [
-        { name: USER.name, initials: USER.initials, rsvp: "host" },
+        { name: userName, initials: USER.initials, rsvp: "host" },
         { name: partner.name, initials: partner.initials, rsvp: "going" },
       ],
       level: userLevel,
@@ -769,7 +793,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const openPlay = () => setPlayOpen(true)
   const closePlay = () => setPlayOpen(false)
 
-  const openBooking = (
+  /**
+   * Arm the booking wizard's state (court, day, draft, step) without leaving the
+   * current page. The booking flow now lives on its own route, so navigation is
+   * a separate concern: {@link openBooking} arms + pushes the route, while the
+   * book page itself calls this on a cold load to default to a fresh, courtless
+   * booking instead of showing a stale draft.
+   */
+  const armBooking = (
     cid: string | null,
     opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
   ) => {
@@ -794,6 +825,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         : (opts?.invitees ?? []),
     })
     setOpen(true)
+  }
+
+  /** Arm the wizard and navigate to the dedicated booking page. */
+  const openBooking = (
+    cid: string | null,
+    opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
+  ) => {
+    armBooking(cid, opts)
+    router.push(BOOK_PATH)
   }
 
   /** Book a court for an existing forming room (active-session pill). */
@@ -844,6 +884,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     setPaying(false)
     setOpen(false)
+    // Return to wherever the wizard was opened from.
+    router.back()
   }
   const next = () => setStep((s) => Math.min(steps.length - 1, s + 1))
   const back = () => setStep((s) => Math.max(0, s - 1))
@@ -859,6 +901,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const setDuration = (durationMin: number) =>
     setDraft((d) => ({
       ...d,
+      durationMin: Math.max(15, Math.min(300, durationMin)),
+    }))
+  /** Tap a free gap on the calendar: seed both the start and a fitting length. */
+  const pickSlot = (slot: string, durationMin: number) =>
+    setDraft((d) => ({
+      ...d,
+      slot: slot || null,
       durationMin: Math.max(15, Math.min(300, durationMin)),
     }))
   const setFormat = (format: "Singles" | "Doubles") =>
@@ -898,6 +947,15 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           ignoreId: linkedId ?? undefined,
         })
       : null
+
+  // Calendar bands for the current draft court + day (live sessions): booked
+  // blocks and the free gaps the player can tap to seed a start time.
+  const courtBusy: CourtBand[] = court
+    ? courtDayBusy(sessions, court.id, draft.dayKey, linkedId ?? undefined)
+    : []
+  const courtGaps: CourtBand[] = court
+    ? courtDayGaps(sessions, court.id, draft.dayKey, linkedId ?? undefined)
+    : []
 
   const confirmBooking = () => {
     if (!court || !draft.slot) return
@@ -947,13 +1005,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       })
       setOpen(false)
       setManagerOpen(true)
+      router.push(BOOKINGS_PATH)
       return
     }
 
     // New session, court-first.
     const id = newId("bk")
     const host: SessionPlayer = {
-      name: USER.name,
+      name: userName,
       initials: USER.initials,
       rsvp: "host",
     }
@@ -983,7 +1042,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       slot: draft.slot,
       durationMin: draft.durationMin,
       courtLabel,
-      host: { name: USER.name, initials: USER.initials },
+      host: { name: userName, initials: USER.initials },
       capacity: capacityFor(draft.format),
       roster,
       level: userLevel,
@@ -1007,6 +1066,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       description: `${court.name} · ${dayLabel} · ${time}`,
     })
     setOpen(false)
+    router.push(BOOKINGS_PATH)
   }
 
   /**
@@ -1115,6 +1175,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     joinedIds,
     userLevel,
     setUserLevel,
+    userName,
+    setUserName,
     search,
     rooms,
     joinedRooms,
@@ -1158,6 +1220,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     draft,
     capacityFor,
     openBooking,
+    armBooking,
     bookCourtForSession,
     addTeamToSession,
     rebookFrom,
@@ -1168,6 +1231,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setDay,
     setSlot,
     setDuration,
+    pickSlot,
     setFormat,
     setFillMode,
     toggleInvite,
@@ -1177,6 +1241,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     cancelBooking,
     slotBlocked,
     draftConflict,
+    courtBusy,
+    courtGaps,
     payShare,
   }
 

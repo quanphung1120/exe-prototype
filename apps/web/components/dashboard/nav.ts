@@ -1,20 +1,18 @@
 import type { ComponentType } from "react"
 import {
   CalendarCheck,
-  Flame,
+  CalendarPlus,
   LayoutDashboard,
-  MapPin,
   MessageSquare,
   Sparkles,
 } from "lucide-react"
 
 export type SectionKey =
   | "dashboard"
-  | "match-maker"
-  | "find-courts"
+  | "play"
   | "chat"
   | "bookings"
-  | "streak"
+  | "book"
 
 export interface NavItem<K extends string = string> {
   key: K
@@ -25,6 +23,12 @@ export interface NavItem<K extends string = string> {
   /** Short description shown under the page title in the top bar. */
   caption: string
   badge?: string
+  /**
+   * Resolved by {@link activeNavItem} (so the topbar gets a title) but kept out
+   * of the sidebar — used for transient flows like the booking wizard that have
+   * a route but no permanent menu slot.
+   */
+  hidden?: boolean
 }
 
 export const NAV: NavItem<SectionKey>[] = [
@@ -36,19 +40,12 @@ export const NAV: NavItem<SectionKey>[] = [
     caption: "Your court at a glance",
   },
   {
-    key: "match-maker",
-    href: "/dashboard/match-maker",
-    label: "Match Maker",
+    key: "play",
+    href: "/dashboard/play",
+    label: "Play",
     icon: Sparkles,
-    caption: "Find, host or queue a match",
+    caption: "Find a match or a court",
     badge: "AI",
-  },
-  {
-    key: "find-courts",
-    href: "/dashboard/find-courts",
-    label: "Find Courts",
-    icon: MapPin,
-    caption: "Open slots near you",
   },
   {
     key: "chat",
@@ -67,12 +64,12 @@ export const NAV: NavItem<SectionKey>[] = [
     badge: "3",
   },
   {
-    key: "streak",
-    href: "/dashboard/streak",
-    label: "Streak",
-    icon: Flame,
-    caption: "Keep the momentum alive",
-    badge: "6",
+    key: "book",
+    href: "/dashboard/book",
+    label: "Book a court",
+    icon: CalendarPlus,
+    caption: "Reserve your slot",
+    hidden: true,
   },
 ]
 

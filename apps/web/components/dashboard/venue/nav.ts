@@ -1,23 +1,8 @@
-import {
-  BarChart3,
-  CalendarRange,
-  LayoutDashboard,
-  Radar,
-  Sparkles,
-  Store,
-  Users,
-} from "lucide-react"
+import { BarChart3, CalendarRange, LayoutDashboard, Store } from "lucide-react"
 
 import type { NavItem } from "@/components/dashboard/nav"
 
-export type VenueSectionKey =
-  | "command"
-  | "schedule"
-  | "reservations"
-  | "monitor"
-  | "analytics"
-  | "customers"
-  | "manage"
+export type VenueSectionKey = "command" | "schedule" | "analytics" | "manage"
 
 /** Base path for the venue workspace; everything below it is venue-scoped. */
 export const VENUE_BASE = "/dashboard/venue"
@@ -40,36 +25,15 @@ export const VENUE_NAV: NavItem<VenueSectionKey>[] = [
     href: `${VENUE_BASE}/schedule`,
     label: "Schedule",
     icon: CalendarRange,
-    caption: "Courts × hours, at a glance",
-  },
-  {
-    key: "reservations",
-    href: `${VENUE_BASE}/reservations`,
-    label: "Reservations",
-    icon: Users,
-    caption: "Requests, holds and walk-ins",
-  },
-  {
-    key: "monitor",
-    href: `${VENUE_BASE}/monitor`,
-    label: "AI Monitor",
-    icon: Radar,
-    caption: "Always-on operations intelligence",
-    badge: "AI",
+    caption: "Grid and incoming requests",
   },
   {
     key: "analytics",
     href: `${VENUE_BASE}/analytics`,
-    label: "Analytics",
+    label: "Insights",
     icon: BarChart3,
-    caption: "Revenue, utilization and demand",
-  },
-  {
-    key: "customers",
-    href: `${VENUE_BASE}/customers`,
-    label: "Players",
-    icon: Sparkles,
-    caption: "Regulars, retention and reach",
+    caption: "Revenue, demand and players",
+    badge: "AI",
   },
   {
     key: "manage",

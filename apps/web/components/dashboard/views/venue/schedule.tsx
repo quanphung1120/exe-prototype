@@ -48,6 +48,10 @@ import { useVenue } from "@/components/dashboard/venue/venue-provider"
 const HOUR_PX = 56
 const PX_PER_MIN = HOUR_PX / 60
 
+// The calendar spans the full day: hour labels 00:00–23:00 over a 24h grid.
+const FULL_DAY_HOURS = Array.from({ length: 24 }, (_, i) => i)
+const DAY_MIN = 24 * 60
+
 const LEGEND_KINDS: Exclude<SlotKind, "free">[] = [
   "booked",
   "walk-in",
@@ -62,7 +66,11 @@ const LEGEND_ICON: Record<
   blocked: Wrench,
 }
 
-export function VenueScheduleView() {
+export function VenueScheduleView({
+  embedded = false,
+}: {
+  embedded?: boolean
+} = {}) {
   const t = useTranslations("VenueSchedule")
   const tc = useTranslations("Common")
   const locale = useLocale()
@@ -74,16 +82,15 @@ export function VenueScheduleView() {
     venueScheduleFor,
   } = useData()
 
-  const OPEN_H = Number(VENUE.openFrom.slice(0, 2))
-  const CLOSE_H = Number(VENUE.openTo.slice(0, 2))
-  const TOTAL_MIN = diffMinutes(VENUE.openFrom, VENUE.openTo)
-  const HOURS = Array.from(
-    { length: CLOSE_H - OPEN_H + 1 },
-    (_, i) => OPEN_H + i
-  )
+  // Full 24-hour day grid (matches the player bookings calendar). The venue's
+  // open window is shaded as such, and free bands are confined to it.
+  const HOURS = FULL_DAY_HOURS
+  const TOTAL_MIN = DAY_MIN
+  const openStart = diffMinutes("00:00", VENUE.openFrom)
+  const openEnd = diffMinutes("00:00", VENUE.openTo)
 
-  /** Minutes from opening to a "HH:MM" time. */
-  const offsetMin = (hhmm: string) => diffMinutes(VENUE.openFrom, hhmm)
+  /** Minutes from midnight (the grid's top) to a "HH:MM" time. */
+  const offsetMin = (hhmm: string) => diffMinutes("00:00", hhmm)
 
   /** Free gaps (complement of the events) within the open window. */
   const gapsOf = (
@@ -93,20 +100,20 @@ export function VenueScheduleView() {
       (a, b) => offsetMin(a.start) - offsetMin(b.start)
     )
     const bands: { start: string; durationMin: number }[] = []
-    let cursor = 0
+    let cursor = openStart
     for (const e of sorted) {
       const s = offsetMin(e.start)
       if (s > cursor)
         bands.push({
-          start: addMinutes(VENUE.openFrom, cursor),
+          start: addMinutes("00:00", cursor),
           durationMin: s - cursor,
         })
       cursor = Math.max(cursor, s + e.durationMin)
     }
-    if (cursor < TOTAL_MIN)
+    if (cursor < openEnd)
       bands.push({
-        start: addMinutes(VENUE.openFrom, cursor),
-        durationMin: TOTAL_MIN - cursor,
+        start: addMinutes("00:00", cursor),
+        durationMin: openEnd - cursor,
       })
     return bands
   }
@@ -144,18 +151,29 @@ export function VenueScheduleView() {
   const activeDay = VENUE_DAYS.find((d) => d.key === dayKey) ?? VENUE_DAYS[0]
   const nowTop = offsetMin(VENUE.now) * PX_PER_MIN
 
+  // The full-day grid is taller than its scroll box, so open it with the live
+  // "now" line a third from the top rather than scrolled to midnight.
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTop = Math.max(0, nowTop - el.clientHeight / 3)
+  }, [nowTop])
+
   return (
     <div className="flex flex-col gap-5">
       {/* Heading + day selector */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="font-heading text-3xl font-bold tracking-tight">
-            {t("title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("subtitle", { day: locStr(activeDay.label, locale) })}
-          </p>
-        </div>
+        {!embedded ? (
+          <div>
+            <h1 className="font-heading text-3xl font-bold tracking-tight">
+              {t("title")}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("subtitle", { day: locStr(activeDay.label, locale) })}
+            </p>
+          </div>
+        ) : null}
         <Tabs value={dayKey} onValueChange={setDayKey}>
           <TabsList variant="line" className="flex-wrap">
             {VENUE_DAYS.map((d) => (
@@ -211,7 +229,10 @@ export function VenueScheduleView() {
           ) : null
         }
       >
-        <div className="max-h-[660px] overflow-auto rounded-3xl ring-1 ring-border/60">
+        <div
+          ref={scrollRef}
+          className="max-h-[660px] overflow-auto rounded-3xl ring-1 ring-border/60"
+        >
           <div className="min-w-[680px]">
             {/* Sticky court header */}
             <div className="sticky top-0 z-30 flex bg-card/95 backdrop-blur">
@@ -255,7 +276,12 @@ export function VenueScheduleView() {
                 {HOURS.map((h, i) => (
                   <span
                     key={h}
-                    className="absolute right-1.5 -translate-y-1/2 font-mono text-[10px] text-muted-foreground tabular-nums"
+                    className={cn(
+                      "absolute right-1.5 font-mono text-[10px] text-muted-foreground tabular-nums",
+                      // Center labels on their gridline, except 00:00 — it would
+                      // clip above the grid, so let it sit just below the top.
+                      i > 0 && "-translate-y-1/2"
+                    )}
                     style={{ top: i * HOUR_PX }}
                   >
                     {String(h).padStart(2, "0")}:00
@@ -283,6 +309,23 @@ export function VenueScheduleView() {
                       className="relative min-w-[120px] flex-1 border-l border-border/50"
                       style={{ height: TOTAL_MIN * PX_PER_MIN }}
                     >
+                      {/* Closed hours, before opening / after closing */}
+                      {openStart > 0 ? (
+                        <div
+                          className="pointer-events-none absolute inset-x-0 top-0 bg-muted/40"
+                          style={{ height: openStart * PX_PER_MIN }}
+                        />
+                      ) : null}
+                      {openEnd < TOTAL_MIN ? (
+                        <div
+                          className="pointer-events-none absolute inset-x-0 bg-muted/40"
+                          style={{
+                            top: openEnd * PX_PER_MIN,
+                            height: (TOTAL_MIN - openEnd) * PX_PER_MIN,
+                          }}
+                        />
+                      ) : null}
+
                       {/* Hour + half-hour gridlines */}
                       {HOURS.map((h, i) => (
                         <React.Fragment key={h}>
@@ -290,12 +333,10 @@ export function VenueScheduleView() {
                             className="pointer-events-none absolute inset-x-0 border-t border-border/40"
                             style={{ top: i * HOUR_PX }}
                           />
-                          {i < HOURS.length - 1 ? (
-                            <div
-                              className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border/20"
-                              style={{ top: i * HOUR_PX + HOUR_PX / 2 }}
-                            />
-                          ) : null}
+                          <div
+                            className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border/20"
+                            style={{ top: i * HOUR_PX + HOUR_PX / 2 }}
+                          />
                         </React.Fragment>
                       ))}
 
@@ -382,8 +423,7 @@ function EventBlock({
   t: ReturnType<typeof useTranslations>
   tc: ReturnType<typeof useTranslations>
 }) {
-  const { venue: VENUE } = useData()
-  const offsetMin = (hhmm: string) => diffMinutes(VENUE.openFrom, hhmm)
+  const offsetMin = (hhmm: string) => diffMinutes("00:00", hhmm)
   const top = offsetMin(event.start) * PX_PER_MIN
   const height = Math.max(18, event.durationMin * PX_PER_MIN - 2)
   const end = addMinutes(event.start, event.durationMin)
@@ -531,8 +571,7 @@ function FreeBand({
   durationMin: number
   t: ReturnType<typeof useTranslations>
 }) {
-  const { venue: VENUE } = useData()
-  const offsetMin = (hhmm: string) => diffMinutes(VENUE.openFrom, hhmm)
+  const offsetMin = (hhmm: string) => diffMinutes("00:00", hhmm)
   const top = offsetMin(start) * PX_PER_MIN
   const height = durationMin * PX_PER_MIN
   if (height < 16) return null

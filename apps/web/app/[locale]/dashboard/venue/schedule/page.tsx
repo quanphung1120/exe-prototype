@@ -1,7 +1,10 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { VenueScheduleView } from "@/components/dashboard/views/venue/schedule"
+import {
+  VenueScheduleWorkspace,
+  type ScheduleTab,
+} from "@/components/dashboard/views/venue/schedule-workspace"
 
 export async function generateMetadata({
   params,
@@ -18,10 +21,15 @@ export async function generateMetadata({
 
 export default async function VenueSchedulePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>
+  searchParams: Promise<{ tab?: string }>
 }) {
   const { locale } = await params
+  const { tab } = await searchParams
   setRequestLocale(locale)
-  return <VenueScheduleView />
+  const initialTab: ScheduleTab =
+    tab === "reservations" ? "reservations" : "calendar"
+  return <VenueScheduleWorkspace initialTab={initialTab} />
 }

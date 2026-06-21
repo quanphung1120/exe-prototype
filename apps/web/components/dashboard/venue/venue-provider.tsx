@@ -11,29 +11,20 @@ import {
 } from "@/components/dashboard/venue/data"
 import { useData } from "@/components/dashboard/data-provider"
 
-// How often the "always-on" monitor surfaces the next insight (faked).
-const SURFACE_MS = 9000
-// How many insights are already on screen when the operator arrives.
-const SEEDED = 2
-
 interface VenueContextValue {
-  /** Live KPIs — nudged when AI recommendations are applied. */
+  /** Live KPIs — nudged when AI pricing recommendations are applied. */
   stats: VenueStats
-  /** Insights still awaiting a decision (not applied or dismissed). */
-  activeInsights: VenueInsight[]
+  /**
+   * Adaptive-pricing moves still awaiting a decision — only simple raise/lower
+   * price recommendations (those carrying a `priceMove`).
+   */
+  priceSuggestions: VenueInsight[]
   appliedIds: Set<string>
   dismissedIds: Set<string>
   applyInsight: (id: string) => void
   dismissInsight: (id: string) => void
-  /** Count of applied recommendations (for the "X actioned" stat). */
+  /** Count of applied recommendations (for the "X applied" stat). */
   appliedCount: number
-  // ── Live feed (the always-on monitor) ──
-  /** The most recently surfaced insight, for the floating dock. */
-  latest: VenueInsight | null
-  /** Surfaced-but-unseen insights — drives the dock badge. */
-  unseenCount: number
-  /** Mark the feed as seen (called when the Monitor view opens). */
-  markSeen: () => void
 }
 
 const VenueContext = React.createContext<VenueContextValue | null>(null)
@@ -46,7 +37,7 @@ export function useVenue() {
 
 export function VenueProvider({ children }: { children: React.ReactNode }) {
   const locale = useLocale()
-  const t = useTranslations("VenueDock")
+  const t = useTranslations("VenuePricing")
   const { venueInsights: VENUE_INSIGHTS, venueStats: VENUE_STATS } = useData()
 
   const [stats, setStats] = React.useState<VenueStats>(VENUE_STATS)
@@ -56,24 +47,6 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
   const [dismissedIds, setDismissedIds] = React.useState<Set<string>>(
     () => new Set()
   )
-  // How many insights have "arrived" so far (seeded count grows on a timer).
-  const [surfaced, setSurfaced] = React.useState(SEEDED)
-  const [seen, setSeen] = React.useState(SEEDED)
-
-  // ── Always-on monitor: surface the next insight every few seconds ──
-  React.useEffect(() => {
-    if (surfaced >= VENUE_INSIGHTS.length) return
-    const handle = setTimeout(() => {
-      const next = VENUE_INSIGHTS[surfaced]
-      setSurfaced((n) => n + 1)
-      if (next) {
-        toast(locStr(next.title, locale), {
-          description: t("newInsight"),
-        })
-      }
-    }, SURFACE_MS)
-    return () => clearTimeout(handle)
-  }, [surfaced, locale, t, VENUE_INSIGHTS])
 
   const applyInsight = React.useCallback(
     (id: string) => {
@@ -105,38 +78,25 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
-  const markSeen = React.useCallback(() => setSeen(surfaced), [surfaced])
-
   const value = React.useMemo<VenueContextValue>(() => {
-    const surfacedInsights = VENUE_INSIGHTS.slice(0, surfaced)
-    const activeInsights = surfacedInsights.filter(
-      (i) => !appliedIds.has(i.id) && !dismissedIds.has(i.id)
+    const priceSuggestions = VENUE_INSIGHTS.filter(
+      (i) => i.priceMove && !appliedIds.has(i.id) && !dismissedIds.has(i.id)
     )
-    const latest = surfacedInsights[surfacedInsights.length - 1] ?? null
-    const unseenActive = activeInsights.filter(
-      (i) => VENUE_INSIGHTS.indexOf(i) >= seen
-    ).length
     return {
       stats,
-      activeInsights,
+      priceSuggestions,
       appliedIds,
       dismissedIds,
       applyInsight,
       dismissInsight,
       appliedCount: appliedIds.size,
-      latest,
-      unseenCount: unseenActive,
-      markSeen,
     }
   }, [
     stats,
-    surfaced,
-    seen,
     appliedIds,
     dismissedIds,
     applyInsight,
     dismissInsight,
-    markSeen,
     VENUE_INSIGHTS,
   ])
 
@@ -144,9 +104,9 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Remounts {@link VenueProvider} whenever the active venue changes, so the faked
- * always-on monitor (surfaced insights, applied KPIs) resets to the new venue
- * rather than carrying the previous one's state across a switch.
+ * Remounts {@link VenueProvider} whenever the active venue changes, so the
+ * applied-pricing state (nudged KPIs, dismissed suggestions) resets to the new
+ * venue rather than carrying the previous one's decisions across a switch.
  */
 export function VenueWorkspaceProvider({
   children,
