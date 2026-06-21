@@ -140,7 +140,15 @@
     "leaveHostBody": "Bạn là chủ phòng — rời đi sẽ giải tán phòng cho mọi người.",
     "leaveBookedBody": "Bạn là chủ phòng — rời đi sẽ huỷ đặt sân và giải tán phòng cho mọi người.",
     "leaveCancel": "Ở lại",
-    "leaveConfirm": "Rời trận"
+    "leaveConfirm": "Rời trận",
+    "requests": "Yêu cầu tham gia ({count})",
+    "approve": "Duyệt",
+    "decline": "Từ chối",
+    "reliability": "Độ tin cậy",
+    "requestFull": "Phòng đã đầy — tăng số người tối đa để duyệt",
+    "awaitingApproval": "Đang chờ chủ phòng duyệt",
+    "awaitingApprovalBody": "{name} đang xem độ tin cậy của bạn trước khi cho vào.",
+    "cancelRequest": "Huỷ yêu cầu"
   },
   "LocaleSwitcher": {
     "label": "Ngôn ngữ",
@@ -218,6 +226,7 @@
     "both": "Cả hai",
     "bothDesc": "Tìm người chơi và đặt sân",
     "matches": "Trận đấu",
+    "rooms": "Phòng",
     "courts": "Sân",
     "metaTitle": "Chơi",
     "metaDescription": "Tìm người chơi cho một trận hoặc sân trống gần Quý khách — trong cùng một nơi."
@@ -238,6 +247,9 @@
     },
     "courtSearch": "Tìm theo tên sân hoặc quận…",
     "noCourts": "Không tìm thấy sân",
+    "choose": "Chọn sân",
+    "chosen": "Đã chọn",
+    "distance": "{km} km",
     "anyDay": "Ngày",
     "days": {
       "today": "Hôm nay",
@@ -339,7 +351,13 @@
       "rsvpGoing": "Đã tham gia",
       "rsvpDeclined": "Không tham gia được",
       "addTeam": "Mời người chơi chia sân",
-      "billPaid": "Đã trả phần của mình"
+      "billPaid": "Đã trả phần của mình",
+      "requested": "Đã gửi yêu cầu — đang chờ duyệt",
+      "requestApproved": "Bạn đã được duyệt!",
+      "joinRequest": "Muốn tham gia phòng của bạn",
+      "approved": "Đã thêm vào phòng",
+      "declined": "Đã từ chối yêu cầu",
+      "full": "Phòng đã đầy"
     }
   },
   "Shared": {
@@ -832,7 +850,8 @@
       "court": "Hãy chọn sân.",
       "time": "Hãy chọn thời gian.",
       "noteMax": "Ghi chú dưới 120 ký tự.",
-      "endAfterStart": "Giờ kết thúc phải sau giờ bắt đầu."
+      "endAfterStart": "Giờ kết thúc phải sau giờ bắt đầu.",
+      "slotTaken": "Sân này không trống vào khung giờ đó — hãy chọn giờ khác."
     },
     "toast": {
       "roomCreated": "Đã tạo phòng",
@@ -842,7 +861,8 @@
       "noRoomBody": "Chờ chút nhé, chúng tôi đang xếp phòng cho bạn.",
       "matchReady": "Trận đã sẵn sàng!",
       "left": "Bạn đã rời phòng",
-      "searchingPartner": "Đang tìm người chơi đầu tiên cho bạn…"
+      "searchingPartner": "Đang tìm người chơi đầu tiên cho bạn…",
+      "requested": "Đã gửi yêu cầu"
     },
     "dock": {
       "matchReady": "Trận đã sẵn sàng",
@@ -855,7 +875,9 @@
       "manage": "Quản lý",
       "dismiss": "Đóng"
     },
-    "leave": "Rời"
+    "leave": "Rời",
+    "requested": "Đã gửi yêu cầu",
+    "cancelRequest": "Huỷ yêu cầu"
   },
   "Overview": {
     "metaTitle": "Tổng quan",

@@ -140,7 +140,15 @@
     "leaveHostBody": "You host this room — leaving disbands it for everyone.",
     "leaveBookedBody": "You host this room — leaving cancels the court booking and disbands the room for everyone.",
     "leaveCancel": "Stay",
-    "leaveConfirm": "Leave match"
+    "leaveConfirm": "Leave match",
+    "requests": "Join requests ({count})",
+    "approve": "Approve",
+    "decline": "Decline",
+    "reliability": "Reliability",
+    "requestFull": "Room's full — raise max players to approve",
+    "awaitingApproval": "Awaiting host approval",
+    "awaitingApprovalBody": "{name} is reviewing your reliability before letting you in.",
+    "cancelRequest": "Cancel request"
   },
   "LocaleSwitcher": {
     "label": "Language",
@@ -218,6 +226,7 @@
     "both": "Both",
     "bothDesc": "Find players and book a court",
     "matches": "Matches",
+    "rooms": "Rooms",
     "courts": "Courts",
     "metaTitle": "Play",
     "metaDescription": "Find players for a match or an open court near you — in one place."
@@ -238,6 +247,9 @@
     },
     "courtSearch": "Search court name or district…",
     "noCourts": "No courts found",
+    "choose": "Choose",
+    "chosen": "Chosen",
+    "distance": "{km} km",
     "anyDay": "Day",
     "days": {
       "today": "Today",
@@ -339,7 +351,13 @@
       "rsvpGoing": "Is in",
       "rsvpDeclined": "Can't make it",
       "addTeam": "Invite players to share this court",
-      "billPaid": "Paid their share"
+      "billPaid": "Paid their share",
+      "requested": "Request sent — awaiting approval",
+      "requestApproved": "You're approved!",
+      "joinRequest": "Wants to join your room",
+      "approved": "Added to your room",
+      "declined": "Request declined",
+      "full": "Room is full"
     }
   },
   "Shared": {
@@ -832,7 +850,8 @@
       "court": "Pick a court.",
       "time": "Pick a time.",
       "noteMax": "Keep your note under 120 characters.",
-      "endAfterStart": "End time must be after start time."
+      "endAfterStart": "End time must be after start time.",
+      "slotTaken": "This court isn't free at that time — pick another slot."
     },
     "toast": {
       "roomCreated": "Room created",
@@ -842,7 +861,8 @@
       "noRoomBody": "Hang tight, we're filling a lobby for you.",
       "matchReady": "Match ready!",
       "left": "You left the room",
-      "searchingPartner": "Finding your first partner…"
+      "searchingPartner": "Finding your first partner…",
+      "requested": "Request sent"
     },
     "dock": {
       "matchReady": "Match ready",
@@ -855,7 +875,9 @@
       "manage": "Manage",
       "dismiss": "Dismiss"
     },
-    "leave": "Leave"
+    "leave": "Leave",
+    "requested": "Requested",
+    "cancelRequest": "Cancel request"
   },
   "Overview": {
     "metaTitle": "Dashboard",

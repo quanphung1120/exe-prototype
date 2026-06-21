@@ -21,9 +21,11 @@ export type {
 export function useMatchmaking() {
   const s = useSession()
   return {
+    sessions: s.sessions,
     rooms: s.rooms,
     joinedIds: s.joinedIds,
     joinedRooms: s.joinedRooms,
+    requestedIds: s.requestedIds,
     activeRoom: s.activeRoom,
     activeSession: s.activeSession,
     activeRoomId: s.activeRoomId,
@@ -35,6 +37,8 @@ export function useMatchmaking() {
     search: s.search,
     isSuitable: s.isSuitable,
     joinRoom: s.joinRoom,
+    approveRequest: s.approveRequest,
+    declineRequest: s.declineRequest,
     leaveRoom: s.leaveRoom,
     addRoom: s.addRoom,
     quickJoin: s.quickJoin,

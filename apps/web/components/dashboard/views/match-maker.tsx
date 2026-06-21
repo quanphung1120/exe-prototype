@@ -5,12 +5,12 @@ import { useTranslations } from "next-intl"
 import {
   Check,
   Clock,
+  Hourglass,
   LogOut,
   MapPin,
   Plus,
-  Sparkles,
   Users,
-  Zap,
+  X,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -30,16 +30,14 @@ function roomDayLabel(day: string, tc: (key: string) => string) {
   return day
 }
 
-export function MatchMakerView() {
+export function RoomsView() {
   const t = useTranslations("MatchMaker")
-  const tc = useTranslations("Common")
   const {
     rooms,
     joinedIds,
-    userLevel,
+    requestedIds,
     joinRoom,
     leaveRoom,
-    openQuickJoin,
     openCreateRoom,
   } = useMatchmaking()
   const { sport } = useSportFilter()
@@ -48,63 +46,33 @@ export function MatchMakerView() {
 
   return (
     <div className="flex flex-col gap-5">
-      {/* AI rationale */}
-      <div className="relative overflow-hidden rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
-        <div className="absolute -top-12 -right-10 size-40 rounded-full bg-brand/15 blur-3xl" />
-        <div className="relative flex items-start gap-3">
-          <div className="grid size-9 shrink-0 place-items-center rounded-2xl bg-brand/12 text-brand">
-            <Sparkles className="size-4.5" />
-          </div>
-          <div>
-            <h2 className="font-heading text-base font-semibold">
-              {t("heroTitle")}
-            </h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {t.rich("heroBody", {
-                level: tc(`levels.${userLevel}`),
-                strong: (chunks) => (
-                  <span className="font-medium text-foreground">{chunks}</span>
-                ),
-              })}
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Room grid */}
       {visibleRooms.length ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleRooms.map((room) => (
-            <RoomCard
-              key={room.id}
-              room={room}
-              joined={joinedIds.has(room.id)}
-              onJoin={() => joinRoom(room)}
-              onLeave={() => leaveRoom(room.id)}
-            />
-          ))}
+          {visibleRooms.map((room) => {
+            const requested = requestedIds.has(room.id)
+            return (
+              <RoomCard
+                key={room.id}
+                room={room}
+                joined={joinedIds.has(room.id) && !requested}
+                requested={requested}
+                onJoin={() => joinRoom(room)}
+                onLeave={() => leaveRoom(room.id)}
+              />
+            )
+          })}
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3 rounded-4xl bg-card px-4 py-14 text-center shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
           <div className="grid size-11 place-items-center rounded-2xl bg-brand/12 text-brand">
-            <Zap className="size-5" />
+            <Users className="size-5" />
           </div>
           <p className="text-sm text-muted-foreground">{t("emptyRooms")}</p>
-          <div className="flex items-center gap-2">
-            <Button size="sm" className="rounded-full" onClick={openQuickJoin}>
-              <Zap />
-              {t("findMatch")}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="rounded-full"
-              onClick={openCreateRoom}
-            >
-              <Plus />
-              {t("hostOne")}
-            </Button>
-          </div>
+          <Button size="sm" className="rounded-full" onClick={openCreateRoom}>
+            <Plus />
+            {t("hostOne")}
+          </Button>
         </div>
       )}
     </div>
@@ -114,11 +82,13 @@ export function MatchMakerView() {
 function RoomCard({
   room,
   joined,
+  requested,
   onJoin,
   onLeave,
 }: {
   room: MatchRoom
   joined: boolean
+  requested: boolean
   onJoin: () => void
   onLeave: () => void
 }) {
@@ -197,9 +167,37 @@ function RoomCard({
       <div className="mt-auto flex items-center gap-2 pt-1">
         <span className="min-w-0 truncate text-xs text-muted-foreground">
           {t("hostedBy", { name: room.host.name })}
-          {!joined && !full ? ` · ${t("openSeats", { count: openSeats })}` : ""}
+          {!joined && !requested && !full
+            ? ` · ${t("openSeats", { count: openSeats })}`
+            : ""}
         </span>
-        {joined ? (
+        {requested ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onLeave}
+            onMouseEnter={() => setLeaveHint(true)}
+            onMouseLeave={() => setLeaveHint(false)}
+            onFocus={() => setLeaveHint(true)}
+            onBlur={() => setLeaveHint(false)}
+            className={cn(
+              "ml-auto shrink-0 rounded-full",
+              leaveHint && "bg-destructive/10 text-destructive"
+            )}
+          >
+            {leaveHint ? (
+              <>
+                <X />
+                {t("cancelRequest")}
+              </>
+            ) : (
+              <>
+                <Hourglass />
+                {t("requested")}
+              </>
+            )}
+          </Button>
+        ) : joined ? (
           <Button
             size="sm"
             variant="secondary"

@@ -44,8 +44,7 @@ export const NAV: NavItem<SectionKey>[] = [
     href: "/dashboard/play",
     label: "Play",
     icon: Sparkles,
-    caption: "Find a match or a court",
-    badge: "AI",
+    caption: "Browse open rooms or find a court",
   },
   {
     key: "chat",

@@ -8,6 +8,7 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Hourglass,
   LogOut,
   MapPin,
   MessageSquare,
@@ -51,6 +52,7 @@ import {
 import {
   activeRoster,
   formatVnd,
+  pendingRequests,
   priceFor,
   trustTier,
   trustTierAccent,
@@ -82,11 +84,19 @@ export function ActiveRoomPill() {
   const t = useTranslations("ActiveRoom")
   const { joinedRooms, activeRoom, managerOpen, setManagerOpen } =
     useMatchmaking()
+  const { sessions } = useSession()
+  const { user: USER } = useData()
 
   if (!activeRoom) return null
 
   const extra = joinedRooms.length - 1
   const booked = Boolean(activeRoom.bookingId)
+  // Join requests waiting on the user across every room they host.
+  const pendingTotal = sessions.reduce(
+    (n, s) =>
+      n + (s.host.initials === USER.initials ? pendingRequests(s).length : 0),
+    0
+  )
 
   return (
     <Sheet open={managerOpen} onOpenChange={setManagerOpen}>
@@ -122,6 +132,12 @@ export function ActiveRoomPill() {
             {t("more", { count: extra })}
           </span>
         ) : null}
+        {pendingTotal > 0 ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-1.5 font-mono text-[10px] text-amber-600 tabular-nums dark:text-amber-400">
+            <Hourglass className="size-2.5" />
+            {pendingTotal}
+          </span>
+        ) : null}
       </SheetTrigger>
 
       <SheetContent className="w-full gap-0 p-0 sm:max-w-sm">
@@ -143,13 +159,25 @@ function RoomDetail({
   const tm = useTranslations("MatchMaker")
   const { joinedRooms, setActiveRoomId, leaveRoom, setRoomCapacity } =
     useMatchmaking()
-  const { sessions, invitePlayer, kickPlayer, bookCourtForSession } =
-    useSession()
+  const {
+    sessions,
+    invitePlayer,
+    kickPlayer,
+    bookCourtForSession,
+    approveRequest,
+    declineRequest,
+  } = useSession()
   const { setActiveChatId } = useChat()
   const { players: MATCH_SUGGESTIONS, user: USER } = useData()
   const router = useRouter()
 
   const session = sessions.find((s) => s.id === room.id)
+  // Players awaiting this host's approval (host reviews their reliability).
+  const requests = session ? pendingRequests(session) : []
+  // Whether the user themselves is still waiting on this room's host.
+  const awaitingApproval =
+    session?.roster.find((p) => p.initials === USER.initials)?.rsvp ===
+    "requested"
 
   const title = tm.has(`rooms.${room.id}.title`)
     ? tm(`rooms.${room.id}.title`)
@@ -158,9 +186,14 @@ function RoomDetail({
   const isHost = room.host.initials === USER.initials
   const full = room.joined >= room.capacity
   const booked = Boolean(room.bookingId)
-  // People to invite: not already in the room, same-sport listed first.
+  // People to invite: not already in the room (nor awaiting approval),
+  // same-sport listed first.
+  const requestedInitials = new Set(requests.map((p) => p.initials))
   const invitable = [...MATCH_SUGGESTIONS]
-    .filter((p) => !room.players.includes(p.initials))
+    .filter(
+      (p) =>
+        !room.players.includes(p.initials) && !requestedInitials.has(p.initials)
+    )
     .sort(
       (a, b) =>
         (a.sport === room.sport ? 0 : 1) - (b.sport === room.sport ? 0 : 1) ||
@@ -201,6 +234,19 @@ function RoomDetail({
       </SheetHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
+        {/* Awaiting host approval — shown to the user while they're requested */}
+        {awaitingApproval ? (
+          <div className="flex items-start gap-2.5 rounded-2xl bg-amber-500/10 px-3 py-2.5 text-amber-700 dark:text-amber-400">
+            <Hourglass className="mt-0.5 size-4 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium">{t("awaitingApproval")}</p>
+              <p className="mt-0.5 text-xs text-amber-700/80 dark:text-amber-400/80">
+                {t("awaitingApprovalBody", { name: room.host.name })}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         {/* Location */}
         <section className="flex flex-col gap-2.5">
           <SectionLabel>{t("location")}</SectionLabel>
@@ -261,6 +307,26 @@ function RoomDetail({
             </p>
           )}
         </section>
+
+        {/* Join requests — host reviews reliability before approving */}
+        {isHost && requests.length ? (
+          <section className="flex flex-col gap-3">
+            <SectionLabel>
+              {t("requests", { count: requests.length })}
+            </SectionLabel>
+            <div className="flex flex-col gap-2">
+              {requests.map((p) => (
+                <RequestRow
+                  key={p.initials}
+                  initials={p.initials}
+                  full={full}
+                  onApprove={() => approveRequest(room.id, p.initials)}
+                  onDecline={() => declineRequest(room.id, p.initials)}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {/* Bill split — only once a court is booked for a team */}
         {session && booked && activeRoster(session).length > 1 ? (
@@ -388,36 +454,52 @@ function RoomDetail({
       </div>
 
       <SheetFooter className="flex-row gap-2 border-t border-border">
-        <Button
-          variant="outline"
-          className="flex-1 rounded-full"
-          onClick={openChat}
-        >
-          <MessageSquare />
-          {t("openChat")}
-        </Button>
-        <AlertDialog>
-          <AlertDialogTrigger
-            render={
-              <Button variant="destructive" className="flex-1 rounded-full" />
-            }
+        {awaitingApproval ? (
+          <Button
+            variant="outline"
+            className="flex-1 rounded-full"
+            onClick={leave}
           >
-            <LogOut />
-            {t("leave")}
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t("leaveTitle")}</AlertDialogTitle>
-              <AlertDialogDescription>{leaveBody}</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("leaveCancel")}</AlertDialogCancel>
-              <AlertDialogAction variant="destructive" onClick={leave}>
-                {t("leaveConfirm")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            <X />
+            {t("cancelRequest")}
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              className="flex-1 rounded-full"
+              onClick={openChat}
+            >
+              <MessageSquare />
+              {t("openChat")}
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    variant="destructive"
+                    className="flex-1 rounded-full"
+                  />
+                }
+              >
+                <LogOut />
+                {t("leave")}
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("leaveTitle")}</AlertDialogTitle>
+                  <AlertDialogDescription>{leaveBody}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("leaveCancel")}</AlertDialogCancel>
+                  <AlertDialogAction variant="destructive" onClick={leave}>
+                    {t("leaveConfirm")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
       </SheetFooter>
     </>
   )
@@ -541,6 +623,75 @@ function ParticipantRow({
         >
           <X />
         </Button>
+      ) : null}
+    </div>
+  )
+}
+
+/** A pending join request: the host reviews reliability, then approves/declines. */
+function RequestRow({
+  initials,
+  full,
+  onApprove,
+  onDecline,
+}: {
+  initials: string
+  full: boolean
+  onApprove: () => void
+  onDecline: () => void
+}) {
+  const t = useTranslations("ActiveRoom")
+  const { playerByInitials } = useData()
+  const { name, level, trust } = playerByInitials(initials)
+  const tier = trustTier(trust)
+
+  return (
+    <div className="flex flex-col gap-2.5 rounded-2xl bg-muted/40 p-3">
+      <div className="flex items-center gap-3">
+        <PlayerAvatar initials={initials} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium">{name}</span>
+            <LevelChip level={level} />
+          </div>
+          <div
+            className={cn(
+              "mt-0.5 inline-flex items-center gap-1 text-xs",
+              trustTierAccent[tier]
+            )}
+          >
+            <Star className="size-3 fill-current" />
+            <span className="font-mono tabular-nums">{trust}</span>
+            <span className="text-muted-foreground">
+              · {t("reliability")} · {t(`trust.${tier}`)}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          size="xs"
+          className="flex-1 rounded-full"
+          disabled={full}
+          onClick={onApprove}
+        >
+          <Check />
+          {t("approve")}
+        </Button>
+        <Button
+          size="xs"
+          variant="outline"
+          className="flex-1 rounded-full"
+          onClick={onDecline}
+        >
+          <X />
+          {t("decline")}
+        </Button>
+      </div>
+      {full ? (
+        <p className="text-[11px] text-amber-700 dark:text-amber-400">
+          {t("requestFull")}
+        </p>
       ) : null}
     </div>
   )

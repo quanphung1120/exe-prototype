@@ -97,6 +97,8 @@ export interface MatchRoom {
   district: string
   distanceKm: number
   day: string
+  /** Canonical BOOKING_DAYS key for `day` (set on create; derived otherwise). */
+  dayKey?: string
   time: string
   /** Level the room is for (or "any"). A stated preference, not a hard gate. */
   level: RoomLevel
@@ -145,8 +147,13 @@ export interface Booking {
 
 // ── Play sessions ────────────────────────────────────────────────────────────
 
-/** RSVP state of a session participant. */
-export type Rsvp = "host" | "going" | "pending" | "declined"
+/**
+ * RSVP state of a session participant.
+ * - `requested`: asked to join and is awaiting the host's approval (the host
+ *   reviews their reliability before letting them in).
+ * - `pending`: invited by the host and awaiting their own RSVP.
+ */
+export type Rsvp = "host" | "going" | "requested" | "pending" | "declined"
 
 export interface SessionPlayer {
   name: string

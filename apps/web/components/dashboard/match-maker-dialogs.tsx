@@ -5,7 +5,7 @@ import { useForm } from "@tanstack/react-form"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import * as z from "zod"
-import { Minus, Plus, Search, Zap } from "lucide-react"
+import { Check, Minus, Plus, Search, TriangleAlert, Zap } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -283,13 +283,16 @@ function CreateRoomDialog() {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
   const tb = useTranslations("Booking")
-  const { courts: COURTS, user: USER } = useData()
-  const { userLevel, addRoom, createRoomOpen, setCreateRoomOpen } =
+  const { courts: COURTS, user: USER, conflictFor, courtDayGaps } = useData()
+  const { userLevel, addRoom, createRoomOpen, setCreateRoomOpen, sessions } =
     useMatchmaking()
   const idRef = React.useRef(0)
   const courtName = (id: string) =>
     COURTS.find((c) => c.id === id)?.name ?? t("selectCourt")
 
+  // The schema is rebuilt every render, so its refine closes over the current
+  // `sessions`/`conflictFor`; useForm re-applies it via `form.update` each
+  // render, so submit-time validation always sees the latest availability.
   const createRoomSchema = z
     .object({
       title: z
@@ -310,6 +313,24 @@ function CreateRoomDialog() {
       message: t("validation.endAfterStart"),
       path: ["endTime"],
     })
+    // The chosen court must actually be free for the proposed range (so a room
+    // can't advertise a slot the court can't honor). Ordering is validated by
+    // the refine above; skip this one until the range is sane.
+    .refine(
+      (d) => {
+        const dur = diffMinutes(d.startTime, d.endTime)
+        if (dur <= 0) return true
+        return (
+          conflictFor(sessions, {
+            courtId: d.courtId,
+            dayKey: d.day,
+            slot: d.startTime,
+            durationMin: dur,
+          }) === null
+        )
+      },
+      { message: t("validation.slotTaken"), path: ["startTime"] }
+    )
 
   const form = useForm({
     defaultValues: {
@@ -342,6 +363,7 @@ function CreateRoomDialog() {
         district: court.district,
         distanceKm: court.distanceKm,
         day: dayLabel,
+        dayKey: value.day,
         time: `${value.startTime} – ${value.endTime}`,
         durationMin: diffMinutes(value.startTime, value.endTime),
         level: value.level,
@@ -610,6 +632,64 @@ function CreateRoomDialog() {
                 }}
               </form.Field>
             </div>
+
+            <form.Subscribe
+              selector={(s) => ({
+                courtId: s.values.courtId,
+                day: s.values.day,
+                startTime: s.values.startTime,
+                endTime: s.values.endTime,
+              })}
+            >
+              {({ courtId, day, startTime, endTime }) => {
+                const dur = diffMinutes(startTime, endTime)
+                if (!courtId || !startTime || !endTime || dur <= 0) return null
+                const conflict = conflictFor(sessions, {
+                  courtId,
+                  dayKey: day,
+                  slot: startTime,
+                  durationMin: dur,
+                })
+                const free = conflict
+                  ? courtDayGaps(sessions, courtId, day).find(
+                      (g) => g.durationMin >= dur
+                    )
+                  : null
+                return (
+                  <div
+                    className={cn(
+                      "flex flex-col gap-1 rounded-2xl px-3 py-2.5 text-sm ring-1",
+                      conflict
+                        ? "bg-destructive/8 ring-destructive/20"
+                        : "bg-brand/8 ring-brand/15"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1.5 font-medium",
+                        conflict ? "text-destructive" : "text-brand"
+                      )}
+                    >
+                      {conflict ? (
+                        <TriangleAlert className="size-4 shrink-0" />
+                      ) : (
+                        <Check className="size-4 shrink-0" />
+                      )}
+                      {conflict === "self-overlap"
+                        ? tb("conflictSelf")
+                        : conflict
+                          ? tb("conflictCourt")
+                          : tb("available")}
+                    </span>
+                    {conflict && free ? (
+                      <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                        {tb("freeAt", { time: free.start })}
+                      </span>
+                    ) : null}
+                  </div>
+                )
+              }}
+            </form.Subscribe>
 
             <form.Field name="level">
               {(field) => {

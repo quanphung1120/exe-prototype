@@ -15,6 +15,7 @@ import {
   QrCode,
   Search,
   ShieldCheck,
+  Star,
   TriangleAlert,
   Users,
   Wallet,
@@ -28,6 +29,7 @@ import {
   BOOKING_DAYS,
   COURT_OPEN_FROM,
   COURT_OPEN_TO,
+  SPORTS,
   addMinutes,
   diffMinutes,
   formatDuration,
@@ -35,7 +37,9 @@ import {
   formatVndFull,
   priceFor,
   slotRange,
+  type Court,
   type CourtBand,
+  type SportKey,
 } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
 import { useBooking, type FillMode } from "@/components/dashboard/booking"
@@ -364,8 +368,8 @@ export function BookView() {
       <div className="flex w-full flex-col">
         {/* COURT */}
         {stepName === "court" ? (
-          <div className={cn(FORM_CARD, "gap-2")}>
-            <div className="relative">
+          <div className="flex w-full flex-col gap-4">
+            <div className="relative my-3 w-full max-w-md">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={courtQuery}
@@ -375,35 +379,23 @@ export function BookView() {
                 className="h-9 pl-8"
               />
             </div>
-            <div className="flex max-h-[50vh] flex-col gap-0.5 overflow-y-auto rounded-2xl border border-border p-1">
-              {courtResults.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCourt(c.id)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-xl px-2.5 py-2.5 text-left text-sm transition-colors",
-                    courtId === c.id
-                      ? "bg-secondary font-medium"
-                      : "hover:bg-muted/60"
-                  )}
-                >
-                  <MapPin className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 truncate">{c.name}</span>
-                  <span className="shrink-0 text-muted-foreground">
-                    · {c.district}
-                  </span>
-                  <span className="ml-auto shrink-0 text-xs font-semibold tabular-nums">
-                    {formatVnd(c.pricePerHour)}
-                  </span>
-                </button>
-              ))}
-              {courtResults.length === 0 ? (
-                <p className="px-2.5 py-2 text-xs text-muted-foreground">
-                  {t("noCourts")}
-                </p>
-              ) : null}
-            </div>
+            {courtResults.length ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {courtResults.map((c) => (
+                  <CourtPickCard
+                    key={c.id}
+                    court={c}
+                    selected={courtId === c.id}
+                    onChoose={() => setCourt(c.id)}
+                    t={t}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                {t("noCourts")}
+              </p>
+            )}
           </div>
         ) : null}
 
@@ -1063,6 +1055,117 @@ function CourtCalendar({
               ) : null}
             </div>
           ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Per-sport tint for the decorative court banner (keyed by the court's first
+// listed sport). The prototype has no real court photos, so each card's "image"
+// is a deterministic gradient + court-line grid + oversized sport monogram.
+const COURT_IMG: Record<SportKey, string> = {
+  tennis: "from-chart-2/35 via-brand/15 to-lime/20",
+  pickleball: "from-lime/45 via-brand/15 to-chart-2/20",
+  badminton: "from-chart-3/35 via-brand/15 to-lime/20",
+}
+
+/** Decorative court "photo" — see COURT_IMG. */
+function CourtImage({ court }: { court: Court }) {
+  const sport = court.sports[0]
+  const short = SPORTS.find((s) => s.key === sport)?.short ?? ""
+  return (
+    <div
+      className={cn(
+        "relative h-24 w-full shrink-0 overflow-hidden bg-gradient-to-br",
+        COURT_IMG[sport]
+      )}
+      aria-hidden
+    >
+      <div className="bg-court-lines absolute inset-0 opacity-70" />
+      {/* Center net line */}
+      <div className="absolute inset-y-0 left-1/2 w-px bg-foreground/10" />
+      <span className="absolute -right-2 -bottom-5 font-heading text-6xl font-bold text-foreground/10 select-none">
+        {short}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * A single court in the court-selection grid — a card with a decorative image,
+ * the court name, its district + distance (the "address"), price and a Choose
+ * button. Choosing selects the court; the sticky action bar advances the wizard.
+ */
+function CourtPickCard({
+  court,
+  selected,
+  onChoose,
+  t,
+}: {
+  court: Court
+  selected: boolean
+  onChoose: () => void
+  t: ReturnType<typeof useTranslations>
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col overflow-hidden rounded-3xl bg-card text-left ring-1 transition-shadow",
+        selected
+          ? "shadow-md ring-2 ring-brand"
+          : "ring-foreground/10 hover:shadow-md"
+      )}
+    >
+      <div className="relative">
+        <CourtImage court={court} />
+        <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm backdrop-blur">
+          <Star className="size-3 fill-lime text-lime" />
+          {court.rating}
+        </span>
+        {selected ? (
+          <span className="absolute top-2 left-2 inline-flex size-6 items-center justify-center rounded-full bg-brand text-brand-foreground shadow-sm">
+            <Check className="size-3.5" />
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="truncate font-heading text-base leading-tight font-semibold">
+            {court.name}
+          </p>
+          <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="size-3 shrink-0" />
+            <span className="truncate">
+              {court.district} · {t("distance", { km: court.distanceKm })}
+            </span>
+          </p>
+        </div>
+
+        <div className="mt-auto flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold tabular-nums">
+            {formatVnd(court.pricePerHour)}
+            <span className="font-normal text-muted-foreground">
+              {t("perHour")}
+            </span>
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant={selected ? "secondary" : "default"}
+            className="rounded-full"
+            onClick={onChoose}
+          >
+            {selected ? (
+              <>
+                <Check />
+                {t("chosen")}
+              </>
+            ) : (
+              t("choose")
+            )}
+          </Button>
         </div>
       </div>
     </div>

@@ -30,10 +30,11 @@ export function DashboardTopbar() {
       <div className="min-w-0 flex-1">
         <h1 className="truncate font-heading text-base leading-none font-semibold">
           {tNav(`${active.key}.label`)}
+          <span className="hidden sm:inline font-normal text-muted-foreground">
+            {" — "}
+            {tNav(`${active.key}.caption`)}
+          </span>
         </h1>
-        <p className="truncate text-xs text-muted-foreground">
-          {tNav(`${active.key}.caption`)}
-        </p>
       </div>
       {showSportFilter ? <SportFilter className="hidden sm:flex" /> : null}
       {isVenue ? null : <ActiveRoomPill />}

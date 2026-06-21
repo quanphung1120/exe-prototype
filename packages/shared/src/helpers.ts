@@ -409,14 +409,22 @@ export function courtDayGaps(
 
 // ── Session projections ──────────────────────────────────────────────────────
 
-/** Active (non-declined) roster members. */
+/**
+ * Active roster members — confirmed seats. Excludes players who declined and
+ * those still {@link pendingRequests awaiting host approval} (a join request
+ * doesn't hold a seat until the host approves it).
+ */
 export const activeRoster = (s: PlaySession) =>
-  s.roster.filter((p) => p.rsvp !== "declined")
+  s.roster.filter((p) => p.rsvp !== "declined" && p.rsvp !== "requested")
+
+/** Players who asked to join and are awaiting the host's approval. */
+export const pendingRequests = (s: PlaySession) =>
+  s.roster.filter((p) => p.rsvp === "requested")
 
 /** Map a roster to the legacy BookingPlayer[] shape (declined dropped). */
 function rosterToBookingPlayers(roster: SessionPlayer[]): BookingPlayer[] {
   return roster
-    .filter((p) => p.rsvp !== "declined")
+    .filter((p) => p.rsvp !== "declined" && p.rsvp !== "requested")
     .map((p) => ({
       name: p.name,
       initials: p.initials,
@@ -447,6 +455,7 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
     district: s.district,
     distanceKm: s.distanceKm,
     day: s.dayLabel,
+    dayKey: s.dayKey,
     time: s.slot ? slotRange(s.slot, s.durationMin) : "",
     level: s.level,
     capacity: s.capacity,
