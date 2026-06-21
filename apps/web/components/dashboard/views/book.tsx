@@ -446,8 +446,8 @@ export function BookView() {
                     <Input
                       type="time"
                       value={draft.slot ?? ""}
-                      min="06:00"
-                      max="22:00"
+                      min={COURT_OPEN_FROM}
+                      max={COURT_OPEN_TO}
                       onChange={(e) => setSlot(e.target.value)}
                       aria-label={t("startTime")}
                       className="h-9 pl-8 tabular-nums"
@@ -461,8 +461,8 @@ export function BookView() {
                     <Input
                       type="time"
                       value={endTime}
-                      min={draft.slot ?? "06:00"}
-                      max="23:00"
+                      min={draft.slot ?? COURT_OPEN_FROM}
+                      max={COURT_OPEN_TO}
                       disabled={!draft.slot}
                       onChange={(e) => setEnd(e.target.value)}
                       aria-label={t("endTime")}
@@ -949,7 +949,7 @@ function CourtCalendar({
   return (
     <div
       ref={scrollRef}
-      className="no-scrollbar max-h-[62vh] flex-1 overflow-auto rounded-2xl ring-1 ring-border/60 lg:max-h-[72vh]"
+      className="no-scrollbar max-h-[62vh] flex-1 overflow-auto rounded-2xl py-3 ring-1 ring-border/60 lg:max-h-[72vh]"
     >
       <div className="flex">
         {/* Hour gutter */}
@@ -1019,7 +1019,7 @@ function CourtCalendar({
             return (
               <div
                 key={`busy-${b.start}`}
-                className="pointer-events-none absolute inset-x-1 z-10 overflow-hidden rounded-lg bg-muted px-2 py-1 text-muted-foreground ring-1 ring-border/60 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,color-mix(in_oklch,var(--muted-foreground)_8%,transparent)_5px,color-mix(in_oklch,var(--muted-foreground)_8%,transparent)_10px)]"
+                className="pointer-events-none absolute inset-x-1 z-10 overflow-hidden rounded-lg bg-muted [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,color-mix(in_oklch,var(--muted-foreground)_8%,transparent)_5px,color-mix(in_oklch,var(--muted-foreground)_8%,transparent)_10px)] px-2 py-1 text-muted-foreground ring-1 ring-border/60"
                 style={{ top: top + 1, height: Math.max(0, height - 2) }}
               >
                 {height >= 26 ? (

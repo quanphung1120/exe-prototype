@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Menu, X } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -21,6 +21,7 @@ const NAV_LINKS = [
 
 export function SiteHeader() {
   const t = useTranslations("Header")
+  const locale = useLocale()
   const [open, setOpen] = React.useState(false)
   const [scrolled, setScrolled] = React.useState(false)
 
@@ -76,6 +77,13 @@ export function SiteHeader() {
           <LocaleSwitcher />
           <ThemeToggle className="cursor-pointer" />
           <Button
+            variant="outline"
+            size="lg"
+            className="hidden cursor-pointer sm:inline-flex"
+            nativeButton={false}
+            render={<a href={`/${locale}/dashboard`}>{t("demo")}</a>}
+          />
+          <Button
             variant="lime"
             size="lg"
             className="hidden cursor-pointer sm:inline-flex"
@@ -116,6 +124,14 @@ export function SiteHeader() {
               {t(`nav.${link.key}`)}
             </a>
           ))}
+          <Button
+            variant="outline"
+            size="lg"
+            className="mt-2 cursor-pointer"
+            nativeButton={false}
+            onClick={() => setOpen(false)}
+            render={<a href={`/${locale}/dashboard`}>{t("demo")}</a>}
+          />
           <Button
             variant="lime"
             size="lg"

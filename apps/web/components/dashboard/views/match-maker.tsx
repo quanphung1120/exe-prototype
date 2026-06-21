@@ -11,6 +11,7 @@ import {
   Plus,
   Users,
   X,
+  Zap,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -38,6 +39,7 @@ export function RoomsView() {
     requestedIds,
     joinRoom,
     leaveRoom,
+    openQuickJoin,
     openCreateRoom,
   } = useMatchmaking()
   const { sport } = useSportFilter()
@@ -69,10 +71,21 @@ export function RoomsView() {
             <Users className="size-5" />
           </div>
           <p className="text-sm text-muted-foreground">{t("emptyRooms")}</p>
-          <Button size="sm" className="rounded-full" onClick={openCreateRoom}>
-            <Plus />
-            {t("hostOne")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" className="rounded-full" onClick={openQuickJoin}>
+              <Zap />
+              {t("findMatch")}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-full"
+              onClick={openCreateRoom}
+            >
+              <Plus />
+              {t("hostOne")}
+            </Button>
+          </div>
         </div>
       )}
     </div>

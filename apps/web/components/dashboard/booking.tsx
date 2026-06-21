@@ -48,6 +48,5 @@ export function useBooking() {
     draftConflict: s.draftConflict,
     courtBusy: s.courtBusy,
     courtGaps: s.courtGaps,
-    payShare: s.payShare,
   }
 }

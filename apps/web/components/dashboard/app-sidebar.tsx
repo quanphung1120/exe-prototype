@@ -102,15 +102,13 @@ export function AppSidebar() {
                     <div
                       className={cn(
                         "flex aspect-square size-8 items-center justify-center rounded-xl",
-                        isVenue
-                          ? "bg-secondary text-xs font-bold text-secondary-foreground"
-                          : "bg-primary"
+                        isVenue && "bg-secondary text-xs font-bold text-secondary-foreground"
                       )}
                     >
                       {isVenue ? (
                         VENUE.initials
                       ) : (
-                        <LogoMark className="size-5 text-primary-foreground" />
+                        <LogoMark className="size-7 text-primary" />
                       )}
                     </div>
                     <div className="grid flex-1 text-left leading-tight">
@@ -136,9 +134,7 @@ export function AppSidebar() {
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>{t("workspaces")}</DropdownMenuLabel>
                   <DropdownMenuItem onClick={() => switchTo("player")}>
-                    <div className="flex size-7 items-center justify-center rounded-lg bg-primary">
-                      <LogoMark className="size-4 text-primary-foreground" />
-                    </div>
+                    <LogoMark className="size-6 text-primary" />
                     <span className="flex-1">{t("playerWorkspace")}</span>
                     {!isVenue ? <Check className="size-4 text-brand" /> : null}
                   </DropdownMenuItem>

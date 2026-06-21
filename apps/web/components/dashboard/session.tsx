@@ -6,6 +6,8 @@ import { toast } from "sonner"
 
 import {
   BOOKING_DAYS,
+  COURT_OPEN_FROM,
+  COURT_OPEN_TO,
   activeRoster,
   capacityFor,
   durationOf,
@@ -169,8 +171,6 @@ interface SessionContextValue {
   courtBusy: CourtBand[]
   /** Tappable free gaps on the draft court/day (calendar). */
   courtGaps: CourtBand[]
-  // ── Bill sharing (decision 7) ──
-  payShare: (sessionId: string, initials: string) => void
 }
 
 const SessionContext = React.createContext<SessionContextValue | null>(null)
@@ -190,6 +190,20 @@ const EMPTY_DRAFT: BookingDraft = {
   format: "Doubles",
   fillMode: "court",
   invitees: [],
+}
+
+/**
+ * Keep a chosen start time inside the court's open window. The native `<input
+ * type="time">` will happily yield values outside open hours (e.g. midnight
+ * from the spinner), which would land the selection above/below the day
+ * calendar and render an invisible band. Zero-padded "HH:MM" strings compare
+ * lexicographically, so a string clamp is enough. Empty → null (no selection).
+ */
+function clampSlot(slot: string): string | null {
+  if (!slot) return null
+  if (slot < COURT_OPEN_FROM) return COURT_OPEN_FROM
+  if (slot > COURT_OPEN_TO) return COURT_OPEN_TO
+  return slot
 }
 
 /** Tiny FNV-1a hash — deterministic RSVP timing without Date/random. */
@@ -273,7 +287,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const idRef = React.useRef(0)
   const newId = (p: string) => `s-${p}-${idRef.current++}`
 
-  // ── Timer pool (RSVP / bill / search) keyed for targeted cleanup ──
+  // ── Timer pool (RSVP / search) keyed for targeted cleanup ──
   const timers = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   )
@@ -1059,12 +1073,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const setCourt = (cid: string) => {
     setCourtId(cid)
-    setDraft((d) => ({ ...d, slot: null }))
   }
   const setDay = (dayKey: string) =>
     setDraft((d) => ({ ...d, dayKey, slot: null }))
   const setSlot = (slot: string) =>
-    setDraft((d) => ({ ...d, slot: slot || null }))
+    setDraft((d) => ({ ...d, slot: clampSlot(slot) }))
   const setDuration = (durationMin: number) =>
     setDraft((d) => ({
       ...d,
@@ -1285,58 +1298,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     toast(tb("toast.cancelled"), { description: s.venue })
   }
 
-  // ── Bill sharing ──
-  const payShare = (sessionId: string, initials: string) => {
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === sessionId
-          ? {
-              ...s,
-              roster: s.roster.map((p) =>
-                p.initials === initials ? { ...p, paid: true } : p
-              ),
-            }
-          : s
-      )
-    )
-    toast(ts("toast.billPaid"), {
-      description: playerByInitials(initials).name,
-    })
-    // When you settle up, the rest of the team follows over the next moments.
-    if (initials === USER.initials) {
-      const s = sessions.find((x) => x.id === sessionId)
-      if (!s) return
-      const owing = activeRoster(s).filter(
-        (p) => p.initials !== USER.initials && !p.paid
-      )
-      owing.forEach((p, i) => {
-        const key = `bill:${sessionId}:${p.initials}`
-        const handle = setTimeout(
-          () => {
-            timers.current.delete(key)
-            setSessions((prev) => {
-              const cur = prev.find((x) => x.id === sessionId)
-              if (!cur || cur.status === "cancelled") return prev
-              return prev.map((x) =>
-                x.id === sessionId
-                  ? {
-                      ...x,
-                      roster: x.roster.map((m) =>
-                        m.initials === p.initials ? { ...m, paid: true } : m
-                      ),
-                    }
-                  : x
-              )
-            })
-            toast(ts("toast.billPaid"), { description: p.name })
-          },
-          1200 + i * 1100
-        )
-        timers.current.set(key, handle)
-      })
-    }
-  }
-
   const value: SessionContextValue = {
     sessions,
     joinedIds,
@@ -1413,7 +1374,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     draftConflict,
     courtBusy,
     courtGaps,
-    payShare,
   }
 
   return (

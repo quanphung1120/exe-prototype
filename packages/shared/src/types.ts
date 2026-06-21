@@ -159,8 +159,6 @@ export interface SessionPlayer {
   name: string
   initials: string
   rsvp: Rsvp
-  /** Bill-sharing: whether this member has settled their share. */
-  paid?: boolean
 }
 
 export type SessionStatus = "forming" | "booked" | "completed" | "cancelled"

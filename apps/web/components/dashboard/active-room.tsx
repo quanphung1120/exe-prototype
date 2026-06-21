@@ -17,7 +17,6 @@ import {
   Star,
   UserPlus,
   Users,
-  Wallet,
   X,
 } from "lucide-react"
 
@@ -50,14 +49,11 @@ import {
   SportTag,
 } from "@/components/dashboard/shared"
 import {
-  activeRoster,
   formatVnd,
   pendingRequests,
-  priceFor,
   trustTier,
   trustTierAccent,
   type MatchRoom,
-  type PlaySession,
 } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
@@ -77,7 +73,7 @@ function roomDayLabel(day: string, tc: (key: string) => string) {
 /**
  * Persistent topbar pill shown whenever the user is in at least one match room.
  * It opens a slide-over with the active room's location, participants (and their
- * trust scores), the bill split when a court is booked, plus a switcher for any
+ * trust scores), plus a switcher for any
  * other rooms the user has joined.
  */
 export function ActiveRoomPill() {
@@ -328,11 +324,6 @@ function RoomDetail({
           </section>
         ) : null}
 
-        {/* Bill split — only once a court is booked for a team */}
-        {session && booked && activeRoster(session).length > 1 ? (
-          <BillSplit room={room} session={session} />
-        ) : null}
-
         {/* Participants */}
         <section className="flex flex-col gap-3">
           <SectionLabel>
@@ -502,74 +493,6 @@ function RoomDetail({
         )}
       </SheetFooter>
     </>
-  )
-}
-
-/** Equal per-head bill split for a booked team session (decision 7). */
-function BillSplit({
-  room,
-  session,
-}: {
-  room: MatchRoom
-  session: PlaySession
-}) {
-  const t = useTranslations("ActiveRoom")
-  const { payShare } = useSession()
-  const { user: USER } = useData()
-  const members = activeRoster(session)
-  const headCount = Math.max(1, members.length)
-  const perHead = Math.round(
-    priceFor(room.pricePerHour, session.durationMin) / headCount
-  )
-  const paidCount = members.filter((m) => m.paid).length
-
-  return (
-    <section className="flex flex-col gap-3">
-      <SectionLabel>{t("bill")}</SectionLabel>
-      <div className="flex items-center justify-between rounded-2xl bg-muted/40 px-3 py-2 text-sm">
-        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-          <Wallet className="size-4" />
-          {t("perHead", { amount: formatVnd(perHead) })}
-        </span>
-        <span className="font-mono text-xs text-muted-foreground tabular-nums">
-          {t("collected", {
-            paid: formatVnd(perHead * paidCount),
-            total: formatVnd(perHead * headCount),
-          })}
-        </span>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        {members.map((m) => {
-          const you = m.initials === USER.initials
-          return (
-            <div key={m.initials} className="flex items-center gap-2.5">
-              <PlayerAvatar initials={m.initials} />
-              <span className="min-w-0 flex-1 truncate text-sm">
-                {m.name}
-                {you ? (
-                  <span className="text-muted-foreground"> ({t("you")})</span>
-                ) : null}
-              </span>
-              {m.paid ? (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-brand">
-                  <Check className="size-3.5" />
-                  {t("paid")}
-                </span>
-              ) : (
-                <Button
-                  size="xs"
-                  variant={you ? "default" : "outline"}
-                  className="shrink-0 rounded-full"
-                  onClick={() => payShare(room.id, m.initials)}
-                >
-                  {t("pay", { amount: formatVnd(perHead) })}
-                </Button>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </section>
   )
 }
 

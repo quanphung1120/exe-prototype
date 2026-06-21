@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import { MapPin, Plus, Users } from "lucide-react"
+import { MapPin, Plus, Users, Zap } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -21,7 +21,7 @@ export function PlayView({ initialTab = "rooms" }: { initialTab?: PlayTab }) {
   const t = useTranslations("Play")
   const tm = useTranslations("MatchMaker")
   const [tab, setTab] = React.useState<PlayTab>(initialTab)
-  const { openCreateRoom } = useMatchmaking()
+  const { openQuickJoin, openCreateRoom } = useMatchmaking()
 
   return (
     <div className="flex flex-col gap-5">
@@ -41,10 +41,21 @@ export function PlayView({ initialTab = "rooms" }: { initialTab?: PlayTab }) {
         </Tabs>
 
         {tab === "rooms" ? (
-          <Button size="sm" className="rounded-full" onClick={openCreateRoom}>
-            <Plus />
-            <span className="hidden sm:inline">{tm("createRoom")}</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-full"
+              onClick={openQuickJoin}
+            >
+              <Zap />
+              <span className="hidden sm:inline">{tm("findMatch")}</span>
+            </Button>
+            <Button size="sm" className="rounded-full" onClick={openCreateRoom}>
+              <Plus />
+              <span className="hidden sm:inline">{tm("createRoom")}</span>
+            </Button>
+          </div>
         ) : null}
       </div>
 

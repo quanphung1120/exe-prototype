@@ -129,11 +129,6 @@
     "noCourtShort": "No court yet",
     "noCourtYet": "No court booked yet",
     "hostNoCourt": "The host hasn't booked a court yet.",
-    "bill": "Bill split",
-    "perHead": "{amount}/player",
-    "collected": "{paid} / {total}",
-    "pay": "Pay {amount}",
-    "paid": "Paid",
     "remove": "Remove from room",
     "leaveTitle": "Leave this match?",
     "leaveBody": "You'll be removed from this room.",
@@ -351,7 +346,6 @@
       "rsvpGoing": "Is in",
       "rsvpDeclined": "Can't make it",
       "addTeam": "Invite players to share this court",
-      "billPaid": "Paid their share",
       "requested": "Request sent — awaiting approval",
       "requestApproved": "You're approved!",
       "joinRequest": "Wants to join your room",
@@ -735,6 +729,7 @@
       "faq": "FAQ"
     },
     "cta": "Sign up now",
+    "demo": "Try the demo",
     "waitlistCta": "Join the waitlist",
     "menuOpen": "Open menu",
     "menuClose": "Close menu"

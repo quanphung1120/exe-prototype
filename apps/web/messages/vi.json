@@ -129,11 +129,6 @@
     "noCourtShort": "Chưa có sân",
     "noCourtYet": "Chưa đặt sân",
     "hostNoCourt": "Chủ phòng chưa đặt sân.",
-    "bill": "Chia tiền sân",
-    "perHead": "{amount}/người",
-    "collected": "{paid} / {total}",
-    "pay": "Trả {amount}",
-    "paid": "Đã trả",
     "remove": "Xoá khỏi phòng",
     "leaveTitle": "Rời trận này?",
     "leaveBody": "Bạn sẽ được xoá khỏi phòng này.",
@@ -351,7 +346,6 @@
       "rsvpGoing": "Đã tham gia",
       "rsvpDeclined": "Không tham gia được",
       "addTeam": "Mời người chơi chia sân",
-      "billPaid": "Đã trả phần của mình",
       "requested": "Đã gửi yêu cầu — đang chờ duyệt",
       "requestApproved": "Bạn đã được duyệt!",
       "joinRequest": "Muốn tham gia phòng của bạn",
@@ -735,6 +729,7 @@
       "faq": "Câu hỏi thường gặp"
     },
     "cta": "Đăng ký ngay",
+    "demo": "Xem thử demo",
     "waitlistCta": "Đăng ký danh sách chờ",
     "menuOpen": "Mở menu",
     "menuClose": "Đóng menu"
