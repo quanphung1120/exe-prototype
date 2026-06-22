@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 import type { SportKey, Venue, VenueCourt } from "@repo/shared"
 
-import { ACTIVE_VENUE_COOKIE } from "@/lib/api"
+import { ACTIVE_VENUE_COOKIE, API_URL } from "@/lib/api"
 
 // Server actions for venue management. They run on the server (so the Hono API
 // base and the active-venue cookie stay off the client) and call the API's CRUD
 // routes, then revalidate the dashboard so the server-rendered seed refetches.
-
-const API_URL = process.env.API_URL ?? "http://localhost:8080"
+// API_URL is shared with the seed reader (lib/api.ts) so writes hit the same
+// host/port as reads.
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
@@ -19,7 +19,9 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "content-type": "application/json", ...init?.headers },
   })
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null
+    const body = (await res.json().catch(() => null)) as {
+      error?: string
+    } | null
     throw new Error(body?.error ?? `Request failed (${res.status})`)
   }
   return res.json() as Promise<T>

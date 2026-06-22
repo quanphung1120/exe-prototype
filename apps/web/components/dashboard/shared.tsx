@@ -2,13 +2,14 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import { ArrowDownRight, ArrowUpRight, MapPin, Star } from "lucide-react"
+import { ArrowDownRight, ArrowUpRight, Clock, MapPin, Star } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   type Court,
+  type MatchRoom,
   type Player,
   type RoomLevel,
   type SportKey,
@@ -289,6 +290,59 @@ export function CourtRow({
           <span className="text-xs font-normal text-muted-foreground">
             {t("perHour")}
           </span>
+        </div>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+/** A compact open-room line with its fill meter, level and a custom action. */
+export function RoomRow({
+  room,
+  action,
+}: {
+  room: MatchRoom
+  action?: React.ReactNode
+}) {
+  const t = useTranslations("MatchMaker")
+  const tc = useTranslations("Common")
+  const title = t.has(`rooms.${room.id}.title`)
+    ? t(`rooms.${room.id}.title`)
+    : room.title
+  const dayKey = room.day.toLowerCase()
+  const day =
+    dayKey === "today" || dayKey === "tomorrow" || dayKey === "yesterday"
+      ? tc(`when.${dayKey}`)
+      : room.day
+
+  return (
+    <div className="flex items-center gap-3 rounded-3xl p-2 transition-colors hover:bg-muted/60">
+      <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-secondary font-heading text-sm font-bold text-secondary-foreground tabular-nums">
+        {room.joined}/{room.capacity}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-medium">{title}</span>
+          <LevelChip level={room.level} className="shrink-0" />
+        </div>
+        <div className="flex items-center gap-2 truncate text-xs text-muted-foreground">
+          <SportTag sport={room.sport} />
+          <span aria-hidden>·</span>
+          <span className="inline-flex items-center gap-0.5">
+            <MapPin className="size-3" />
+            {room.distanceKm} km
+          </span>
+        </div>
+      </div>
+      <div className="hidden text-right sm:block">
+        <div className="flex items-center justify-end gap-1 font-mono text-xs text-muted-foreground tabular-nums">
+          <Clock className="size-3" />
+          {day} · {room.time}
+        </div>
+        <div className="text-sm font-semibold tabular-nums">
+          {formatVnd(room.pricePerHour)}
+          <span className="text-xs font-normal text-muted-foreground">/h</span>
         </div>
       </div>
       {action}

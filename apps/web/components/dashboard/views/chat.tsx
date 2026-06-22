@@ -228,7 +228,7 @@ function MessageBubble({
         className={cn(
           "max-w-[78%] rounded-3xl px-4 py-2 text-sm",
           message.mine
-            ? "rounded-br-md bg-primary text-primary-foreground"
+            ? "rounded-br-md bg-primary text-black"
             : "rounded-bl-md bg-muted text-foreground"
         )}
       >

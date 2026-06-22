@@ -375,8 +375,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const court = courtId ? (COURTS.find((c) => c.id === courtId) ?? null) : null
   const steps = courtless
-    ? ["court", "slot", "players", "confirm", "pay"]
-    : ["slot", "players", "confirm", "pay"]
+    ? ["court", "slot", "confirm", "pay"]
+    : ["slot", "confirm", "pay"]
 
   // ── Active-session helpers ──
   const announceActive = (next: string | null) => {
@@ -432,11 +432,28 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const handle = setTimeout(() => {
       timers.current.delete(key)
       let approved = false
+      let full = false
       setSessions((prev) => {
         const s = prev.find((x) => x.id === sessionId)
         if (!s || s.status === "cancelled") return prev
         const me = s.roster.find((p) => p.initials === USER.initials)
         if (!me || me.rsvp !== "requested") return prev
+        // Re-check capacity at approval time, not just request time — the room
+        // can fill between the request and this timer firing. Mirrors the manual
+        // approveRequest guard so both paths enforce the same invariant. When the
+        // room filled first, drop the request (like a host decline) rather than
+        // confirm an over-capacity seat or leave a stuck "requested" pill.
+        if (activeRoster(s).length >= s.capacity) {
+          full = true
+          return prev.map((x) =>
+            x.id === sessionId
+              ? {
+                  ...x,
+                  roster: x.roster.filter((p) => p.initials !== USER.initials),
+                }
+              : x
+          )
+        }
         approved = true
         return prev.map((x) =>
           x.id === sessionId
@@ -451,8 +468,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             : x
         )
       })
-      if (approved)
+      if (approved) {
+        // Now (and only now) the user is a real member — grant joinedIds so the
+        // team chat, notification, and active-room pill appear post-approval.
+        setJoinedIds((prev) => new Set(prev).add(sessionId))
         toast.success(ts("toast.requestApproved"), { description: hostName })
+      } else if (full) toast.error(ts("toast.full"))
     }, APPROVE_MS)
     timers.current.set(key, handle)
   }
@@ -478,7 +499,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           : s
       )
     )
-    setJoinedIds((prev) => new Set(prev).add(room.id))
+    // Don't grant membership yet — the user is only "requested", not "joined".
+    // joinedIds (and everything derived from it: the team chat, the "new chat"
+    // notification, the active-room pill) is set in scheduleHostApproval once the
+    // host actually approves. The "requested" state surfaces via requestedIds.
     setActiveSessionId(room.id)
     toast(tm("toast.requested"), {
       description: `${roomTitle(room)} · ${room.venue}`,
@@ -492,6 +516,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setManagerOpen(true)
       return
     }
+    // Already asked and awaiting the host — don't fire a second request (which
+    // would re-toast and schedule a duplicate approval timer).
+    if (requestedIds.has(room.id)) return
     requestJoin(room)
   }
 
@@ -1025,21 +1052,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     openBooking(cid, { roomId: sessionId })
   }
 
-  /** Re-book a past/cancelled booking as a fresh session (clone court+team). */
+  /**
+   * Re-book a past/cancelled booking as a fresh solo court hold. The wizard no
+   * longer gathers a team; the host grows the new booking into a room and
+   * invites afterward (same as any fresh booking).
+   */
   const rebookFrom = (bookingId: string) => {
     const s = sessions.find((x) => x.id === bookingId)
     if (!s) {
       openBooking(null)
       return
     }
-    const invitees = activeRoster(s)
-      .map((p) => p.initials)
-      .filter((p) => p !== USER.initials)
     const cid = s.courtId ?? courtByVenue(s.venue)?.id ?? null
-    openBooking(cid, {
-      fillMode: invitees.length ? "invite" : "court",
-      invitees,
-    })
+    openBooking(cid)
     setDraft((d) => ({ ...d, format: s.format }))
   }
 
@@ -1189,25 +1214,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // New session, court-first.
+    // New session, court-first — always a solo court hold. The host grows it
+    // into a room (and invites players) afterward from the booking.
     const id = newId("bk")
     const host: SessionPlayer = {
       name: userName,
       initials: USER.initials,
       rsvp: "host",
     }
-    const listed = draft.fillMode !== "court"
-    const roster: SessionPlayer[] =
-      draft.fillMode === "invite"
-        ? [
-            host,
-            ...draft.invitees.map((init) => ({
-              name: playerByInitials(init).name,
-              initials: init,
-              rsvp: "pending" as Rsvp,
-            })),
-          ]
-        : [host]
     const next: PlaySession = {
       id,
       title: tb("roomTitle", {
@@ -1224,24 +1238,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       courtLabel,
       host: { name: userName, initials: USER.initials },
       capacity: capacityFor(draft.format),
-      roster,
+      roster: [host],
       level: userLevel,
       status: "booked",
       hold: "confirmed",
-      listed,
-      fillIntent: draft.fillMode,
+      listed: false,
+      fillIntent: "court",
       venue: court.name,
       district: court.district,
       distanceKm: court.distanceKm,
       pricePerHour: court.pricePerHour,
     }
     setSessions((prev) => [next, ...prev])
-    if (listed) {
-      setJoinedIds((prev) => new Set(prev).add(id))
-      setActiveSessionId(id)
-    }
-    if (draft.fillMode === "invite") scheduleRsvp(id, draft.invitees)
-    if (draft.fillMode === "find") fillRoom(next)
     toast.success(tb("toast.booked"), {
       description: `${court.name} · ${dayLabel} · ${time}`,
     })

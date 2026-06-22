@@ -143,10 +143,13 @@ function runQuery(
 
   // ── Revenue summary ─────────────────────────────────────────────────────────
   if (wantsRevenue) {
-    const today = REVENUE_SERIES[REVENUE_SERIES.length - 1].value
+    const today = REVENUE_SERIES[REVENUE_SERIES.length - 1]?.value ?? 0
     const week = REVENUE_SERIES.reduce((sum, d) => sum + d.value, 0)
-    const avg = Math.round(week / REVENUE_SERIES.length)
-    const pct = Math.round(((today - avg) / avg) * 100)
+    const avg = REVENUE_SERIES.length
+      ? Math.round(week / REVENUE_SERIES.length)
+      : 0
+    // Guard the zero-activity venue: avg 0 would make this NaN.
+    const pct = avg ? Math.round(((today - avg) / avg) * 100) : 0
     const steps = [
       t("steps.pullLedger"),
       t("steps.sumWeek"),

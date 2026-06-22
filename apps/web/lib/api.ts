@@ -3,8 +3,9 @@ import "server-only"
 import type { Seed } from "@repo/shared"
 
 // Where the Hono API lives. Server-side fetch only (no CORS concerns); override
-// with API_URL in deployment.
-const API_URL = process.env.API_URL ?? "http://localhost:6969"
+// with API_URL in deployment. Single source of truth — server actions import it
+// too, so reads and writes can never drift to different ports.
+export const API_URL = process.env.API_URL ?? "http://localhost:6969"
 
 /**
  * Fetch the full hardcoded dataset from the Hono API. Called once in the

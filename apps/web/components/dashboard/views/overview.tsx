@@ -35,7 +35,7 @@ import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import { useSportFilter } from "@/components/dashboard/sport-filter"
 import {
   CourtRow,
-  PlayerRow,
+  RoomRow,
   RowAction,
   SportTag,
   StreakStrip,
@@ -56,16 +56,17 @@ const ACTIVITY_ICON: Record<
 export function OverviewView() {
   const t = useTranslations("Overview")
   const tc = useTranslations("Common")
+  const tm = useTranslations("MatchMaker")
   const tStreak = useTranslations("Streak")
   const { openBooking } = useBooking()
   const { sport } = useSportFilter()
-  const { userName } = useMatchmaking()
+  const { userName, rooms, joinedIds, requestedIds, joinRoom } =
+    useMatchmaking()
   const [streakOpen, setStreakOpen] = React.useState(false)
   const {
     activity: ACTIVITY,
     bookings: BOOKINGS,
     courts: COURTS,
-    players: MATCH_SUGGESTIONS,
     streak: STREAK,
     user: USER,
   } = useData()
@@ -74,9 +75,12 @@ export function OverviewView() {
   const firstName = userName.trim().split(/\s+/)[0] || USER.first
 
   const nextMatch = BOOKINGS.find((b) => b.status === "confirmed")!
-  const players = MATCH_SUGGESTIONS.filter(
-    (p) => sport === "all" || p.sport === sport
-  ).slice(0, 4)
+  // Open rooms (seats left) for the player's active sport — the teaser preview.
+  const openRooms = rooms
+    .filter(
+      (r) => (sport === "all" || r.sport === sport) && r.joined < r.capacity
+    )
+    .slice(0, 4)
   const courts = COURTS.filter(
     (c) => sport === "all" || c.sports.includes(sport)
   ).slice(0, 4)
@@ -225,18 +229,32 @@ export function OverviewView() {
             </Button>
           }
         >
-          {players.length ? (
+          {openRooms.length ? (
             <div className="flex flex-col gap-1">
-              {players.map((p) => (
-                <PlayerRow
-                  key={p.id}
-                  player={p}
-                  action={<RowAction>{t("invite")}</RowAction>}
-                />
-              ))}
+              {openRooms.map((room) => {
+                const requested = requestedIds.has(room.id)
+                const joined = joinedIds.has(room.id) && !requested
+                return (
+                  <RoomRow
+                    key={room.id}
+                    room={room}
+                    action={
+                      requested ? (
+                        <RowAction disabled>{tm("requested")}</RowAction>
+                      ) : joined ? (
+                        <RowAction disabled>{tm("joined")}</RowAction>
+                      ) : (
+                        <RowAction onClick={() => joinRoom(room)}>
+                          {tm("join")}
+                        </RowAction>
+                      )
+                    }
+                  />
+                )
+              })}
             </div>
           ) : (
-            <Empty text={t("emptyPlayers")} />
+            <Empty text={tm("emptyRooms")} />
           )}
         </Panel>
 

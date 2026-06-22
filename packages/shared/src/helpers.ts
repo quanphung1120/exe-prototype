@@ -774,13 +774,21 @@ export function venueScheduleFor(
 
 // ── Venue: derived analytics ─────────────────────────────────────────────────
 
-/** 7 days × {@link HEATMAP_HOURS} utilization intensities, 0–100. */
-export const UTILIZATION_HEATMAP: number[][] = HEATMAP_DAYS.map((_, d) =>
-  HEATMAP_HOURS.map((h, i) => {
-    const peak = i >= 4 // 16:00+
-    const weekend = d >= 5
-    const base = peak ? 70 : 30
-    const v = base + (weekend ? 18 : 0) + (hashStr(`${d}:${h}`) % 26)
-    return Math.min(100, v)
-  })
-)
+/**
+ * 7 days × {@link HEATMAP_HOURS} utilization intensities, 0–100, seeded per
+ * venue so each venue's heatmap differs (it used to be a single module-level
+ * constant, so every venue — including brand-new empty ones — showed the
+ * flagship's pattern). Callers should show a zeroed grid for venues with no
+ * activity rather than a fabricated one.
+ */
+export function utilizationHeatmap(seed: string): number[][] {
+  return HEATMAP_DAYS.map((_, d) =>
+    HEATMAP_HOURS.map((h, i) => {
+      const peak = i >= 4 // 16:00+
+      const weekend = d >= 5
+      const base = peak ? 70 : 30
+      const v = base + (weekend ? 18 : 0) + (hashStr(`${seed}:${d}:${h}`) % 26)
+      return Math.min(100, v)
+    })
+  )
+}

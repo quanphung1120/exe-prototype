@@ -121,7 +121,7 @@ export function VenueCustomersView({
             </span>
             <span className="text-sm font-medium text-muted-foreground tabular-nums">
               {t("summary.vipShare", {
-                pct: Math.round((vipCount / total) * 100),
+                pct: total ? Math.round((vipCount / total) * 100) : 0,
               })}
             </span>
           </div>

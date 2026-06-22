@@ -13,6 +13,7 @@ export function useBooking() {
   const s = useSession()
   return {
     bookings: s.bookings,
+    sessions: s.sessions,
     playOpen: s.playOpen,
     openPlay: s.openPlay,
     closePlay: s.closePlay,

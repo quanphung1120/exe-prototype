@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useLocale, useTranslations } from "next-intl"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import {
   Ban,
@@ -18,24 +18,42 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
-  VENUE_DAYS,
-  locStr,
   slotKindAccent,
   type ScheduleEvent,
   type SlotKind,
+  type VenueCourt,
 } from "@/components/dashboard/venue/data"
+import { addMinutes, sportAccent } from "@/components/dashboard/data"
 import {
-  addMinutes,
-  diffMinutes,
-  sportAccent,
-} from "@/components/dashboard/data"
+  addDays,
+  addMonths,
+  dayOfMonth,
+  isToday,
+  isWeekend,
+  mondayIndex,
+  monthOf,
+  sameMonth,
+  seedForDate,
+  TODAY_ISO,
+  weekDays,
+  yearOf,
+  type CalendarView,
+} from "@/components/dashboard/calendar"
+import {
+  CalendarToolbar,
+  MonthGrid,
+  PX_PER_MIN,
+  Timeline,
+  toMin,
+  useNow,
+  type TimelineColumn,
+} from "@/components/dashboard/calendar-ui"
 import { useData } from "@/components/dashboard/data-provider"
 import {
   MicroLabel,
@@ -43,14 +61,6 @@ import {
   VenuePanel,
 } from "@/components/dashboard/venue/shared"
 import { useVenue } from "@/components/dashboard/venue/venue-provider"
-
-// Calendar geometry: one hour is HOUR_PX tall; everything else derives from it.
-const HOUR_PX = 56
-const PX_PER_MIN = HOUR_PX / 60
-
-// The calendar spans the full day: hour labels 00:00–23:00 over a 24h grid.
-const FULL_DAY_HOURS = Array.from({ length: 24 }, (_, i) => i)
-const DAY_MIN = 24 * 60
 
 const LEGEND_KINDS: Exclude<SlotKind, "free">[] = [
   "booked",
@@ -73,62 +83,176 @@ export function VenueScheduleView({
 } = {}) {
   const t = useTranslations("VenueSchedule")
   const tc = useTranslations("Common")
-  const locale = useLocale()
+  const tcal = useTranslations("Calendar")
   const { stats } = useVenue()
   const {
     venue: VENUE,
     venueCourts: VENUE_COURTS,
-    venueEventsFor,
+    courtDayEvents,
     venueScheduleFor,
   } = useData()
 
-  // Full 24-hour day grid (matches the player bookings calendar). The venue's
-  // open window is shaded as such, and free bands are confined to it.
-  const HOURS = FULL_DAY_HOURS
-  const TOTAL_MIN = DAY_MIN
-  const openStart = diffMinutes("00:00", VENUE.openFrom)
-  const openEnd = diffMinutes("00:00", VENUE.openTo)
-
-  /** Minutes from midnight (the grid's top) to a "HH:MM" time. */
-  const offsetMin = (hhmm: string) => diffMinutes("00:00", hhmm)
-
-  /** Free gaps (complement of the events) within the open window. */
-  const gapsOf = (
-    events: ScheduleEvent[]
-  ): { start: string; durationMin: number }[] => {
-    const sorted = [...events].sort(
-      (a, b) => offsetMin(a.start) - offsetMin(b.start)
-    )
-    const bands: { start: string; durationMin: number }[] = []
-    let cursor = openStart
-    for (const e of sorted) {
-      const s = offsetMin(e.start)
-      if (s > cursor)
-        bands.push({
-          start: addMinutes("00:00", cursor),
-          durationMin: s - cursor,
-        })
-      cursor = Math.max(cursor, s + e.durationMin)
-    }
-    if (cursor < openEnd)
-      bands.push({
-        start: addMinutes("00:00", cursor),
-        durationMin: openEnd - cursor,
-      })
-    return bands
-  }
-
-  const [dayKey, setDayKey] = React.useState<string>("today")
-  const isToday = dayKey === "today"
-
-  const events = React.useMemo(
-    () => venueEventsFor(dayKey),
-    [dayKey, venueEventsFor]
+  const now = useNow()
+  const [view, setView] = React.useState<CalendarView>("day")
+  const [cursor, setCursor] = React.useState<string>(TODAY_ISO)
+  const [weekCourtId, setWeekCourtId] = React.useState<string>(
+    VENUE_COURTS[0]?.id ?? ""
   )
 
-  // Day summary derives from the hour grid (itself derived from the events).
+  const monthsShort = tcal.raw("monthsShort") as string[]
+  const months = tcal.raw("months") as string[]
+  const weekdaysShort = tcal.raw("weekdaysShort") as string[]
+
+  const openStart = toMin(VENUE.openFrom)
+  const openEnd = toMin(VENUE.openTo)
+
+  /** Free gaps (complement of the events) within the open window. */
+  const gapsOf = React.useCallback(
+    (events: ScheduleEvent[]): { start: string; durationMin: number }[] => {
+      const sorted = [...events].sort((a, b) => toMin(a.start) - toMin(b.start))
+      const bands: { start: string; durationMin: number }[] = []
+      let cursor = openStart
+      for (const e of sorted) {
+        const s = toMin(e.start)
+        if (s > cursor)
+          bands.push({
+            start: addMinutes("00:00", cursor),
+            durationMin: s - cursor,
+          })
+        cursor = Math.max(cursor, s + e.durationMin)
+      }
+      if (cursor < openEnd)
+        bands.push({
+          start: addMinutes("00:00", cursor),
+          durationMin: openEnd - cursor,
+        })
+      return bands
+    },
+    [openStart, openEnd]
+  )
+
+  /** Closed-hours shading (before opening / after closing) for one column. */
+  const closedShading = (
+    <>
+      {openStart > 0 ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 bg-muted/40"
+          style={{ height: openStart * PX_PER_MIN }}
+        />
+      ) : null}
+      {openEnd < 24 * 60 ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 z-0 bg-muted/40"
+          style={{
+            top: openEnd * PX_PER_MIN,
+            height: (24 * 60 - openEnd) * PX_PER_MIN,
+          }}
+        />
+      ) : null}
+    </>
+  )
+
+  /** Place one court's events + free gaps on a date into a timeline column. */
+  const courtContent = (court: VenueCourt, dateIso: string) => {
+    const events = courtDayEvents(court.id, seedForDate(dateIso))
+    const gaps = court.state === "maintenance" ? [] : gapsOf(events)
+    return (
+      <>
+        {closedShading}
+        {gaps.map((g) => (
+          <FreeBand
+            key={`${court.id}-${dateIso}-${g.start}`}
+            courtName={court.name}
+            start={g.start}
+            durationMin={g.durationMin}
+            t={t}
+          />
+        ))}
+        {events.map((ev) => (
+          <EventBlock
+            key={ev.id}
+            event={ev}
+            courtName={court.name}
+            t={t}
+            tc={tc}
+          />
+        ))}
+      </>
+    )
+  }
+
+  // Columns: Day = one per court (cursor date); Week = one per day (selected court).
+  const weekCourt =
+    VENUE_COURTS.find((c) => c.id === weekCourtId) ?? VENUE_COURTS[0]
+
+  const columns: TimelineColumn[] = (() => {
+    if (view === "day") {
+      const today = isToday(cursor)
+      return VENUE_COURTS.map((court) => ({
+        key: court.id,
+        today,
+        header: (
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={cn(
+                  "size-2 shrink-0 rounded-full",
+                  sportAccent(court.sport)
+                )}
+                aria-hidden
+              />
+              <span className="truncate text-sm font-semibold">
+                {court.name}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center gap-1.5">
+              <Meter pct={court.utilToday} className="h-1" />
+              <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                {court.utilToday}%
+              </span>
+            </div>
+          </div>
+        ),
+        content: courtContent(court, cursor),
+      }))
+    }
+    if (view === "week" && weekCourt) {
+      return weekDays(cursor).map((iso) => ({
+        key: iso,
+        today: isToday(iso),
+        weekend: isWeekend(iso),
+        header: (
+          <div className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 truncate text-sm font-semibold",
+                isToday(iso) && "text-brand"
+              )}
+            >
+              <span className="text-muted-foreground">
+                {weekdaysShort[mondayIndex(iso)]}
+              </span>
+              <span
+                className={cn(
+                  "tabular-nums",
+                  isToday(iso) &&
+                    "grid size-6 place-items-center rounded-full bg-brand text-brand-foreground"
+                )}
+              >
+                {dayOfMonth(iso)}
+              </span>
+            </span>
+          </div>
+        ),
+        content: courtContent(weekCourt, iso),
+      }))
+    }
+    return []
+  })()
+
+  // Day summary (occupancy / booked / free) for the cursor date.
   const summary = React.useMemo(() => {
-    const grid = venueScheduleFor(dayKey)
+    const grid = venueScheduleFor(seedForDate(cursor))
     let bookable = 0
     let filled = 0
     let free = 0
@@ -146,44 +270,77 @@ export function VenueScheduleView({
       filled,
       occupancy: bookable ? Math.round((filled / bookable) * 100) : 0,
     }
-  }, [dayKey, venueScheduleFor])
+  }, [cursor, venueScheduleFor])
 
-  const activeDay = VENUE_DAYS.find((d) => d.key === dayKey) ?? VENUE_DAYS[0]
-  const nowTop = offsetMin(VENUE.now) * PX_PER_MIN
+  /** Venue occupancy % on a date (drives the month heat). */
+  const occupancyOn = React.useCallback(
+    (iso: string) => {
+      const grid = venueScheduleFor(seedForDate(iso))
+      let bookable = 0
+      let filled = 0
+      for (const row of grid)
+        for (const slot of row) {
+          if (slot.kind === "blocked") continue
+          bookable++
+          if (slot.kind !== "free") filled++
+        }
+      return bookable ? Math.round((filled / bookable) * 100) : 0
+    },
+    [venueScheduleFor]
+  )
 
-  // The full-day grid is taller than its scroll box, so open it with the live
-  // "now" line a third from the top rather than scrolled to midnight.
-  const scrollRef = React.useRef<HTMLDivElement>(null)
-  React.useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    el.scrollTop = Math.max(0, nowTop - el.clientHeight / 3)
-  }, [nowTop])
+  const periodLabel = React.useMemo(() => {
+    if (view === "month") return `${months[monthOf(cursor)]} ${yearOf(cursor)}`
+    if (view === "day")
+      return `${weekdaysShort[mondayIndex(cursor)]}, ${dayOfMonth(cursor)} ${
+        monthsShort[monthOf(cursor)]
+      }`
+    const days = weekDays(cursor)
+    const a = days[0]
+    const b = days[6]
+    return sameMonth(a, b)
+      ? `${dayOfMonth(a)}–${dayOfMonth(b)} ${monthsShort[monthOf(a)]}`
+      : `${dayOfMonth(a)} ${monthsShort[monthOf(a)]} – ${dayOfMonth(b)} ${
+          monthsShort[monthOf(b)]
+        }`
+  }, [view, cursor, months, monthsShort, weekdaysShort])
+
+  const showsToday =
+    view === "month"
+      ? sameMonth(cursor, TODAY_ISO)
+      : view === "week"
+        ? weekDays(cursor).includes(TODAY_ISO)
+        : isToday(cursor)
+
+  const step = (dir: -1 | 1) =>
+    setCursor((c) =>
+      view === "day"
+        ? addDays(c, dir)
+        : view === "week"
+          ? addDays(c, dir * 7)
+          : addMonths(c, dir)
+    )
+
+  const openDay = (iso: string) => {
+    setCursor(iso)
+    setView("day")
+  }
+
+  const activeDay = isToday(cursor)
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Heading + day selector */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        {!embedded ? (
-          <div>
-            <h1 className="font-heading text-3xl font-bold tracking-tight">
-              {t("title")}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t("subtitle", { day: locStr(activeDay.label, locale) })}
-            </p>
-          </div>
-        ) : null}
-        <Tabs value={dayKey} onValueChange={setDayKey}>
-          <TabsList variant="line" className="flex-wrap">
-            {VENUE_DAYS.map((d) => (
-              <TabsTrigger key={d.key} value={d.key}>
-                {locStr(d.label, locale)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
+      {/* Heading */}
+      {!embedded ? (
+        <div>
+          <h1 className="font-heading text-3xl font-bold tracking-tight">
+            {t("title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("subtitle", { day: periodLabel })}
+          </p>
+        </div>
+      ) : null}
 
       {/* Summary chips */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -218,194 +375,112 @@ export function VenueScheduleView({
         title={t("grid.title")}
         icon={CalendarRange}
         action={
-          isToday ? (
+          activeDay && now ? (
             <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
               <span className="relative flex size-2">
                 <span className="animate-pulse-ring absolute inline-flex size-full rounded-full bg-brand/60" />
                 <span className="relative inline-flex size-2 rounded-full bg-brand" />
               </span>
-              {t("grid.liveAt", { time: VENUE.now })}
+              {t("grid.liveAt", { time: now })}
             </span>
           ) : null
         }
       >
-        <div
-          ref={scrollRef}
-          className="max-h-[660px] overflow-auto rounded-3xl ring-1 ring-border/60"
-        >
-          <div className="min-w-[680px]">
-            {/* Sticky court header */}
-            <div className="sticky top-0 z-30 flex bg-card/95 backdrop-blur">
-              <div className="sticky left-0 z-40 w-12 shrink-0 border-b border-border/60 bg-card/95" />
-              <div className="flex flex-1">
-                {VENUE_COURTS.map((court) => (
-                  <div
-                    key={court.id}
-                    className="min-w-[120px] flex-1 border-b border-l border-border/60 px-2 py-2"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={cn(
-                          "size-2 shrink-0 rounded-full",
-                          sportAccent(court.sport)
-                        )}
-                        aria-hidden
-                      />
-                      <span className="truncate text-sm font-semibold">
-                        {court.name}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <Meter pct={court.utilToday} className="h-1" />
-                      <span className="font-mono text-[10px] text-muted-foreground tabular-nums">
-                        {court.utilToday}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <CalendarToolbar
+          periodLabel={periodLabel}
+          view={view}
+          onView={setView}
+          onPrev={() => step(-1)}
+          onNext={() => step(1)}
+          onToday={() => setCursor(TODAY_ISO)}
+          live={showsToday && now ? t("grid.liveAt", { time: now }) : null}
+        />
 
-            {/* Body: time gutter + court columns */}
-            <div className="flex">
-              {/* Time gutter */}
-              <div
-                className="sticky left-0 z-20 w-12 shrink-0 bg-card"
-                style={{ height: TOTAL_MIN * PX_PER_MIN }}
-              >
-                {HOURS.map((h, i) => (
-                  <span
-                    key={h}
-                    className={cn(
-                      "absolute right-1.5 font-mono text-[10px] text-muted-foreground tabular-nums",
-                      // Center labels on their gridline, except 00:00 — it would
-                      // clip above the grid, so let it sit just below the top.
-                      i > 0 && "-translate-y-1/2"
-                    )}
-                    style={{ top: i * HOUR_PX }}
-                  >
-                    {String(h).padStart(2, "0")}:00
-                  </span>
-                ))}
-                {isToday ? (
-                  <span
-                    className="absolute right-1 -translate-y-1/2 rounded bg-brand px-1 py-0.5 text-[9px] font-bold text-brand-foreground tabular-nums"
-                    style={{ top: nowTop }}
-                  >
-                    {VENUE.now}
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Court columns */}
-              <div className="flex flex-1">
-                {VENUE_COURTS.map((court, idx) => {
-                  const colEvents = events[idx] ?? []
-                  const gaps =
-                    court.state === "maintenance" ? [] : gapsOf(colEvents)
-                  return (
-                    <div
-                      key={court.id}
-                      className="relative min-w-[120px] flex-1 border-l border-border/50"
-                      style={{ height: TOTAL_MIN * PX_PER_MIN }}
-                    >
-                      {/* Closed hours, before opening / after closing */}
-                      {openStart > 0 ? (
-                        <div
-                          className="pointer-events-none absolute inset-x-0 top-0 bg-muted/40"
-                          style={{ height: openStart * PX_PER_MIN }}
-                        />
-                      ) : null}
-                      {openEnd < TOTAL_MIN ? (
-                        <div
-                          className="pointer-events-none absolute inset-x-0 bg-muted/40"
-                          style={{
-                            top: openEnd * PX_PER_MIN,
-                            height: (TOTAL_MIN - openEnd) * PX_PER_MIN,
-                          }}
-                        />
-                      ) : null}
-
-                      {/* Hour + half-hour gridlines */}
-                      {HOURS.map((h, i) => (
-                        <React.Fragment key={h}>
-                          <div
-                            className="pointer-events-none absolute inset-x-0 border-t border-border/40"
-                            style={{ top: i * HOUR_PX }}
-                          />
-                          <div
-                            className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border/20"
-                            style={{ top: i * HOUR_PX + HOUR_PX / 2 }}
-                          />
-                        </React.Fragment>
-                      ))}
-
-                      {/* Clickable free gaps */}
-                      {gaps.map((g) => (
-                        <FreeBand
-                          key={`${court.id}-${g.start}`}
-                          courtName={court.name}
-                          start={g.start}
-                          durationMin={g.durationMin}
-                          t={t}
-                        />
-                      ))}
-
-                      {/* Events */}
-                      {colEvents.map((ev) => (
-                        <EventBlock
-                          key={ev.id}
-                          event={ev}
-                          courtName={court.name}
-                          t={t}
-                          tc={tc}
-                        />
-                      ))}
-
-                      {/* Now line */}
-                      {isToday ? (
-                        <div
-                          className="pointer-events-none absolute inset-x-0 z-20 border-t-2 border-brand"
-                          style={{ top: nowTop }}
-                        >
-                          <span className="absolute -top-1 -left-0.5 size-2 rounded-full bg-brand" />
-                        </div>
-                      ) : null}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-3">
-          <MicroLabel className="mr-1">{t("legend.title")}</MicroLabel>
-          {LEGEND_KINDS.map((kind) => {
-            const Icon = LEGEND_ICON[kind]
-            return (
-              <span
-                key={kind}
-                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-              >
-                <span
+        {/* Court picker (week view shows one court across the week) */}
+        {view === "week" ? (
+          <div className="-mx-1 no-scrollbar flex gap-1.5 overflow-x-auto px-1 pb-1">
+            {VENUE_COURTS.map((court) => {
+              const active = court.id === weekCourt?.id
+              return (
+                <button
+                  key={court.id}
+                  type="button"
+                  onClick={() => setWeekCourtId(court.id)}
                   className={cn(
-                    "grid size-4 place-items-center rounded-md ring-1",
-                    slotKindAccent[kind]
+                    "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
+                    active
+                      ? "bg-brand/12 text-brand ring-brand/25"
+                      : "text-muted-foreground ring-border hover:bg-muted/60"
                   )}
                 >
-                  <Icon className="size-2.5" />
+                  <span
+                    className={cn(
+                      "size-2 rounded-full",
+                      sportAccent(court.sport)
+                    )}
+                    aria-hidden
+                  />
+                  {court.name}
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+
+        {view === "month" ? (
+          <MonthGrid
+            cursor={cursor}
+            onPickDay={openDay}
+            renderDay={(iso, inMonth) =>
+              inMonth ? (
+                <div className="mt-auto flex w-full flex-col gap-1">
+                  <span className="hidden font-mono text-[10px] text-muted-foreground tabular-nums sm:block">
+                    {occupancyOn(iso)}%
+                  </span>
+                  <Meter pct={occupancyOn(iso)} className="h-1" />
+                </div>
+              ) : null
+            }
+          />
+        ) : (
+          <Timeline
+            columns={columns}
+            now={now}
+            single={columns.length === 1}
+            scrollKey={`${view}:${cursor}:${weekCourtId}`}
+            minColPx={120}
+          />
+        )}
+
+        {/* Legend */}
+        {view !== "month" ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-3">
+            <MicroLabel className="mr-1">{t("legend.title")}</MicroLabel>
+            {LEGEND_KINDS.map((kind) => {
+              const Icon = LEGEND_ICON[kind]
+              return (
+                <span
+                  key={kind}
+                  className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                  <span
+                    className={cn(
+                      "grid size-4 place-items-center rounded-md ring-1",
+                      slotKindAccent[kind]
+                    )}
+                  >
+                    <Icon className="size-2.5" />
+                  </span>
+                  {t(`legend.${kind}`)}
                 </span>
-                {t(`legend.${kind}`)}
-              </span>
-            )
-          })}
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="h-0 w-4 border-t-2 border-brand" />
-            {t("grid.now")}
-          </span>
-        </div>
+              )
+            })}
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="h-0 w-4 border-t-2 border-brand" />
+              {t("grid.now")}
+            </span>
+          </div>
+        ) : null}
       </VenuePanel>
     </div>
   )
@@ -423,8 +498,7 @@ function EventBlock({
   t: ReturnType<typeof useTranslations>
   tc: ReturnType<typeof useTranslations>
 }) {
-  const offsetMin = (hhmm: string) => diffMinutes("00:00", hhmm)
-  const top = offsetMin(event.start) * PX_PER_MIN
+  const top = toMin(event.start) * PX_PER_MIN
   const height = Math.max(18, event.durationMin * PX_PER_MIN - 2)
   const end = addMinutes(event.start, event.durationMin)
   const compact = height < 46
@@ -571,8 +645,7 @@ function FreeBand({
   durationMin: number
   t: ReturnType<typeof useTranslations>
 }) {
-  const offsetMin = (hhmm: string) => diffMinutes("00:00", hhmm)
-  const top = offsetMin(start) * PX_PER_MIN
+  const top = toMin(start) * PX_PER_MIN
   const height = durationMin * PX_PER_MIN
   if (height < 16) return null
   const slotLabel = t("popover.slot", { court: courtName, hour: start })

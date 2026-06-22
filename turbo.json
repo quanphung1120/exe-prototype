@@ -17,6 +17,16 @@
       "cache": false,
       "persistent": true
     },
+    "android": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "ios": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
     "lint": {},
     "typecheck": {}
   }

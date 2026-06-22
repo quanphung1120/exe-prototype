@@ -612,14 +612,6 @@ function CourtCard({ court, solo }: { court: Court; solo?: boolean }) {
         <Button
           size="sm"
           className="rounded-full"
-          onClick={() => openBooking(court.id, { fillMode: "find" })}
-        >
-          {t("bookFind")}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="rounded-full"
           onClick={() => openBooking(court.id)}
         >
           {t("book")}

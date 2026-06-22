@@ -305,6 +305,7 @@
       "cvc": "CVC",
       "cardName": "Name on card",
       "qrAccount": "SPORTMATCH AI JSC",
+      "qrOnly": "We accept bank transfer via QR only.",
       "qrHint": "Scan with your banking app to pay",
       "ewalletHint": "You'll be redirected to {wallet} to approve the payment.",
       "wallets": {
@@ -390,6 +391,46 @@
       }
     }
   },
+  "Calendar": {
+    "views": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
+    },
+    "today": "Today",
+    "prev": "Previous",
+    "next": "Next",
+    "more": "+{count} more",
+    "weekdaysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "monthsShort": [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ],
+    "months": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ]
+  },
   "Bookings": {
     "metaTitle": "Bookings",
     "metaDescription": "Your upcoming and past court bookings.",
@@ -405,11 +446,12 @@
       "played": "Played"
     },
     "calendar": {
-      "title": "Your week",
+      "title": "Calendar",
       "now": "Now",
       "liveAt": "Now · {time}",
       "bookDay": "Book a court · {day}",
-      "empty": "No bookings this week yet. Click an open slot to book a court."
+      "empty": "No bookings here yet. Click an open slot to book a court.",
+      "emptyMonth": "No bookings this month."
     },
     "past": {
       "title": "Past games"

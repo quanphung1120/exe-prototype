@@ -16,7 +16,7 @@ This is a **Turborepo monorepo** (pnpm workspaces) with two apps — **`apps/web
 Run from the repo root — **Turborepo** fans each task out across `apps/web` + `apps/api`:
 
 ```bash
-pnpm dev         # dev servers (Next.js on :3000, Hono on :3001)
+pnpm dev         # dev servers (Next.js on :3000, Hono on :6969)
 pnpm build       # production builds (next build + tsc)
 pnpm lint        # eslint across all packages
 pnpm typecheck   # tsc --noEmit across all packages
@@ -63,7 +63,7 @@ The dashboard data is still hardcoded, but it is **served by the Hono API and fe
 
 - **Records** live in `apps/api/src/data/{player,venue}.ts` (`COURTS`, `MATCH_SUGGESTIONS`, `BOOKINGS`, `CHATS`, `VENUE_*`, …) and the derived `SESSIONS` seed (built via `buildSeedSessions`). The API exposes them as a single aggregate at **`GET /api/seed`** (plus per-resource routes like `/api/courts`, `/api/players`, `/api/venue/*`).
 - **Types, config & pure helpers** live in `@repo/shared` (`Sport`, `Player`, `Court`, `Booking`, …, plus `sportLabel`, `formatVnd`, `slotRange`, accent maps, etc.).
-- **Web side:** `app/[locale]/dashboard/layout.tsx` is an `async` server component (`export const dynamic = "force-dynamic"`) that calls `fetchSeed()` (`lib/api.ts`, server-only, reads `API_URL`, defaults to `http://localhost:3001`) and passes the seed into `<DataProvider>` (`components/dashboard/data-provider.tsx`). Components read records and **record-bound helpers** (with their original signatures) via the **`useData()`** hook — e.g. `const { courts: COURTS, playerByInitials } = useData()`. There is **no client-side fetching or loading state**.
+- **Web side:** `app/[locale]/dashboard/layout.tsx` is an `async` server component (`export const dynamic = "force-dynamic"`) that calls `fetchSeed()` (`lib/api.ts`, server-only, reads `API_URL`, defaults to `http://localhost:6969`) and passes the seed into `<DataProvider>` (`components/dashboard/data-provider.tsx`). Components read records and **record-bound helpers** (with their original signatures) via the **`useData()`** hook — e.g. `const { courts: COURTS, playerByInitials } = useData()`. There is **no client-side fetching or loading state**.
 - `components/dashboard/data.ts` and `components/dashboard/venue/data.ts` are now thin **barrels** that re-export `@repo/shared` (so existing type/config/pure-helper imports keep working); they no longer export records.
 
 Reusable dashboard UI primitives (e.g. `SportDot`, `SportTag`, `CourtRow`) live in `components/dashboard/shared.tsx`.

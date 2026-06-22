@@ -1,5 +1,7 @@
 "use client"
 
+import * as React from "react"
+import { toast } from "sonner"
 import { useLocale, useTranslations } from "next-intl"
 import { Link } from "@/i18n/navigation"
 import {
@@ -61,7 +63,7 @@ export function VenueCommandView() {
 
   const revenueValues = REVENUE_SERIES.map((d) => d.value)
   const todayIdx = REVENUE_SERIES.length - 1
-  const todayRevenue = REVENUE_SERIES[todayIdx].value
+  const todayRevenue = REVENUE_SERIES[todayIdx]?.value ?? 0
 
   const courtStateLabel: Record<CourtState, string> = {
     "in-play": t("state.inPlay"),
@@ -396,7 +398,10 @@ function ArrivalRow({
   checkInLabel: string
 }) {
   const t = useTranslations("VenueCommand")
-  const checkedIn = rv.status === "checked-in"
+  // Local optimistic check-in (the data plane is read-only here, like the other
+  // operator actions). Seeds from the reservation's own status.
+  const [justCheckedIn, setJustCheckedIn] = React.useState(false)
+  const checkedIn = rv.status === "checked-in" || justCheckedIn
   return (
     <div className="flex items-center gap-3 rounded-3xl p-2 transition-colors hover:bg-muted/60">
       <Avatar>
@@ -431,7 +436,15 @@ function ArrivalRow({
         </span>
       </div>
       {checkedIn ? null : (
-        <Button variant="outline" size="sm" className="shrink-0 rounded-full">
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0 rounded-full"
+          onClick={() => {
+            setJustCheckedIn(true)
+            toast.success(t("checkedIn"), { description: rv.customer.name })
+          }}
+        >
           {checkInLabel}
         </Button>
       )}

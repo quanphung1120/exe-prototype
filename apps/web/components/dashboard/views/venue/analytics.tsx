@@ -35,8 +35,8 @@ import { useVenue } from "@/components/dashboard/venue/venue-provider"
 import {
   HEATMAP_DAYS,
   HEATMAP_HOURS,
-  UTILIZATION_HEATMAP,
   locStr,
+  utilizationHeatmap,
   type BookingSource,
   type VenueInsight,
 } from "@/components/dashboard/venue/data"
@@ -75,6 +75,7 @@ export function VenueAnalyticsView({
     peakHours: PEAK_HOURS,
     revenueSeries: REVENUE_SERIES,
     sportMix: SPORT_MIX,
+    venue: VENUE,
     venueStats: VENUE_STATS,
   } = useData()
 
@@ -83,6 +84,18 @@ export function VenueAnalyticsView({
   const revValues = REVENUE_SERIES.map((d) => d.value)
   const revLabels = REVENUE_SERIES.map((d) => locStr(d.label, locale))
   const lastIdx = REVENUE_SERIES.length - 1
+  // Peak day, guarded for an empty/zero series (Math.max([]) === -Infinity).
+  const peakRevenue = revValues.length ? Math.max(...revValues) : 0
+  const peakDayLabel = revValues.length
+    ? (revLabels[revValues.indexOf(peakRevenue)] ?? "")
+    : ""
+
+  // Per-venue heatmap; a venue with no activity yet shows a zeroed grid instead
+  // of a fabricated (or the flagship's) pattern.
+  const hasActivity = weeklyTotal > 0
+  const heatmap = hasActivity
+    ? utilizationHeatmap(VENUE.id)
+    : HEATMAP_DAYS.map(() => HEATMAP_HOURS.map(() => 0))
 
   return (
     <div className="flex flex-col gap-5">
@@ -179,8 +192,8 @@ export function VenueAnalyticsView({
             </span>
             <span className="font-mono tabular-nums">
               {t("revenue.peakDay", {
-                day: revLabels[revValues.indexOf(Math.max(...revValues))],
-                amount: formatVnd(Math.max(...revValues)),
+                day: peakDayLabel,
+                amount: formatVnd(peakRevenue),
               })}
             </span>
           </div>
@@ -194,7 +207,7 @@ export function VenueAnalyticsView({
           action={<MicroLabel>{t("heatmap.caption")}</MicroLabel>}
         >
           <div className="overflow-x-auto">
-            <div className="mx-auto min-w-[17rem] max-w-[20rem]">
+            <div className="mx-auto max-w-[20rem] min-w-[17rem]">
               {/* Column (hour) labels */}
               <div className="mb-1 grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] gap-1">
                 <span />
@@ -209,7 +222,7 @@ export function VenueAnalyticsView({
               </div>
               {/* Rows: one per day */}
               <div className="flex flex-col gap-1">
-                {UTILIZATION_HEATMAP.map((row, d) => (
+                {heatmap.map((row, d) => (
                   <div
                     key={d}
                     className="grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] items-center gap-1"
@@ -329,7 +342,7 @@ export function VenueAnalyticsView({
             })}
           </div>
           <p className="border-t border-border/60 pt-3 text-xs text-muted-foreground">
-            {t("channels.note", { pct: CHANNEL_MIX[0].pct })}
+            {t("channels.note", { pct: CHANNEL_MIX[0]?.pct ?? 0 })}
           </p>
         </VenuePanel>
 

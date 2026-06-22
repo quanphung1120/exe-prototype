@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import {
-  CalendarRange,
   Clock,
   MapPin,
   Plus,
@@ -11,7 +10,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react"
-import { useLocale, useTranslations } from "next-intl"
+import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import {
@@ -34,28 +33,43 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
-  VENUE_DAYS,
   addMinutes,
   durationOf,
-  locStr,
   sportAccent,
   type Booking,
   type BookingStatus,
 } from "@/components/dashboard/data"
+import {
+  addDays,
+  addMonths,
+  dateForDayKey,
+  dayKeyForDate,
+  dayOfMonth,
+  isToday,
+  isWeekend,
+  mondayIndex,
+  monthMatrix,
+  monthOf,
+  parseLabelDate,
+  sameMonth,
+  TODAY_ISO,
+  weekDays,
+  yearOf,
+  type CalendarView,
+} from "@/components/dashboard/calendar"
+import {
+  CalendarToolbar,
+  MonthGrid,
+  PX_PER_MIN,
+  Timeline,
+  toMin,
+  useNow,
+  type TimelineColumn,
+} from "@/components/dashboard/calendar-ui"
 import { useBooking } from "@/components/dashboard/booking"
-import { useData } from "@/components/dashboard/data-provider"
 import { SportTag } from "@/components/dashboard/shared"
 
-// Calendar geometry: one hour is HOUR_PX tall; everything else derives from it.
-const HOUR_PX = 56
-const PX_PER_MIN = HOUR_PX / 60
-
-// The calendar spans the full day: hour labels 00:00–23:00 over a 24h grid.
-const FULL_DAY_HOURS = Array.from({ length: 24 }, (_, i) => i)
 const DAY_MIN = 24 * 60
-
-/** The booking-week columns (Today → Mon), labelled per-locale. */
-const DAY_KEYS = VENUE_DAYS.map((d) => d.key)
 
 const UPCOMING: BookingStatus[] = ["confirmed", "pending"]
 
@@ -67,57 +81,199 @@ const bookingAccent: Record<BookingStatus, string> = {
   cancelled: "bg-destructive/10 text-destructive/70 ring-destructive/20",
 }
 
-/** Minutes since midnight from a "HH:MM" string. */
-const toMin = (hhmm: string) => {
-  const [h, m] = hhmm.split(":").map(Number)
-  return (h || 0) * 60 + (m || 0)
-}
 /** Start ("HH:MM") of a stored "HH:MM – HH:MM" time range. */
 const startOf = (time: string) => time.split(" – ")[0] ?? time
 
+/** Resolve a booking to a real calendar date (bookable key, else its label). */
+const bookingDateISO = (b: Booking): string | null =>
+  dateForDayKey(b.dayKey) ?? parseLabelDate(b.day)
+
+/** A visible day of the Day/Week timeline. */
+interface Col {
+  iso: string
+  /** Bookable day key (today/tomorrow/…) or null — gates the tap-to-book gaps. */
+  dayKey: string | null
+  short: string
+  num: number
+  /** "Mon, 22 Jun" — used as the booking title and popover day label. */
+  full: string
+  today: boolean
+  weekend: boolean
+}
+
 export function BookingsView() {
   const t = useTranslations("Bookings")
-  const locale = useLocale()
+  const tcal = useTranslations("Calendar")
   const { bookings } = useBooking()
-  const { venue } = useData()
+  const now = useNow()
 
-  // Split into this week's bookings (placed on the grid by their day key) and
-  // history (completed/cancelled games with no day in the booking window).
-  const inWeek = bookings.filter((b) => b.dayKey && DAY_KEYS.includes(b.dayKey))
-  const past = bookings.filter((b) => !(b.dayKey && DAY_KEYS.includes(b.dayKey)))
+  const [view, setView] = React.useState<CalendarView>("week")
+  const [cursor, setCursor] = React.useState<string>(TODAY_ISO)
 
-  const eventsByDay = React.useMemo(() => {
+  const weekdaysShort = tcal.raw("weekdaysShort") as string[]
+  const monthsShort = tcal.raw("monthsShort") as string[]
+  const months = tcal.raw("months") as string[]
+
+  /** Build a column descriptor for a date. */
+  const makeCol = React.useCallback(
+    (iso: string): Col => {
+      const wd = weekdaysShort[mondayIndex(iso)]
+      const num = dayOfMonth(iso)
+      return {
+        iso,
+        dayKey: dayKeyForDate(iso),
+        short: wd,
+        num,
+        full: `${wd}, ${num} ${monthsShort[monthOf(iso)]}`,
+        today: isToday(iso),
+        weekend: isWeekend(iso),
+      }
+    },
+    [weekdaysShort, monthsShort]
+  )
+
+  // Every booking that resolves to a real date, bucketed by ISO day — the grid
+  // (Day / Week / Month) reads from this; sorted by start time within a day.
+  const eventsByDate = React.useMemo(() => {
     const map: Record<string, Booking[]> = {}
-    for (const b of inWeek) (map[b.dayKey as string] ||= []).push(b)
-    for (const key of Object.keys(map))
-      map[key].sort((a, b) => toMin(startOf(a.time)) - toMin(startOf(b.time)))
+    for (const b of bookings) {
+      const iso = bookingDateISO(b)
+      if (iso) (map[iso] ||= []).push(b)
+    }
+    for (const iso of Object.keys(map))
+      map[iso].sort((a, b) => toMin(startOf(a.time)) - toMin(startOf(b.time)))
     return map
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookings])
 
-  // The calendar shows the full 24-hour day, so every hour is visible
-  // regardless of when the week's games fall.
-  const hours = FULL_DAY_HOURS
-  const totalMin = DAY_MIN
-  /** Minutes from midnight (the grid's top) to a "HH:MM" time. */
-  const offsetMin = (hhmm: string) => toMin(hhmm)
-  const nowTop = offsetMin(venue.now) * PX_PER_MIN
-
-  // The full-day grid is taller than its scroll box, so open it with the live
-  // "now" line a third from the top rather than scrolled to midnight.
-  const scrollRef = React.useRef<HTMLDivElement>(null)
-  React.useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    el.scrollTop = Math.max(0, nowTop - el.clientHeight / 3)
-  }, [nowTop])
+  // History list below the grid: bookings with no place in the bookable window.
+  const past = React.useMemo(
+    () => bookings.filter((b) => !dateForDayKey(b.dayKey)),
+    [bookings]
+  )
+  const inWeekStats = React.useMemo(
+    () => bookings.filter((b) => dateForDayKey(b.dayKey)),
+    [bookings]
+  )
 
   const stats = {
-    week: inWeek.filter((b) => UPCOMING.includes(b.status)).length,
-    confirmed: inWeek.filter((b) => b.status === "confirmed").length,
-    pending: inWeek.filter((b) => b.status === "pending").length,
+    week: inWeekStats.filter((b) => UPCOMING.includes(b.status)).length,
+    confirmed: inWeekStats.filter((b) => b.status === "confirmed").length,
+    pending: inWeekStats.filter((b) => b.status === "pending").length,
     played: past.length,
   }
+
+  // Visible columns + period heading derive from the view + cursor.
+  const cols = React.useMemo<Col[]>(() => {
+    if (view === "day") return [makeCol(cursor)]
+    if (view === "week") return weekDays(cursor).map(makeCol)
+    return []
+  }, [view, cursor, makeCol])
+
+  const periodLabel = React.useMemo(() => {
+    if (view === "month") return `${months[monthOf(cursor)]} ${yearOf(cursor)}`
+    if (view === "day") return makeCol(cursor).full
+    const days = weekDays(cursor)
+    const a = days[0]
+    const b = days[6]
+    const aM = monthsShort[monthOf(a)]
+    const bM = monthsShort[monthOf(b)]
+    return sameMonth(a, b)
+      ? `${dayOfMonth(a)}–${dayOfMonth(b)} ${aM}`
+      : `${dayOfMonth(a)} ${aM} – ${dayOfMonth(b)} ${bM}`
+  }, [view, cursor, makeCol, months, monthsShort])
+
+  const showsToday =
+    view === "month"
+      ? sameMonth(cursor, TODAY_ISO)
+      : view === "week"
+        ? weekDays(cursor).includes(TODAY_ISO)
+        : isToday(cursor)
+
+  const step = (dir: -1 | 1) =>
+    setCursor((c) =>
+      view === "day"
+        ? addDays(c, dir)
+        : view === "week"
+          ? addDays(c, dir * 7)
+          : addMonths(c, dir)
+    )
+
+  const openDay = (iso: string) => {
+    setCursor(iso)
+    setView("day")
+  }
+
+  // Build the timeline columns (header + placed events/gaps) for Day/Week.
+  const timelineColumns = React.useMemo<TimelineColumn[]>(
+    () =>
+      cols.map((c) => {
+        const dayEvents = eventsByDate[c.iso] ?? []
+        const gaps = gapsOf(dayEvents, 0, DAY_MIN)
+        return {
+          key: c.iso,
+          today: c.today,
+          weekend: c.weekend,
+          header: (
+            <div className="flex items-center justify-between gap-1.5">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 truncate text-sm font-semibold",
+                  c.today && "text-brand"
+                )}
+              >
+                <span className="text-muted-foreground">{c.short}</span>
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    c.today &&
+                      "grid size-6 place-items-center rounded-full bg-brand text-brand-foreground"
+                  )}
+                >
+                  {c.num}
+                </span>
+              </span>
+              {dayEvents.length ? (
+                <span className="rounded-full bg-secondary px-1.5 text-[10px] font-semibold text-secondary-foreground tabular-nums">
+                  {dayEvents.length}
+                </span>
+              ) : null}
+            </div>
+          ),
+          content: (
+            <>
+              {c.dayKey
+                ? gaps.map((g) => (
+                    <FreeBand
+                      key={`${c.iso}-${g.start}`}
+                      dayKey={c.dayKey as string}
+                      dayLabel={c.full}
+                      start={g.start}
+                      durationMin={g.durationMin}
+                      offsetMin={toMin}
+                    />
+                  ))
+                : null}
+              {dayEvents.map((b) => (
+                <CalendarEvent
+                  key={b.id}
+                  booking={b}
+                  dayLabel={c.full}
+                  offsetMin={toMin}
+                />
+              ))}
+            </>
+          ),
+        }
+      }),
+    [cols, eventsByDate]
+  )
+
+  const anyVisible = timelineColumns.some(
+    (c) => (eventsByDate[c.key] ?? []).length
+  )
+  const monthHasEvents = monthMatrix(cursor)
+    .flat()
+    .some((iso) => sameMonth(iso, cursor) && eventsByDate[iso]?.length)
 
   return (
     <div className="flex flex-col gap-5">
@@ -133,169 +289,50 @@ export function BookingsView() {
         <SummaryChip label={t("summary.played")} value={`${stats.played}`} />
       </div>
 
-      {/* The week calendar */}
-      <section className="flex flex-col gap-4 rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
-        <header className="flex items-center justify-between gap-3">
-          <h2 className="inline-flex items-center gap-2 font-heading text-base font-semibold">
-            <CalendarRange className="size-4 text-muted-foreground" />
-            {t("calendar.title")}
-          </h2>
-          <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex">
-            <span className="relative flex size-2">
-              <span className="animate-pulse-ring absolute inline-flex size-full rounded-full bg-brand/60" />
-              <span className="relative inline-flex size-2 rounded-full bg-brand" />
+      {/* The calendar */}
+      <section className="flex flex-col gap-4 rounded-4xl bg-card p-4 shadow-md ring-1 ring-foreground/5 sm:p-5 dark:ring-foreground/10">
+        <CalendarToolbar
+          periodLabel={periodLabel}
+          view={view}
+          onView={setView}
+          onPrev={() => step(-1)}
+          onNext={() => step(1)}
+          onToday={() => setCursor(TODAY_ISO)}
+          live={showsToday && now ? t("calendar.liveAt", { time: now }) : null}
+        />
+
+        {view === "month" ? (
+          <MonthGrid
+            cursor={cursor}
+            onPickDay={openDay}
+            hasContent={monthHasEvents}
+            emptyLabel={t("calendar.emptyMonth")}
+            renderDay={(iso) => (
+              <MonthDay events={eventsByDate[iso] ?? []} tcal={tcal} />
+            )}
+          />
+        ) : (
+          <Timeline
+            columns={timelineColumns}
+            now={now}
+            single={view === "day"}
+            scrollKey={`${view}:${cursor}`}
+            emptyLabel={anyVisible ? null : t("calendar.empty")}
+          />
+        )}
+
+        {/* Legend (timeline views) */}
+        {view !== "month" ? (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-3">
+            <LegendDot status="confirmed" />
+            <LegendDot status="pending" />
+            <LegendDot status="cancelled" />
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className="h-0 w-4 border-t-2 border-brand" />
+              {t("calendar.now")}
             </span>
-            {t("calendar.liveAt", { time: venue.now })}
-          </span>
-        </header>
-
-        <div
-          ref={scrollRef}
-          className="no-scrollbar relative max-h-[640px] overflow-auto rounded-3xl ring-1 ring-border/60"
-        >
-          <div className="min-w-[680px]">
-            {/* Sticky day header */}
-            <div className="sticky top-0 z-30 flex bg-card/95 backdrop-blur">
-              <div className="sticky left-0 z-40 w-12 shrink-0 border-b border-border/60 bg-card/95" />
-              <div className="flex flex-1">
-                {VENUE_DAYS.map((d) => {
-                  const count = (eventsByDay[d.key] ?? []).length
-                  return (
-                    <div
-                      key={d.key}
-                      className="min-w-[120px] flex-1 border-b border-l border-border/60 px-2 py-2"
-                    >
-                      <div className="flex items-center justify-between gap-1.5">
-                        <span
-                          className={cn(
-                            "truncate text-sm font-semibold",
-                            d.key === "today" && "text-brand"
-                          )}
-                        >
-                          {locStr(d.label, locale)}
-                        </span>
-                        {count ? (
-                          <span className="rounded-full bg-secondary px-1.5 text-[10px] font-semibold text-secondary-foreground tabular-nums">
-                            {count}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Body: time gutter + day columns */}
-            <div className="flex">
-              {/* Time gutter */}
-              <div
-                className="sticky left-0 z-20 w-12 shrink-0 bg-card"
-                style={{ height: totalMin * PX_PER_MIN }}
-              >
-                {hours.map((h, i) => (
-                  <span
-                    key={h}
-                    className={cn(
-                      "absolute right-1.5 font-mono text-[10px] text-muted-foreground tabular-nums",
-                      // Center labels on their gridline, except 00:00 — it would
-                      // clip above the grid, so let it sit just below the top.
-                      i > 0 && "-translate-y-1/2"
-                    )}
-                    style={{ top: i * HOUR_PX }}
-                  >
-                    {String(h).padStart(2, "0")}:00
-                  </span>
-                ))}
-                <span
-                  className="absolute right-1 -translate-y-1/2 rounded bg-brand px-1 py-0.5 text-[9px] font-bold text-brand-foreground tabular-nums"
-                  style={{ top: nowTop }}
-                >
-                  {venue.now}
-                </span>
-              </div>
-
-              {/* Day columns */}
-              <div className="flex flex-1">
-                {VENUE_DAYS.map((d) => {
-                  const isToday = d.key === "today"
-                  const dayEvents = eventsByDay[d.key] ?? []
-                  const gaps = gapsOf(dayEvents, 0, totalMin)
-                  return (
-                    <div
-                      key={d.key}
-                      className="relative min-w-[120px] flex-1 border-l border-border/50"
-                      style={{ height: totalMin * PX_PER_MIN }}
-                    >
-                      {/* Hour + half-hour gridlines */}
-                      {hours.map((h, i) => (
-                        <React.Fragment key={h}>
-                          <div
-                            className="pointer-events-none absolute inset-x-0 border-t border-border/40"
-                            style={{ top: i * HOUR_PX }}
-                          />
-                          <div
-                            className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border/20"
-                            style={{ top: i * HOUR_PX + HOUR_PX / 2 }}
-                          />
-                        </React.Fragment>
-                      ))}
-
-                      {/* Clickable free gaps → start a new booking on this day */}
-                      {gaps.map((g) => (
-                        <FreeBand
-                          key={`${d.key}-${g.start}`}
-                          dayKey={d.key}
-                          dayLabel={locStr(d.label, locale)}
-                          start={g.start}
-                          durationMin={g.durationMin}
-                          offsetMin={offsetMin}
-                        />
-                      ))}
-
-                      {/* Bookings */}
-                      {dayEvents.map((b) => (
-                        <CalendarEvent
-                          key={b.id}
-                          booking={b}
-                          dayLabel={locStr(d.label, locale)}
-                          offsetMin={offsetMin}
-                        />
-                      ))}
-
-                      {/* Now line */}
-                      {isToday ? (
-                        <div
-                          className="pointer-events-none absolute inset-x-0 z-20 border-t-2 border-brand"
-                          style={{ top: nowTop }}
-                        >
-                          <span className="absolute -top-1 -left-0.5 size-2 rounded-full bg-brand" />
-                        </div>
-                      ) : null}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
           </div>
-
-          {!inWeek.length ? (
-            <p className="pointer-events-none absolute inset-x-0 bottom-6 z-40 text-center text-sm text-muted-foreground">
-              {t("calendar.empty")}
-            </p>
-          ) : null}
-        </div>
-
-        {/* Legend */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-3">
-          <LegendDot status="confirmed" />
-          <LegendDot status="pending" />
-          <LegendDot status="cancelled" />
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="h-0 w-4 border-t-2 border-brand" />
-            {t("calendar.now")}
-          </span>
-        </div>
+        ) : null}
       </section>
 
       {/* Past games */}
@@ -310,6 +347,53 @@ export function BookingsView() {
         </div>
       ) : null}
     </div>
+  )
+}
+
+/** Month-cell content: up to two booking chips (sm+) / sport dots (mobile). */
+function MonthDay({
+  events,
+  tcal,
+}: {
+  events: Booking[]
+  tcal: ReturnType<typeof useTranslations>
+}) {
+  const shown = events.slice(0, 2)
+  const extra = events.length - shown.length
+  return (
+    <>
+      <div className="hidden flex-col gap-1 sm:flex">
+        {shown.map((b) => (
+          <span
+            key={b.id}
+            className={cn(
+              "flex items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-[10px] font-medium ring-1",
+              bookingAccent[b.status],
+              b.status === "cancelled" && "line-through"
+            )}
+          >
+            <span className="font-mono tabular-nums opacity-80">
+              {startOf(b.time)}
+            </span>
+            <span className="truncate">{b.venue}</span>
+          </span>
+        ))}
+        {extra > 0 ? (
+          <span className="px-1 text-[10px] font-medium text-muted-foreground">
+            {tcal("more", { count: extra })}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-auto flex flex-wrap gap-1 sm:hidden">
+        {events.slice(0, 4).map((b) => (
+          <span
+            key={b.id}
+            className={cn("size-1.5 rounded-full", sportAccent(b.sport))}
+            aria-hidden
+          />
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -476,7 +560,9 @@ function CalendarEvent({
                   )}
                 >
                   <Trophy className="size-3" />
-                  {booking.result === "W" ? tc("result.win") : tc("result.loss")}
+                  {booking.result === "W"
+                    ? tc("result.win")
+                    : tc("result.loss")}
                 </Badge>
                 <span className="font-mono text-xs text-muted-foreground tabular-nums">
                   {booking.score}
@@ -591,12 +677,7 @@ function LegendDot({ status }: { status: BookingStatus }) {
   const tc = useTranslations("Common")
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span
-        className={cn(
-          "size-3 rounded-md ring-1",
-          bookingAccent[status]
-        )}
-      />
+      <span className={cn("size-3 rounded-md ring-1", bookingAccent[status])} />
       {tc(`status.${status}`)}
     </span>
   )

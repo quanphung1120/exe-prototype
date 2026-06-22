@@ -1,7 +1,7 @@
 "use client"
 
 import { useTranslations } from "next-intl"
-import { ChevronRight, MapPin, Users, Zap } from "lucide-react"
+import { ChevronRight, MapPin, Users } from "lucide-react"
 
 import {
   Dialog,
@@ -35,13 +35,6 @@ export function PlayChooser() {
         closePlay()
         router.push("/dashboard/play")
       },
-    },
-    {
-      key: "both",
-      icon: Zap,
-      title: t("both"),
-      desc: t("bothDesc"),
-      onClick: () => openBooking(null, { fillMode: "find" }),
     },
   ]
 
