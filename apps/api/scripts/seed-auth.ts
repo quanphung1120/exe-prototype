@@ -4,6 +4,8 @@
 // Creates the user through Better Auth's server API so the password is hashed
 // and the credential `account` row is created exactly as a real sign-up would,
 // then marks the email verified so it can sign in straight away.
+import "dotenv/config"
+
 import { auth } from "../src/auth.js"
 import { prisma } from "../src/db.js"
 

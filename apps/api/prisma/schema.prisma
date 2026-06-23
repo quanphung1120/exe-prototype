@@ -8,6 +8,7 @@
 generator client {
   provider            = "prisma-client"
   output              = "../src/generated/prisma"
+  runtime             = "edge-light"
   moduleFormat        = "esm"
   importFileExtension = "js"
 }
