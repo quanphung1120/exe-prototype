@@ -15,8 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import type { Venue } from "@/components/dashboard/data"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import { updateVenue } from "@/lib/venue-actions"
@@ -89,18 +90,36 @@ function SettingsForm({
 
   const initial = isVenue ? venue.name : userName
   const [name, setName] = React.useState(initial)
+  // Venue-only profile fields (seeded from the active venue; unused for players).
+  const [image, setImage] = React.useState(venue.image ?? "")
+  const [imageBroken, setImageBroken] = React.useState(false)
+  const [description, setDescription] = React.useState(venue.description ?? "")
+  const [openFrom, setOpenFrom] = React.useState(venue.openFrom)
+  const [openTo, setOpenTo] = React.useState(venue.openTo)
   const [touched, setTouched] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
 
   const trimmed = name.trim()
-  const invalid = touched && trimmed.length < 2
-  const dirty = trimmed !== initial.trim()
+  const trimmedImage = image.trim()
+  const nameInvalid = touched && trimmed.length < 2
+  // Closing time must come after opening (lexical compare is safe for HH:MM).
+  const hoursInvalid = isVenue && (!openFrom || !openTo || openFrom >= openTo)
+
+  const dirty = isVenue
+    ? trimmed !== venue.name.trim() ||
+      trimmedImage !== (venue.image ?? "") ||
+      description.trim() !== (venue.description ?? "") ||
+      openFrom !== venue.openFrom ||
+      openTo !== venue.openTo
+    : trimmed !== initial.trim()
 
   const tile = isVenue ? venue.initials : initials
+  const showImage = isVenue && trimmedImage.length > 0 && !imageBroken
 
   const save = async () => {
     setTouched(true)
     if (trimmed.length < 2) return
+    if (hoursInvalid) return
     if (!dirty) {
       onClose()
       return
@@ -108,9 +127,15 @@ function SettingsForm({
     if (isVenue) {
       setSaving(true)
       try {
-        await updateVenue(activeVenueId, { name: trimmed })
+        await updateVenue(activeVenueId, {
+          name: trimmed,
+          image: trimmedImage,
+          description: description.trim(),
+          openFrom,
+          openTo,
+        })
         router.refresh()
-        toast.success(t("nameUpdated"))
+        toast.success(t("venueUpdated"))
         onClose()
       } catch (err) {
         toast.error(t("error"), {
@@ -143,8 +168,20 @@ function SettingsForm({
       <div className="my-5 flex flex-col gap-5">
         {/* Identity preview */}
         <div className="flex items-center gap-3 rounded-3xl bg-muted/40 p-3 ring-1 ring-foreground/5 dark:ring-foreground/10">
-          <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-secondary font-heading text-sm font-bold text-secondary-foreground">
-            {tile}
+          <div className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-secondary font-heading text-sm font-bold text-secondary-foreground">
+            {showImage ? (
+              // Prototype previews an arbitrary external URL; next/image would
+              // need per-host allowlisting, so a plain <img> is the right tool.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={trimmedImage}
+                alt=""
+                className="size-full object-cover"
+                onError={() => setImageBroken(true)}
+              />
+            ) : (
+              tile
+            )}
           </div>
           <div className="min-w-0">
             <p className="truncate font-heading font-bold">
@@ -161,7 +198,7 @@ function SettingsForm({
           </div>
         </div>
 
-        <Field data-invalid={invalid}>
+        <Field data-invalid={nameInvalid}>
           <FieldLabel htmlFor="ws-name">
             {isVenue ? t("venueNameLabel") : t("nameLabel")}
           </FieldLabel>
@@ -170,15 +207,97 @@ function SettingsForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => setTouched(true)}
-            aria-invalid={invalid}
+            aria-invalid={nameInvalid}
             placeholder={t("namePlaceholder")}
             autoComplete="off"
             autoFocus
           />
-          {invalid ? (
+          {nameInvalid ? (
             <p className="text-sm text-destructive">{t("validation.name")}</p>
           ) : null}
         </Field>
+
+        {/* Venue profile — photo, description, and working hours. */}
+        {isVenue ? (
+          <>
+            <Field>
+              <FieldLabel htmlFor="ws-image">{t("venueImageLabel")}</FieldLabel>
+              <Input
+                id="ws-image"
+                type="url"
+                inputMode="url"
+                value={image}
+                onChange={(e) => {
+                  setImage(e.target.value)
+                  setImageBroken(false)
+                }}
+                placeholder={t("venueImagePlaceholder")}
+                autoComplete="off"
+              />
+              <FieldDescription>{t("venueImageHint")}</FieldDescription>
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="ws-description">
+                {t("venueDescriptionLabel")}
+              </FieldLabel>
+              <Textarea
+                id="ws-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                maxLength={500}
+                placeholder={t("venueDescriptionPlaceholder")}
+              />
+            </Field>
+
+            <Field data-invalid={touched && hoursInvalid}>
+              <FieldLabel>{t("hoursLabel")}</FieldLabel>
+              <div className="flex items-end gap-3">
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label
+                    htmlFor="ws-open-from"
+                    className="text-xs text-muted-foreground"
+                  >
+                    {t("openFrom")}
+                  </label>
+                  <Input
+                    id="ws-open-from"
+                    type="time"
+                    value={openFrom}
+                    onChange={(e) => setOpenFrom(e.target.value)}
+                    onBlur={() => setTouched(true)}
+                    aria-invalid={touched && hoursInvalid}
+                    className="tabular-nums"
+                  />
+                </div>
+                <span className="pb-2 text-muted-foreground">–</span>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <label
+                    htmlFor="ws-open-to"
+                    className="text-xs text-muted-foreground"
+                  >
+                    {t("openTo")}
+                  </label>
+                  <Input
+                    id="ws-open-to"
+                    type="time"
+                    value={openTo}
+                    onChange={(e) => setOpenTo(e.target.value)}
+                    onBlur={() => setTouched(true)}
+                    aria-invalid={touched && hoursInvalid}
+                    className="tabular-nums"
+                  />
+                </div>
+              </div>
+              {touched && hoursInvalid ? (
+                <p className="text-sm text-destructive">
+                  {t("validation.hours")}
+                </p>
+              ) : null}
+            </Field>
+          </>
+        ) : null}
 
         {/* Staff invites — previewed, disabled until after the MVP. */}
         {isVenue ? (

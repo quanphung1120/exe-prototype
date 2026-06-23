@@ -28,6 +28,8 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export interface VenueInput {
   name: string
+  image?: string
+  description?: string
   district: string
   city: string
   sports: SportKey[]

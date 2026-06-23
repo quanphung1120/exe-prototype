@@ -156,11 +156,11 @@ export function AppSidebar() {
                       <span className="truncate font-heading text-sm font-bold tracking-tight">
                         {isVenue ? VENUE.name : "SportMatch AI"}
                       </span>
-                      <span className="truncate text-xs text-sidebar-foreground/60">
-                        {isVenue
-                          ? `${t("venueTag")} · ${VENUE.district}`
-                          : USER.city}
-                      </span>
+                      {isVenue ? (
+                        <span className="truncate text-xs text-sidebar-foreground/60">
+                          {`${t("venueTag")} · ${VENUE.district}`}
+                        </span>
+                      ) : null}
                     </div>
                     <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/60" />
                   </SidebarMenuButton>

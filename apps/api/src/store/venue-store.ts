@@ -64,6 +64,8 @@ export function getVenue(id: string): Venue | undefined {
 
 export interface VenueInput {
   name: string
+  image?: string
+  description?: string
   district: string
   city: string
   sports: SportKey[]
@@ -77,6 +79,8 @@ export function createVenue(input: VenueInput): Venue {
     id: `v${++venueSeq}`,
     name: input.name,
     initials: initialsOf(input.name),
+    image: input.image,
+    description: input.description,
     district: input.district,
     city: input.city,
     sports: input.sports,
@@ -105,6 +109,8 @@ export function updateVenue(
     next.name = patch.name
     next.initials = initialsOf(patch.name)
   }
+  if (patch.image !== undefined) next.image = patch.image
+  if (patch.description !== undefined) next.description = patch.description
   if (patch.district !== undefined) next.district = patch.district
   if (patch.city !== undefined) next.city = patch.city
   if (patch.sports !== undefined) next.sports = patch.sports

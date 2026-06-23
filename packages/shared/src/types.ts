@@ -322,6 +322,10 @@ export interface Venue {
   id: string
   name: string
   initials: string
+  /** Optional profile photo URL (operator-set; the UI falls back to initials). */
+  image?: string
+  /** Optional short description shown on the venue profile. */
+  description?: string
   district: string
   city: string
   /** Sports played at this center. */

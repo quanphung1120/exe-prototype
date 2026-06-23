@@ -19,6 +19,8 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM")
 
 const venueInput = z.object({
   name: z.string().min(2).max(60),
+  image: z.string().max(2048).optional(),
+  description: z.string().max(500).optional(),
   district: z.string().min(1).max(60),
   city: z.string().min(1).max(60),
   sports: z.array(sportEnum).min(1),

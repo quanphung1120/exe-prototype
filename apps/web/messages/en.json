@@ -143,12 +143,22 @@
     "nameLabel": "Display name",
     "venueNameLabel": "Venue name",
     "namePlaceholder": "Enter a name",
+    "venueImageLabel": "Venue photo",
+    "venueImagePlaceholder": "https://… photo URL",
+    "venueImageHint": "Paste a link to a photo of your venue.",
+    "venueDescriptionLabel": "Description",
+    "venueDescriptionPlaceholder": "Tell players what makes your venue special.",
+    "hoursLabel": "Working hours",
+    "openFrom": "Opens",
+    "openTo": "Closes",
     "save": "Save changes",
     "cancel": "Cancel",
     "nameUpdated": "Name updated",
+    "venueUpdated": "Venue profile updated",
     "error": "Something went wrong",
     "validation": {
-      "name": "Please enter at least 2 characters"
+      "name": "Please enter at least 2 characters",
+      "hours": "Closing time must be after opening time"
     },
     "staff": {
       "title": "Team & staff",

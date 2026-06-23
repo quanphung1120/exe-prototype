@@ -143,12 +143,22 @@
     "nameLabel": "Tên hiển thị",
     "venueNameLabel": "Tên địa điểm",
     "namePlaceholder": "Nhập tên",
+    "venueImageLabel": "Ảnh địa điểm",
+    "venueImagePlaceholder": "https://… đường dẫn ảnh",
+    "venueImageHint": "Dán liên kết tới ảnh của địa điểm.",
+    "venueDescriptionLabel": "Mô tả",
+    "venueDescriptionPlaceholder": "Chia sẻ điều khiến địa điểm của bạn nổi bật.",
+    "hoursLabel": "Giờ hoạt động",
+    "openFrom": "Mở cửa",
+    "openTo": "Đóng cửa",
     "save": "Lưu thay đổi",
     "cancel": "Hủy",
     "nameUpdated": "Đã cập nhật tên",
+    "venueUpdated": "Đã cập nhật hồ sơ địa điểm",
     "error": "Đã xảy ra lỗi",
     "validation": {
-      "name": "Vui lòng nhập ít nhất 2 ký tự"
+      "name": "Vui lòng nhập ít nhất 2 ký tự",
+      "hours": "Giờ đóng cửa phải sau giờ mở cửa"
     },
     "staff": {
       "title": "Đội ngũ & nhân viên",
