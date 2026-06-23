@@ -564,11 +564,6 @@ function CourtCard({ court, solo }: { court: Court; solo?: boolean }) {
   const t = useTranslations("Assistant")
   const ts = useTranslations("Shared")
   const { openBooking } = useBooking()
-  const initials = court.name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
 
   return (
     <div
@@ -577,10 +572,9 @@ function CourtCard({ court, solo }: { court: Court; solo?: boolean }) {
         solo ? "w-full" : "w-[15rem]"
       )}
     >
+      <div className="aspect-video w-full overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/5 dark:ring-foreground/10" />
+
       <div className="flex items-center gap-2.5">
-        <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-secondary font-heading text-sm font-bold text-secondary-foreground">
-          {initials}
-        </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">{court.name}</p>
           <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
@@ -596,10 +590,7 @@ function CourtCard({ court, solo }: { court: Court; solo?: boolean }) {
         </span>
       </div>
 
-      <div className="flex items-end justify-between gap-2">
-        <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-          {ts("next", { time: court.nextSlot })}
-        </span>
+      <div className="flex items-end justify-end gap-2">
         <span className="font-heading text-lg leading-none font-bold tabular-nums">
           {formatVnd(court.pricePerHour)}
           <span className="text-xs font-normal text-muted-foreground">
