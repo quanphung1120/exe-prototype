@@ -15,6 +15,7 @@ import {
   type SportKey,
   formatVnd,
   levelAccent,
+  SPORTS,
   sportAccent,
   sportLabel,
 } from "@/components/dashboard/data"
@@ -346,6 +347,48 @@ export function RoomRow({
         </div>
       </div>
       {action}
+    </div>
+  )
+}
+
+// Per-sport tint for the decorative court banner (keyed by the court's first
+// listed sport). The prototype has no real court photos, so each card's "image"
+// is a deterministic gradient + court-line grid + oversized sport monogram.
+const COURT_IMG: Record<SportKey, string> = {
+  tennis: "from-chart-2/35 via-brand/15 to-lime/20",
+  pickleball: "from-lime/45 via-brand/15 to-chart-2/20",
+  badminton: "from-chart-3/35 via-brand/15 to-lime/20",
+}
+
+/**
+ * Decorative court "photo" — see COURT_IMG. Sizing is left to the caller via
+ * `className` (e.g. a wide banner in the booking wizard, a tall thumbnail in the
+ * Find Courts list).
+ */
+export function CourtImage({
+  court,
+  className,
+}: {
+  court: Court
+  className?: string
+}) {
+  const sport = court.sports[0]
+  const short = SPORTS.find((s) => s.key === sport)?.short ?? ""
+  return (
+    <div
+      className={cn(
+        "relative shrink-0 overflow-hidden bg-gradient-to-br",
+        COURT_IMG[sport],
+        className
+      )}
+      aria-hidden
+    >
+      <div className="bg-court-lines absolute inset-0 opacity-70" />
+      {/* Center net line */}
+      <div className="absolute inset-y-0 left-1/2 w-px bg-foreground/10" />
+      <span className="absolute -right-2 -bottom-5 font-heading text-6xl font-bold text-foreground/10 select-none">
+        {short}
+      </span>
     </div>
   )
 }

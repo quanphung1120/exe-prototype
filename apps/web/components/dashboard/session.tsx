@@ -40,6 +40,12 @@ const SEARCH_MS = 1800
 const PAY_MS = 1700
 // Largest room a host can grow to.
 const MAX_CAPACITY = 8
+// Most open rooms one player may host at once. Speculative rooms (Quick Match
+// seeds + the Create Room dialog) count against this cap so a single player
+// can't flood the matchmaking pool with junk rooms; paid solo court holds and
+// opening your own booking to friends (addTeamToSession) are exempt because a
+// real, paid court already backs them.
+const MAX_HOSTED_ROOMS = 3
 // How long a host (faked) takes to review + approve the user's join request.
 const APPROVE_MS = 1600
 
@@ -92,6 +98,12 @@ interface SessionContextValue {
   joinedRooms: MatchRoom[]
   /** Rooms the user asked to join that are still awaiting host approval. */
   requestedIds: Set<string>
+  /** Open rooms the user currently hosts (counts toward the anti-spam cap). */
+  hostedRoomCount: number
+  /** Ceiling on how many open rooms a single player may host at once. */
+  maxHostedRooms: number
+  /** Whether the user is under the cap and may open another room. */
+  canHostMore: boolean
   activeRoom: MatchRoom | null
   activeSession: PlaySession | null
   activeRoomId: string | null
@@ -355,6 +367,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       ),
     [sessions, USER.initials]
   )
+  // Open rooms the user hosts right now — the anti-spam cap counts these. Solo
+  // court holds (listed:false) and finished/cancelled rooms are excluded, so the
+  // cap only bounds rooms actively advertised in the matchmaking pool.
+  const hostedRoomCount = React.useMemo(
+    () =>
+      sessions.filter(
+        (s) =>
+          s.host.initials === USER.initials &&
+          s.listed &&
+          s.status !== "cancelled" &&
+          s.status !== "completed"
+      ).length,
+    [sessions, USER.initials]
+  )
+  const canHostMore = hostedRoomCount < MAX_HOSTED_ROOMS
+
   const activeSession =
     joinedSessions.find((s) => s.id === activeSessionId) ??
     joinedSessions[0] ??
@@ -658,6 +686,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   /** Convert a freshly-built MatchRoom (Create Room dialog) into a session. */
   const addRoom = (room: MatchRoom) => {
+    // Backstop the anti-spam cap (the dialog also guards before calling here).
+    if (!canHostMore) {
+      toast.error(tm("toast.limitTitle"), {
+        description: tm("toast.limitBody", { max: MAX_HOSTED_ROOMS }),
+      })
+      return
+    }
     const c = courtByVenue(room.venue)
     const next: PlaySession = {
       id: room.id,
@@ -973,6 +1008,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         return b.joined / b.capacity - a.joined / a.capacity
       })[0]
       joinRoom(best)
+      return
+    }
+    // No open room fits — Quick Match would spin up a fresh one, so it counts
+    // against the hosted-room cap just like the Create Room dialog.
+    if (!canHostMore) {
+      toast.error(tm("toast.limitTitle"), {
+        description: tm("toast.limitBody", { max: MAX_HOSTED_ROOMS }),
+      })
       return
     }
     startPartnerSearch(filters)
@@ -1317,6 +1360,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     rooms,
     joinedRooms,
     requestedIds,
+    hostedRoomCount,
+    maxHostedRooms: MAX_HOSTED_ROOMS,
+    canHostMore,
     activeRoom,
     activeSession,
     activeRoomId: activeSession?.id ?? null,

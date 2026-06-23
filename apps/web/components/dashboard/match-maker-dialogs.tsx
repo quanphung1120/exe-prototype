@@ -284,8 +284,16 @@ function CreateRoomDialog() {
   const tc = useTranslations("Common")
   const tb = useTranslations("Booking")
   const { courts: COURTS, user: USER, conflictFor, courtDayGaps } = useData()
-  const { userLevel, addRoom, createRoomOpen, setCreateRoomOpen, sessions } =
-    useMatchmaking()
+  const {
+    userLevel,
+    addRoom,
+    createRoomOpen,
+    setCreateRoomOpen,
+    sessions,
+    hostedRoomCount,
+    maxHostedRooms,
+    canHostMore,
+  } = useMatchmaking()
   const idRef = React.useRef(0)
   const courtName = (id: string) =>
     COURTS.find((c) => c.id === id)?.name ?? t("selectCourt")
@@ -349,6 +357,14 @@ function CreateRoomDialog() {
       onSubmit: createRoomSchema,
     },
     onSubmit: async ({ value }) => {
+      // Enforce the anti-spam cap before building the room (and keep the dialog
+      // open so the user can cancel an existing room and retry).
+      if (!canHostMore) {
+        toast.error(t("toast.limitTitle"), {
+          description: t("toast.limitBody", { max: maxHostedRooms }),
+        })
+        return
+      }
       const court = COURTS.find((c) => c.id === value.courtId) ?? COURTS[0]
       const capacity = value.maxPlayers
       const dayLabel =
@@ -756,11 +772,27 @@ function CreateRoomDialog() {
           </FieldGroup>
         </form>
 
+        <p
+          className={cn(
+            "px-1 text-xs",
+            canHostMore
+              ? "text-muted-foreground"
+              : "text-amber-600 dark:text-amber-400"
+          )}
+        >
+          {canHostMore
+            ? t("dialog.roomQuota", {
+                count: hostedRoomCount,
+                max: maxHostedRooms,
+              })
+            : t("dialog.roomLimitReached", { max: maxHostedRooms })}
+        </p>
+
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>
             {t("dialog.cancel")}
           </DialogClose>
-          <Button type="submit" form="create-room-form">
+          <Button type="submit" form="create-room-form" disabled={!canHostMore}>
             <Plus />
             {t("createRoom")}
           </Button>

@@ -15,6 +15,7 @@ import {
   Minus,
   Plus,
   Star,
+  Trash2,
   UserPlus,
   Users,
   X,
@@ -207,12 +208,17 @@ function RoomDetail({
     onClose()
   }
 
-  const leaveBody =
-    isHost && booked
-      ? t("leaveBookedBody")
-      : isHost
-        ? t("leaveHostBody")
-        : t("leaveBody")
+  // The host's destructive action cancels (disbands) the room and surfaces the
+  // cancellation/refund policy; a member's is a plain "leave". A booked room's
+  // policy mentions the refund tiers since real money was held.
+  const destructiveLabel = isHost ? t("cancelRoom") : t("leave")
+  const destructiveTitle = isHost ? t("cancelRoomTitle") : t("leaveTitle")
+  const destructiveConfirm = isHost ? t("cancelRoomConfirm") : t("leaveConfirm")
+  const destructiveBody = isHost
+    ? booked
+      ? t("cancelBookedBody")
+      : t("cancelFormingBody")
+    : t("leaveBody")
 
   return (
     <>
@@ -473,18 +479,20 @@ function RoomDetail({
                   />
                 }
               >
-                <LogOut />
-                {t("leave")}
+                {isHost ? <Trash2 /> : <LogOut />}
+                {destructiveLabel}
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>{t("leaveTitle")}</AlertDialogTitle>
-                  <AlertDialogDescription>{leaveBody}</AlertDialogDescription>
+                  <AlertDialogTitle>{destructiveTitle}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {destructiveBody}
+                  </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>{t("leaveCancel")}</AlertDialogCancel>
                   <AlertDialogAction variant="destructive" onClick={leave}>
-                    {t("leaveConfirm")}
+                    {destructiveConfirm}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

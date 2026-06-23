@@ -212,7 +212,12 @@
     "requestFull": "Room's full — raise max players to approve",
     "awaitingApproval": "Awaiting host approval",
     "awaitingApprovalBody": "{name} is reviewing your reliability before letting you in.",
-    "cancelRequest": "Cancel request"
+    "cancelRequest": "Cancel request",
+    "cancelRoom": "Cancel room",
+    "cancelRoomTitle": "Cancel this room?",
+    "cancelRoomConfirm": "Cancel room",
+    "cancelFormingBody": "This room hasn't booked a court yet — cancelling is free and removes it for everyone.",
+    "cancelBookedBody": "Cancelling releases the court and disbands the room. Refunds follow the cancellation policy — full refund up to 24h before the slot, partial within 24h."
   },
   "LocaleSwitcher": {
     "label": "Language",
@@ -903,7 +908,9 @@
       "maxPlayersInc": "More players",
       "level": "Level",
       "startTime": "Start time",
-      "endTime": "End time"
+      "endTime": "End time",
+      "roomQuota": "You're hosting {count}/{max} open rooms.",
+      "roomLimitReached": "You've reached the limit of {max} open rooms — cancel one to create another."
     },
     "validation": {
       "titleMin": "Give your room a title of at least 5 characters.",
@@ -923,7 +930,9 @@
       "matchReady": "Match ready!",
       "left": "You left the room",
       "searchingPartner": "Finding your first partner…",
-      "requested": "Request sent"
+      "requested": "Request sent",
+      "limitTitle": "Room limit reached",
+      "limitBody": "You can host up to {max} open rooms at once. Cancel one to open another."
     },
     "dock": {
       "matchReady": "Match ready",
@@ -1525,6 +1534,71 @@
       "revenue": "Summarize today vs the week",
       "peak": "Rank the busiest hours",
       "promo": "Draft an off-peak promo"
+    }
+  },
+  "CourtFinder": {
+    "metaTitle": "Find a Court",
+    "metaDescription": "Search, filter and book a court near you.",
+    "searchPlaceholder": "Search courts by name or area",
+    "clearSearch": "Clear search",
+    "empty": "No courts for this sport. Try another filter.",
+    "noResults": "No courts match these filters.",
+    "results": "{count, plural, one {# court} other {# courts}}",
+    "distance": "{km} km",
+    "openSlots": "{count, plural, one {# slot open today} other {# slots open today}}",
+    "freePct": "{pct}% free",
+    "perHour": "/hour",
+    "book": "Book",
+    "directions": "Directions",
+    "filters": "Filters",
+    "clearAll": "Clear all",
+    "clearFilters": "Clear filters",
+    "sortBy": "Sort courts by",
+    "sort": {
+      "distance": "Distance",
+      "price": "Price",
+      "rating": "Rating"
+    },
+    "price": {
+      "label": "Price per hour",
+      "under": "Under {amount}",
+      "range": "{min} – {max}",
+      "over": "{amount}+"
+    },
+    "rating": {
+      "label": "Guest rating",
+      "any": "Any rating",
+      "min": "{score}+"
+    },
+    "availability": {
+      "label": "Availability",
+      "manySlots": "5+ open slots today",
+      "mostlyFree": "Half the day still free"
+    },
+    "score": {
+      "exceptional": "Exceptional",
+      "excellent": "Excellent",
+      "veryGood": "Very good"
+    },
+    "courts": {
+      "c1": {
+        "surface": "Glass · panoramic"
+      },
+      "c2": {
+        "surface": "Hard · Plexicushion"
+      },
+      "c3": {
+        "surface": "Cushioned acrylic"
+      },
+      "c4": {
+        "surface": "Clay · outdoor"
+      },
+      "c5": {
+        "surface": "Sprung timber"
+      },
+      "c6": {
+        "surface": "Tournament glass"
+      }
     }
   }
 }

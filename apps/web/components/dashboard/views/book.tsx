@@ -25,7 +25,6 @@ import { Input } from "@/components/ui/input"
 import {
   COURT_OPEN_FROM,
   COURT_OPEN_TO,
-  SPORTS,
   addMinutes,
   diffMinutes,
   formatDuration,
@@ -35,7 +34,6 @@ import {
   priceFor,
   slotRange,
   type Court,
-  type SportKey,
 } from "@/components/dashboard/data"
 import {
   addDays,
@@ -64,6 +62,7 @@ import {
 } from "@/components/dashboard/calendar-ui"
 import { useData } from "@/components/dashboard/data-provider"
 import { useBooking } from "@/components/dashboard/booking"
+import { CourtImage } from "@/components/dashboard/shared"
 
 /** Shared surface styling for each step's card(s). */
 const CARD =
@@ -845,37 +844,6 @@ function CourtCalendar({
   )
 }
 
-// Per-sport tint for the decorative court banner (keyed by the court's first
-// listed sport). The prototype has no real court photos, so each card's "image"
-// is a deterministic gradient + court-line grid + oversized sport monogram.
-const COURT_IMG: Record<SportKey, string> = {
-  tennis: "from-chart-2/35 via-brand/15 to-lime/20",
-  pickleball: "from-lime/45 via-brand/15 to-chart-2/20",
-  badminton: "from-chart-3/35 via-brand/15 to-lime/20",
-}
-
-/** Decorative court "photo" — see COURT_IMG. */
-function CourtImage({ court }: { court: Court }) {
-  const sport = court.sports[0]
-  const short = SPORTS.find((s) => s.key === sport)?.short ?? ""
-  return (
-    <div
-      className={cn(
-        "relative h-24 w-full shrink-0 overflow-hidden bg-gradient-to-br",
-        COURT_IMG[sport]
-      )}
-      aria-hidden
-    >
-      <div className="bg-court-lines absolute inset-0 opacity-70" />
-      {/* Center net line */}
-      <div className="absolute inset-y-0 left-1/2 w-px bg-foreground/10" />
-      <span className="absolute -right-2 -bottom-5 font-heading text-6xl font-bold text-foreground/10 select-none">
-        {short}
-      </span>
-    </div>
-  )
-}
-
 /**
  * A single court in the court-selection grid — a card with a decorative image,
  * the court name, its district + distance (the "address"), price and a Choose
@@ -902,7 +870,7 @@ function CourtPickCard({
       )}
     >
       <div className="relative">
-        <CourtImage court={court} />
+        <CourtImage court={court} className="h-24 w-full" />
         <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-background/85 px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm backdrop-blur">
           <Star className="size-3 fill-lime text-lime" />
           {court.rating}
@@ -1016,7 +984,7 @@ function CourtPreviewCard({
 }) {
   return (
     <div className={cn(CARD, "flex flex-col overflow-hidden p-0")}>
-      <CourtImage court={court} />
+      <CourtImage court={court} className="h-24 w-full" />
       <div className="flex flex-1 flex-col gap-4 p-5 sm:p-6">
         <div className="flex flex-col gap-1">
           <p className="font-heading text-lg leading-tight font-semibold">

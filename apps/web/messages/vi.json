@@ -212,7 +212,12 @@
     "requestFull": "Phòng đã đầy — tăng số người tối đa để duyệt",
     "awaitingApproval": "Đang chờ chủ phòng duyệt",
     "awaitingApprovalBody": "{name} đang xem độ tin cậy của bạn trước khi cho vào.",
-    "cancelRequest": "Huỷ yêu cầu"
+    "cancelRequest": "Huỷ yêu cầu",
+    "cancelRoom": "Huỷ phòng",
+    "cancelRoomTitle": "Huỷ phòng này?",
+    "cancelRoomConfirm": "Huỷ phòng",
+    "cancelFormingBody": "Phòng chưa đặt sân — huỷ miễn phí và gỡ phòng cho mọi người.",
+    "cancelBookedBody": "Huỷ sẽ trả sân và giải tán phòng. Hoàn tiền theo chính sách: hoàn 100% nếu huỷ trước 24 giờ, hoàn một phần nếu trong vòng 24 giờ."
   },
   "LocaleSwitcher": {
     "label": "Ngôn ngữ",
@@ -903,7 +908,9 @@
       "maxPlayersInc": "Thêm người",
       "level": "Trình độ",
       "startTime": "Giờ bắt đầu",
-      "endTime": "Giờ kết thúc"
+      "endTime": "Giờ kết thúc",
+      "roomQuota": "Bạn đang mở {count}/{max} phòng.",
+      "roomLimitReached": "Bạn đã đạt giới hạn {max} phòng — hãy huỷ một phòng để tạo phòng mới."
     },
     "validation": {
       "titleMin": "Đặt tên phòng ít nhất 5 ký tự.",
@@ -923,7 +930,9 @@
       "matchReady": "Trận đã sẵn sàng!",
       "left": "Bạn đã rời phòng",
       "searchingPartner": "Đang tìm người chơi đầu tiên cho bạn…",
-      "requested": "Đã gửi yêu cầu"
+      "requested": "Đã gửi yêu cầu",
+      "limitTitle": "Đã đạt giới hạn phòng",
+      "limitBody": "Bạn chỉ có thể mở tối đa {max} phòng cùng lúc. Hãy huỷ một phòng để mở phòng mới."
     },
     "dock": {
       "matchReady": "Trận đã sẵn sàng",
@@ -1525,6 +1534,71 @@
       "revenue": "Tóm tắt hôm nay so với cả tuần",
       "peak": "Xếp hạng giờ đông nhất",
       "promo": "Soạn ưu đãi giờ thấp điểm"
+    }
+  },
+  "CourtFinder": {
+    "metaTitle": "Tìm sân",
+    "metaDescription": "Tìm kiếm, lọc và đặt sân gần bạn.",
+    "searchPlaceholder": "Tìm theo tên sân hoặc khu vực",
+    "clearSearch": "Xóa tìm kiếm",
+    "empty": "Không có sân nào cho môn này. Hãy thử bộ lọc khác.",
+    "noResults": "Không có sân nào khớp bộ lọc này.",
+    "results": "{count, plural, other {# sân}}",
+    "distance": "{km} km",
+    "openSlots": "{count, plural, other {# khung trống hôm nay}}",
+    "freePct": "Trống {pct}%",
+    "perHour": "/giờ",
+    "book": "Đặt sân",
+    "directions": "Chỉ đường",
+    "filters": "Bộ lọc",
+    "clearAll": "Xóa tất cả",
+    "clearFilters": "Xóa bộ lọc",
+    "sortBy": "Sắp xếp sân theo",
+    "sort": {
+      "distance": "Khoảng cách",
+      "price": "Giá",
+      "rating": "Đánh giá"
+    },
+    "price": {
+      "label": "Giá mỗi giờ",
+      "under": "Dưới {amount}",
+      "range": "{min} – {max}",
+      "over": "Từ {amount}"
+    },
+    "rating": {
+      "label": "Đánh giá",
+      "any": "Tất cả",
+      "min": "{score}+"
+    },
+    "availability": {
+      "label": "Tình trạng trống",
+      "manySlots": "5+ khung trống hôm nay",
+      "mostlyFree": "Còn trống nửa ngày"
+    },
+    "score": {
+      "exceptional": "Tuyệt hảo",
+      "excellent": "Xuất sắc",
+      "veryGood": "Rất tốt"
+    },
+    "courts": {
+      "c1": {
+        "surface": "Kính · toàn cảnh"
+      },
+      "c2": {
+        "surface": "Cứng · Plexicushion"
+      },
+      "c3": {
+        "surface": "Acrylic đệm êm"
+      },
+      "c4": {
+        "surface": "Đất nện · ngoài trời"
+      },
+      "c5": {
+        "surface": "Sàn gỗ đàn hồi"
+      },
+      "c6": {
+        "surface": "Kính thi đấu"
+      }
     }
   }
 }
