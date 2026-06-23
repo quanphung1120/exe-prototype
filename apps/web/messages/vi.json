@@ -363,6 +363,8 @@
     "toPayment": "Tiếp tục thanh toán",
     "pay": {
       "amountDue": "Số tiền cần trả",
+      "holdFee": "Phí giữ chỗ",
+      "holdNote": "Phí sân {amount} — thanh toán tại sân",
       "courtFee": "phí sân",
       "method": "Phương thức thanh toán",
       "qr": "VietQR",

@@ -145,6 +145,12 @@ export function priceFor(pricePerHour: number, durationMin: number): number {
   return Math.round((pricePerHour * durationMin) / 60)
 }
 
+/**
+ * Flat slot-holding fee (VND) charged at checkout. Players pay only this to
+ * lock in a court; the full court fee is settled at the venue.
+ */
+export const HOLD_FEE = 10000
+
 /** Compact duration label, e.g. "1h", "1h 30m", "45m". */
 export function formatDuration(min: number): string {
   const h = Math.floor(min / 60)

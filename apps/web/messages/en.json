@@ -363,6 +363,8 @@
     "toPayment": "Continue to payment",
     "pay": {
       "amountDue": "Amount due",
+      "holdFee": "Holding fee",
+      "holdNote": "Court fee {amount} — settle at the venue",
       "courtFee": "court fee",
       "method": "Payment method",
       "qr": "VietQR",

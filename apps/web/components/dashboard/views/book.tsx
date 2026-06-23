@@ -31,6 +31,7 @@ import {
   formatDuration,
   formatVnd,
   formatVndFull,
+  HOLD_FEE,
   priceFor,
   slotRange,
   type Court,
@@ -521,15 +522,13 @@ export function BookView() {
         {stepName === "pay" && court && draft.slot ? (
           <div className="grid w-full gap-4 lg:grid-cols-2">
             {/* Left — court preview (same card as confirm; headline flips to
-                the amount due so moving between the two steps feels stable) */}
+                the flat holding fee — the court fee itself is settled at the
+                venue — so moving between the two steps feels stable) */}
             <CourtPreviewCard
               court={court}
-              label={t("pay.amountDue")}
-              amount={formatVndFull(total)}
-              subline={`${t(`days.${draft.dayKey}`)} · ${slotRange(
-                draft.slot,
-                draft.durationMin
-              )}`}
+              label={t("pay.holdFee")}
+              amount={formatVndFull(HOLD_FEE)}
+              subline={t("pay.holdNote", { amount: formatVndFull(total) })}
               t={t}
             />
 
@@ -547,7 +546,7 @@ export function BookView() {
                 <div className="text-center">
                   <p className="text-sm font-medium">{t("pay.qrAccount")}</p>
                   <p className="font-mono text-xs text-muted-foreground tabular-nums">
-                    {formatVndFull(total)}
+                    {formatVndFull(HOLD_FEE)}
                   </p>
                 </div>
                 <p className="inline-flex items-center gap-1.5 text-center text-xs text-muted-foreground">
@@ -588,7 +587,7 @@ export function BookView() {
             ) : (
               <>
                 <Lock />
-                {t("pay.payNow", { amount: court ? formatVnd(total) : "" })}
+                {t("pay.payNow", { amount: court ? formatVnd(HOLD_FEE) : "" })}
               </>
             )}
           </Button>
