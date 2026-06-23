@@ -1,3 +1,5 @@
+import "dotenv/config"
+
 import { Resend } from "resend"
 
 // Resend client. If RESEND_API_KEY is unset (e.g. local dev before secrets are
