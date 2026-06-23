@@ -9,3 +9,5 @@ allowBuilds:
   '@parcel/watcher': false
   '@swc/core': false
   esbuild: true
+  '@prisma/engines': true
+  prisma: true

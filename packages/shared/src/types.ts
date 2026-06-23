@@ -80,6 +80,9 @@ export interface Court {
   nextSlot: string
   /** Share of today's slots still free, 0–100. */
   freePct: number
+  /** Geographic position for the Find Courts map (WGS84). */
+  lat: number
+  lng: number
 }
 
 // ── Match rooms (Match Maker lobbies) ────────────────────────────────────────

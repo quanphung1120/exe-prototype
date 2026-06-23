@@ -54,7 +54,7 @@ import {
   useNow,
   type TimelineColumn,
 } from "@/components/dashboard/calendar-ui"
-import { useData } from "@/components/dashboard/data-provider"
+import { useVenueData } from "@/components/dashboard/venue-data-provider"
 import {
   MicroLabel,
   Meter,
@@ -90,7 +90,7 @@ export function VenueScheduleView({
     venueCourts: VENUE_COURTS,
     courtDayEvents,
     venueScheduleFor,
-  } = useData()
+  } = useVenueData()
 
   const now = useNow()
   const [view, setView] = React.useState<CalendarView>("day")

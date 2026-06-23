@@ -44,7 +44,7 @@ import {
   VenueEmpty,
   VenuePanel,
 } from "@/components/dashboard/venue/shared"
-import { useData } from "@/components/dashboard/data-provider"
+import { useVenueData } from "@/components/dashboard/venue-data-provider"
 import {
   formatVnd,
   locStr,
@@ -265,7 +265,7 @@ export function VenueReservationsView({
 } = {}) {
   const t = useTranslations("VenueReservations")
   const locale = useLocale()
-  const { reservations: RESERVATIONS } = useData()
+  const { reservations: RESERVATIONS } = useVenueData()
 
   const [filter, setFilter] = React.useState<FilterKey>("all")
   // View-local record of operator decisions; never mutates the data module.

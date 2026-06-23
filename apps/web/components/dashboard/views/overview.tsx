@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { type ActivityKind } from "@/components/dashboard/data"
+import { useAuthUser } from "@/components/dashboard/auth-user"
 import { useData } from "@/components/dashboard/data-provider"
 import { useBooking } from "@/components/dashboard/booking"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
@@ -37,7 +38,6 @@ import {
   CourtRow,
   RoomRow,
   RowAction,
-  SportTag,
   StreakStrip,
 } from "@/components/dashboard/shared"
 import { StreakView } from "@/components/dashboard/views/streak"
@@ -71,8 +71,15 @@ export function OverviewView() {
     user: USER,
   } = useData()
 
-  // Greet by the player's editable display name (its first word), seed fallback.
-  const firstName = userName.trim().split(/\s+/)[0] || USER.first
+  // Greet the signed-in user (fetched server-side, so no fallback flash): their
+  // real name (first word) when set, else the email's local part (before the
+  // domain), falling back to the seed/display name.
+  const authUser = useAuthUser()
+  const greetName =
+    authUser.name?.trim().split(/\s+/)[0] ||
+    authUser.email?.split("@")[0] ||
+    userName.trim().split(/\s+/)[0] ||
+    USER.first
 
   const nextMatch = BOOKINGS.find((b) => b.status === "confirmed")!
   // Open rooms (seats left) for the player's active sport — the teaser preview.
@@ -88,9 +95,9 @@ export function OverviewView() {
   return (
     <div className="flex flex-col gap-5">
       {/* Greeting */}
-      <div>
+      <div className="py-6">
         <h1 className="font-heading text-3xl font-bold tracking-tight">
-          {t("greeting", { name: firstName })} 👋
+          {t("greeting", { name: greetName })} 👋
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t.rich("streakTeaser", {
@@ -103,13 +110,9 @@ export function OverviewView() {
       </div>
 
       {/* Hero row: next match + streak */}
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Next match */}
         <div className="relative col-span-1 overflow-hidden rounded-4xl bg-card shadow-md ring-1 ring-foreground/5 lg:col-span-2 dark:ring-foreground/10">
-          <div
-            aria-hidden
-            className="bg-court-lines pointer-events-none absolute inset-0 [mask-image:radial-gradient(120%_120%_at_85%_0%,#000_0%,transparent_60%)] opacity-70"
-          />
           <div className="absolute -top-16 -right-16 size-48 rounded-full bg-brand/15 blur-3xl" />
           <div className="relative flex h-full flex-col gap-5 p-6">
             <div className="flex items-center justify-between">
@@ -125,24 +128,23 @@ export function OverviewView() {
               </Badge>
             </div>
 
-            <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <SportTag sport={nextMatch.sport} />
-                  <span className="text-xs text-muted-foreground">
-                    · {tc(`format.${nextMatch.format.toLowerCase()}`)}
-                  </span>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+                  {tc(`sports.${nextMatch.sport}`)}
                 </div>
-                <p className="mt-1 font-heading text-2xl font-bold tracking-tight">
+                <p className="truncate font-heading text-2xl font-bold tracking-tight">
                   {nextMatch.venue}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">
                   {nextMatch.court}
                 </p>
               </div>
-              <div className="flex items-center gap-2 font-heading text-3xl font-bold tabular-nums">
+              <div className="flex shrink-0 items-center gap-2 rounded-2xl bg-muted/60 px-4 py-3 ring-1 ring-border/50 dark:bg-muted/40">
                 <Clock className="size-5 text-muted-foreground" />
-                {nextMatch.time.split(" – ")[0]}
+                <span className="font-heading text-3xl font-bold tabular-nums">
+                  {nextMatch.time.split(" – ")[0]}
+                </span>
               </div>
             </div>
 
@@ -213,7 +215,7 @@ export function OverviewView() {
       </div>
 
       {/* Match maker + courts */}
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Panel
           title={t("matchMaker")}
           icon={Sparkles}
@@ -331,7 +333,7 @@ export function OverviewView() {
 
       {/* Full streak detail — milestones + heatmap, one tap from the hero card */}
       <Dialog open={streakOpen} onOpenChange={setStreakOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="no-scrollbar max-h-[85vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{tStreak("currentStreak")}</DialogTitle>
             <DialogDescription className="sr-only">

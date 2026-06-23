@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { formatVnd } from "@/components/dashboard/data"
-import { useData } from "@/components/dashboard/data-provider"
+import { useVenueData } from "@/components/dashboard/venue-data-provider"
 import { SportTag } from "@/components/dashboard/shared"
 import { useVenue } from "@/components/dashboard/venue/venue-provider"
 import {
@@ -49,7 +49,7 @@ export function VenueCommandView() {
     reservations: RESERVATIONS,
     venue: VENUE,
     venueCourts: VENUE_COURTS,
-  } = useData()
+  } = useVenueData()
   const { stats, priceSuggestions } = useVenue()
 
   const insight = priceSuggestions[0] ?? null

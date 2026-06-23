@@ -42,6 +42,19 @@ import type {
   VenueCourt,
 } from "./types.js"
 
+// ── Identity ─────────────────────────────────────────────────────────────────
+
+/**
+ * Two-letter avatar mark from a name: "Ace Pavilion" → "AP", "Quan" → "QU".
+ * Single source of truth so the web sidebar and the API venue store can't drift.
+ */
+export function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 // ── Sports ───────────────────────────────────────────────────────────────────
 
 const sportBy = (k: SportKey) => SPORTS.find((s) => s.key === k)

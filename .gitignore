@@ -28,7 +28,12 @@ pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# …but keep the example templates tracked.
+!.env.example
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma — generated client (regenerated via `prisma generate` / postinstall)
+apps/api/src/generated/

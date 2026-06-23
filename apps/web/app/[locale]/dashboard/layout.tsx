@@ -1,10 +1,11 @@
-import { cookies } from "next/headers"
-
-import { ACTIVE_VENUE_COOKIE, fetchSeed } from "@/lib/api"
+import { fetchSeed } from "@/lib/api"
+import { getServerSession } from "@/lib/auth-server"
+import { redirect } from "@/i18n/navigation"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { AppSidebar } from "@/components/dashboard/app-sidebar"
+import { AuthUserProvider } from "@/components/dashboard/auth-user"
 import { ChatProvider } from "@/components/dashboard/chat-store"
 import { DataProvider } from "@/components/dashboard/data-provider"
 import { NotificationsProvider } from "@/components/dashboard/notifications"
@@ -19,35 +20,49 @@ export const dynamic = "force-dynamic"
 
 export default async function DashboardLayout({
   children,
+  params,
 }: {
   children: React.ReactNode
+  params: Promise<{ locale: string }>
 }) {
-  const activeVenueId = (await cookies()).get(ACTIVE_VENUE_COOKIE)?.value
-  const seed = await fetchSeed(activeVenueId)
+  const { locale } = await params
+
+  // Guard the dashboard — bounce to sign-in when there's no valid session (the
+  // cookie is forwarded to the API's get-session endpoint). Once signed in, the
+  // sidebar shows a "Try demo" shortcut.
+  const session = await getServerSession()
+  if (!session) {
+    redirect({ href: "/sign-in", locale })
+    return null
+  }
+
+  const seed = await fetchSeed()
 
   return (
     <TooltipProvider>
-      <DataProvider seed={seed}>
-        <SessionProvider>
-          <NotificationsProvider>
-            <ChatProvider>
-              <SportFilterProvider>
-                <SidebarProvider className="font-geist">
-                  <AppSidebar />
-                  <SidebarInset className="overflow-hidden">
-                    <DashboardTopbar />
-                    <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-                      {children}
-                    </main>
-                  </SidebarInset>
-                </SidebarProvider>
-              </SportFilterProvider>
-            </ChatProvider>
-          </NotificationsProvider>
-          <PlayerChrome />
-          <Toaster />
-        </SessionProvider>
-      </DataProvider>
+      <AuthUserProvider user={session.user}>
+        <DataProvider seed={seed}>
+          <SessionProvider>
+            <NotificationsProvider>
+              <ChatProvider>
+                <SportFilterProvider>
+                  <SidebarProvider className="font-geist">
+                    <AppSidebar />
+                    <SidebarInset className="overflow-hidden">
+                      <DashboardTopbar />
+                      <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                        {children}
+                      </main>
+                    </SidebarInset>
+                  </SidebarProvider>
+                </SportFilterProvider>
+              </ChatProvider>
+            </NotificationsProvider>
+            <PlayerChrome />
+            <Toaster />
+          </SessionProvider>
+        </DataProvider>
+      </AuthUserProvider>
     </TooltipProvider>
   )
 }

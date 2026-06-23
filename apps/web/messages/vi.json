@@ -1,4 +1,62 @@
 {
+  "Auth": {
+    "brand": "SportMatch AI",
+    "tagline": "Đặt sân & ghép cặp người chơi bằng AI",
+    "or": "hoặc",
+    "emailLabel": "Email",
+    "emailPlaceholder": "ban@example.com",
+    "passwordLabel": "Mật khẩu",
+    "passwordPlaceholder": "••••••••",
+    "google": "Tiếp tục với Google",
+    "signIn": {
+      "title": "Chào mừng trở lại",
+      "subtitle": "Đăng nhập vào tài khoản của bạn",
+      "submit": "Đăng nhập",
+      "submitting": "Đang đăng nhập…",
+      "forgot": "Quên mật khẩu?",
+      "noAccount": "Chưa có tài khoản?",
+      "signUpLink": "Đăng ký",
+      "success": "Đã đăng nhập",
+      "error": "Email hoặc mật khẩu không đúng"
+    },
+    "signUp": {
+      "title": "Tạo tài khoản",
+      "subtitle": "Bắt đầu ghép cặp và đặt sân",
+      "nameLabel": "Tên",
+      "namePlaceholder": "Tên của bạn",
+      "submit": "Tạo tài khoản",
+      "submitting": "Đang tạo tài khoản…",
+      "haveAccount": "Đã có tài khoản?",
+      "signInLink": "Đăng nhập",
+      "success": "Đã tạo tài khoản — kiểm tra email để xác minh.",
+      "error": "Không thể tạo tài khoản"
+    },
+    "forgot": {
+      "title": "Đặt lại mật khẩu",
+      "subtitle": "Chúng tôi sẽ gửi liên kết đặt lại qua email",
+      "submit": "Gửi liên kết",
+      "submitting": "Đang gửi…",
+      "sent": "Nếu email tồn tại, liên kết đặt lại đang được gửi đến bạn.",
+      "backToSignIn": "Quay lại đăng nhập",
+      "error": "Đã xảy ra lỗi, vui lòng thử lại"
+    },
+    "reset": {
+      "title": "Chọn mật khẩu mới",
+      "subtitle": "Nhập mật khẩu mới cho tài khoản của bạn",
+      "passwordLabel": "Mật khẩu mới",
+      "confirmLabel": "Xác nhận mật khẩu",
+      "submit": "Đặt lại mật khẩu",
+      "submitting": "Đang đặt lại…",
+      "success": "Đã đặt lại mật khẩu — bạn có thể đăng nhập ngay.",
+      "mismatch": "Mật khẩu không khớp",
+      "invalidToken": "Liên kết đặt lại không hợp lệ hoặc đã hết hạn.",
+      "error": "Không thể đặt lại mật khẩu"
+    },
+    "signOut": {
+      "action": "Đăng xuất",
+      "success": "Đã đăng xuất"
+    }
+  },
   "Common": {
     "appName": "SportMatch AI",
     "allSports": "Tất cả",
@@ -63,12 +121,13 @@
   "Sidebar": {
     "workspaces": "Không gian làm việc",
     "playerWorkspace": "Không gian người chơi",
-    "venueWorkspace": "Shuttle Republic · Địa điểm",
     "searchPlaceholder": "Tìm người chơi, sân…",
     "profile": "Hồ sơ",
     "settings": "Cài đặt",
     "workspaceSettings": "Cài đặt không gian",
     "logout": "Đăng xuất",
+    "login": "Đăng nhập",
+    "tryDemo": "Dùng thử demo",
     "yourLevel": "Trình độ của bạn",
     "venueTag": "Địa điểm",
     "operatorRole": "Vận hành",
@@ -159,9 +218,9 @@
     "titleTemplate": "%s · SportMatch AI",
     "description": "SportMatch AI là trợ lý đặt sân bằng AI cho các môn thể thao vợt. Đặt sân tennis, pickleball và cầu lông chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
     "ogTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
-    "ogDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký danh sách chờ truy cập sớm.",
+    "ogDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký truy cập sớm.",
     "twitterTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
-    "twitterDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký danh sách chờ truy cập sớm.",
+    "twitterDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký truy cập sớm.",
     "keywords": [
       "đặt sân",
       "ghép người chơi",
@@ -370,6 +429,20 @@
     "freePct": "Trống {pct}%",
     "perHour": "/giờ",
     "book": "Đặt sân",
+    "directions": "Chỉ đường",
+    "searchPlaceholder": "Tìm theo địa chỉ hoặc tên",
+    "clearSearch": "Xóa tìm kiếm",
+    "sortBy": "Sắp xếp sân theo",
+    "sort": {
+      "distance": "Khoảng cách",
+      "price": "Giá",
+      "rating": "Đánh giá"
+    },
+    "geo": {
+      "locating": "Đang định vị…",
+      "on": "Gần bạn",
+      "off": "Bật vị trí"
+    },
     "courts": {
       "c1": {
         "surface": "Kính · toàn cảnh"
@@ -401,7 +474,15 @@
     "prev": "Trước",
     "next": "Sau",
     "more": "+{count} nữa",
-    "weekdaysShort": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+    "weekdaysShort": [
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "CN"
+    ],
     "monthsShort": [
       "Th1",
       "Th2",
@@ -498,86 +579,38 @@
     },
     "pricingSection": {
       "eyebrow": "Bảng giá",
-      "title": "Gói linh hoạt cho người chơi và địa điểm",
-      "subtitle": "Bắt đầu miễn phí, nâng cấp khi Quý khách sẵn sàng, và hủy bất cứ lúc nào.",
-      "tabs": {
-        "customers": "Cho người chơi",
-        "venues": "Cho địa điểm"
-      },
-      "mostPopular": "Phổ biến nhất"
+      "title": "Một khoản phí nhỏ. Miễn phí cho địa điểm.",
+      "subtitle": "Người chơi trả phí giữ chỗ 10K để giữ sân. Địa điểm đăng và nhận đặt sân hoàn toàn miễn phí.",
+      "badge": "Miễn phí 100%"
     },
     "pricing": {
-      "customers": {
-        "free": {
-          "name": "Free",
-          "price": "0₫",
-          "period": "trọn đời",
-          "tagline": "Mọi thứ Quý khách cần để tìm sân và chơi.",
-          "features": [
-            "Xem các sân trống gần đây",
-            "Tự tham gia ghép trận",
-            "Một môn thể thao vợt",
-            "Trò chuyện nhóm cho các trận"
-          ],
-          "cta": "Bắt đầu"
-        },
-        "plus": {
-          "name": "Plus",
-          "price": "99K",
-          "period": "/tháng",
-          "tagline": "Đặt sân bằng AI và ghép trận theo trình độ cho người chơi thường xuyên.",
-          "features": [
-            "Mọi thứ trong gói Free",
-            "Trợ lý đặt sân AI",
-            "Ghép trận theo trình độ",
-            "Cả ba môn thể thao vợt",
-            "Nhắc lịch thông minh"
-          ],
-          "cta": "Dùng gói Plus"
-        },
-        "pro": {
-          "name": "Pro",
-          "price": "199K",
-          "period": "/tháng",
-          "tagline": "Ưu tiên ghép trận và phân tích cho người chơi năng động nhất.",
-          "features": [
-            "Mọi thứ trong gói Plus",
-            "Ưu tiên ghép trận",
-            "Phân tích phong độ nâng cao",
-            "Ưu tiên đặt sân",
-            "Truy cập sớm các địa điểm mới"
-          ],
-          "cta": "Dùng gói Pro"
-        }
+      "players": {
+        "name": "Cho người chơi",
+        "price": "10K",
+        "period": "mỗi lượt đặt",
+        "tagline": "Chỉ một khoản phí giữ chỗ nhỏ để giữ sân của Quý khách.",
+        "features": [
+          "Xem các sân trống gần đây",
+          "Trợ lý đặt sân AI",
+          "Ghép trận theo trình độ, cả ba môn",
+          "Trò chuyện nhóm cho các trận",
+          "Không thuê bao, không phí ẩn"
+        ],
+        "cta": "Bắt đầu"
       },
       "venues": {
-        "starter": {
-          "name": "Starter",
-          "price": "499K",
-          "period": "/tháng",
-          "tagline": "Đưa địa điểm của Quý khách lên hệ thống và bắt đầu nhận lượt đặt từ AI.",
-          "features": [
-            "Hồ sơ và hiển thị địa điểm",
-            "Lịch đặt sân theo thời gian thực",
-            "Danh sách chờ người chơi",
-            "Báo cáo công suất cơ bản"
-          ],
-          "cta": "Trở thành đối tác"
-        },
-        "growth": {
-          "name": "Growth",
-          "price": "1.499K",
-          "period": "/tháng",
-          "tagline": "Lấp đầy mọi sân với ghép trận tự động và phân tích chuyên sâu.",
-          "features": [
-            "Mọi thứ trong gói Starter",
-            "Ghép trận tự động lấp đầy sân",
-            "Phân tích công suất sân",
-            "Ưu tiên hiển thị tới người chơi gần đó",
-            "Xác nhận hạn chế vắng mặt"
-          ],
-          "cta": "Trở thành đối tác"
-        }
+        "name": "Cho địa điểm",
+        "price": "Miễn phí",
+        "period": "trọn đời",
+        "tagline": "Đưa địa điểm lên hệ thống và nhận đặt sân từ AI mà không tốn phí.",
+        "features": [
+          "Hồ sơ và hiển thị địa điểm",
+          "Lịch đặt sân theo thời gian thực",
+          "Ghép trận tự động lấp đầy sân",
+          "Phân tích công suất sân",
+          "Không thu hoa hồng trên mỗi lượt đặt"
+        ],
+        "cta": "Trở thành đối tác"
       }
     },
     "trust": {
@@ -631,7 +664,7 @@
     "stats": {
       "0": {
         "value": "3.200+",
-        "label": "Người chơi trong danh sách chờ"
+        "label": "Người chơi đã đăng ký"
       },
       "1": {
         "value": "40+",
@@ -724,7 +757,7 @@
       },
       "3": {
         "question": "Ứng dụng đã hoạt động chưa?",
-        "answer": "Chúng tôi đang trong giai đoạn truy cập sớm và mở rộng dần theo từng thành phố. Hãy đăng ký danh sách chờ và chúng tôi sẽ gửi email cho Quý khách ngay khi các sân trong khu vực của Quý khách sẵn sàng."
+        "answer": "Chúng tôi đang trong giai đoạn truy cập sớm và mở rộng dần theo từng thành phố. Hãy đăng ký tài khoản và chúng tôi sẽ gửi email cho Quý khách ngay khi các sân trong khu vực của Quý khách sẵn sàng."
       },
       "4": {
         "question": "Tôi điều hành một câu lạc bộ — làm sao để được đưa lên hệ thống?",
@@ -733,7 +766,7 @@
     },
     "cta": {
       "title": "Hãy là người đầu tiên ra sân.",
-      "subtitle": "Đăng ký danh sách chờ và chúng tôi sẽ gửi email lời mời ngay khi SportMatch AI ra mắt tại thành phố của Quý khách."
+      "subtitle": "Tạo tài khoản và bắt đầu đặt sân, ghép cặp với người chơi gần Quý khách."
     },
     "footer": {
       "tagline": "Trợ lý đặt sân AI cho các môn thể thao vợt. Tìm sân, tìm đối thủ và cứ thế chơi thôi.",
@@ -741,8 +774,7 @@
         "title": "Sản phẩm",
         "features": "Tính năng",
         "howItWorks": "Cách hoạt động",
-        "faq": "Câu hỏi thường gặp",
-        "waitlist": "Đăng ký danh sách chờ"
+        "faq": "Câu hỏi thường gặp"
       },
       "venues": {
         "title": "Dành cho địa điểm",
@@ -772,29 +804,9 @@
     },
     "cta": "Đăng ký ngay",
     "demo": "Xem thử demo",
-    "waitlistCta": "Đăng ký danh sách chờ",
+    "login": "Đăng nhập",
     "menuOpen": "Mở menu",
     "menuClose": "Đóng menu"
-  },
-  "Waitlist": {
-    "emailLabel": "Địa chỉ email",
-    "submitting": "Đang gửi…",
-    "errors": {
-      "required": "Vui lòng nhập địa chỉ email của Quý khách.",
-      "invalid": "Địa chỉ email có vẻ chưa hợp lệ."
-    },
-    "player": {
-      "placeholder": "email@cuaquykhach.com",
-      "cta": "Đăng ký danh sách chờ",
-      "success": "Quý khách đã có trong danh sách! Chúng tôi sẽ sớm gửi email lời mời truy cập sớm.",
-      "note": "Miễn phí tham gia · Không spam · Lời mời truy cập sớm được gửi hằng tuần."
-    },
-    "venue": {
-      "placeholder": "email công việc của Quý khách",
-      "cta": "Yêu cầu demo đối tác",
-      "success": "Cảm ơn Quý khách! Đội ngũ phụ trách địa điểm sẽ liên hệ trong vòng 2 ngày làm việc.",
-      "note": "Dành cho câu lạc bộ & cơ sở · Xem cách AI lấp đầy sân giờ thấp điểm."
-    }
   },
   "MatchMaker": {
     "metaTitle": "Ghép trận",

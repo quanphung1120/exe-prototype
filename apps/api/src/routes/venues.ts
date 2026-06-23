@@ -15,9 +15,7 @@ import {
 } from "../store/venue-store.js"
 
 const sportEnum = z.enum(["tennis", "pickleball", "badminton"])
-const time = z
-  .string()
-  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM")
+const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM")
 
 const venueInput = z.object({
   name: z.string().min(2).max(60),
@@ -35,9 +33,7 @@ const courtInput = z.object({
   sport: sportEnum,
   surface: z.string().min(1).max(40),
   pricePerHour: z.number().int().min(0).max(100_000_000),
-  state: z
-    .enum(["available", "in-play", "upcoming", "maintenance"])
-    .optional(),
+  state: z.enum(["available", "in-play", "upcoming", "maintenance"]).optional(),
 })
 const courtPatch = courtInput.partial()
 

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { CalendarRange, Users } from "lucide-react"
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useData } from "@/components/dashboard/data-provider"
+import { useVenueData } from "@/components/dashboard/venue-data-provider"
 import { VenueScheduleView } from "@/components/dashboard/views/venue/schedule"
 import { VenueReservationsView } from "@/components/dashboard/views/venue/reservations"
 
@@ -24,7 +24,7 @@ export function VenueScheduleWorkspace({
   initialTab?: ScheduleTab
 }) {
   const t = useTranslations("VenueSchedule")
-  const { reservations: RESERVATIONS } = useData()
+  const { reservations: RESERVATIONS } = useVenueData()
   const [tab, setTab] = React.useState<ScheduleTab>(initialTab)
 
   const pendingCount = RESERVATIONS.filter((r) => r.status === "pending").length

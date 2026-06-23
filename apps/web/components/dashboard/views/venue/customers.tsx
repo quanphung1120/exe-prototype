@@ -24,7 +24,7 @@ import {
   type CustomerTier,
   type VenueCustomer,
 } from "@/components/dashboard/venue/data"
-import { useData } from "@/components/dashboard/data-provider"
+import { useVenueData } from "@/components/dashboard/venue-data-provider"
 import {
   MicroLabel,
   Ring,
@@ -46,7 +46,7 @@ export function VenueCustomersView({
 } = {}) {
   const t = useTranslations("VenueCustomers")
   const locale = useLocale()
-  const { venueCustomers: VENUE_CUSTOMERS } = useData()
+  const { venueCustomers: VENUE_CUSTOMERS } = useVenueData()
   const [segment, setSegment] = React.useState<Segment>("all")
 
   const total = VENUE_CUSTOMERS.length

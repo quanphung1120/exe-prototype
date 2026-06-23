@@ -22,8 +22,12 @@ import { Faq, type FaqItem } from "@/components/faq"
 import { Logo } from "@/components/logo"
 import { Pricing } from "@/components/pricing"
 import { Reveal } from "@/components/reveal"
+import { CountUp } from "@/components/scroll/count-up"
+import { HeroIntro } from "@/components/scroll/hero-intro"
+import { OccupancyBars } from "@/components/scroll/occupancy-bars"
+import { Parallax } from "@/components/scroll/parallax"
 import { SiteHeader } from "@/components/site-header"
-import { WaitlistForm } from "@/components/waitlist-form"
+import { Link } from "@/i18n/navigation"
 
 const SPORT_KEYS = ["tennis", "pickleball", "badminton"]
 
@@ -140,14 +144,16 @@ export default async function Page({
             aria-hidden="true"
           >
             <div className="absolute inset-y-0 right-0 w-full overflow-hidden sm:w-[50%]">
-              <Image
-                src="/hero-modern.png"
-                alt=""
-                fill
-                priority
-                sizes="(min-width: 640px) 50vw, 100vw"
-                className="object-cover object-center sm:translate-y-[16%] sm:scale-[1.15] sm:object-[5%_center]"
-              />
+              <Parallax speed={0.22} className="absolute inset-0">
+                <Image
+                  src="/hero-modern.png"
+                  alt=""
+                  fill
+                  priority
+                  sizes="(min-width: 640px) 50vw, 100vw"
+                  className="scale-110 object-cover object-center sm:translate-y-[16%] sm:scale-[1.22] sm:object-[5%_center]"
+                />
+              </Parallax>
               {/* Blend the image's left edge into the page. */}
               <div className="absolute inset-0 bg-gradient-to-r from-background via-background/55 to-transparent sm:via-background/15" />
             </div>
@@ -162,8 +168,9 @@ export default async function Page({
           <div
             className={`${containerCx} pt-40 pb-20 sm:pt-48 sm:pb-28 lg:pt-56 lg:pb-32`}
           >
-            <div className="max-w-2xl">
+            <HeroIntro className="max-w-2xl">
               <h1
+                data-hero-item
                 className={`${displayCx} text-5xl leading-[0.95] uppercase sm:text-6xl lg:text-7xl`}
               >
                 {t("hero.titleLine1")}
@@ -172,22 +179,29 @@ export default async function Page({
 
               {/* Lime "tennis-ball" accent rule. */}
               <span
+                data-hero-item
                 className="mt-6 block h-1.5 w-24 rounded-full bg-lime"
                 aria-hidden="true"
               />
 
-              <p className="mt-6 max-w-xl text-lg text-muted-foreground sm:text-xl">
+              <p
+                data-hero-item
+                className="mt-6 max-w-xl text-lg text-muted-foreground sm:text-xl"
+              >
                 {t("hero.subtitle")}
               </p>
 
-              <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-5">
-                <a
-                  href="#waitlist"
+              <div
+                data-hero-item
+                className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-5"
+              >
+                <Link
+                  href="/sign-up"
                   className="inline-flex h-12 cursor-pointer items-center gap-2 rounded-4xl bg-lime px-7 text-base font-medium text-lime-foreground transition-colors hover:bg-lime/90 focus-visible:ring-3 focus-visible:ring-lime/40 focus-visible:outline-none"
                 >
                   {t("hero.cta")}
                   <ArrowRight className="size-4" />
-                </a>
+                </Link>
 
                 <div className="flex items-center gap-3">
                   <div className="flex -space-x-2.5" aria-hidden="true">
@@ -204,7 +218,10 @@ export default async function Page({
                 </div>
               </div>
 
-              <div className="mt-8 flex flex-wrap items-center gap-2">
+              <div
+                data-hero-item
+                className="mt-8 flex flex-wrap items-center gap-2"
+              >
                 <span className="text-sm text-muted-foreground">
                   {t("hero.sportsLabel")}
                 </span>
@@ -217,7 +234,7 @@ export default async function Page({
                   </span>
                 ))}
               </div>
-            </div>
+            </HeroIntro>
           </div>
         </section>
 
@@ -371,7 +388,7 @@ export default async function Page({
                   >
                     <dt className="sr-only">{stat.label}</dt>
                     <dd className="font-heading text-4xl font-semibold tracking-tight text-primary tabular-nums sm:text-5xl">
-                      {stat.value}
+                      <CountUp value={stat.value} />
                     </dd>
                     <p className="text-sm font-medium text-muted-foreground">
                       {stat.label}
@@ -383,23 +400,19 @@ export default async function Page({
           </div>
         </section>
 
-        {/* ── For venues (B2B dark band) ───────────────────── */}
+        {/* ── For venues (pale-green band in light, dark band in dark) ─ */}
         <section id="venues" className="scroll-mt-20 py-12 sm:py-16">
           <div className={containerCx}>
-            <div className="relative overflow-hidden rounded-[2rem] bg-zinc-950 px-6 py-14 text-zinc-50 sm:px-12 sm:py-20">
+            <div className="relative overflow-hidden rounded-[2rem] border border-emerald-200/70 bg-emerald-50 px-6 py-14 text-emerald-950 sm:px-12 sm:py-20 dark:border-transparent dark:bg-zinc-950 dark:text-zinc-50">
               <div
-                className="bg-court-grid pointer-events-none absolute inset-0 opacity-40"
-                aria-hidden="true"
-              />
-              <div
-                className="pointer-events-none absolute -right-20 -bottom-24 size-96 rounded-full bg-emerald-500/20 blur-[120px]"
+                className="pointer-events-none absolute -right-20 -bottom-24 size-96 rounded-full bg-emerald-500/20 blur-[120px] dark:bg-emerald-500/20"
                 aria-hidden="true"
               />
               <div className="relative grid gap-12 lg:grid-cols-2 lg:items-center">
                 <div>
-                  <p className="mb-3 inline-flex items-center gap-2 text-sm font-semibold tracking-wide text-lime-300 uppercase">
+                  <p className="mb-3 inline-flex items-center gap-2 text-sm font-semibold tracking-wide text-emerald-700 uppercase dark:text-lime-300">
                     <span
-                      className="h-px w-6 bg-lime-300/60"
+                      className="h-px w-6 bg-emerald-600/50 dark:bg-lime-300/60"
                       aria-hidden="true"
                     />
                     {t("venuesSection.eyebrow")}
@@ -409,21 +422,21 @@ export default async function Page({
                     <br />
                     {t("venuesSection.titleLine2")}
                   </h2>
-                  <p className="mt-4 max-w-lg text-lg text-zinc-300">
+                  <p className="mt-4 max-w-lg text-lg text-emerald-900/75 dark:text-zinc-300">
                     {t("venuesSection.subtitle")}
                   </p>
 
                   <dl className="mt-8 grid gap-x-6 gap-y-6 sm:grid-cols-2">
                     {venueBenefits.map((benefit) => (
                       <div key={benefit.title} className="flex gap-3">
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
                           <benefit.icon className="size-5" />
                         </span>
                         <div>
                           <dt className="font-heading text-lg font-semibold">
                             {benefit.title}
                           </dt>
-                          <dd className="mt-0.5 text-sm text-zinc-400">
+                          <dd className="mt-0.5 text-sm text-emerald-900/65 dark:text-zinc-400">
                             {benefit.body}
                           </dd>
                         </div>
@@ -434,56 +447,43 @@ export default async function Page({
 
                 {/* Mock occupancy dashboard + venue waitlist */}
                 <div className="lg:pl-6">
-                  <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+                  <div className="rounded-3xl border border-emerald-200/70 bg-white/70 p-6 backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
                     <div className="flex items-center justify-between">
                       <p className="font-heading text-lg font-semibold">
                         {t("occupancy.title")}
                       </p>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
                         <TrendingUp className="size-3.5" />
                         {t("occupancy.offPeakBadge")}
                       </span>
                     </div>
-                    <div className="mt-6 flex items-end justify-between gap-2">
-                      {[40, 55, 38, 72, 61, 88, 76].map((h, i) => (
-                        <div
-                          key={i}
-                          className="flex flex-1 flex-col items-center gap-2"
-                        >
-                          <div className="flex h-28 w-full items-end">
-                            <div
-                              className="w-full rounded-t-md bg-gradient-to-t from-emerald-500 to-lime-300"
-                              style={{ height: `${h}%` }}
-                            />
-                          </div>
-                          <span className="font-mono text-[10px] text-zinc-500">
-                            {t(`occupancy.weekdays.${i}`)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-6 grid grid-cols-3 gap-3 border-t border-white/10 pt-5 text-center">
+                    <OccupancyBars
+                      labels={[0, 1, 2, 3, 4, 5, 6].map((i) =>
+                        t(`occupancy.weekdays.${i}`)
+                      )}
+                    />
+                    <div className="mt-6 grid grid-cols-3 gap-3 border-t border-emerald-200/70 pt-5 text-center dark:border-white/10">
                       <div>
                         <p className="font-heading text-2xl font-semibold tabular-nums">
-                          86%
+                          <CountUp value="86%" />
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-emerald-900/55 dark:text-zinc-500">
                           {t("occupancy.utilization")}
                         </p>
                       </div>
                       <div>
                         <p className="font-heading text-2xl font-semibold tabular-nums">
-                          128
+                          <CountUp value="128" />
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-emerald-900/55 dark:text-zinc-500">
                           {t("occupancy.bookingsPerWeek")}
                         </p>
                       </div>
                       <div>
                         <p className="font-heading text-2xl font-semibold tabular-nums">
-                          4.9
+                          <CountUp value="4.9" />
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-emerald-900/55 dark:text-zinc-500">
                           {t("occupancy.playerRating")}
                         </p>
                       </div>
@@ -491,11 +491,13 @@ export default async function Page({
                   </div>
 
                   <div className="mt-5">
-                    <WaitlistForm
-                      audience="venue"
-                      tone="onDark"
-                      inputId="venue-email"
-                    />
+                    <Link
+                      href="/sign-up"
+                      className="inline-flex h-12 cursor-pointer items-center gap-2 rounded-2xl bg-lime px-6 text-base font-medium text-lime-foreground transition-colors hover:bg-lime/90 focus-visible:ring-3 focus-visible:ring-lime/40 focus-visible:outline-none"
+                    >
+                      {t("hero.cta")}
+                      <ArrowRight className="size-4" />
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -586,7 +588,7 @@ export default async function Page({
         </section>
 
         {/* ── Final CTA ────────────────────────────────────── */}
-        <section id="waitlist" className="scroll-mt-24 py-20 sm:py-28">
+        <section id="get-started" className="scroll-mt-24 py-20 sm:py-28">
           <div className={containerCx}>
             <div className="relative overflow-hidden rounded-[2rem] border border-primary/20 bg-gradient-to-br from-primary/10 via-card to-lime/10 px-6 py-16 text-center sm:px-12 sm:py-20">
               <div
@@ -600,8 +602,14 @@ export default async function Page({
                 <p className="mt-4 text-lg text-muted-foreground">
                   {t("cta.subtitle")}
                 </p>
-                <div className="mx-auto mt-8 max-w-xl text-left">
-                  <WaitlistForm audience="player" inputId="cta-email" />
+                <div className="mt-8 flex justify-center">
+                  <Link
+                    href="/sign-up"
+                    className="inline-flex h-12 cursor-pointer items-center gap-2 rounded-4xl bg-lime px-7 text-base font-medium text-lime-foreground transition-colors hover:bg-lime/90 focus-visible:ring-3 focus-visible:ring-lime/40 focus-visible:outline-none"
+                  >
+                    {t("hero.cta")}
+                    <ArrowRight className="size-4" />
+                  </Link>
                 </div>
               </div>
             </div>
@@ -620,19 +628,19 @@ export default async function Page({
               </p>
               <div className="mt-5 flex gap-4 text-sm font-medium text-muted-foreground">
                 <a
-                  href="#waitlist"
+                  href="#top"
                   className="transition-colors hover:text-foreground"
                 >
                   X / Twitter
                 </a>
                 <a
-                  href="#waitlist"
+                  href="#top"
                   className="transition-colors hover:text-foreground"
                 >
                   Instagram
                 </a>
                 <a
-                  href="#waitlist"
+                  href="#top"
                   className="transition-colors hover:text-foreground"
                 >
                   LinkedIn
@@ -649,7 +657,6 @@ export default async function Page({
                   href: "#how-it-works",
                 },
                 { label: t("footer.product.faq"), href: "#faq" },
-                { label: t("footer.product.waitlist"), href: "#waitlist" },
               ]}
             />
             <FooterColumn

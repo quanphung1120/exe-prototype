@@ -2,9 +2,11 @@
 
 import * as React from "react"
 import { Menu, X } from "lucide-react"
-import { useLocale, useTranslations } from "next-intl"
+import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
+import { useSession } from "@/lib/auth-client"
+import { Link } from "@/i18n/navigation"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
 import { LocaleSwitcher } from "@/components/locale-switcher"
@@ -21,9 +23,17 @@ const NAV_LINKS = [
 
 export function SiteHeader() {
   const t = useTranslations("Header")
-  const locale = useLocale()
   const [open, setOpen] = React.useState(false)
   const [scrolled, setScrolled] = React.useState(false)
+
+  // Public landing page, so default to logged-out: while the session resolves
+  // (and for the common anonymous visitor) show "Login"; once an authed session
+  // is confirmed, swap to the "Try the demo" shortcut into the dashboard.
+  const { data: session, isPending } = useSession()
+  const isAuthed = !isPending && Boolean(session)
+  const authCta = isAuthed
+    ? { href: "/dashboard", label: t("demo") }
+    : { href: "/sign-in", label: t("login") }
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -77,18 +87,11 @@ export function SiteHeader() {
           <LocaleSwitcher />
           <ThemeToggle className="cursor-pointer" />
           <Button
-            variant="outline"
-            size="lg"
-            className="hidden cursor-pointer sm:inline-flex"
-            nativeButton={false}
-            render={<a href={`/${locale}/dashboard`}>{t("demo")}</a>}
-          />
-          <Button
             variant="lime"
             size="lg"
             className="hidden cursor-pointer sm:inline-flex"
             nativeButton={false}
-            render={<a href="#waitlist">{t("cta")}</a>}
+            render={<Link href={authCta.href}>{authCta.label}</Link>}
           />
           <Button
             variant="ghost"
@@ -125,20 +128,12 @@ export function SiteHeader() {
             </a>
           ))}
           <Button
-            variant="outline"
-            size="lg"
-            className="mt-2 cursor-pointer"
-            nativeButton={false}
-            onClick={() => setOpen(false)}
-            render={<a href={`/${locale}/dashboard`}>{t("demo")}</a>}
-          />
-          <Button
             variant="lime"
             size="lg"
             className="mt-2 cursor-pointer"
             nativeButton={false}
             onClick={() => setOpen(false)}
-            render={<a href="#waitlist">{t("waitlistCta")}</a>}
+            render={<Link href={authCta.href}>{authCta.label}</Link>}
           />
         </nav>
       </div>

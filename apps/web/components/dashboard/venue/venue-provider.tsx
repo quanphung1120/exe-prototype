@@ -9,7 +9,7 @@ import {
   type VenueInsight,
   type VenueStats,
 } from "@/components/dashboard/venue/data"
-import { useData } from "@/components/dashboard/data-provider"
+import { useVenueData } from "@/components/dashboard/venue-data-provider"
 
 interface VenueContextValue {
   /** Live KPIs — nudged when AI pricing recommendations are applied. */
@@ -38,7 +38,8 @@ export function useVenue() {
 export function VenueProvider({ children }: { children: React.ReactNode }) {
   const locale = useLocale()
   const t = useTranslations("VenuePricing")
-  const { venueInsights: VENUE_INSIGHTS, venueStats: VENUE_STATS } = useData()
+  const { venueInsights: VENUE_INSIGHTS, venueStats: VENUE_STATS } =
+    useVenueData()
 
   const [stats, setStats] = React.useState<VenueStats>(VENUE_STATS)
   const [appliedIds, setAppliedIds] = React.useState<Set<string>>(
@@ -104,15 +105,16 @@ export function VenueProvider({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Remounts {@link VenueProvider} whenever the active venue changes, so the
- * applied-pricing state (nudged KPIs, dismissed suggestions) resets to the new
- * venue rather than carrying the previous one's decisions across a switch.
+ * Wraps {@link VenueProvider}. Keyed by the active venue id so the applied-pricing
+ * state (nudged KPIs, dismissed suggestions) resets per venue. With the per-venue
+ * route subtree this layout already remounts on a venue switch, but the key keeps
+ * the reset explicit and robust.
  */
 export function VenueWorkspaceProvider({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { activeVenueId } = useData()
-  return <VenueProvider key={activeVenueId}>{children}</VenueProvider>
+  const { venueId } = useVenueData()
+  return <VenueProvider key={venueId}>{children}</VenueProvider>
 }

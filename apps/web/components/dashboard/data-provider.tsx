@@ -6,20 +6,14 @@ import {
   buildRoster,
   conflictFor as conflictForFn,
   courtByVenue as courtByVenueFn,
-  courtById as courtByIdFn,
   courtDayBusy as courtDayBusyFn,
-  courtDayEvents as courtDayEventsFn,
   courtDayGaps as courtDayGapsFn,
-  courtDaySlots as courtDaySlotsFn,
   courtNumberFor as courtNumberForFn,
   courtSlots as courtSlotsFn,
   playerByInitials as playerByInitialsFn,
   sessionToBooking as sessionToBookingFn,
-  venueEventsFor as venueEventsForFn,
-  venueScheduleFor as venueScheduleForFn,
   type ActivityItem,
   type Booking,
-  type ChannelMixPoint,
   type Chat,
   type Conflict,
   type ConflictQuery,
@@ -28,31 +22,26 @@ import {
   type MatchRoom,
   type Message,
   type NotificationItem,
-  type PeakHourPoint,
   type Player,
   type PlaySession,
-  type Reservation,
-  type RevenuePoint,
   type RosterEntry,
-  type ScheduleEvent,
-  type ScheduleSlot,
   type Seed,
-  type SportMixPoint,
   type Stats,
   type Streak,
   type User,
   type Venue,
-  type VenueCourt,
-  type VenueCustomer,
-  type VenueInsight,
-  type VenueStats,
 } from "@repo/shared"
 
 /**
- * The hardcoded records (fetched from the Hono API) plus helpers pre-bound to
+ * The player-scoped records (fetched from the Hono API) plus helpers pre-bound to
  * them — so call sites keep the original `playerByInitials(initials)` /
  * `courtSlots(courtId, day)` signatures even though the records now live in the
  * API rather than a web module.
+ *
+ * Venue-operator records are **not** here — they are per-venue and provided by
+ * {@link VenueDataProvider} under each `/dashboard/venue/[venueId]` subtree. The
+ * one exception is {@link DataContextValue.venues}, the operator's *list* of
+ * venue profiles (account-level, used by the sidebar switcher/manager).
  */
 interface DataContextValue {
   // ── Player records ──
@@ -69,21 +58,8 @@ interface DataContextValue {
   stats: Stats
   activity: ActivityItem[]
   notifications: NotificationItem[]
-  // ── Venue records ──
   /** Every venue the operator manages (profiles), for the switcher/manager. */
   venues: Venue[]
-  /** Which venue the dashboard is currently scoped to. */
-  activeVenueId: string
-  venue: Venue
-  venueStats: VenueStats
-  venueCourts: VenueCourt[]
-  reservations: Reservation[]
-  venueCustomers: VenueCustomer[]
-  revenueSeries: RevenuePoint[]
-  sportMix: SportMixPoint[]
-  channelMix: ChannelMixPoint[]
-  peakHours: PeakHourPoint[]
-  venueInsights: VenueInsight[]
   // ── Record-bound helpers ──
   playerByInitials: (initials: string) => RosterEntry
   courtByVenue: (name: string) => Court | undefined
@@ -106,16 +82,11 @@ interface DataContextValue {
     ignoreId?: string
   ) => CourtBand[]
   sessionToBooking: (s: PlaySession) => Booking
-  courtById: (id: string) => VenueCourt | undefined
-  courtDayEvents: (courtId: string, dayKey: string) => ScheduleEvent[]
-  courtDaySlots: (courtId: string, dayKey: string) => ScheduleSlot[]
-  venueEventsFor: (dayKey: string) => ScheduleEvent[][]
-  venueScheduleFor: (dayKey: string) => ScheduleSlot[][]
 }
 
 const DataContext = React.createContext<DataContextValue | null>(null)
 
-/** Access the hardcoded dataset (served by the API) and its bound helpers. */
+/** Access the player dataset (served by the API) and its bound helpers. */
 export function useData() {
   const ctx = React.useContext(DataContext)
   if (!ctx) throw new Error("useData must be used within a DataProvider.")
@@ -123,9 +94,10 @@ export function useData() {
 }
 
 /**
- * Holds the dataset fetched from the Hono API (passed down from the dashboard
- * server layout) and exposes it — plus helpers bound to it — through `useData`.
- * The seed is static, so this never refetches and there is no loading state.
+ * Holds the player dataset fetched from the Hono API (passed down from the
+ * dashboard server layout) and exposes it — plus helpers bound to it — through
+ * `useData`. The seed is static, so this never refetches and there is no loading
+ * state.
  */
 export function DataProvider({
   seed,
@@ -135,57 +107,36 @@ export function DataProvider({
   children: React.ReactNode
 }) {
   const value = React.useMemo<DataContextValue>(() => {
-    const { venue, ...player } = seed
-    const courts = player.courts
-    const roster = buildRoster(player.user, player.players)
+    const courts = seed.courts
+    const roster = buildRoster(seed.user, seed.players)
     return {
       // Player records
-      user: player.user,
-      players: player.players,
+      user: seed.user,
+      players: seed.players,
       courts,
-      rooms: player.rooms,
-      bookings: player.bookings,
-      sessions: player.sessions,
-      chats: player.chats,
-      thread: player.thread,
-      streak: player.streak,
-      stats: player.stats,
-      activity: player.activity,
-      notifications: player.notifications,
-      // Venue records
-      venues: player.venues,
-      activeVenueId: player.activeVenueId,
-      venue: venue.info,
-      venueStats: venue.stats,
-      venueCourts: venue.courts,
-      reservations: venue.reservations,
-      venueCustomers: venue.customers,
-      revenueSeries: venue.revenueSeries,
-      sportMix: venue.sportMix,
-      channelMix: venue.channelMix,
-      peakHours: venue.peakHours,
-      venueInsights: venue.insights,
+      rooms: seed.rooms,
+      bookings: seed.bookings,
+      sessions: seed.sessions,
+      chats: seed.chats,
+      thread: seed.thread,
+      streak: seed.streak,
+      stats: seed.stats,
+      activity: seed.activity,
+      notifications: seed.notifications,
+      // Operator's venue profiles (account-level list)
+      venues: seed.venues,
       // Bound helpers (original signatures preserved)
       playerByInitials: (initials) => playerByInitialsFn(roster, initials),
       courtByVenue: (name) => courtByVenueFn(courts, name),
       courtNumberFor: (courtId) => courtNumberForFn(courts, courtId),
       courtSlots: (courtId, dayKey) => courtSlotsFn(courts, courtId, dayKey),
       conflictFor: (sessions, q) =>
-        conflictForFn(courts, player.user, sessions, q),
+        conflictForFn(courts, seed.user, sessions, q),
       courtDayBusy: (sessions, courtId, dayKey, ignoreId) =>
         courtDayBusyFn(courts, sessions, courtId, dayKey, ignoreId),
       courtDayGaps: (sessions, courtId, dayKey, ignoreId) =>
         courtDayGapsFn(courts, sessions, courtId, dayKey, ignoreId),
       sessionToBooking: (s) => sessionToBookingFn(courts, s),
-      courtById: (id) => courtByIdFn(venue.courts, id),
-      courtDayEvents: (courtId, dayKey) =>
-        courtDayEventsFn(venue.info, venue.courts, courtId, dayKey),
-      courtDaySlots: (courtId, dayKey) =>
-        courtDaySlotsFn(venue.info, venue.courts, courtId, dayKey),
-      venueEventsFor: (dayKey) =>
-        venueEventsForFn(venue.info, venue.courts, dayKey),
-      venueScheduleFor: (dayKey) =>
-        venueScheduleForFn(venue.info, venue.courts, dayKey),
     }
   }, [seed])
 

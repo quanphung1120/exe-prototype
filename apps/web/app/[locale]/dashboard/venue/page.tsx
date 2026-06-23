@@ -1,27 +1,21 @@
-import type { Metadata } from "next"
-import { getTranslations, setRequestLocale } from "next-intl/server"
+import { fetchVenues } from "@/lib/api"
+import { venueBase } from "@/components/dashboard/venue/nav"
+import { redirect } from "@/i18n/navigation"
 
-import { VenueCommandView } from "@/components/dashboard/views/venue/command"
+// The venue workspace is per-venue (`/dashboard/venue/[venueId]`). A bare
+// `/dashboard/venue` has no venue context, so redirect into the first one —
+// this keeps the workspace switcher and any legacy links working.
+export const dynamic = "force-dynamic"
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ locale: string }>
-}): Promise<Metadata> {
-  const { locale } = await params
-  const t = await getTranslations({ locale, namespace: "VenueCommand" })
-  return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
-  }
-}
-
-export default async function VenueCommandPage({
+export default async function VenueIndexPage({
   params,
 }: {
   params: Promise<{ locale: string }>
 }) {
   const { locale } = await params
-  setRequestLocale(locale)
-  return <VenueCommandView />
+  const venues = await fetchVenues()
+  const first = venues[0]
+  if (first) redirect({ href: venueBase(first.id), locale })
+  // No venues at all — fall back to the player dashboard.
+  redirect({ href: "/dashboard", locale })
 }

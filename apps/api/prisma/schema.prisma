@@ -1,0 +1,121 @@
+// Prisma schema for the SportMatch AI API.
+//
+// Prisma 7 setup: the new `prisma-client` generator (TypeScript output, no Rust
+// query engine) paired with the Neon serverless driver adapter. The client is
+// generated into `src/generated/prisma` so `tsc` compiles it into `dist`.
+// See `apps/api/src/db.ts` for how the adapter is wired up.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  runtime             = "nodejs"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── Enums (mirror the shared SportKey / Level unions) ────────────────────────
+
+enum Sport {
+  tennis
+  pickleball
+  badminton
+}
+
+enum Level {
+  beginner
+  intermediate
+  advanced
+}
+
+// ── Models ───────────────────────────────────────────────────────────────────
+
+/// A player on the platform. Starter model mirroring the shared `Player` type
+/// (packages/shared/src/types.ts). Extend this — and add the other entities
+/// (Court, Booking, PlaySession, Venue, …) — as the schema grows.
+model Player {
+  id         String   @id @default(cuid())
+  name       String
+  initials   String
+  level      Level
+  sport      Sport
+  /// Distance from the current user, km.
+  distanceKm Float
+  /// AI compatibility score, 0–100.
+  matchPct   Int
+  /// Reliability/reputation score, 0–100.
+  trust      Int
+  online     Boolean  @default(false)
+  blurb      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("players")
+}
+
+// ── Better Auth ──────────────────────────────────────────────────────────────
+// The core auth schema (user / session / account / verification). These mirror
+// Better Auth's required models exactly — keep field names in sync with the
+// library (it addresses them by Prisma model name, e.g. `prisma.user`). Regen
+// after changing auth plugins: `npx @better-auth/cli@latest generate`.
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}

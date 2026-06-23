@@ -1,15 +1,24 @@
 import { zValidator } from "@hono/zod-validator"
 import { Hono } from "hono"
+import { HTTPException } from "hono/http-exception"
 import * as z from "zod"
 
-import { activeBundle } from "../store/venue-store.js"
+import { activeBundle, venueBundle } from "../store/venue-store.js"
 
 const venueQuery = z.object({ venue: z.string().min(1).optional() })
+const bundleQuery = z.object({ venue: z.string().min(1) })
 
 // Venue-workspace (operator) read resources, backed by the in-memory store so
 // they reflect mutations. `?venue=` selects which venue's bundle to read
 // (defaults to the first). Chained for RPC type inference.
 export const venue = new Hono()
+  // The whole operator bundle in one request — what the per-venue workspace
+  // loads. Requires a known `venue` id and 404s otherwise (no silent fallback).
+  .get("/bundle", zValidator("query", bundleQuery), (c) => {
+    const b = venueBundle(c.req.valid("query").venue)
+    if (!b) throw new HTTPException(404, { message: "Venue not found" })
+    return c.json(b)
+  })
   .get("/", zValidator("query", venueQuery), (c) => {
     const b = activeBundle(c.req.valid("query").venue)
     return c.json({ venue: b.info, stats: b.stats })

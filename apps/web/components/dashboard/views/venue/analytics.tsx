@@ -30,7 +30,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { formatVnd, formatVndFull } from "@/components/dashboard/data"
-import { useData } from "@/components/dashboard/data-provider"
+import { useVenueData } from "@/components/dashboard/venue-data-provider"
 import { useVenue } from "@/components/dashboard/venue/venue-provider"
 import {
   HEATMAP_DAYS,
@@ -77,7 +77,7 @@ export function VenueAnalyticsView({
     sportMix: SPORT_MIX,
     venue: VENUE,
     venueStats: VENUE_STATS,
-  } = useData()
+  } = useVenueData()
 
   // ── Revenue rollup (deterministic — no Date/random) ──
   const weeklyTotal = REVENUE_SERIES.reduce((sum, d) => sum + d.value, 0)

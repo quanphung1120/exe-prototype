@@ -26,7 +26,7 @@ import {
   formatVnd,
   type ScheduleSlot,
 } from "@/components/dashboard/venue/data"
-import { useData } from "@/components/dashboard/data-provider"
+import { useVenueData } from "@/components/dashboard/venue-data-provider"
 
 // Delay between each fake "chain of thought" step revealing.
 const STEP_MS = 600
@@ -72,13 +72,13 @@ const SUGGESTION_KEYS = ["free", "revenue", "peak", "promo"] as const
 const todayPeakHour = (hour: string) =>
   SCHEDULE_HOURS.indexOf(hour) >= SCHEDULE_HOURS.indexOf("17:00")
 
-/** The record-bound helpers the planner needs, supplied from useData(). */
+/** The record-bound helpers the planner needs, supplied from useVenueData(). */
 interface PlannerData {
-  PEAK_HOURS: ReturnType<typeof useData>["peakHours"]
-  REVENUE_SERIES: ReturnType<typeof useData>["revenueSeries"]
-  VENUE: ReturnType<typeof useData>["venue"]
-  courtById: ReturnType<typeof useData>["courtById"]
-  venueScheduleFor: ReturnType<typeof useData>["venueScheduleFor"]
+  PEAK_HOURS: ReturnType<typeof useVenueData>["peakHours"]
+  REVENUE_SERIES: ReturnType<typeof useVenueData>["revenueSeries"]
+  VENUE: ReturnType<typeof useVenueData>["venue"]
+  courtById: ReturnType<typeof useVenueData>["courtById"]
+  venueScheduleFor: ReturnType<typeof useVenueData>["venueScheduleFor"]
 }
 
 /**
@@ -243,7 +243,7 @@ export function VenueCopilot() {
     venue: VENUE,
     courtById,
     venueScheduleFor,
-  } = useData()
+  } = useVenueData()
 
   const GREETING: Msg = {
     id: "greet",

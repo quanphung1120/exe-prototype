@@ -4,42 +4,55 @@ import type { NavItem } from "@/components/dashboard/nav"
 
 export type VenueSectionKey = "command" | "schedule" | "analytics" | "manage"
 
-/** Base path for the venue workspace; everything below it is venue-scoped. */
-export const VENUE_BASE = "/dashboard/venue"
+/**
+ * Prefix shared by every venue route. Used only for *detecting* the venue
+ * workspace from a pathname; actual links carry a concrete `[venueId]` and are
+ * built with {@link venueBase}.
+ */
+export const VENUE_BASE_PREFIX = "/dashboard/venue"
+
+/** Build the base path for a specific venue's workspace. */
+export function venueBase(venueId: string): string {
+  return `${VENUE_BASE_PREFIX}/${venueId}`
+}
 
 /**
- * The venue operator's sidebar. Mirrors the player {@link NAV} shape so the
- * sidebar and topbar can render either workspace from the same components.
- * Labels/captions resolve from the `VenueNav` i18n namespace by `key`.
+ * The venue operator's sidebar for a specific venue. Mirrors the player
+ * {@link NAV} shape so the sidebar and topbar can render either workspace from
+ * the same components. Labels/captions resolve from the `VenueNav` i18n
+ * namespace by `key`.
  */
-export const VENUE_NAV: NavItem<VenueSectionKey>[] = [
-  {
-    key: "command",
-    href: VENUE_BASE,
-    label: "Command Center",
-    icon: LayoutDashboard,
-    caption: "Your venue, live",
-  },
-  {
-    key: "schedule",
-    href: `${VENUE_BASE}/schedule`,
-    label: "Schedule",
-    icon: CalendarRange,
-    caption: "Grid and incoming requests",
-  },
-  {
-    key: "analytics",
-    href: `${VENUE_BASE}/analytics`,
-    label: "Insights",
-    icon: BarChart3,
-    caption: "Revenue, demand and players",
-    badge: "AI",
-  },
-  {
-    key: "manage",
-    href: `${VENUE_BASE}/manage`,
-    label: "Venues",
-    icon: Store,
-    caption: "Add, edit and switch your venues",
-  },
-]
+export function venueNav(venueId: string): NavItem<VenueSectionKey>[] {
+  const base = venueBase(venueId)
+  return [
+    {
+      key: "command",
+      href: base,
+      label: "Command Center",
+      icon: LayoutDashboard,
+      caption: "Your venue, live",
+    },
+    {
+      key: "schedule",
+      href: `${base}/schedule`,
+      label: "Schedule",
+      icon: CalendarRange,
+      caption: "Grid and incoming requests",
+    },
+    {
+      key: "analytics",
+      href: `${base}/analytics`,
+      label: "Insights",
+      icon: BarChart3,
+      caption: "Revenue, demand and players",
+      badge: "AI",
+    },
+    {
+      key: "manage",
+      href: `${base}/manage`,
+      label: "Venues",
+      icon: Store,
+      caption: "Add, edit and switch your venues",
+    },
+  ]
+}

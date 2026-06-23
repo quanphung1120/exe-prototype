@@ -7,12 +7,7 @@ import {
   Sparkles,
 } from "lucide-react"
 
-export type SectionKey =
-  | "dashboard"
-  | "play"
-  | "chat"
-  | "bookings"
-  | "book"
+export type SectionKey = "dashboard" | "play" | "chat" | "bookings" | "book"
 
 export interface NavItem<K extends string = string> {
   key: K

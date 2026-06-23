@@ -273,11 +273,8 @@ export function Timeline({
             {FULL_DAY_HOURS.map((h, i) => (
               <span
                 key={h}
-                className={cn(
-                  "absolute right-1.5 font-mono text-[10px] text-muted-foreground tabular-nums",
-                  i > 0 && "-translate-y-1/2"
-                )}
-                style={{ top: i * HOUR_PX }}
+                className="absolute right-1.5 font-mono text-[10px] text-muted-foreground tabular-nums"
+                style={{ top: i * HOUR_PX + 12 }}
               >
                 {String(h).padStart(2, "0")}:00
               </span>

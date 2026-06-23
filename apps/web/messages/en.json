@@ -1,4 +1,62 @@
 {
+  "Auth": {
+    "brand": "SportMatch AI",
+    "tagline": "AI-powered court booking & player matchmaking",
+    "or": "or",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "••••••••",
+    "google": "Continue with Google",
+    "signIn": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to your account",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "forgot": "Forgot password?",
+      "noAccount": "Don't have an account?",
+      "signUpLink": "Sign up",
+      "success": "Signed in",
+      "error": "Invalid email or password"
+    },
+    "signUp": {
+      "title": "Create your account",
+      "subtitle": "Start matching and booking courts",
+      "nameLabel": "Name",
+      "namePlaceholder": "Your name",
+      "submit": "Create account",
+      "submitting": "Creating account…",
+      "haveAccount": "Already have an account?",
+      "signInLink": "Sign in",
+      "success": "Account created — check your email to verify.",
+      "error": "Could not create account"
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "We'll email you a link to reset it",
+      "submit": "Send reset link",
+      "submitting": "Sending…",
+      "sent": "If an account exists for that email, a reset link is on its way.",
+      "backToSignIn": "Back to sign in",
+      "error": "Something went wrong, please try again"
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "subtitle": "Enter a new password for your account",
+      "passwordLabel": "New password",
+      "confirmLabel": "Confirm password",
+      "submit": "Reset password",
+      "submitting": "Resetting…",
+      "success": "Password reset — you can sign in now.",
+      "mismatch": "Passwords don't match",
+      "invalidToken": "This reset link is invalid or has expired.",
+      "error": "Could not reset password"
+    },
+    "signOut": {
+      "action": "Sign out",
+      "success": "Signed out"
+    }
+  },
   "Common": {
     "appName": "SportMatch AI",
     "allSports": "All",
@@ -63,12 +121,13 @@
   "Sidebar": {
     "workspaces": "Workspaces",
     "playerWorkspace": "Player workspace",
-    "venueWorkspace": "Shuttle Republic · Venue",
     "searchPlaceholder": "Search players, courts…",
     "profile": "Profile",
     "settings": "Settings",
     "workspaceSettings": "Workspace settings",
     "logout": "Log out",
+    "login": "Login",
+    "tryDemo": "Try demo",
     "yourLevel": "Your level",
     "venueTag": "Venue",
     "operatorRole": "Operations",
@@ -159,9 +218,9 @@
     "titleTemplate": "%s · SportMatch AI",
     "description": "SportMatch AI is your AI-powered court-booking assistant for racquet sports. Book tennis, pickleball and badminton in seconds and get matched with players at your level. Early access is now open.",
     "ogTitle": "SportMatch AI — Find a court. Find your match.",
-    "ogDescription": "AI-powered court booking and player matchmaking for racquet sports. Join the early-access waitlist.",
+    "ogDescription": "AI-powered court booking and player matchmaking for racquet sports. Sign up for early access.",
     "twitterTitle": "SportMatch AI — Find a court. Find your match.",
-    "twitterDescription": "AI-powered court booking and player matchmaking for racquet sports. Join the early-access waitlist.",
+    "twitterDescription": "AI-powered court booking and player matchmaking for racquet sports. Sign up for early access.",
     "keywords": [
       "court booking",
       "player matchmaking",
@@ -370,6 +429,20 @@
     "freePct": "{pct}% free",
     "perHour": "/hour",
     "book": "Book",
+    "directions": "Directions",
+    "searchPlaceholder": "Search by address or name",
+    "clearSearch": "Clear search",
+    "sortBy": "Sort courts by",
+    "sort": {
+      "distance": "Distance",
+      "price": "Price",
+      "rating": "Rating"
+    },
+    "geo": {
+      "locating": "Locating…",
+      "on": "Near you",
+      "off": "Enable location"
+    },
     "courts": {
       "c1": {
         "surface": "Glass · panoramic"
@@ -401,7 +474,15 @@
     "prev": "Previous",
     "next": "Next",
     "more": "+{count} more",
-    "weekdaysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdaysShort": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "monthsShort": [
       "Jan",
       "Feb",
@@ -498,86 +579,38 @@
     },
     "pricingSection": {
       "eyebrow": "Pricing",
-      "title": "Simple plans for players and venues",
-      "subtitle": "Start free, upgrade when you're ready, and cancel anytime.",
-      "tabs": {
-        "customers": "For players",
-        "venues": "For venues"
-      },
-      "mostPopular": "Most popular"
+      "title": "One small fee. Nothing for venues.",
+      "subtitle": "Players pay a 10K holding fee to lock in a court. Venues list and take bookings completely free.",
+      "badge": "100% free"
     },
     "pricing": {
-      "customers": {
-        "free": {
-          "name": "Free",
-          "price": "0₫",
-          "period": "forever",
-          "tagline": "Everything you need to find a court and play.",
-          "features": [
-            "Browse open courts nearby",
-            "Join matches manually",
-            "One racquet sport",
-            "Group chat for your matches"
-          ],
-          "cta": "Get started"
-        },
-        "plus": {
-          "name": "Plus",
-          "price": "99K",
-          "period": "/month",
-          "tagline": "AI booking and skill matching for regular players.",
-          "features": [
-            "Everything in Free",
-            "AI booking assistant",
-            "Skill-based matchmaking",
-            "All three racquet sports",
-            "Smart reminders"
-          ],
-          "cta": "Start Plus"
-        },
-        "pro": {
-          "name": "Pro",
-          "price": "199K",
-          "period": "/month",
-          "tagline": "Priority matching and insights for the most active players.",
-          "features": [
-            "Everything in Plus",
-            "Priority matchmaking",
-            "Advanced performance insights",
-            "Priority court booking",
-            "Early access to new venues"
-          ],
-          "cta": "Start Pro"
-        }
+      "players": {
+        "name": "For players",
+        "price": "10K",
+        "period": "per booking",
+        "tagline": "Just a small holding fee to secure your court.",
+        "features": [
+          "Browse open courts nearby",
+          "AI booking assistant",
+          "Skill-based matchmaking, all three sports",
+          "Group chat for your matches",
+          "No subscription, no hidden fees"
+        ],
+        "cta": "Get started"
       },
       "venues": {
-        "starter": {
-          "name": "Starter",
-          "price": "499K",
-          "period": "/month",
-          "tagline": "List your venue and start taking AI-driven bookings.",
-          "features": [
-            "Venue profile and listing",
-            "Real-time booking calendar",
-            "Player waitlists",
-            "Basic occupancy reports"
-          ],
-          "cta": "Become a partner"
-        },
-        "growth": {
-          "name": "Growth",
-          "price": "1.499K",
-          "period": "/month",
-          "tagline": "Fill every court with automatic matchmaking and analytics.",
-          "features": [
-            "Everything in Starter",
-            "Automatic court-filling matchmaking",
-            "Court utilization analytics",
-            "Priority placement to nearby players",
-            "No-show-resistant confirmations"
-          ],
-          "cta": "Become a partner"
-        }
+        "name": "For venues",
+        "price": "Free",
+        "period": "always",
+        "tagline": "List your venue and take AI-driven bookings at no cost.",
+        "features": [
+          "Venue profile and listing",
+          "Real-time booking calendar",
+          "Automatic court-filling matchmaking",
+          "Court utilization analytics",
+          "Zero commission on every booking"
+        ],
+        "cta": "Become a partner"
       }
     },
     "trust": {
@@ -631,7 +664,7 @@
     "stats": {
       "0": {
         "value": "3,200+",
-        "label": "Players on the waitlist"
+        "label": "Players signed up"
       },
       "1": {
         "value": "40+",
@@ -724,7 +757,7 @@
       },
       "3": {
         "question": "Is the app live yet?",
-        "answer": "We're in early access and expanding city by city. Join the waitlist and we'll email you the moment courts in your area go live."
+        "answer": "We're in early access and expanding city by city. Sign up and we'll email you the moment courts in your area go live."
       },
       "4": {
         "question": "I run a club — how do I get listed?",
@@ -733,7 +766,7 @@
     },
     "cta": {
       "title": "Be the first on court.",
-      "subtitle": "Join the waitlist and we'll email your invite the moment SportMatch AI launches in your city."
+      "subtitle": "Create your account and start booking courts and matching with players near you."
     },
     "footer": {
       "tagline": "The AI booking assistant for racquet sports. Find a court, find your match, and just play.",
@@ -741,8 +774,7 @@
         "title": "Product",
         "features": "Features",
         "howItWorks": "How it works",
-        "faq": "FAQ",
-        "waitlist": "Join the waitlist"
+        "faq": "FAQ"
       },
       "venues": {
         "title": "For venues",
@@ -772,29 +804,9 @@
     },
     "cta": "Sign up now",
     "demo": "Try the demo",
-    "waitlistCta": "Join the waitlist",
+    "login": "Login",
     "menuOpen": "Open menu",
     "menuClose": "Close menu"
-  },
-  "Waitlist": {
-    "emailLabel": "Email address",
-    "submitting": "Sending…",
-    "errors": {
-      "required": "Please enter your email address.",
-      "invalid": "That email address doesn't look valid."
-    },
-    "player": {
-      "placeholder": "your-email@example.com",
-      "cta": "Join the waitlist",
-      "success": "You're on the list! We'll email your early-access invite soon.",
-      "note": "Free to join · No spam · Early-access invites sent weekly."
-    },
-    "venue": {
-      "placeholder": "your work email",
-      "cta": "Request a partner demo",
-      "success": "Thank you! Our venues team will be in touch within 2 business days.",
-      "note": "For clubs & facilities · See how AI fills your off-peak courts."
-    }
   },
   "MatchMaker": {
     "metaTitle": "Match Maker",

@@ -1,14 +1,13 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { cookies } from "next/headers"
 import type { SportKey, Venue, VenueCourt } from "@repo/shared"
 
-import { ACTIVE_VENUE_COOKIE, API_URL } from "@/lib/api"
+import { API_URL } from "@/lib/api"
 
 // Server actions for venue management. They run on the server (so the Hono API
-// base and the active-venue cookie stay off the client) and call the API's CRUD
-// routes, then revalidate the dashboard so the server-rendered seed refetches.
+// base stays off the client) and call the API's CRUD routes, then revalidate
+// the relevant venue path so the server-rendered seed refetches.
 // API_URL is shared with the seed reader (lib/api.ts) so writes hit the same
 // host/port as reads.
 
@@ -25,11 +24,6 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(body?.error ?? `Request failed (${res.status})`)
   }
   return res.json() as Promise<T>
-}
-
-/** Refresh every dashboard surface (the seed is fetched in the shared layout). */
-function refreshDashboard() {
-  revalidatePath("/", "layout")
 }
 
 export interface VenueInput {
@@ -55,9 +49,8 @@ export async function createVenue(input: VenueInput): Promise<Venue> {
     method: "POST",
     body: JSON.stringify(input),
   })
-  // Make the freshly created venue the active one.
-  ;(await cookies()).set(ACTIVE_VENUE_COOKIE, venue.id, { path: "/" })
-  refreshDashboard()
+  // Revalidate the player dashboard seed (venues list) so the sidebar updates
+  revalidatePath("/dashboard", "layout")
   return venue
 }
 
@@ -69,18 +62,16 @@ export async function updateVenue(
     method: "PUT",
     body: JSON.stringify(input),
   })
-  refreshDashboard()
+  // Revalidate the specific venue path
+  revalidatePath(`/dashboard/venue/${id}`, "layout")
+  revalidatePath("/dashboard", "layout")
   return venue
 }
 
 export async function deleteVenue(id: string): Promise<void> {
   await api(`/api/venues/${id}`, { method: "DELETE" })
-  // If the deleted venue was active, drop the cookie so the layout falls back.
-  const store = await cookies()
-  if (store.get(ACTIVE_VENUE_COOKIE)?.value === id) {
-    store.delete(ACTIVE_VENUE_COOKIE)
-  }
-  refreshDashboard()
+  // Revalidate the player dashboard since venues list changed
+  revalidatePath("/dashboard", "layout")
 }
 
 export async function addCourt(
@@ -91,7 +82,8 @@ export async function addCourt(
     method: "POST",
     body: JSON.stringify(input),
   })
-  refreshDashboard()
+  // Revalidate the specific venue's layout
+  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
   return court
 }
 
@@ -104,7 +96,8 @@ export async function updateCourt(
     `/api/venues/${venueId}/courts/${courtId}`,
     { method: "PUT", body: JSON.stringify(input) }
   )
-  refreshDashboard()
+  // Revalidate the specific venue's layout
+  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
   return court
 }
 
@@ -113,11 +106,6 @@ export async function deleteCourt(
   courtId: string
 ): Promise<void> {
   await api(`/api/venues/${venueId}/courts/${courtId}`, { method: "DELETE" })
-  refreshDashboard()
-}
-
-/** Switch which venue the whole dashboard is scoped to (persisted in a cookie). */
-export async function setActiveVenue(id: string): Promise<void> {
-  ;(await cookies()).set(ACTIVE_VENUE_COOKIE, id, { path: "/" })
-  refreshDashboard()
+  // Revalidate the specific venue's layout
+  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
 }

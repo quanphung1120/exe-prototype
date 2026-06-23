@@ -11,9 +11,10 @@ import {
   UserRound,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { initialsOf } from "@repo/shared"
 
 import { LogoMark } from "@/components/logo"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,11 +40,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { signOut } from "@/lib/auth-client"
+import { useAuthUser } from "@/components/dashboard/auth-user"
 import { useData } from "@/components/dashboard/data-provider"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import { WorkspaceSettingsDialog } from "@/components/dashboard/workspace-settings"
-import { WORKSPACES, navContext } from "@/components/dashboard/workspace"
-import { setActiveVenue } from "@/lib/venue-actions"
+import { venueBase } from "@/components/dashboard/venue/nav"
+import { navContext } from "@/components/dashboard/workspace"
 import { Link, usePathname, useRouter } from "@/i18n/navigation"
 
 export function AppSidebar() {
@@ -51,12 +54,22 @@ export function AppSidebar() {
   const router = useRouter()
   const { isMobile, setOpenMobile } = useSidebar()
   const { userName } = useMatchmaking()
-  const { user: USER, venue: VENUE, venues: VENUES, activeVenueId } = useData()
+  const { user: USER, venues: VENUES } = useData()
+
+  // The signed-in user, fetched server-side (no session-load flash). This
+  // sidebar only renders inside the guarded dashboard, so a user is guaranteed.
+  const sUser = useAuthUser()
 
   const [settingsOpen, setSettingsOpen] = React.useState(false)
 
-  const { workspace, ns, items, active } = navContext(pathname)
+  const { workspace, ns, items, active, venueId } = navContext(pathname)
   const isVenue = workspace === "venue"
+
+  // The active venue is derived from the URL's [venueId] (per-venue workspace).
+  // In the player workspace there's no active venue, so fall back to the first
+  // venue as the representative for the "switch to venue" tile/icon.
+  const activeVenueId = venueId
+  const VENUE = (venueId && VENUES.find((v) => v.id === venueId)) || VENUES[0]
 
   // The name shown for the current operator/player identity.
   const displayName = isVenue ? VENUE.manager.name : userName
@@ -65,24 +78,53 @@ export function AppSidebar() {
   const tNav = useTranslations(ns)
   const t = useTranslations("Sidebar")
 
+  // The footer account menu reflects the *real* signed-in user — name, email
+  // and avatar pulled from the Better Auth session — independent of the mock
+  // player/venue identity used everywhere else. Fall back to the mock identity
+  // while the session is loading or absent.
+  const accountName = sUser.name || displayName
+  const accountSubtitle =
+    sUser.email || (isVenue ? t("operatorRole") : USER.handle)
+  const accountImage = sUser.image || undefined
+  const accountInitials = sUser.name
+    ? initialsOf(sUser.name)
+    : isVenue
+      ? VENUE.manager.initials
+      : USER.initials
+
   // Collapse the mobile drawer once a destination is chosen.
   const handleNavigate = () => {
     if (isMobile) setOpenMobile(false)
   }
 
-  const switchTo = (key: keyof typeof WORKSPACES) => {
-    router.push(WORKSPACES[key].home)
+  // End the session and return to sign-in.
+  const handleSignOut = async () => {
+    await signOut()
+    router.push("/sign-in")
+    router.refresh()
+  }
+
+  // Switch to the player workspace.
+  const switchToPlayer = () => {
+    router.push("/dashboard")
     handleNavigate()
   }
 
-  const chooseVenue = async (id: string) => {
+  // Switch to the venue workspace — land on the active venue, or the first one.
+  const switchToVenue = () => {
+    const targetId = activeVenueId ?? VENUES[0]?.id
+    if (targetId) router.push(venueBase(targetId))
+    handleNavigate()
+  }
+
+  // Navigate to another venue, preserving the current section when possible.
+  const chooseVenue = (id: string) => {
     if (id !== activeVenueId) {
-      try {
-        await setActiveVenue(id)
-        router.refresh()
-      } catch {
-        // Keep the current venue if the switch fails.
-      }
+      const section =
+        activeVenueId && pathname.startsWith(venueBase(activeVenueId))
+          ? pathname.slice(venueBase(activeVenueId).length)
+          : ""
+      router.push(`${venueBase(id)}${section}`)
     }
     handleNavigate()
   }
@@ -101,14 +143,15 @@ export function AppSidebar() {
                   >
                     <div
                       className={cn(
-                        "flex aspect-square size-8 items-center justify-center rounded-xl",
-                        isVenue && "bg-secondary text-xs font-bold text-secondary-foreground"
+                        "flex aspect-square size-10 items-center justify-center rounded-xl",
+                        isVenue &&
+                          "bg-secondary text-xs font-bold text-secondary-foreground"
                       )}
                     >
                       {isVenue ? (
                         VENUE.initials
                       ) : (
-                        <LogoMark className="size-7 text-primary" />
+                        <LogoMark className="size-9! text-primary" />
                       )}
                     </div>
                     <div className="grid flex-1 text-left leading-tight">
@@ -133,16 +176,18 @@ export function AppSidebar() {
               >
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>{t("workspaces")}</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => switchTo("player")}>
+                  <DropdownMenuItem onClick={switchToPlayer}>
                     <LogoMark className="size-6 text-primary" />
                     <span className="flex-1">{t("playerWorkspace")}</span>
                     {!isVenue ? <Check className="size-4 text-brand" /> : null}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => switchTo("venue")}>
+                  <DropdownMenuItem onClick={switchToVenue}>
                     <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
                       {VENUE.initials}
                     </div>
-                    <span className="flex-1">{t("venueWorkspace")}</span>
+                    <span className="flex-1 truncate">
+                      {`${VENUE.name} · ${t("venueTag")}`}
+                    </span>
                     {isVenue ? <Check className="size-4 text-brand" /> : null}
                   </DropdownMenuItem>
                 </DropdownMenuGroup>
@@ -190,24 +235,24 @@ export function AppSidebar() {
             {items
               .filter((item) => !item.hidden)
               .map((item) => (
-              <SidebarMenuItem key={item.key}>
-                <SidebarMenuButton
-                  isActive={item.key === active.key}
-                  tooltip={tNav(`${item.key}.label`)}
-                  render={<Link href={item.href} onClick={handleNavigate} />}
-                >
-                  <item.icon />
-                  <span>{tNav(`${item.key}.label`)}</span>
-                </SidebarMenuButton>
-                {item.badge ? (
-                  <SidebarMenuBadge
-                    className={item.badge === "AI" ? "text-brand" : undefined}
+                <SidebarMenuItem key={item.key}>
+                  <SidebarMenuButton
+                    isActive={item.key === active.key}
+                    tooltip={tNav(`${item.key}.label`)}
+                    render={<Link href={item.href} onClick={handleNavigate} />}
                   >
-                    {item.badge}
-                  </SidebarMenuBadge>
-                ) : null}
-              </SidebarMenuItem>
-            ))}
+                    <item.icon />
+                    <span>{tNav(`${item.key}.label`)}</span>
+                  </SidebarMenuButton>
+                  {item.badge ? (
+                    <SidebarMenuBadge
+                      className={item.badge === "AI" ? "text-brand" : undefined}
+                    >
+                      {item.badge}
+                    </SidebarMenuBadge>
+                  ) : null}
+                </SidebarMenuItem>
+              ))}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
@@ -232,16 +277,19 @@ export function AppSidebar() {
                     className="data-popup-open:bg-sidebar-accent"
                   >
                     <Avatar size="sm" className="size-8">
+                      {accountImage ? (
+                        <AvatarImage src={accountImage} alt={accountName} />
+                      ) : null}
                       <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-                        {isVenue ? VENUE.manager.initials : USER.initials}
+                        {accountInitials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left leading-tight">
                       <span className="truncate text-sm font-medium">
-                        {displayName}
+                        {accountName}
                       </span>
                       <span className="truncate text-xs text-sidebar-foreground/60">
-                        {isVenue ? t("operatorRole") : USER.handle}
+                        {accountSubtitle}
                       </span>
                     </div>
                     <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/60" />
@@ -257,14 +305,17 @@ export function AppSidebar() {
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="flex items-center gap-2 py-2 text-foreground">
                     <Avatar size="sm" className="size-8">
+                      {accountImage ? (
+                        <AvatarImage src={accountImage} alt={accountName} />
+                      ) : null}
                       <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-                        {isVenue ? VENUE.manager.initials : USER.initials}
+                        {accountInitials}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid leading-tight">
-                      <span className="text-sm font-medium">{displayName}</span>
+                      <span className="text-sm font-medium">{accountName}</span>
                       <span className="text-xs text-muted-foreground">
-                        {isVenue ? t("operatorRole") : USER.handle}
+                        {accountSubtitle}
                       </span>
                     </div>
                   </DropdownMenuLabel>
@@ -279,7 +330,7 @@ export function AppSidebar() {
                   {t("settings")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive">
+                <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
                   <LogOut />
                   {t("logout")}
                 </DropdownMenuItem>
@@ -296,7 +347,7 @@ export function AppSidebar() {
         onOpenChange={setSettingsOpen}
         isVenue={isVenue}
         venue={VENUE}
-        activeVenueId={activeVenueId}
+        activeVenueId={VENUE.id}
         initials={USER.initials}
       />
     </Sidebar>

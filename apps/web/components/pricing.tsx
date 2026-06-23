@@ -5,32 +5,17 @@ import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Link } from "@/i18n/navigation"
 
-type Audience = "customers" | "venues"
+type Audience = "players" | "venues"
 
-const PLANS: Record<Audience, { id: string; featured: boolean }[]> = {
-  customers: [
-    { id: "free", featured: false },
-    { id: "plus", featured: true },
-    { id: "pro", featured: false },
-  ],
-  venues: [
-    { id: "starter", featured: false },
-    { id: "growth", featured: true },
-  ],
-}
+const PLANS: { id: Audience; featured: boolean }[] = [
+  { id: "players", featured: false },
+  { id: "venues", featured: true },
+]
 
-function PlanCard({
-  audience,
-  id,
-  featured,
-}: {
-  audience: Audience
-  id: string
-  featured: boolean
-}) {
-  const t = useTranslations(`Landing.pricing.${audience}.${id}`)
+function PlanCard({ id, featured }: { id: Audience; featured: boolean }) {
+  const t = useTranslations(`Landing.pricing.${id}`)
   const ts = useTranslations("Landing.pricingSection")
   const features = t.raw("features") as string[]
 
@@ -45,7 +30,7 @@ function PlanCard({
     >
       {featured && (
         <span className="absolute -top-3 left-6 inline-flex items-center rounded-full bg-lime px-3 py-1 text-xs font-semibold text-lime-foreground">
-          {ts("mostPopular")}
+          {ts("badge")}
         </span>
       )}
 
@@ -73,47 +58,18 @@ function PlanCard({
         size="lg"
         className="mt-8 w-full cursor-pointer"
         nativeButton={false}
-        render={<a href="#waitlist">{t("cta")}</a>}
+        render={<Link href="/sign-up">{t("cta")}</Link>}
       />
     </div>
   )
 }
 
 export function Pricing() {
-  const ts = useTranslations("Landing.pricingSection")
-
   return (
-    <Tabs defaultValue="customers" className="items-center">
-      <TabsList>
-        <TabsTrigger value="customers">{ts("tabs.customers")}</TabsTrigger>
-        <TabsTrigger value="venues">{ts("tabs.venues")}</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="customers" className="mt-10 w-full">
-        <div className="grid items-stretch gap-5 md:grid-cols-3">
-          {PLANS.customers.map((plan) => (
-            <PlanCard
-              key={plan.id}
-              audience="customers"
-              id={plan.id}
-              featured={plan.featured}
-            />
-          ))}
-        </div>
-      </TabsContent>
-
-      <TabsContent value="venues" className="mt-10 w-full">
-        <div className="mx-auto grid max-w-3xl items-stretch gap-5 sm:grid-cols-2">
-          {PLANS.venues.map((plan) => (
-            <PlanCard
-              key={plan.id}
-              audience="venues"
-              id={plan.id}
-              featured={plan.featured}
-            />
-          ))}
-        </div>
-      </TabsContent>
-    </Tabs>
+    <div className="mx-auto grid max-w-3xl items-stretch gap-5 sm:grid-cols-2">
+      {PLANS.map((plan) => (
+        <PlanCard key={plan.id} id={plan.id} featured={plan.featured} />
+      ))}
+    </div>
   )
 }

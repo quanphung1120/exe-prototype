@@ -60,14 +60,15 @@ import {
   type VenueCourt,
 } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
+import { useVenueData } from "@/components/dashboard/venue-data-provider"
 import { SportTag } from "@/components/dashboard/shared"
+import { venueBase } from "@/components/dashboard/venue/nav"
 import { VenueEmpty, VenuePanel } from "@/components/dashboard/venue/shared"
 import {
   addCourt,
   createVenue,
   deleteCourt,
   deleteVenue,
-  setActiveVenue,
   updateCourt,
   updateVenue,
 } from "@/lib/venue-actions"
@@ -167,7 +168,12 @@ function FormDialog({
 export function VenueManageView() {
   const t = useTranslations("VenueManage")
   const router = useRouter()
-  const { venues, activeVenueId, venue: activeVenue, venueCourts } = useData()
+  const { venues } = useData()
+  const {
+    venueId: activeVenueId,
+    venue: activeVenue,
+    venueCourts,
+  } = useVenueData()
 
   const [venueDialog, setVenueDialog] = React.useState<{
     mode: "create" | "edit"
@@ -182,14 +188,10 @@ export function VenueManageView() {
   const [removeCourtTarget, setRemoveCourtTarget] =
     React.useState<VenueCourt | null>(null)
 
-  const switchVenue = async (id: string) => {
+  // Switching venues is now plain navigation into that venue's workspace.
+  const switchVenue = (id: string) => {
     if (id === activeVenueId) return
-    try {
-      await setActiveVenue(id)
-      router.refresh()
-    } catch {
-      toast.error(t("error"))
-    }
+    router.push(venueBase(id))
   }
 
   const confirmRemoveVenue = async () => {
@@ -199,8 +201,14 @@ export function VenueManageView() {
     setRemoveVenueTarget(null)
     try {
       await deleteVenue(id)
-      router.refresh()
       toast.success(t("toast.venueDeleted", { name }))
+      // If we deleted the venue we're viewing, move to a surviving one.
+      if (id === activeVenueId) {
+        const next = venues.find((v) => v.id !== id)
+        if (next) router.push(venueBase(next.id))
+      } else {
+        router.refresh()
+      }
     } catch (e) {
       toast.error(t("error"), {
         description: e instanceof Error ? e.message : undefined,
@@ -315,7 +323,11 @@ export function VenueManageView() {
             mode={venueDialog.mode}
             venue={venueDialog.venue}
             onClose={() => setVenueDialog(null)}
-            onDone={() => router.refresh()}
+            onDone={(created) => {
+              // Drop the operator straight into a freshly created venue.
+              if (created) router.push(venueBase(created.id))
+              else router.refresh()
+            }}
           />
         ) : null}
       </FormDialog>
@@ -580,7 +592,8 @@ function VenueForm({
   mode: "create" | "edit"
   venue?: Venue
   onClose: () => void
-  onDone: () => void
+  /** Called after a successful save; receives the created venue on create. */
+  onDone: (created?: Venue) => void
 }) {
   const t = useTranslations("VenueManage")
   const tc = useTranslations("Common")
@@ -611,13 +624,14 @@ function VenueForm({
     onSubmit: async ({ value }) => {
       try {
         if (mode === "create") {
-          await createVenue(value)
+          const created = await createVenue(value)
           toast.success(t("toast.venueCreated", { name: value.name }))
+          onDone(created)
         } else if (venue) {
           await updateVenue(venue.id, value)
           toast.success(t("toast.venueUpdated", { name: value.name }))
+          onDone()
         }
-        onDone()
         onClose()
       } catch (e) {
         toast.error(t("error"), {

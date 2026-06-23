@@ -3,13 +3,15 @@
 // mutations persist for the life of the process (a restart — e.g. `tsx watch`
 // reloading — resets everything back to the seed).
 
-import type { SportKey, Venue, VenueCourt, VenueSeed } from "@repo/shared"
-
 import {
-  emptyOps,
-  INITIAL_VENUES,
-  type VenueRecord,
-} from "../data/venue.js"
+  initialsOf,
+  type SportKey,
+  type Venue,
+  type VenueCourt,
+  type VenueSeed,
+} from "@repo/shared"
+
+import { emptyOps, INITIAL_VENUES, type VenueRecord } from "../data/venue.js"
 
 // Deep-clone the seed so mutations never leak back into the imported constants
 // (the records are plain JSON, so a round-trip is a sufficient deep copy).
@@ -20,16 +22,6 @@ let venues: VenueRecord[] = clone(INITIAL_VENUES)
 // Monotonic id counters, started past the seed ids so generated ids never clash.
 let venueSeq = venues.length
 let courtSeq = 1000
-
-/** Two-letter mark derived from a name, e.g. "Ace Pavilion" → "AP". */
-function initialsOf(name: string): string {
-  const letters = name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .filter(Boolean)
-  return (letters[0] ?? "") + (letters[1] ?? "")
-}
 
 function find(id: string): VenueRecord | undefined {
   return venues.find((v) => v.info.id === id)
@@ -51,6 +43,17 @@ export function resolveActiveId(id?: string): string {
 export function activeBundle(id?: string): VenueSeed {
   const rec = (id && find(id)) || venues[0]!
   return { info: rec.info, ...rec.ops }
+}
+
+/**
+ * A specific venue's full operator bundle, or `undefined` when the id is
+ * unknown. Unlike `activeBundle`, this never falls back to the first venue —
+ * the per-venue workspace must 404 on a stale/typo'd id, not silently render
+ * another venue's data under the wrong URL.
+ */
+export function venueBundle(id: string): VenueSeed | undefined {
+  const rec = find(id)
+  return rec ? { info: rec.info, ...rec.ops } : undefined
 }
 
 export function getVenue(id: string): Venue | undefined {
@@ -81,7 +84,10 @@ export function createVenue(input: VenueInput): Venue {
     openTo: input.openTo,
     rating: 0,
     reviews: 0,
-    manager: { name: input.managerName, initials: initialsOf(input.managerName) },
+    manager: {
+      name: input.managerName,
+      initials: initialsOf(input.managerName),
+    },
     now: "18:00",
   }
   venues.push({ info, ops: emptyOps([]) })

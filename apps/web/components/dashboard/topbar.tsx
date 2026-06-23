@@ -8,7 +8,10 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ActiveRoomPill } from "@/components/dashboard/active-room"
 import { NotificationsButton } from "@/components/dashboard/notifications"
 import { SectionActions } from "@/components/dashboard/section-actions"
-import { SportFilter } from "@/components/dashboard/sport-filter"
+import {
+  SportFilter,
+  SportFilterSheet,
+} from "@/components/dashboard/sport-filter"
 import { navContext } from "@/components/dashboard/workspace"
 import { usePathname } from "@/i18n/navigation"
 
@@ -30,13 +33,18 @@ export function DashboardTopbar() {
       <div className="min-w-0 flex-1">
         <h1 className="truncate font-heading text-base leading-none font-semibold">
           {tNav(`${active.key}.label`)}
-          <span className="hidden sm:inline font-normal text-muted-foreground">
+          <span className="hidden font-normal text-muted-foreground sm:inline">
             {" — "}
             {tNav(`${active.key}.caption`)}
           </span>
         </h1>
       </div>
-      {showSportFilter ? <SportFilter className="hidden sm:flex" /> : null}
+      {showSportFilter ? (
+        <>
+          <SportFilter className="hidden sm:flex" />
+          <SportFilterSheet className="sm:hidden" />
+        </>
+      ) : null}
       {isVenue ? null : <ActiveRoomPill />}
       <NotificationsButton />
       <LocaleSwitcher />
