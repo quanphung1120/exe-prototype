@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Barlow, Barlow_Condensed, Geist, Geist_Mono } from "next/font/google"
 import { notFound } from "next/navigation"
+import { ClerkProvider } from "@clerk/nextjs"
 import { hasLocale, NextIntlClientProvider } from "next-intl"
 import {
   getMessages,
@@ -110,9 +111,17 @@ export default async function LocaleLayout({
       )}
     >
       <body>
-        <NextIntlClientProvider messages={messages}>
-          <ThemeProvider>{children}</ThemeProvider>
-        </NextIntlClientProvider>
+        <ClerkProvider
+          signInUrl={"/" + locale + "/sign-in"}
+          signUpUrl={"/" + locale + "/sign-up"}
+          signInFallbackRedirectUrl={"/" + locale + "/dashboard"}
+          signUpFallbackRedirectUrl={"/" + locale + "/dashboard"}
+          afterSignOutUrl={"/" + locale}
+        >
+          <NextIntlClientProvider messages={messages}>
+            <ThemeProvider>{children}</ThemeProvider>
+          </NextIntlClientProvider>
+        </ClerkProvider>
       </body>
     </html>
   )

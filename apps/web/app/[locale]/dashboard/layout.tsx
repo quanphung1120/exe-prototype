@@ -1,6 +1,6 @@
+import { redirect } from "next/navigation"
 import { fetchSeed } from "@/lib/api"
 import { getServerSession } from "@/lib/auth-server"
-import { redirect } from "@/i18n/navigation"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
@@ -27,13 +27,12 @@ export default async function DashboardLayout({
 }) {
   const { locale } = await params
 
-  // Guard the dashboard — bounce to sign-in when there's no valid session (the
-  // cookie is forwarded to the API's get-session endpoint). Once signed in, the
-  // sidebar shows a "Try demo" shortcut.
+  // Guard the dashboard — bounce to the locale sign-in when there's no signed-in
+  // user (Clerk-backed `getServerSession`). Once signed in, the sidebar shows a
+  // "Try demo" shortcut.
   const session = await getServerSession()
   if (!session) {
-    redirect({ href: "/sign-in", locale })
-    return null
+    redirect("/" + locale + "/sign-in")
   }
 
   const seed = await fetchSeed()

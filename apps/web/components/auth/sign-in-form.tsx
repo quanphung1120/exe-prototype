@@ -2,11 +2,11 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
+import { useSignIn } from "@clerk/nextjs/legacy"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { signIn } from "@/lib/auth-client"
 import { Link, useRouter } from "@/i18n/navigation"
 
 import { AuthDivider, GoogleButton } from "./google-button"
@@ -14,25 +14,36 @@ import { AuthDivider, GoogleButton } from "./google-button"
 export function SignInForm() {
   const t = useTranslations("Auth")
   const router = useRouter()
+  const { signIn, setActive, isLoaded } = useSignIn()
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!isLoaded) return
     setError(null)
     setLoading(true)
     const form = new FormData(e.currentTarget)
-    const { error } = await signIn.email({
-      email: String(form.get("email")),
-      password: String(form.get("password")),
-    })
-    if (error) {
+    try {
+      const res = await signIn.create({
+        identifier: String(form.get("email")),
+        password: String(form.get("password")),
+      })
+      if (res.status === "complete") {
+        await setActive({ session: res.createdSessionId })
+        router.push("/dashboard")
+        router.refresh()
+        return
+      }
       setError(t("signIn.error"))
       setLoading(false)
-      return
+    } catch (err) {
+      const message =
+        (err as { errors?: { message?: string }[] }).errors?.[0]?.message ??
+        t("signIn.error")
+      setError(message)
+      setLoading(false)
     }
-    router.push("/dashboard")
-    router.refresh()
   }
 
   return (
@@ -81,7 +92,12 @@ export function SignInForm() {
 
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-        <Button type="submit" size="lg" className="w-full" disabled={loading}>
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={loading || !isLoaded}
+        >
           {loading ? t("signIn.submitting") : t("signIn.submit")}
         </Button>
       </form>

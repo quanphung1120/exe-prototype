@@ -2,9 +2,9 @@
 
 import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
+import { useSignIn } from "@clerk/nextjs/legacy"
 
 import { Button } from "@/components/ui/button"
-import { signIn } from "@/lib/auth-client"
 
 function GoogleIcon() {
   return (
@@ -29,22 +29,27 @@ function GoogleIcon() {
   )
 }
 
-/** "Continue with Google" — kicks off the OAuth flow on the API. */
+/** "Continue with Google" — kicks off the Clerk OAuth flow via the SSO callback. */
 export function GoogleButton() {
   const t = useTranslations("Auth")
   const locale = useLocale()
+  const { signIn, isLoaded } = useSignIn()
   const [loading, setLoading] = React.useState(false)
 
   const onClick = async () => {
+    if (!isLoaded) return
     setLoading(true)
-    // callbackURL must be an absolute URL on the web app: it's where the API
-    // sends the browser once the OAuth dance completes.
-    const callbackURL = new URL(
-      `/${locale}/dashboard`,
-      window.location.origin
-    ).toString()
-    await signIn.social({ provider: "google", callbackURL })
-    setLoading(false)
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: "oauth_google",
+        redirectUrl: "/" + locale + "/sso-callback",
+        redirectUrlComplete: "/" + locale + "/dashboard",
+      })
+    } catch {
+      // authenticateWithRedirect navigates away on success; only failures land
+      // here, so re-enable the button to let the user retry.
+      setLoading(false)
+    }
   }
 
   return (
@@ -54,7 +59,7 @@ export function GoogleButton() {
       size="lg"
       className="w-full"
       onClick={onClick}
-      disabled={loading}
+      disabled={loading || !isLoaded}
     >
       <GoogleIcon />
       {t("google")}

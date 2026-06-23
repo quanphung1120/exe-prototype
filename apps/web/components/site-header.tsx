@@ -3,9 +3,9 @@
 import * as React from "react"
 import { Menu, X } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useUser } from "@clerk/nextjs"
 
 import { cn } from "@/lib/utils"
-import { useSession } from "@/lib/auth-client"
 import { Link } from "@/i18n/navigation"
 import { Button } from "@/components/ui/button"
 import { Logo } from "@/components/logo"
@@ -29,8 +29,8 @@ export function SiteHeader() {
   // Public landing page, so default to logged-out: while the session resolves
   // (and for the common anonymous visitor) show "Login"; once an authed session
   // is confirmed, swap to the "Try the demo" shortcut into the dashboard.
-  const { data: session, isPending } = useSession()
-  const isAuthed = !isPending && Boolean(session)
+  const { isSignedIn, isLoaded } = useUser()
+  const isAuthed = isLoaded && Boolean(isSignedIn)
   const authCta = isAuthed
     ? { href: "/dashboard", label: t("demo") }
     : { href: "/sign-in", label: t("login") }

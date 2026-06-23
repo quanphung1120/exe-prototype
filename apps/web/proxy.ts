@@ -1,10 +1,16 @@
+import { clerkMiddleware } from "@clerk/nextjs/server"
 import createMiddleware from "next-intl/middleware"
 
 import { routing } from "./i18n/routing"
 
-// Next.js 16 renamed the `middleware` file convention to `proxy`. next-intl
-// still ships the helper as `next-intl/middleware`; it is hosted here.
-export default createMiddleware(routing)
+// Next.js 16 renamed the `middleware` file convention to `proxy`. Clerk wraps
+// the next-intl middleware so both auth and locale routing run on every match.
+const handleIntl = createMiddleware(routing)
+
+// `clerkMiddleware` must run so `auth()`/`currentUser()` work in server
+// components (the dashboard guards itself there). We don't gate routes here, so
+// the first callback arg is unused — locale routing is delegated to next-intl.
+export default clerkMiddleware((_auth, req) => handleIntl(req))
 
 export const config = {
   // Match all pathnames except API routes, Next.js internals, and files

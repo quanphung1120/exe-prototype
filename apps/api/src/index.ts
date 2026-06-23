@@ -4,7 +4,6 @@ import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
 import { logger } from "hono/logger"
 
-import { auth } from "./auth.js"
 import { courts } from "./routes/courts.js"
 import { player } from "./routes/player.js"
 import { seed } from "./routes/seed.js"
@@ -13,9 +12,9 @@ import { venues } from "./routes/venues.js"
 
 const app = new Hono()
 
-// The web app lives on a different origin (port) than this API. Auth uses
-// cookie-based sessions, so CORS must reflect the exact web origin and allow
-// credentials (a wildcard origin is incompatible with `credentials: true`).
+// The web app lives on a different origin (port) than this API, so CORS must
+// reflect the exact web origin and allow credentials (a wildcard origin is
+// incompatible with `credentials: true`).
 const WEB_URL = process.env.WEB_URL ?? "http://localhost:3000"
 
 app.use("*", logger())
@@ -44,9 +43,6 @@ app.notFound((c) => c.json({ error: "Not Found" }, 404))
 // Build the route tree by chaining so the exported type carries every route.
 const routes = app
   .get("/health", (c) => c.json({ status: "ok", uptime: process.uptime() }))
-  // Better Auth owns everything under /api/auth/* (sign-in, sign-up, OAuth
-  // callbacks, get-session, …). Hand the raw Request to its handler.
-  .on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw))
   .route("/api/seed", seed)
   .route("/api/courts", courts)
   .route("/api", player)

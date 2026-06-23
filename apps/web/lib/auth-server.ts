@@ -1,11 +1,9 @@
 import "server-only"
 
-import { headers } from "next/headers"
+import { currentUser } from "@clerk/nextjs/server"
 
-import { API_URL } from "./api"
-
-// The Better Auth user as returned by /api/auth/get-session. Kept minimal — the
-// auth server lives in apps/api, so we can't infer its types here.
+// The authenticated user, normalized to the minimal shape the dashboard needs.
+// Clerk owns the source of truth; we map its `currentUser()` into this.
 export type AuthUser = {
   id: string
   name: string
@@ -14,36 +12,28 @@ export type AuthUser = {
   image?: string | null
 }
 
-export type ServerSession = {
-  user: AuthUser
-  session: { id: string; expiresAt: string; userId: string }
-}
-
 /**
- * Read the current auth session server-side. Auth runs on the Hono API, so we
- * forward the incoming request's cookies to its `get-session` endpoint. The
- * session cookie is host-only on `localhost`, so it reaches both the web
- * (:3000) and the API (:6969) and validates here.
+ * Read the current auth session server-side via Clerk's `currentUser()`.
  *
- * Returns `null` when there is no valid session.
+ * Returns `null` when there is no signed-in user.
  */
-export async function getServerSession(): Promise<ServerSession | null> {
-  const cookie = (await headers()).get("cookie") ?? ""
-  if (!cookie) return null
+export async function getServerSession(): Promise<{ user: AuthUser } | null> {
+  const user = await currentUser()
+  if (!user) return null
 
-  // A rejected fetch (API down/unreachable) must not crash every dashboard
-  // route with a 500 — treat it as "no session" so the guard bounces to sign-in.
-  try {
-    const res = await fetch(`${API_URL}/api/auth/get-session`, {
-      headers: { cookie },
-      cache: "no-store",
-    })
+  const email =
+    user.primaryEmailAddress?.emailAddress ??
+    user.emailAddresses[0]?.emailAddress ??
+    ""
 
-    if (!res.ok) return null
-
-    const data = (await res.json()) as ServerSession | null
-    return data?.user ? data : null
-  } catch {
-    return null
+  return {
+    user: {
+      id: user.id,
+      name: user.fullName || user.firstName || user.username || email,
+      email,
+      // Clerk only surfaces verified primary emails on the server user.
+      emailVerified: true,
+      image: user.imageUrl ?? null,
+    },
   }
 }

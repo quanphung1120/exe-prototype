@@ -10,7 +10,8 @@ import {
   Settings2,
   UserRound,
 } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { useClerk } from "@clerk/nextjs"
+import { useLocale, useTranslations } from "next-intl"
 import { initialsOf } from "@repo/shared"
 
 import { LogoMark } from "@/components/logo"
@@ -40,7 +41,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
-import { signOut } from "@/lib/auth-client"
 import { useAuthUser } from "@/components/dashboard/auth-user"
 import { useData } from "@/components/dashboard/data-provider"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
@@ -52,6 +52,8 @@ import { Link, usePathname, useRouter } from "@/i18n/navigation"
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const locale = useLocale()
+  const { signOut } = useClerk()
   const { isMobile, setOpenMobile } = useSidebar()
   const { userName } = useMatchmaking()
   const { user: USER, venues: VENUES } = useData()
@@ -79,7 +81,7 @@ export function AppSidebar() {
   const t = useTranslations("Sidebar")
 
   // The footer account menu reflects the *real* signed-in user — name, email
-  // and avatar pulled from the Better Auth session — independent of the mock
+  // and avatar pulled from the Clerk session — independent of the mock
   // player/venue identity used everywhere else. Fall back to the mock identity
   // while the session is loading or absent.
   const accountName = sUser.name || displayName
@@ -97,12 +99,8 @@ export function AppSidebar() {
     if (isMobile) setOpenMobile(false)
   }
 
-  // End the session and return to sign-in.
-  const handleSignOut = async () => {
-    await signOut()
-    router.push("/sign-in")
-    router.refresh()
-  }
+  // End the Clerk session and return to the locale landing page.
+  const handleSignOut = () => signOut({ redirectUrl: "/" + locale })
 
   // Switch to the player workspace.
   const switchToPlayer = () => {
