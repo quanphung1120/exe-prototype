@@ -10,6 +10,16 @@ import { sendEmail } from "./email.js"
 // for links inside verification / reset emails when the client doesn't pass one.
 const WEB_URL = process.env.WEB_URL ?? "http://localhost:3000"
 
+// In production the web app and this API run on two subdomains of the same
+// registrable domain (e.g. exe-prototype-web / exe-prototype-api .quanphungg.me).
+// Set COOKIE_DOMAIN to the shared parent (".quanphungg.me") so the session cookie
+// is scoped there and the browser also sends it to the web origin — otherwise the
+// cookie is host-only on this API host and the web app's server-side dashboard
+// guard never sees it. Leave unset in dev: web (:3000) and API (:6969) share the
+// host "localhost" (cookies ignore port), so a host-only cookie already reaches
+// both.
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN
+
 export const auth = betterAuth({
   appName: "SportMatch AI",
 
@@ -66,6 +76,19 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
     },
+  },
+
+  // The web app and this API live on two subdomains of one registrable domain, so
+  // they are *same-site*. Scoping the session cookie to the shared parent (via
+  // COOKIE_DOMAIN) lets the browser send it to the web origin too, so the web
+  // app's server-side dashboard guard can read it. SameSite=Lax is correct for
+  // same-site subdomains and is sent on the top-level navigation to /dashboard;
+  // None+Partitioned (CHIPS) would isolate the cookie and defeat the sharing.
+  advanced: {
+    ...(COOKIE_DOMAIN
+      ? { crossSubDomainCookies: { enabled: true, domain: COOKIE_DOMAIN } }
+      : {}),
+    defaultCookieAttributes: { sameSite: "lax", secure: true },
   },
 })
 
