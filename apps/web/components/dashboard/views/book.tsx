@@ -283,12 +283,12 @@ export function BookView() {
         </div>
 
         {/* Stepper */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
           {steps.map((s, i) => (
             <React.Fragment key={s}>
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 text-xs font-medium",
+                  "inline-flex items-center gap-1.5 text-sm font-medium sm:text-base",
                   i === step
                     ? "text-foreground"
                     : i < step
@@ -298,7 +298,7 @@ export function BookView() {
               >
                 <span
                   className={cn(
-                    "grid size-5 place-items-center rounded-full text-[10px] tabular-nums",
+                    "grid size-6 place-items-center rounded-full text-xs tabular-nums sm:size-7 sm:text-sm",
                     i === step
                       ? "bg-primary text-primary-foreground"
                       : i < step
@@ -465,7 +465,7 @@ export function BookView() {
 
         {/* CONFIRM */}
         {stepName === "confirm" && court && draft.slot ? (
-          <div className="grid w-full gap-4 lg:grid-cols-2">
+          <div className="flex w-full flex-col gap-4">
             {/* Left — court preview (shared with the pay step for continuity) */}
             <CourtPreviewCard
               court={court}
@@ -519,10 +519,10 @@ export function BookView() {
 
         {/* PAY — bank transfer via QR only */}
         {stepName === "pay" && court && draft.slot ? (
-          <div className="grid w-full gap-4 lg:grid-cols-2">
-            {/* Left — court preview (same card as confirm; headline flips to
-                the flat holding fee — the court fee itself is settled at the
-                venue — so moving between the two steps feels stable) */}
+          <div className="flex w-full flex-col gap-4">
+            {/* Court preview (same card as confirm; headline flips to the flat
+                holding fee — the court fee itself is settled at the venue — so
+                moving between the two steps feels stable) */}
             <CourtPreviewCard
               court={court}
               label={t("pay.holdFee")}
@@ -531,7 +531,7 @@ export function BookView() {
               t={t}
             />
 
-            {/* Right — scan to transfer */}
+            {/* Scan to transfer */}
             <div className={cn(CARD, "flex flex-col gap-5")}>
               <CardTitle
                 icon={QrCode}
@@ -577,7 +577,7 @@ export function BookView() {
           <span />
         )}
         {stepName === "pay" ? (
-          <Button className="rounded-full" disabled={!canPay} onClick={pay}>
+          <Button className="h-11 rounded-full px-5 text-base" disabled={!canPay} onClick={pay}>
             {paying ? (
               <>
                 <Loader2 className="animate-spin" />
@@ -592,14 +592,14 @@ export function BookView() {
           </Button>
         ) : stepName === "confirm" ? (
           <Button
-            className="rounded-full"
+            className="h-11 rounded-full px-5 text-base"
             disabled={Boolean(conflict) || !court || !draft.slot}
             onClick={next}
           >
             {t("toPayment")}
           </Button>
         ) : (
-          <Button className="rounded-full" disabled={!canNext} onClick={next}>
+          <Button className="h-11 rounded-full px-5 text-base" disabled={!canNext} onClick={next}>
             {t("next")}
           </Button>
         )}
