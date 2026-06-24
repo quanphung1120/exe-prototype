@@ -27,6 +27,7 @@ type SortKey = "distance" | "price" | "rating"
 type GeoStatus = "locating" | "on" | "off"
 
 const SORTS: SortKey[] = ["distance", "price", "rating"]
+const TOTAL_DAILY_SLOTS = 8
 
 /** A court paired with its distance to the player (or the static fallback). */
 type CourtItem = { court: Court; distanceKm: number }
@@ -257,7 +258,7 @@ function CourtCard({
     <div
       ref={ref}
       className={cn(
-        "relative flex flex-col gap-4 rounded-4xl bg-card p-5 shadow-md ring-1 transition-shadow hover:shadow-lg",
+        "relative flex flex-col gap-4 rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 transition-shadow hover:shadow-lg dark:ring-foreground/10",
         active
           ? "ring-2 ring-brand"
           : "ring-foreground/5 dark:ring-foreground/10"
@@ -276,19 +277,19 @@ function CourtCard({
       <div className="pointer-events-none relative z-10 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate font-heading text-lg font-semibold">
+            <p className="truncate font-heading text-lg leading-tight font-semibold">
               {court.name}
             </p>
             <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="size-3" />
               {court.district} ·{" "}
               {t("distance", { km: Math.round(distanceKm * 10) / 10 })}
+              <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground shadow-sm ring-1 ring-foreground/5 tabular-nums">
+                <Star className="size-3 fill-lime text-lime" />
+                {court.rating}
+              </span>
             </p>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2 py-1 text-xs font-semibold text-secondary-foreground tabular-nums">
-            <Star className="size-3 fill-lime text-lime" />
-            {court.rating}
-          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -300,49 +301,46 @@ function CourtCard({
           </span>
         </div>
 
-        <div>
-          <div className="mb-1.5 flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">
-              {t("openSlots", { count: court.openSlots })}
-            </span>
-            <span className="font-mono font-semibold tabular-nums">
-              {t("freePct", { pct: court.freePct })}
-            </span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-lime to-brand"
-              style={{ width: `${court.freePct}%` }}
-            />
-          </div>
+        <div className="inline-flex w-fit items-center gap-1 rounded-full bg-muted/70 px-2.5 py-1 text-xs font-medium text-muted-foreground ring-1 ring-foreground/5">
+          <span className="font-semibold tabular-nums text-foreground">
+            {court.openSlots}
+          </span>
+          <span>free</span>
+          <span className="text-muted-foreground/60">/</span>
+          <span className="font-semibold tabular-nums text-foreground">
+            {TOTAL_DAILY_SLOTS}
+          </span>
+          <span>slots</span>
         </div>
 
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border/60 pt-4">
-          <div>
-            <span className="font-heading text-xl font-bold tabular-nums">
-              {formatVnd(court.pricePerHour)}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {t("perHour")}
-            </span>
-          </div>
-          <div className="pointer-events-auto flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="rounded-full"
-              onClick={() => openDirections(court)}
-            >
-              <Navigation className="size-3.5" />
-              <span className="hidden sm:inline">{t("directions")}</span>
-            </Button>
-            <Button
-              size="sm"
-              className="rounded-full"
-              onClick={() => openBooking(court.id)}
-            >
-              {t("book")}
-            </Button>
+        <div className="mt-auto flex w-full flex-row items-center justify-start gap-3 border-t border-border/60 pt-4">
+          <div className="pointer-events-auto flex flex-col items-start gap-1">
+            <div className="text-right">
+              <span className="font-heading text-xl leading-none font-bold tabular-nums">
+                {formatVnd(court.pricePerHour)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {t("perHour")}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                className="h-9 rounded-full px-4 shadow-md shadow-brand/20"
+                onClick={() => openBooking(court.id)}
+              >
+                {t("book")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 rounded-full"
+                onClick={() => openDirections(court)}
+              >
+                <Navigation className="size-3.5" />
+                <span className="hidden sm:inline">{t("directions")}</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -29,13 +29,13 @@ export function PlayView({ initialTab = "courts" }: { initialTab?: PlayTab }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Tabs value={tab} onValueChange={(v) => setTab(v as PlayTab)}>
           <TabsList>
-            <TabsTrigger value="rooms">
-              <Users />
-              {t("rooms")}
-            </TabsTrigger>
             <TabsTrigger value="courts">
               <MapPin />
               {t("courts")}
+            </TabsTrigger>
+            <TabsTrigger value="rooms">
+              <Users />
+              {t("rooms")}
             </TabsTrigger>
           </TabsList>
         </Tabs>
