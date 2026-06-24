@@ -19,7 +19,6 @@ import type {
 // ── Sports catalog ───────────────────────────────────────────────────────────
 
 export const SPORTS: Sport[] = [
-  { key: "tennis", label: "Tennis", short: "TN", accent: "bg-chart-2" },
   { key: "pickleball", label: "Pickleball", short: "PK", accent: "bg-lime" },
   { key: "badminton", label: "Badminton", short: "BD", accent: "bg-chart-3" },
 ]

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-SportMatch AI — a prototype for an AI-powered court-booking and player-matchmaking app for racquet sports (tennis, pickleball, cầu lông/badminton). Two surfaces:
+SportMatch AI — a prototype for an AI-powered court-booking and player-matchmaking app for racquet sports (pickleball, cầu lông/badminton). Two surfaces:
 
 - **Landing page** (`apps/web/app/[locale]/page.tsx`) — a marketing/waitlist site. All user-facing copy is **Vietnamese** (formal register, addressing the user as "Quý khách").
 - **Dashboard** (`apps/web/app/[locale]/dashboard/`) — an interactive product demo. UI labels here are mostly English.

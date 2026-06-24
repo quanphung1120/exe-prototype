@@ -62,7 +62,6 @@
     "allSports": "All",
     "filterSport": "Filter by sport",
     "sports": {
-      "tennis": "Tennis",
       "pickleball": "Pickleball",
       "badminton": "Badminton"
     },
@@ -231,7 +230,7 @@
   "Meta": {
     "titleDefault": "SportMatch AI — Find a court. Find your match.",
     "titleTemplate": "%s · SportMatch AI",
-    "description": "SportMatch AI is your AI-powered court-booking assistant for racquet sports. Book tennis, pickleball and badminton in seconds and get matched with players at your level. Early access is now open.",
+    "description": "SportMatch AI is your AI-powered court-booking assistant for racquet sports. Book pickleball and badminton in seconds and get matched with players at your level. Early access is now open.",
     "ogTitle": "SportMatch AI — Find a court. Find your match.",
     "ogDescription": "AI-powered court booking and player matchmaking for racquet sports. Sign up for early access.",
     "twitterTitle": "SportMatch AI — Find a court. Find your match.",
@@ -239,7 +238,6 @@
     "keywords": [
       "court booking",
       "player matchmaking",
-      "tennis",
       "pickleball",
       "badminton",
       "AI assistant",
@@ -266,7 +264,7 @@
     "suggestions": {
       "badminton": "Badminton courts near me tonight",
       "cheapest": "Cheapest courts",
-      "tennis": "Tennis this evening"
+      "pickleball": "Pickleball this evening"
     },
     "steps": {
       "location": "Reading your location (Hà Nội)",
@@ -583,7 +581,7 @@
     "hero": {
       "titleLine1": "Find a court.",
       "titleLine2": "Find your match.",
-      "subtitle": "Your AI booking assistant for racquet sports. Book tennis, pickleball and badminton in seconds — and get matched with players at your level.",
+      "subtitle": "Your AI booking assistant for racquet sports. Book pickleball and badminton in seconds — and get matched with players at your level.",
       "cta": "Get started",
       "socialProof": "1,000+ players joined",
       "sportsLabel": "Built for:"
@@ -592,7 +590,7 @@
       "eyebrow": "About SportMatch AI",
       "titleStrong": "An intelligent assistant behind every match —",
       "titleMuted": "booking courts, matching players, and filling every empty slot for you.",
-      "body": "We believe playing should be the easy part. SportMatch AI handles the logistics — finding open courts near you, matching you with players at your level, and keeping your group in sync — so tennis, pickleball and badminton are always one message away. From first-timers to club regulars, we're building the fastest way to get on court."
+      "body": "We believe playing should be the easy part. SportMatch AI handles the logistics — finding open courts near you, matching you with players at your level, and keeping your group in sync — so pickleball and badminton are always one message away. From first-timers to club regulars, we're building the fastest way to get on court."
     },
     "pricingSection": {
       "eyebrow": "Pricing",
@@ -748,7 +746,7 @@
       },
       "1": {
         "quote": "The skill matching is uncannily accurate. Every match is competitive — something I never got with random pickup games.",
-        "role": "Tennis · 4.0"
+        "role": "Pickleball · 4.0"
       },
       "2": {
         "quote": "As a club, our weekday 2–5pm slots used to sit empty. Now matchmaking quietly fills them. It all just runs in the background.",
@@ -762,7 +760,7 @@
     "faq": {
       "0": {
         "question": "Which sports does SportMatch AI support?",
-        "answer": "We're launching with the racquet sports family: tennis, pickleball and badminton. More will be added based on where our community plays most."
+        "answer": "We're launching with the racquet sports family: pickleball and badminton. More will be added based on where our community plays most."
       },
       "1": {
         "question": "How does the AI assistant actually book a court?",
@@ -868,7 +866,7 @@
         "title": "Evening badminton, friendly doubles"
       },
       "r2": {
-        "title": "Competitive tennis singles"
+        "title": "Competitive pickleball singles"
       },
       "r3": {
         "title": "Casual pickleball rally"
@@ -880,7 +878,7 @@
         "title": "Badminton doubles night"
       },
       "r6": {
-        "title": "Tennis doubles, all welcome"
+        "title": "Pickleball doubles, all welcome"
       }
     },
     "timeSlots": {
@@ -980,7 +978,7 @@
         "time": "3 days ago"
       },
       "a4": {
-        "text": "Booked Court 1 at Ace Tennis Club",
+        "text": "Booked Court 1 at Ace Pickleball Club",
         "time": "4 days ago"
       },
       "a5": {
@@ -1071,7 +1069,7 @@
         "time": "3h"
       },
       "ch4": {
-        "last": "Rematch this weekend? 🎾",
+        "last": "Rematch this weekend? 🏓",
         "time": "Yesterday"
       }
     },

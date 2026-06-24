@@ -2,6 +2,14 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/*
+ * @repo/shared is consumed via the node_modules/@repo/shared symlink, which
+ * Tailwind's automatic content detection ignores. Without this, utility classes
+ * that only appear as string literals in the shared config (e.g. badminton's
+ * `bg-chart-3` accent dot) are never generated. Scan the package source too.
+ */
+@source "../../../packages/shared/src";
+
 @custom-variant dark (&:is(.dark *));
 
 /* Scope the dashboard to Geist for body + headings (mono stays Geist Mono). */

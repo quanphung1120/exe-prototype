@@ -5,7 +5,7 @@
 
 // ── Sports ───────────────────────────────────────────────────────────────────
 
-export type SportKey = "tennis" | "pickleball" | "badminton"
+export type SportKey = "pickleball" | "badminton"
 
 export interface Sport {
   key: SportKey

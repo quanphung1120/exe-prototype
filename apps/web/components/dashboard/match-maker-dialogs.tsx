@@ -307,7 +307,7 @@ function CreateRoomDialog() {
         .string()
         .min(5, t("validation.titleMin"))
         .max(40, t("validation.titleMax")),
-      sport: z.enum(["tennis", "pickleball", "badminton"]),
+      sport: z.enum(["pickleball", "badminton"]),
       format: z.enum(["Singles", "Doubles"]),
       maxPlayers: z.number().int().min(2).max(8),
       courtId: z.string().min(1, t("validation.court")),

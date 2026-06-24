@@ -62,7 +62,6 @@
     "allSports": "Tất cả",
     "filterSport": "Lọc theo môn",
     "sports": {
-      "tennis": "Tennis",
       "pickleball": "Pickleball",
       "badminton": "Cầu lông"
     },
@@ -231,7 +230,7 @@
   "Meta": {
     "titleDefault": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
     "titleTemplate": "%s · SportMatch AI",
-    "description": "SportMatch AI là trợ lý đặt sân bằng AI cho các môn thể thao vợt. Đặt sân tennis, pickleball và cầu lông chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
+    "description": "SportMatch AI là trợ lý đặt sân bằng AI cho các môn thể thao vợt. Đặt sân pickleball và cầu lông chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
     "ogTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
     "ogDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký truy cập sớm.",
     "twitterTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
@@ -239,7 +238,6 @@
     "keywords": [
       "đặt sân",
       "ghép người chơi",
-      "tennis",
       "pickleball",
       "cầu lông",
       "trợ lý AI",
@@ -266,7 +264,7 @@
     "suggestions": {
       "badminton": "Sân cầu lông gần tôi tối nay",
       "cheapest": "Sân rẻ nhất",
-      "tennis": "Tennis tối nay"
+      "pickleball": "Pickleball tối nay"
     },
     "steps": {
       "location": "Đang đọc vị trí của bạn (Hà Nội)",
@@ -583,7 +581,7 @@
     "hero": {
       "titleLine1": "Tìm sân",
       "titleLine2": "Tìm đối thủ phù hợp.",
-      "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân tennis, pickleball và cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
+      "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân pickleball và cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
       "cta": "Bắt đầu ngay",
       "socialProof": "1.000+ người chơi đã tham gia",
       "sportsLabel": "Dành cho:"
@@ -592,7 +590,7 @@
       "eyebrow": "Về SportMatch AI",
       "titleStrong": "Một trợ lý thông minh phía sau mỗi trận đấu —",
       "titleMuted": "đặt sân, ghép người chơi và lấp đầy mọi khung giờ trống cho Quý khách.",
-      "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. SportMatch AI lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để tennis, pickleball và cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân."
+      "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. SportMatch AI lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để pickleball và cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân."
     },
     "pricingSection": {
       "eyebrow": "Bảng giá",
@@ -748,7 +746,7 @@
       },
       "1": {
         "quote": "Khả năng ghép trình độ chính xác đến đáng kinh ngạc. Trận nào cũng cân sức — điều chưa từng có với những trận đánh ngẫu hứng trước đây.",
-        "role": "Tennis · 4.0"
+        "role": "Pickleball · 4.0"
       },
       "2": {
         "quote": "Là một câu lạc bộ, khung 2–5 giờ chiều các ngày trong tuần của chúng tôi từng vắng tanh. Giờ tính năng ghép trận âm thầm lấp đầy chúng. Mọi thứ tự chạy trong nền.",
@@ -762,7 +760,7 @@
     "faq": {
       "0": {
         "question": "SportMatch AI hỗ trợ những môn thể thao nào?",
-        "answer": "Chúng tôi ra mắt với nhóm các môn thể thao vợt: tennis, pickleball và cầu lông. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất."
+        "answer": "Chúng tôi ra mắt với nhóm các môn thể thao vợt: pickleball và cầu lông. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất."
       },
       "1": {
         "question": "Trợ lý AI thực sự đặt sân như thế nào?",
@@ -868,7 +866,7 @@
         "title": "Cầu lông buổi tối, đánh đôi vui vẻ"
       },
       "r2": {
-        "title": "Tennis đơn thi đấu"
+        "title": "Pickleball đơn thi đấu"
       },
       "r3": {
         "title": "Pickleball giao lưu nhẹ nhàng"
@@ -880,7 +878,7 @@
         "title": "Đêm cầu lông đánh đôi"
       },
       "r6": {
-        "title": "Tennis đôi, chào đón tất cả"
+        "title": "Pickleball đôi, chào đón tất cả"
       }
     },
     "timeSlots": {
@@ -980,7 +978,7 @@
         "time": "3 ngày trước"
       },
       "a4": {
-        "text": "Đã đặt Court 1 tại Ace Tennis Club",
+        "text": "Đã đặt Court 1 tại Ace Pickleball Club",
         "time": "4 ngày trước"
       },
       "a5": {
@@ -1071,7 +1069,7 @@
         "time": "3 giờ"
       },
       "ch4": {
-        "last": "Tái đấu cuối tuần này nhé? 🎾",
+        "last": "Tái đấu cuối tuần này nhé? 🏓",
         "time": "Hôm qua"
       }
     },

@@ -603,7 +603,7 @@ function VenueForm({
     district: z.string().min(1, t("validation.required")).max(60),
     city: z.string().min(1, t("validation.required")).max(60),
     sports: z
-      .array(z.enum(["tennis", "pickleball", "badminton"]))
+      .array(z.enum(["pickleball", "badminton"]))
       .min(1, t("validation.sports")),
     openFrom: z.string().regex(TIME_RE, t("validation.time")),
     openTo: z.string().regex(TIME_RE, t("validation.time")),
@@ -797,7 +797,7 @@ function CourtForm({
 
   const schema = z.object({
     name: z.string().min(1, t("validation.required")).max(40),
-    sport: z.enum(["tennis", "pickleball", "badminton"]),
+    sport: z.enum(["pickleball", "badminton"]),
     surface: z.string().min(1, t("validation.required")).max(40),
     pricePerHour: z
       .number()

@@ -54,7 +54,7 @@ type Msg =
 
 type Translator = ReturnType<typeof useTranslations>
 
-const SUGGESTION_KEYS = ["badminton", "cheapest", "tennis"] as const
+const SUGGESTION_KEYS = ["badminton", "cheapest", "pickleball"] as const
 
 /**
  * Fake "AI" planner: light keyword matching on the prompt to pick and order

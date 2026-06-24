@@ -29,10 +29,10 @@ import { Parallax } from "@/components/scroll/parallax"
 import { SiteHeader } from "@/components/site-header"
 import { Link } from "@/i18n/navigation"
 
-const SPORT_KEYS = ["tennis", "pickleball", "badminton"]
+const SPORT_KEYS = ["pickleball", "badminton"]
 
 const TRUST_LOGOS = [
-  "Ace Tennis Club",
+  "Ace Pickleball Club",
   "Shuttle Republic",
   "Smash Pickleball",
   "Baseline Athletic",
@@ -177,7 +177,7 @@ export default async function Page({
                 <span className="block">{t("hero.titleLine2")}</span>
               </h1>
 
-              {/* Lime "tennis-ball" accent rule. */}
+              {/* Lime accent rule. */}
               <span
                 data-hero-item
                 className="mt-6 block h-1.5 w-24 rounded-full bg-lime"

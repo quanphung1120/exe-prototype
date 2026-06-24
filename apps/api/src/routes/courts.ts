@@ -6,7 +6,7 @@ import * as z from "zod"
 import { COURTS } from "../data/player.js"
 
 // Sports supported by SportMatch (mirrors the shared `SportKey` union).
-const sportEnum = z.enum(["tennis", "pickleball", "badminton"])
+const sportEnum = z.enum(["pickleball", "badminton"])
 
 const listCourtsQuery = z.object({
   // Query values arrive as strings, so coerce + constrain.

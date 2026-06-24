@@ -1,7 +1,7 @@
 # SportMatch AI
 
 A prototype for an AI-powered court-booking and player-matchmaking app for racquet
-sports (tennis, pickleball, cầu lông/badminton). This is a **Turborepo monorepo**
+sports (pickleball, cầu lông/badminton). This is a **Turborepo monorepo**
 managed with **pnpm**.
 
 ## Structure

@@ -14,7 +14,7 @@ import {
   updateVenue,
 } from "../store/venue-store.js"
 
-const sportEnum = z.enum(["tennis", "pickleball", "badminton"])
+const sportEnum = z.enum(["pickleball", "badminton"])
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM")
 
 const venueInput = z.object({
