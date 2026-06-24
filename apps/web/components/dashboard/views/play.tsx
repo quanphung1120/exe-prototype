@@ -17,7 +17,7 @@ export type PlayTab = "rooms" | "courts"
  * same intent — "I want to play" — so they live behind one segmented toggle.
  * Each panel only mounts when active so they don't double-subscribe to filters.
  */
-export function PlayView({ initialTab = "rooms" }: { initialTab?: PlayTab }) {
+export function PlayView({ initialTab = "courts" }: { initialTab?: PlayTab }) {
   const t = useTranslations("Play")
   const tm = useTranslations("MatchMaker")
   const [tab, setTab] = React.useState<PlayTab>(initialTab)

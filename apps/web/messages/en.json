@@ -1570,6 +1570,8 @@
     },
     "availability": {
       "label": "Availability",
+      "slots": "slots",
+      "total": "total",
       "manySlots": "5+ open slots today",
       "mostlyFree": "Half the day still free"
     },

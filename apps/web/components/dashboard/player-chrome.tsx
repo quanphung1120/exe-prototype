@@ -1,6 +1,5 @@
 "use client"
 
-import { CourtAssistant } from "@/components/dashboard/court-assistant"
 import { MatchMakerDialogs } from "@/components/dashboard/match-maker-dialogs"
 import { MatchmakingDock } from "@/components/dashboard/matchmaking"
 import { PlayChooser } from "@/components/dashboard/play-chooser"
@@ -24,7 +23,6 @@ export function PlayerChrome() {
   const onBookingPage = pathname === "/dashboard/book"
   return (
     <>
-      {onBookingPage ? null : <CourtAssistant />}
       <MatchmakingDock />
       <PlayChooser />
       <MatchMakerDialogs />

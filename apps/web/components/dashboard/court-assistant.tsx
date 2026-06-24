@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
+import { usePathname } from "next/navigation"
 import { AnimatePresence, motion } from "framer-motion"
 import {
   ArrowDown,
@@ -117,8 +118,10 @@ export function CourtAssistant() {
   const t = useTranslations("Assistant")
   const tc = useTranslations("Common")
   const tPlay = useTranslations("Play")
-  const { openPlay } = useBooking()
+  const { openPlay, openBooking } = useBooking()
   const { courts: COURTS } = useData()
+  const pathname = usePathname()
+  const onBookingPage = pathname === "/dashboard/book"
 
   const GREETING: Msg = {
     id: "greet",
@@ -155,6 +158,11 @@ export function CourtAssistant() {
   React.useEffect(() => {
     if (open) inputRef.current?.focus()
   }, [open])
+
+  // Close the panel whenever navigation changes the visible page.
+  React.useEffect(() => {
+    setOpen(false)
+  }, [pathname])
 
   const send = (raw: string) => {
     const text = raw.trim()
@@ -225,20 +233,30 @@ export function CourtAssistant() {
       )
     )
 
+  const handleBook = (courtId: string) => {
+    setOpen(false)
+    openBooking(courtId)
+  }
+
   const showSuggestions = messages.length === 1 && !busy
 
   return (
-    <div className="fixed right-5 bottom-5 z-50 flex flex-col items-end gap-3 sm:right-6 sm:bottom-6">
+    <div className="relative inline-flex flex-col items-start gap-3 overflow-visible">
       <AnimatePresence>
         {open ? (
           <motion.div
             key="panel"
-            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.96 }}
+            exit={{ opacity: 0, y: 12, scale: 0.96 }}
             transition={{ type: "spring", stiffness: 360, damping: 30 }}
-            style={{ transformOrigin: "bottom right" }}
-            className="flex h-[min(560px,72vh)] w-[calc(100vw-2.5rem)] max-w-[384px] flex-col overflow-hidden rounded-4xl bg-card shadow-2xl ring-1 ring-foreground/5 dark:ring-foreground/10"
+            style={{
+              transformOrigin: onBookingPage ? "bottom right" : "bottom left",
+            }}
+            className={cn(
+              "absolute bottom-full z-[70] mb-3 flex h-[620px] w-[600px] max-h-[calc(100vh-6rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-4xl bg-card shadow-2xl ring-1 ring-foreground/5 dark:ring-foreground/10",
+              onBookingPage ? "right-0 left-auto" : "left-0"
+            )}
           >
             {/* Header */}
             <header className="flex items-center gap-3 border-b border-border/60 p-4">
@@ -246,10 +264,10 @@ export function CourtAssistant() {
                 <Sparkles className="size-4.5" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="font-heading text-sm font-bold tracking-tight">
+                <p className="font-heading text-base font-bold tracking-tight sm:text-lg">
                   {t("title")}
                 </p>
-                <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <p className="inline-flex items-center gap-1 text-sm text-muted-foreground sm:text-[15px]">
                   <span className="size-1.5 rounded-full bg-brand" />
                   {t("subtitle")}
                 </p>
@@ -278,7 +296,7 @@ export function CourtAssistant() {
                     onToggle={() => toggleCollapse(m.id)}
                   />
                 ) : m.type === "result" ? (
-                  <ResultBlock key={m.id} msg={m} />
+                  <ResultBlock key={m.id} msg={m} onBook={handleBook} />
                 ) : (
                   <Bubble key={m.id} mine={m.role === "user"} text={m.text} />
                 )
@@ -341,19 +359,19 @@ export function CourtAssistant() {
         ) : null}
       </AnimatePresence>
 
-      {/* Floating bubble */}
+      {/* Assistant toggle */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-label={open ? t("toggleClose") : t("toggleOpen")}
-        className="relative grid size-14 shrink-0 place-items-center rounded-full bg-gradient-to-br from-lime to-brand text-brand-foreground shadow-lg ring-1 ring-foreground/5 transition-transform hover:scale-105 active:scale-95 dark:ring-foreground/10"
+        className="relative grid size-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-lime to-brand text-brand-foreground shadow-lg ring-1 ring-foreground/5 transition-transform hover:scale-105 active:scale-95 dark:ring-foreground/10"
       >
         {!open ? (
           <span className="animate-pulse-ring absolute inline-flex size-full rounded-full bg-brand/50" />
         ) : null}
         <span className="relative">
-          {open ? <X className="size-6" /> : <Sparkles className="size-6" />}
+          {open ? <X className="size-5" /> : <Sparkles className="size-5" />}
         </span>
       </button>
     </div>
@@ -441,7 +459,13 @@ function ThinkingBlock({
   )
 }
 
-function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
+function ResultBlock({
+  msg,
+  onBook,
+}: {
+  msg: Extract<Msg, { type: "result" }>
+  onBook: (courtId: string) => void
+}) {
   const t = useTranslations("Assistant")
   const { courts: COURTS } = useData()
   const courts = msg.courtIds
@@ -457,7 +481,7 @@ function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
             <ArrowDown className="size-3" />
             {t("courtsCount", { count: courts.length })}
           </p>
-          <CourtCarousel courts={courts} />
+          <CourtCarousel courts={courts} onBook={onBook} />
         </>
       ) : null}
     </div>
@@ -469,7 +493,13 @@ function ResultBlock({ msg }: { msg: Extract<Msg, { type: "result" }> }) {
  * full court row, so each result becomes its own snap-scrolling card; a peek of
  * the next card plus the transparent edge arrows signal there's more to scroll.
  */
-function CourtCarousel({ courts }: { courts: Court[] }) {
+function CourtCarousel({
+  courts,
+  onBook,
+}: {
+  courts: Court[]
+  onBook: (courtId: string) => void
+}) {
   const t = useTranslations("Assistant")
   const scroller = React.useRef<HTMLDivElement>(null)
   const [atStart, setAtStart] = React.useState(true)
@@ -504,7 +534,7 @@ function CourtCarousel({ courts }: { courts: Court[] }) {
         className="flex snap-x snap-mandatory [scrollbar-width:none] gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         {courts.map((c) => (
-          <CourtCard key={c.id} court={c} solo={single} />
+          <CourtCard key={c.id} court={c} solo={single} onBook={onBook} />
         ))}
       </div>
 
@@ -560,10 +590,25 @@ function CarouselArrow({
 }
 
 /** A single court rendered as a self-contained card inside the carousel. */
-function CourtCard({ court, solo }: { court: Court; solo?: boolean }) {
+function CourtCard({
+  court,
+  solo,
+  onBook,
+}: {
+  court: Court
+  solo?: boolean
+  onBook: (courtId: string) => void
+}) {
   const t = useTranslations("Assistant")
+  const tf = useTranslations("CourtFinder")
   const ts = useTranslations("Shared")
-  const { openBooking } = useBooking()
+
+  const scoreWord =
+    court.rating >= 4.7
+      ? "exceptional"
+      : court.rating >= 4.5
+        ? "excellent"
+        : "veryGood"
 
   return (
     <div
@@ -574,8 +619,8 @@ function CourtCard({ court, solo }: { court: Court; solo?: boolean }) {
     >
       <div className="aspect-video w-full overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/5 dark:ring-foreground/10" />
 
-      <div className="flex items-center gap-2.5">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-2">
+        <div className="min-w-0">
           <p className="truncate font-medium">{court.name}</p>
           <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
             <MapPin className="size-3 shrink-0" />
@@ -583,11 +628,16 @@ function CourtCard({ court, solo }: { court: Court; solo?: boolean }) {
               {court.district} · {court.distanceKm} km
             </span>
           </p>
+          <div className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground shadow-sm ring-1 ring-foreground/5">
+            <Star className="size-3 shrink-0 fill-lime text-lime" />
+            <span className="text-sm font-bold leading-none tabular-nums text-secondary-foreground">
+              {court.rating}
+            </span>
+            <span className="text-[10px] font-medium leading-none text-muted-foreground">
+              {tf(`score.${scoreWord}`)}
+            </span>
+          </div>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-0.5 text-xs font-medium text-muted-foreground tabular-nums">
-          <Star className="size-3 fill-lime text-lime" />
-          {court.rating}
-        </span>
       </div>
 
       <div className="flex items-end justify-end gap-2">
@@ -603,7 +653,7 @@ function CourtCard({ court, solo }: { court: Court; solo?: boolean }) {
         <Button
           size="sm"
           className="rounded-full"
-          onClick={() => openBooking(court.id)}
+          onClick={() => onBook(court.id)}
         >
           {t("book")}
         </Button>
