@@ -15,6 +15,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { initialsOf } from "@repo/shared"
 
 import { LogoMark } from "@/components/logo"
+import { CourtAssistant } from "@/components/dashboard/court-assistant"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -54,7 +55,7 @@ export function AppSidebar() {
   const router = useRouter()
   const locale = useLocale()
   const { signOut } = useClerk()
-  const { isMobile, setOpenMobile } = useSidebar()
+  const { isMobile, setOpenMobile, state } = useSidebar()
   const { userName } = useMatchmaking()
   const { user: USER, venues: VENUES } = useData()
 
@@ -244,7 +245,22 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                   {item.badge ? (
                     <SidebarMenuBadge
-                      className={item.badge === "AI" ? "text-brand" : undefined}
+                      title={
+                        item.badge === "AI"
+                          ? `${tNav(`${item.key}.label`)} AI`
+                          : `${tNav(`${item.key}.label`)} unread count ${item.badge}`
+                      }
+                      aria-label={
+                        item.badge === "AI"
+                          ? `${tNav(`${item.key}.label`)} AI badge`
+                          : `${tNav(`${item.key}.label`)} with ${item.badge} unread items`
+                      }
+                      className={cn(
+                        "h-5 min-w-5 rounded-full px-1.5 text-[11px] font-semibold shadow-sm ring-1 ring-brand/20",
+                        item.badge === "AI"
+                          ? "bg-brand/12 text-brand"
+                          : "bg-brand text-brand-foreground"
+                      )}
                     >
                       {item.badge}
                     </SidebarMenuBadge>
@@ -256,86 +272,96 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={t("workspaceSettings")}
-              onClick={() => setSettingsOpen(true)}
-            >
-              <Settings2 />
-              <span>{t("workspaceSettings")}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <SidebarMenuButton
-                    size="lg"
-                    className="data-popup-open:bg-sidebar-accent"
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <SidebarMenu className="min-w-0 flex-1">
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip={t("workspaceSettings")}
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings2 />
+                  <span>{t("workspaceSettings")}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+            {state === "expanded" ? <CourtAssistant /> : null}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <SidebarMenu className="min-w-0 flex-1">
+              <SidebarMenuItem>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <SidebarMenuButton
+                        size="lg"
+                        className="data-popup-open:bg-sidebar-accent"
+                      >
+                        <Avatar size="sm" className="size-8">
+                          {accountImage ? (
+                            <AvatarImage src={accountImage} alt={accountName} />
+                          ) : null}
+                          <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
+                            {accountInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="grid flex-1 text-left leading-tight">
+                          <span className="truncate text-sm font-medium">
+                            {accountName}
+                          </span>
+                          <span className="truncate text-xs text-sidebar-foreground/60">
+                            {accountSubtitle}
+                          </span>
+                        </div>
+                        <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/60" />
+                      </SidebarMenuButton>
+                    }
+                  />
+                  <DropdownMenuContent
+                    align="end"
+                    side="top"
+                    sideOffset={6}
+                    className="w-(--anchor-width) min-w-56"
                   >
-                    <Avatar size="sm" className="size-8">
-                      {accountImage ? (
-                        <AvatarImage src={accountImage} alt={accountName} />
-                      ) : null}
-                      <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-                        {accountInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left leading-tight">
-                      <span className="truncate text-sm font-medium">
-                        {accountName}
-                      </span>
-                      <span className="truncate text-xs text-sidebar-foreground/60">
-                        {accountSubtitle}
-                      </span>
-                    </div>
-                    <ChevronsUpDown className="ml-auto size-4 text-sidebar-foreground/60" />
-                  </SidebarMenuButton>
-                }
-              />
-              <DropdownMenuContent
-                align="end"
-                side="top"
-                sideOffset={6}
-                className="w-(--anchor-width) min-w-56"
-              >
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="flex items-center gap-2 py-2 text-foreground">
-                    <Avatar size="sm" className="size-8">
-                      {accountImage ? (
-                        <AvatarImage src={accountImage} alt={accountName} />
-                      ) : null}
-                      <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-                        {accountInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid leading-tight">
-                      <span className="text-sm font-medium">{accountName}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {accountSubtitle}
-                      </span>
-                    </div>
-                  </DropdownMenuLabel>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <UserRound />
-                  {t("profile")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
-                  <Settings />
-                  {t("settings")}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
-                  <LogOut />
-                  {t("logout")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="flex items-center gap-2 py-2 text-foreground">
+                        <Avatar size="sm" className="size-8">
+                          {accountImage ? (
+                            <AvatarImage src={accountImage} alt={accountName} />
+                          ) : null}
+                          <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
+                            {accountInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="grid leading-tight">
+                          <span className="text-sm font-medium">{accountName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {accountSubtitle}
+                          </span>
+                        </div>
+                      </DropdownMenuLabel>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <UserRound />
+                      {t("profile")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                      <Settings />
+                      {t("settings")}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
+                      <LogOut />
+                      {t("logout")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </div>
+        </div>
       </SidebarFooter>
 
       <SidebarRail />

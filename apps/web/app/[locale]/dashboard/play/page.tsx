@@ -23,6 +23,6 @@ export default async function PlayPage({
   const { locale } = await params
   const { tab } = await searchParams
   setRequestLocale(locale)
-  const initialTab: PlayTab = tab === "courts" ? "courts" : "rooms"
+  const initialTab: PlayTab = tab === "rooms" ? "rooms" : "courts"
   return <PlayView initialTab={initialTab} />
 }

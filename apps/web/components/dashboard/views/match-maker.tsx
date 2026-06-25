@@ -239,7 +239,7 @@ function RoomCard({
         ) : (
           <Button
             size="sm"
-            className="ml-auto shrink-0 rounded-full"
+            className="ml-auto shrink-0 rounded-full text-base font-semibold"
             variant={full ? "outline" : "default"}
             disabled={full}
             onClick={onJoin}

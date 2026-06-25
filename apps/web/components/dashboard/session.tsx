@@ -28,6 +28,12 @@ import {
 } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
 import { useRouter } from "@/i18n/navigation"
+import {
+  PLAYER_ASSESSMENT_UPDATED_EVENT,
+  levelsBySport,
+  readStoredAssessment,
+  type AssessmentSport,
+} from "@/lib/player-assessment"
 
 /** The dedicated booking-wizard route the Play / book actions navigate to. */
 const BOOK_PATH = "/dashboard/book"
@@ -89,6 +95,8 @@ interface SessionContextValue {
   joinedIds: Set<string>
   userLevel: Level
   setUserLevel: (level: Level) => void
+  userLevels: Record<AssessmentSport, Level>
+  userLevelForSport: (sport: SportKey) => Level
   /** The player's editable display name (defaults to the seed user's name). */
   userName: string
   setUserName: (name: string) => void
@@ -280,7 +288,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     null
   )
-  const [userLevel, setUserLevel] = React.useState<Level>(USER.level)
+  const [fallbackUserLevel, setFallbackUserLevel] =
+    React.useState<Level>(USER.level)
+  const [assessmentLevels, setAssessmentLevels] = React.useState<
+    Record<AssessmentSport, Level>
+  >(() => levelsBySport(null, USER.level))
   const [userName, setUserName] = React.useState<string>(USER.name)
   const [search, setSearch] = React.useState<PartnerSearch | null>(null)
   const [managerOpen, setManagerOpen] = React.useState(false)
@@ -298,6 +310,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const idRef = React.useRef(0)
   const newId = (p: string) => `s-${p}-${idRef.current++}`
+
+  React.useEffect(() => {
+    const syncAssessment = () => {
+      setAssessmentLevels(
+        levelsBySport(readStoredAssessment(), fallbackUserLevel)
+      )
+    }
+    syncAssessment()
+    window.addEventListener("storage", syncAssessment)
+    window.addEventListener(PLAYER_ASSESSMENT_UPDATED_EVENT, syncAssessment)
+    return () => {
+      window.removeEventListener("storage", syncAssessment)
+      window.removeEventListener(
+        PLAYER_ASSESSMENT_UPDATED_EVENT,
+        syncAssessment
+      )
+    }
+  }, [fallbackUserLevel])
+
+  const userLevelForSport = React.useCallback(
+    (sport: SportKey): Level => assessmentLevels[sport],
+    [assessmentLevels]
+  )
+  const userLevel = userLevelForSport("badminton")
 
   // ── Timer pool (RSVP / search) keyed for targeted cleanup ──
   const timers = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(
@@ -443,7 +479,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       return false
     if (f.format !== "any" && room.format !== f.format) return false
     if (f.level === "any") return true
-    const target = f.level === "my" ? userLevel : f.level
+    const target = f.level === "my" ? userLevelForSport(room.sport) : f.level
     return levelMatches(target, room.level)
   }
 
@@ -606,7 +642,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const exclude = session.roster.map((p) => p.initials)
     const askers = pickPartners(
       session.sport,
-      userLevel,
+      userLevelForSport(session.sport),
       Math.min(openSeats, 2),
       exclude
     )
@@ -862,7 +898,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const exclude = session.roster.map((p) => p.initials)
       const partners = pickPartners(
         session.sport,
-        userLevel,
+        userLevelForSport(session.sport),
         openSeats,
         exclude
       )
@@ -933,7 +969,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         { name: userName, initials: USER.initials, rsvp: "host" },
         { name: partner.name, initials: partner.initials, rsvp: "going" },
       ],
-      level: userLevel,
+      level: userLevelForSport(opts.sport),
       status: "forming",
       listed: true,
       fillIntent: "find",
@@ -982,7 +1018,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const handle = setTimeout(() => {
       timers.current.delete(key)
       stopClock()
-      const partner = pickPartners(sport, userLevel, 1, [])[0]
+      const partner = pickPartners(sport, userLevelForSport(sport), 1, [])[0]
       const roomId = createSeedRoom(
         { sport, format, maxPlayers, court: c },
         partner
@@ -1002,7 +1038,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     )
     if (pool.length) {
       const best = [...pool].sort((a, b) => {
-        const exact = (r: MatchRoom) => (r.level === userLevel ? 0 : 1)
+        const exact = (r: MatchRoom) =>
+          r.level === userLevelForSport(r.sport) ? 0 : 1
         if (exact(a) !== exact(b)) return exact(a) - exact(b)
         if (a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm
         return b.joined / b.capacity - a.joined / a.capacity
@@ -1282,7 +1319,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       host: { name: userName, initials: USER.initials },
       capacity: capacityFor(draft.format),
       roster: [host],
-      level: userLevel,
+      level: userLevelForSport(sport),
       status: "booked",
       hold: "confirmed",
       listed: false,
@@ -1353,7 +1390,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     sessions,
     joinedIds,
     userLevel,
-    setUserLevel,
+    setUserLevel: setFallbackUserLevel,
+    userLevels: assessmentLevels,
+    userLevelForSport,
     userName,
     setUserName,
     search,

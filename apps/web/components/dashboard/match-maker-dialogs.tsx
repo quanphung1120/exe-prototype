@@ -285,7 +285,7 @@ function CreateRoomDialog() {
   const tb = useTranslations("Booking")
   const { courts: COURTS, user: USER, conflictFor, courtDayGaps } = useData()
   const {
-    userLevel,
+    userLevelForSport,
     addRoom,
     createRoomOpen,
     setCreateRoomOpen,
@@ -350,7 +350,7 @@ function CreateRoomDialog() {
       day: "today" as "today" | "tomorrow" | "sat" | "sun" | "mon",
       startTime: "18:30",
       endTime: "19:30",
-      level: userLevel as RoomLevel,
+      level: userLevelForSport("badminton") as RoomLevel,
       note: "",
     },
     validators: {
@@ -451,9 +451,11 @@ function CreateRoomDialog() {
                     <Select
                       value={field.state.value}
                       onValueChange={(v) => {
-                        field.handleChange(v as SportKey)
+                        const sport = v as SportKey
+                        field.handleChange(sport)
+                        form.setFieldValue("level", userLevelForSport(sport))
                         const first = COURTS.find((c) =>
-                          c.sports.includes(v as SportKey)
+                          c.sports.includes(sport)
                         )
                         if (first) form.setFieldValue("courtId", first.id)
                       }}

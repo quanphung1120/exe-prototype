@@ -31,13 +31,12 @@ export function DashboardTopbar() {
       <SidebarTrigger className="-ml-1" />
       <div className="mr-1 h-5 w-px bg-border" />
       <div className="min-w-0 flex-1">
-        <h1 className="truncate font-heading text-base leading-none font-semibold">
+        <h1 className="truncate font-heading text-xl leading-tight font-semibold sm:text-2xl">
           {tNav(`${active.key}.label`)}
-          <span className="hidden font-normal text-muted-foreground sm:inline">
-            {" — "}
-            {tNav(`${active.key}.caption`)}
-          </span>
         </h1>
+        <p className="truncate text-sm font-medium text-muted-foreground sm:text-base">
+          {tNav(`${active.key}.caption`)}
+        </p>
       </div>
       {showSportFilter ? (
         <>

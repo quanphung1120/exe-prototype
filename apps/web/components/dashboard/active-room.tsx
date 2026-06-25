@@ -339,6 +339,7 @@ function RoomDetail({
             {room.players.map((initials, i) => (
               <ParticipantRow
                 key={`${initials}-${i}`}
+                sport={room.sport}
                 initials={initials}
                 canKick={isHost && initials !== USER.initials}
                 onKick={() => kickPlayer(room.id, initials)}
@@ -505,16 +506,18 @@ function RoomDetail({
 }
 
 function ParticipantRow({
+  sport,
   initials,
   canKick,
   onKick,
 }: {
+  sport: MatchRoom["sport"]
   initials: string
   canKick?: boolean
   onKick?: () => void
 }) {
   const t = useTranslations("ActiveRoom")
-  const { userLevel } = useMatchmaking()
+  const { userLevelForSport } = useMatchmaking()
   const { user: USER, playerByInitials } = useData()
   const { name, level, trust } = playerByInitials(initials)
   const tier = trustTier(trust)
@@ -531,7 +534,7 @@ function ParticipantRow({
               <span className="text-muted-foreground"> ({t("you")})</span>
             ) : null}
           </span>
-          <LevelChip level={isYou ? userLevel : level} />
+          <LevelChip level={isYou ? userLevelForSport(sport) : level} />
         </div>
         <div
           className={cn(

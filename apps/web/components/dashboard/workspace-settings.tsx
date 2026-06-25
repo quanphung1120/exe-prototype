@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import type { Venue } from "@/components/dashboard/data"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
+import { ResetPlayerAssessmentButton } from "@/components/dashboard/player-assessment-gate"
 import { updateVenue } from "@/lib/venue-actions"
 import { useRouter } from "@/i18n/navigation"
 
@@ -216,6 +217,8 @@ function SettingsForm({
             <p className="text-sm text-destructive">{t("validation.name")}</p>
           ) : null}
         </Field>
+
+        {!isVenue ? <ResetPlayerAssessmentButton /> : null}
 
         {/* Venue profile — photo, description, and working hours. */}
         {isVenue ? (

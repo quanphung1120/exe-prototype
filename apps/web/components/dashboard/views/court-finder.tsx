@@ -47,6 +47,7 @@ const PRICE_BANDS: { key: string; min?: number; max?: number }[] = [
 
 /** Minimum guest-rating thresholds offered in the rail. */
 const RATINGS = [4.5, 4.6, 4.7]
+const TOTAL_DAILY_SLOTS = 8
 
 const inBand = (price: number, b: (typeof PRICE_BANDS)[number]) =>
   (b.min == null || price >= b.min) && (b.max == null || price < b.max)
@@ -70,7 +71,7 @@ function openDirections(court: Court) {
 }
 
 /**
- * The dashboard home — a Booking.com-style court finder. A full-width search
+ * The dashboard home ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a Booking.com-style court finder. A full-width search
  * bar, then a filter rail (budget, guest rating, availability) on the left and
  * a sortable list of court cards on the right. The sport is driven by the
  * shared topbar filter; below `lg` the rail collapses into a bottom sheet.
@@ -147,6 +148,8 @@ export function CourtFinderView() {
 
   const filters = (
     <FilterControls
+      sort={sort}
+      setSort={setSort}
       priceBands={priceBands}
       togglePrice={togglePrice}
       minRating={minRating}
@@ -163,15 +166,16 @@ export function CourtFinderView() {
 
   return (
     <div className="flex flex-col gap-4 pt-2 pb-6">
-      {/* Search — full width, the way a Booking.com destination bar reads. */}
+      {/* Search ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â full width, the way a Booking.com destination bar reads. */}
       <div className="relative mb-4">
-        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("searchPlaceholder")}
           aria-label={t("searchPlaceholder")}
-          className="h-14 rounded-2xl pr-10 pl-11 text-base shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10"
+          className="h-[3.75rem] rounded-2xl !pr-12 text-left text-lg shadow-md ring-1 ring-foreground/5 placeholder:text-lg dark:ring-foreground/10"
+          style={{ paddingLeft: "3rem", paddingRight: "3rem" }}
         />
         {query ? (
           <button
@@ -186,14 +190,14 @@ export function CourtFinderView() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        {/* Filter rail — desktop */}
+        {/* Filter rail ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â desktop */}
         <aside className="hidden lg:sticky lg:top-4 lg:block lg:self-start">{filters}</aside>
 
         {/* Results */}
         <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
-              {/* Filters trigger — mobile only */}
+              {/* Filters trigger ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â mobile only */}
               <Sheet>
                 <SheetTrigger
                   render={
@@ -223,36 +227,9 @@ export function CourtFinderView() {
                   <div className="px-3 pb-3">{filters}</div>
                 </SheetContent>
               </Sheet>
-              <span className="text-sm font-medium text-muted-foreground">
+              <span className="inline-flex items-center rounded-full bg-muted/80 px-3 py-1.5 text-[1.05rem] font-semibold text-foreground shadow-sm ring-1 ring-foreground/5 tabular-nums">
                 {t("results", { count: items.length })}
               </span>
-            </div>
-
-            <div
-              role="radiogroup"
-              aria-label={t("sortBy")}
-              className="flex shrink-0 items-center gap-0.5 rounded-full bg-muted/60 p-0.5"
-            >
-              {SORTS.map((key) => {
-                const active = sort === key
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => setSort(key)}
-                    className={cn(
-                      "rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
-                      active
-                        ? "bg-card text-foreground shadow-sm ring-1 ring-foreground/5"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {t(`sort.${key}`)}
-                  </button>
-                )
-              })}
             </div>
           </div>
 
@@ -284,8 +261,10 @@ export function CourtFinderView() {
   )
 }
 
-/** The filter rail's contents — shared by the desktop aside and mobile sheet. */
+/** The filter rail's contents ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â shared by the desktop aside and mobile sheet. */
 function FilterControls({
+  sort,
+  setSort,
   priceBands,
   togglePrice,
   minRating,
@@ -298,6 +277,8 @@ function FilterControls({
   activeCount,
   onClear,
 }: {
+  sort: SortKey
+  setSort: (sort: SortKey) => void
   priceBands: Set<string>
   togglePrice: (key: string) => void
   minRating: number
@@ -339,6 +320,17 @@ function FilterControls({
         ) : null}
       </div>
 
+      <FilterGroup title={t("sortBy")}>
+        {SORTS.map((key) => (
+          <RadioRow
+            key={key}
+            checked={sort === key}
+            onSelect={() => setSort(key)}
+            label={t(`sort.${key}`)}
+          />
+        ))}
+      </FilterGroup>
+
       <FilterGroup title={t("price.label")}>
         {PRICE_BANDS.map((b) => (
           <CheckRow
@@ -346,7 +338,6 @@ function FilterControls({
             checked={priceBands.has(b.key)}
             onToggle={() => togglePrice(b.key)}
             label={priceLabel(b)}
-            count={counts.price[b.key]}
           />
         ))}
       </FilterGroup>
@@ -363,7 +354,6 @@ function FilterControls({
             checked={minRating === r}
             onSelect={() => setMinRating(r)}
             label={t("rating.min", { score: r })}
-            count={counts.rating[r]}
             icon={<Star className="size-3 fill-lime text-lime" />}
           />
         ))}
@@ -374,13 +364,11 @@ function FilterControls({
           checked={manySlots}
           onToggle={() => setManySlots(!manySlots)}
           label={t("availability.manySlots")}
-          count={counts.manySlots}
         />
         <CheckRow
           checked={mostlyFree}
           onToggle={() => setMostlyFree(!mostlyFree)}
           label={t("availability.mostlyFree")}
-          count={counts.mostlyFree}
         />
       </FilterGroup>
     </div>
@@ -399,17 +387,15 @@ function FilterGroup({ title, children }: { title: string; children: React.React
   )
 }
 
-/** A checkbox row (multi-select) with an optional result count. */
+/** A checkbox row (multi-select). */
 function CheckRow({
   checked,
   onToggle,
   label,
-  count,
 }: {
   checked: boolean
   onToggle: () => void
   label: string
-  count?: number
 }) {
   return (
     <button
@@ -430,25 +416,20 @@ function CheckRow({
         {checked ? <Check className="size-3" /> : null}
       </span>
       <span className="flex-1 truncate">{label}</span>
-      {typeof count === "number" ? (
-        <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
-      ) : null}
     </button>
   )
 }
 
-/** A radio row (single-select) with an optional icon and result count. */
+/** A radio row (single-select) with an optional icon. */
 function RadioRow({
   checked,
   onSelect,
   label,
-  count,
   icon,
 }: {
   checked: boolean
   onSelect: () => void
   label: string
-  count?: number
   icon?: React.ReactNode
 }) {
   return (
@@ -471,9 +452,6 @@ function RadioRow({
         {icon}
         {label}
       </span>
-      {typeof count === "number" ? (
-        <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
-      ) : null}
     </button>
   )
 }
@@ -484,7 +462,7 @@ function CourtCard({ court }: { court: Court }) {
   const { openBooking } = useBooking()
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-4xl bg-card shadow-md ring-1 ring-foreground/5 transition-shadow hover:shadow-lg sm:flex-row dark:ring-foreground/10">
+    <article className="flex min-h-[164px] flex-col overflow-visible rounded-4xl bg-card shadow-md ring-1 ring-foreground/5 transition-shadow hover:shadow-lg sm:flex-row sm:items-stretch dark:ring-foreground/10">
       <CourtImage court={court} className="h-36 w-full sm:h-auto sm:w-52" />
 
       <div className="flex flex-1 flex-col gap-4 p-5 sm:flex-row sm:gap-5">
@@ -492,9 +470,15 @@ function CourtCard({ court }: { court: Court }) {
         <div className="flex min-w-0 flex-1 flex-col gap-2.5">
           <div>
             <h3 className="font-heading text-lg leading-tight font-semibold">{court.name}</h3>
-            <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <p className="mt-0.5 inline-flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="size-3" />
-              {court.district} · {t("distance", { km: court.distanceKm })}
+              <span>
+                {court.district} · {t("distance", { km: court.distanceKm })}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-[11px] font-semibold text-foreground ring-1 ring-foreground/5">
+                <Star className="size-3 fill-lime text-lime" />
+                {t(`score.${scoreWord(court.rating)}`)} {court.rating}
+              </span>
             </p>
           </div>
 
@@ -507,56 +491,44 @@ function CourtCard({ court }: { court: Court }) {
             </span>
           </div>
 
-          <div className="mt-auto flex flex-col gap-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                {t("openSlots", { count: court.openSlots })}
-              </span>
-              <span className="font-mono font-semibold tabular-nums">
-                {t("freePct", { pct: court.freePct })}
-              </span>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-lime to-brand"
-                style={{ width: `${court.freePct}%` }}
-              />
-            </div>
+          <div className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <span className="inline-flex items-center rounded-full bg-muted/60 px-2.5 py-1 text-foreground ring-1 ring-foreground/5">
+              <span className="font-semibold tabular-nums">{court.openSlots}</span>
+              <span className="ml-1">{t("availability.slots")}</span>
+            </span>
+            <span>/</span>
+            <span className="inline-flex items-center rounded-full bg-card px-2.5 py-1 font-mono font-semibold tabular-nums shadow-sm ring-1 ring-foreground/5">
+              <span className="font-semibold tabular-nums">{TOTAL_DAILY_SLOTS}</span>
+              <span className="ml-1">{t("availability.total")}</span>
+            </span>
           </div>
         </div>
 
-        {/* Rating (top) + price & actions (bottom) */}
-        <div className="flex shrink-0 flex-row items-end justify-between gap-3 border-t border-border/60 pt-4 sm:w-44 sm:flex-col sm:items-end sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5">
-          <div className="flex items-center gap-2">
-            <span className="text-right text-xs font-semibold">
-              {t(`score.${scoreWord(court.rating)}`)}
+        {/* Price and actions */}
+        <div className="flex shrink-0 flex-col justify-between gap-3 border-t border-border/60 py-4 sm:w-52 sm:border-t-0 sm:border-l sm:py-4 sm:pl-5">
+          <div className="text-right">
+            <span className="font-heading text-xl font-bold tabular-nums">
+              {formatVnd(court.pricePerHour)}
             </span>
-            <span className="grid h-8 min-w-8 place-items-center rounded-lg rounded-br-none bg-brand px-1.5 text-sm font-bold text-brand-foreground tabular-nums">
-              {court.rating}
-            </span>
+            <span className="text-xs text-muted-foreground">{t("perHour")}</span>
           </div>
-
-          <div className="flex flex-col items-end gap-2">
-            <div className="text-right">
-              <span className="font-heading text-xl font-bold tabular-nums">
-                {formatVnd(court.pricePerHour)}
-              </span>
-              <span className="text-xs text-muted-foreground">{t("perHour")}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="rounded-full"
-                onClick={() => openDirections(court)}
-              >
-                <Navigation className="size-3.5" />
-                <span className="hidden sm:inline">{t("directions")}</span>
-              </Button>
-              <Button size="sm" className="rounded-full" onClick={() => openBooking(court.id)}>
-                {t("book")}
-              </Button>
-            </div>
+          <div className="flex w-full items-center justify-end gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-10 shrink-0 rounded-full px-4"
+              onClick={() => openDirections(court)}
+            >
+              <Navigation className="size-3.5" />
+              <span className="hidden sm:inline">{t("directions")}</span>
+            </Button>
+            <Button
+              size="sm"
+              className="h-10 shrink-0 rounded-full px-5 shadow-md shadow-brand/20"
+              onClick={() => openBooking(court.id)}
+            >
+              {t("book")}
+            </Button>
           </div>
         </div>
       </div>
