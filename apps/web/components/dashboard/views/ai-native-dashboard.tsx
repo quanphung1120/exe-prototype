@@ -77,12 +77,18 @@ interface PlayerToolResult {
   players: PlayerMatchResult[]
 }
 
+interface ClarifyToolResult {
+  question: string
+  options: string[]
+}
+
 // Discriminate a tool's output by shape, not by tool name — some models stream
 // the tool name too late for the AI SDK to type the part (the part type ends up
 // a bare `tool-`), but the output payload is always there and unambiguous.
 type ToolResult =
   | { kind: "courts"; value: CourtToolResult }
   | { kind: "players"; value: PlayerToolResult }
+  | { kind: "clarify"; value: ClarifyToolResult }
 
 function toolResult(output: unknown): ToolResult | null {
   if (!output || typeof output !== "object") return null
@@ -91,6 +97,8 @@ function toolResult(output: unknown): ToolResult | null {
     return { kind: "courts", value: output as CourtToolResult }
   if (Array.isArray(o.players))
     return { kind: "players", value: output as PlayerToolResult }
+  if (typeof o.question === "string" && Array.isArray(o.options))
+    return { kind: "clarify", value: output as ClarifyToolResult }
   return null
 }
 
@@ -459,11 +467,15 @@ export function AiNativeDashboardView() {
         ref={scrollRef}
         className="no-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto px-1 py-2"
       >
-        {messages.map((msg) => (
+        {messages.map((msg, index) => (
           <ChatMessageRow
             key={msg.id}
             message={msg}
             selectedIds={selectedIds}
+            // Only the latest turn's clarify chips stay tappable, and never
+            // while a response is streaming.
+            interactive={!isLoading && index === messages.length - 1}
+            onChoose={submit}
             onTogglePlayer={togglePlayer}
             onOpenProfile={setProfile}
             onBook={(courtId) => openBooking(courtId)}
@@ -551,12 +563,16 @@ export function AiNativeDashboardView() {
 function ChatMessageRow({
   message,
   selectedIds,
+  interactive,
+  onChoose,
   onTogglePlayer,
   onOpenProfile,
   onBook,
 }: {
   message: UIMessage
   selectedIds: string[]
+  interactive: boolean
+  onChoose: (text: string) => void
   onTogglePlayer: (p: PlayerMatchResult) => void
   onOpenProfile: (p: PlayerMatchResult) => void
   onBook: (courtId: string) => void
@@ -636,6 +652,18 @@ function ChatMessageRow({
                 selectedIds={selectedIds}
                 onToggle={onTogglePlayer}
                 onOpenProfile={onOpenProfile}
+              />
+            )
+          }
+
+          if (isDone && result?.kind === "clarify") {
+            return (
+              <ClarifyChatResult
+                key={i}
+                question={result.value.question}
+                options={result.value.options}
+                disabled={!interactive}
+                onChoose={onChoose}
               />
             )
           }
@@ -737,6 +765,45 @@ function SearchingIndicator({ toolName }: { toolName: string }) {
     <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-foreground/5">
       <Loader2 className="size-3.5 animate-spin text-brand" />
       {label}
+    </div>
+  )
+}
+
+// ─── Clarify (human-in-the-loop) ──────────────────────────────────────────────
+// The model asks one question with suggested options; the user taps a chip to
+// answer, which is sent straight back as the next message via `onChoose`.
+
+function ClarifyChatResult({
+  question,
+  options,
+  disabled,
+  onChoose,
+}: {
+  question: string
+  options: string[]
+  disabled: boolean
+  onChoose: (text: string) => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex justify-start">
+        <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-4 py-2.5 text-sm">
+          {question}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2 pl-1">
+        {options.map((option) => (
+          <button
+            key={option}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChoose(option)}
+            className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {option}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
