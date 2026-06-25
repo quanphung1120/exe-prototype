@@ -1,5 +1,6 @@
 import { clerkMiddleware } from "@clerk/nextjs/server"
 import createMiddleware from "next-intl/middleware"
+import { NextResponse } from "next/server"
 
 import { routing } from "./i18n/routing"
 
@@ -10,10 +11,19 @@ const handleIntl = createMiddleware(routing)
 // `clerkMiddleware` must run so `auth()`/`currentUser()` work in server
 // components (the dashboard guards itself there). We don't gate routes here, so
 // the first callback arg is unused — locale routing is delegated to next-intl.
-export default clerkMiddleware((_auth, req) => handleIntl(req))
+export default clerkMiddleware((_auth, req) => {
+  if (req.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.next()
+  }
+  return handleIntl(req)
+})
 
 export const config = {
-  // Match all pathnames except API routes, Next.js internals, and files
-  // containing a dot (e.g. favicon.ico, images, fonts).
-  matcher: "/((?!api|_next|_vercel|.*\\..*).*)",
+  matcher: [
+    // Match all pathnames except API routes, Next.js internals, and files
+    // containing a dot (e.g. favicon.ico, images, fonts).
+    "/((?!api|_next|_vercel|.*\\..*).*)",
+    // Run Clerk on the chat API endpoint specifically to enable authentication
+    "/api/chat",
+  ],
 }

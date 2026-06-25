@@ -55,7 +55,7 @@ export function AppSidebar() {
   const router = useRouter()
   const locale = useLocale()
   const { signOut } = useClerk()
-  const { isMobile, setOpenMobile, state } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const { userName } = useMatchmaking()
   const { user: USER, venues: VENUES } = useData()
 

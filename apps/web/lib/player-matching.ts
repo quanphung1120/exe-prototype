@@ -1,4 +1,9 @@
-import type { Court, Level, Player, SportKey } from "@/components/dashboard/data"
+import type {
+  Court,
+  Level,
+  Player,
+  SportKey,
+} from "@/components/dashboard/data"
 
 export type AiIntentKind = "court" | "player"
 export type MatchTimeKey =
@@ -154,27 +159,6 @@ const PLAYER_FIXTURES: Record<string, ProfileFixture> = {
   },
 }
 
-const PLAYER_KEYWORDS = [
-  "player",
-  "players",
-  "teammate",
-  "teammates",
-  "partner",
-  "partners",
-  "team",
-  "group",
-  "find players",
-  "find teammates",
-  "same-level",
-  "same level",
-  "ghep nguoi",
-  "tim nguoi choi",
-  "nguoi choi",
-  "dong doi",
-  "nhom",
-  "ghep doi",
-]
-
 const SPORT_ALIASES: Record<SportKey, string[]> = {
   badminton: ["badminton", "cau long", "cau-long"],
   pickleball: ["pickleball", "pickle"],
@@ -249,11 +233,6 @@ function levelDistance(a: Level, b: Level) {
   return Math.abs(LEVEL_ORDER.indexOf(a) - LEVEL_ORDER.indexOf(b))
 }
 
-export function detectAiIntent(prompt: string): AiIntentKind {
-  const normalized = normalize(prompt)
-  return includesAny(normalized, PLAYER_KEYWORDS) ? "player" : "court"
-}
-
 export function parsePlayerIntent(
   prompt: string,
   selectedSport: SportKey | "all",
@@ -278,9 +257,12 @@ export function parsePlayerIntent(
     normalized.includes("cung trinh") ||
     normalized.includes("cung cap") ||
     (!targetLevel &&
-      (normalized.includes("my level") || normalized.includes("around my level")))
+      (normalized.includes("my level") ||
+        normalized.includes("around my level")))
 
-  const area = AREA_ALIASES.find(({ aliases }) => includesAny(normalized, aliases))
+  const area = AREA_ALIASES.find(({ aliases }) =>
+    includesAny(normalized, aliases)
+  )
 
   const timeRule = TIME_RULES.find(({ keywords }) =>
     includesAny(normalized, keywords)
@@ -351,7 +333,9 @@ export function findMatchedPlayers(
       ) {
         score += 25
         reasons.push(
-          profile.level === intent.targetLevel ? "same level" : "close skill level"
+          profile.level === intent.targetLevel
+            ? "same level"
+            : "close skill level"
         )
       }
 

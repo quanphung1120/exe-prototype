@@ -96,8 +96,8 @@
   "Nav": {
     "groupPlay": "Chơi",
     "dashboard": {
-      "label": "Tổng quan",
-      "caption": "Sân của Quý khách trong nháy mắt"
+      "label": "Trợ lý AI",
+      "caption": "Tìm sân và ghép cặp người chơi"
     },
     "play": {
       "label": "Chơi",
@@ -1468,72 +1468,6 @@
     "empty": "Chưa có khách hàng trong nhóm này.",
     "leaderTitle": "Khách giá trị cao nhất"
   },
-  "VenueCopilot": {
-    "metaTitle": "Trợ lý vận hành",
-    "metaDescription": "Trợ lý AI cho người vận hành Shuttle Republic — nắm ngay sân trống, doanh thu, giờ cao điểm và ưu đãi.",
-    "title": "Trợ lý vận hành",
-    "subtitle": "AI vận hành · {venue}",
-    "greeting": "Chào {manager} — tôi đang theo dõi sân. Quý vị có thể hỏi về sân trống tối nay, doanh thu hôm nay, giờ cao điểm hoặc ưu đãi giờ thấp điểm.",
-    "tryAsking": "Gợi ý câu hỏi",
-    "placeholder": "Hỏi về sân, doanh thu, giờ cao điểm…",
-    "thinking": "Đang phân tích…",
-    "thoughtFor": "Đã suy luận {seconds}s",
-    "queued": "Đã xếp hàng",
-    "closeAria": "Đóng trợ lý",
-    "inputAria": "Nhắn cho trợ lý vận hành",
-    "sendAria": "Gửi",
-    "toggleOpen": "Mở trợ lý vận hành",
-    "toggleClose": "Đóng trợ lý vận hành",
-    "suggestions": {
-      "free": "Tối nay còn sân trống không?",
-      "revenue": "Doanh thu hôm nay thế nào?",
-      "peak": "Giờ cao điểm là khi nào?",
-      "promo": "Soạn ưu đãi giờ thấp điểm"
-    },
-    "steps": {
-      "scanGrid": "Đọc lịch sân tối nay ({window})",
-      "filterFree": "Lọc các giờ sân chưa bán",
-      "crossPeak": "Chỉ giữ khung cao điểm (từ 17:00)",
-      "draftFix": "Soạn đề xuất lấp đầy",
-      "pullLedger": "Lấy sổ doanh thu 7 ngày",
-      "sumWeek": "Cộng tổng tuần",
-      "compareAvg": "So hôm nay với mức trung bình ngày",
-      "findSoft": "Tìm khung cầu yếu",
-      "priceOffPeak": "Mô phỏng giảm giá giờ thấp điểm",
-      "composeMsg": "Soạn tin nhắn gửi đi",
-      "aggregateWeek": "Tổng hợp công suất cả tuần",
-      "rankHours": "Xếp hạng giờ đông nhất",
-      "parse": "Đọc yêu cầu của quý vị",
-      "surveyData": "Rà soát tín hiệu của sân"
-    },
-    "reply": {
-      "free": "Tối nay quý vị còn {count} giờ sân cao điểm chưa bán. Lấp bằng giá giờ thấp điểm là cách tăng doanh thu nhanh nhất.",
-      "freeNone": "Tốt — mọi giờ sân cao điểm tối nay đã được đặt. Không còn gì để lấp.",
-      "revenueUp": "Hôm nay đang đạt {today} — cao hơn {pct}% so với mức trung bình ngày của 7 ngày. Ngày tốt.",
-      "revenueDown": "Hôm nay đang đạt {today} — thấp hơn {pct}% so với mức trung bình ngày của 7 ngày. Nên đẩy thêm.",
-      "promo": "Đây là ưu đãi giờ thấp điểm soạn sẵn để lấp các khung vắng. Quý vị xem lại rồi gửi khi ưng ý.",
-      "peak": "Giờ đông nhất là {hour} với công suất {util}%. Cầu giờ vàng là nơi định giá có ý nghĩa nhất.",
-      "default": "Tôi có thể hỗ trợ quý vị vận hành {venue}. Cứ hỏi bên dưới, tôi sẽ tra cứu từ dữ liệu sân theo thời gian thực."
-    },
-    "metric": {
-      "today": "Hôm nay",
-      "week": "Tuần này",
-      "dailyAvg": "Trung bình ngày"
-    },
-    "promo": {
-      "draft": "🏸 Giờ thấp điểm tại {venue} ưu đãi hơn — đặt khung vắng hôm nay, giảm ngay 15%. {open} sân đang trống!"
-    },
-    "actions": {
-      "offPeak": "Áp giá giờ thấp điểm",
-      "broadcast": "Gửi đến người chơi"
-    },
-    "can": {
-      "free": "Tìm sân trống để lấp tối nay",
-      "revenue": "Tóm tắt hôm nay so với cả tuần",
-      "peak": "Xếp hạng giờ đông nhất",
-      "promo": "Soạn ưu đãi giờ thấp điểm"
-    }
-  },
   "CourtFinder": {
     "metaTitle": "Tìm sân",
     "metaDescription": "Tìm kiếm, lọc và đặt sân gần bạn.",
@@ -1599,6 +1533,38 @@
       "c6": {
         "surface": "Kính thi đấu"
       }
+    }
+  },
+  "AiDashboard": {
+    "welcomeTitle": "Tôi có thể giúp gì cho bạn hôm nay?",
+    "welcomeSubtitle": "Tìm sân chơi hoặc kết nối với bạn chơi ngay lập tức.",
+    "inputPlaceholder": "Hỏi về sân hoặc bạn chơi…",
+    "thinking": "Đang suy nghĩ…",
+    "reasoning": "Lập luận",
+    "searchingCourts": "Đang tìm kiếm sân…",
+    "matchingPlayers": "Đang ghép người chơi…",
+    "working": "Đang xử lý…",
+    "topCourtsRanked": "Top {count} sân · xếp theo {sortBy}",
+    "selectPlayersInvite": "Chọn người chơi ở trên để tạo nhóm.",
+    "inviteToGroupChat": "Mời vào nhóm trò chuyện",
+    "sending": "Đang gửi…",
+    "openGroupChat": "Mở nhóm trò chuyện",
+    "selectPlayerError": "Vui lòng chọn ít nhất một người chơi trước khi gửi lời mời.",
+    "inviteSent": "Đã gửi lời mời",
+    "groupChatCreated": "Đã tạo nhóm trò chuyện. Đang chờ người chơi chấp nhận.",
+    "inviteFailed": "Không thể gửi lời mời.",
+    "selectedCount": "Đã chọn {count}:",
+    "rank": {
+      "price": "giá thấp nhất",
+      "distance": "gần nhất",
+      "team": "nhiều khung trống nhất",
+      "best": "tốt nhất"
+    },
+    "prompts": {
+      "badmintonNearMe": "Tìm sân cầu lông gần tôi",
+      "cheapestPickleball": "Sân pickleball rẻ nhất tối nay",
+      "badmintonTeammates": "Tìm đồng đội cầu lông tối nay",
+      "sameLevelPlayers": "Ghép tôi với người chơi cùng trình độ"
     }
   }
 }

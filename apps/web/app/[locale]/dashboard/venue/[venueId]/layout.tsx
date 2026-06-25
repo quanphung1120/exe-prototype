@@ -1,5 +1,4 @@
 import { fetchVenueBundle } from "@/lib/api"
-import { VenueCopilot } from "@/components/dashboard/venue/venue-copilot"
 import { VenueDataProvider } from "@/components/dashboard/venue-data-provider"
 import { VenueWorkspaceProvider } from "@/components/dashboard/venue/venue-provider"
 
@@ -22,7 +21,6 @@ export default async function VenueWorkspaceLayout({
     <VenueDataProvider seed={venueSeed} venueId={venueId}>
       <VenueWorkspaceProvider>
         {children}
-        <VenueCopilot />
       </VenueWorkspaceProvider>
     </VenueDataProvider>
   )
