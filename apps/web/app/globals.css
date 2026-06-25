@@ -18,6 +18,11 @@
     --font-heading: var(--font-geist);
 }
 
+.font-montserrat {
+    --font-sans: var(--font-montserrat);
+    --font-heading: var(--font-montserrat);
+}
+
 @theme inline {
     --font-heading: var(--font-heading);
     --font-sans: var(--font-sans);

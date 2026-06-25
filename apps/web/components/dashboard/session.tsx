@@ -22,6 +22,7 @@ import {
   type MatchRoom,
   type PlaySession,
   type Player,
+  type RoomLevel,
   type Rsvp,
   type SessionPlayer,
   type SportKey,
@@ -126,6 +127,22 @@ interface SessionContextValue {
   declineRequest: (sessionId: string, initials: string) => void
   leaveRoom: (sessionId: string) => void
   addRoom: (room: MatchRoom) => void
+  createInviteRoom: (input: {
+    title: string
+    sport: SportKey
+    format: "Singles" | "Doubles"
+    courtId?: string | null
+    venue: string
+    district: string
+    distanceKm: number
+    dayKey: string
+    dayLabel: string
+    slot: string
+    durationMin: number
+    level: RoomLevel
+    pricePerHour: number
+    invitees: string[]
+  }) => string | null
   quickJoin: (filters: QuickJoinFilters) => void
   cancelSearch: () => void
   dismissSearch: () => void
@@ -761,6 +778,88 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setJoinedIds((prev) => new Set(prev).add(room.id))
     setActiveSessionId(room.id)
     scheduleJoinRequests(next)
+  }
+
+  const createInviteRoom = ({
+    title,
+    sport,
+    format,
+    courtId,
+    venue,
+    district,
+    distanceKm,
+    dayKey,
+    dayLabel,
+    slot,
+    durationMin,
+    level,
+    pricePerHour,
+    invitees,
+  }: {
+    title: string
+    sport: SportKey
+    format: "Singles" | "Doubles"
+    courtId?: string | null
+    venue: string
+    district: string
+    distanceKm: number
+    dayKey: string
+    dayLabel: string
+    slot: string
+    durationMin: number
+    level: RoomLevel
+    pricePerHour: number
+    invitees: string[]
+  }) => {
+    const id = newId("grp")
+    const next: PlaySession = {
+      id,
+      title,
+      sport,
+      format,
+      courtId: courtId ?? null,
+      dayKey,
+      dayLabel,
+      slot,
+      durationMin,
+      courtLabel: null,
+      host: { name: userName, initials: USER.initials },
+      capacity: Math.max(invitees.length + 1, format === "Singles" ? 2 : 4),
+      roster: [
+        {
+          name: userName,
+          initials: USER.initials,
+          rsvp: "host" as Rsvp,
+        },
+      ],
+      level,
+      status: "forming",
+      listed: false,
+      fillIntent: "invite",
+      venue,
+      district,
+      distanceKm,
+      pricePerHour,
+    }
+
+    setSessions((prev) => [
+      {
+        ...next,
+        roster: [
+          ...next.roster,
+          ...invitees.map((initials) => ({
+            name: playerByInitials(initials).name,
+            initials,
+            rsvp: "pending" as Rsvp,
+          })),
+        ],
+      },
+      ...prev,
+    ])
+    setJoinedIds((prev) => new Set(prev).add(id))
+    setActiveSessionId(id)
+    scheduleRsvp(id, invitees)
+    return id
   }
 
   const openManager = (sessionId: string) => {
@@ -1416,6 +1515,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     declineRequest,
     leaveRoom,
     addRoom,
+    createInviteRoom,
     quickJoin,
     cancelSearch: endSearch,
     dismissSearch: endSearch,
