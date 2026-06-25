@@ -12,6 +12,7 @@ import {
   capacityFor,
   durationOf,
   levelMatches,
+  priceFor,
   sessionToRoom,
   slotRange,
   type Booking,
@@ -68,6 +69,17 @@ interface BookingDraft {
   fillMode: FillMode
   invitees: string[]
 }
+
+type PaymentResult =
+  | {
+      status: "success"
+      amount: number
+    }
+  | {
+      status: "failed"
+      amount: number
+      reason: "declined" | "conflict"
+    }
 
 /** The faked Quick Match search shown in the floating dock. */
 export interface PartnerSearch {
@@ -197,8 +209,11 @@ interface SessionContextValue {
   toggleInvite: (initials: string) => void
   /** Faked payment is processing (drives the Pay button + spinner). */
   paying: boolean
+  paymentResult: PaymentResult | null
   /** Run the faked payment, then finalize the booking on success. */
   pay: () => void
+  acknowledgePaymentSuccess: () => void
+  dismissPaymentResult: () => void
   confirmBooking: () => void
   cancelBooking: (id: string) => void
   // ── Conflict (decision 2) ──
@@ -324,6 +339,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [step, setStep] = React.useState(0)
   const [draft, setDraft] = React.useState<BookingDraft>(EMPTY_DRAFT)
   const [paying, setPaying] = React.useState(false)
+  const [paymentResult, setPaymentResult] =
+    React.useState<PaymentResult | null>(null)
 
   const idRef = React.useRef(0)
   const newId = (p: string) => `s-${p}-${idRef.current++}`
@@ -1197,6 +1214,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setCourtless(cid === null)
     setStep(0)
     setPaying(false)
+    setPaymentResult(null)
     setDraft({
       dayKey: linked ? linked.dayKey : "today",
       // Carry the room's proposed start so the wizard pre-fills it (and surfaces
@@ -1268,6 +1286,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       timers.current.delete("pay:new:run")
     }
     setPaying(false)
+    setPaymentResult(null)
     setOpen(false)
     // Return to wherever the wizard was opened from.
     router.back()
@@ -1442,9 +1461,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    */
   const pay = () => {
     if (!court || !draft.slot || paying) return
+    const amount = priceFor(court.pricePerHour, draft.durationMin)
     // Never charge for a slot that was taken in the meantime.
     if (draftConflict) {
-      toast.error(tb("toast.conflict"))
+      setPaymentResult({
+        status: "failed",
+        amount,
+        reason: "conflict",
+      })
       return
     }
     setPaying(true)
@@ -1452,9 +1476,36 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const handle = setTimeout(() => {
       timers.current.delete(key)
       setPaying(false)
-      confirmBooking()
+      const shouldFail =
+        hash(
+          `${court.id}:${draft.dayKey}:${draft.slot}:${draft.durationMin}:${linkedId ?? "new"}`
+        ) %
+          5 ===
+        0
+      setPaymentResult(
+        shouldFail
+          ? {
+              status: "failed",
+              amount,
+              reason: "declined",
+            }
+          : {
+              status: "success",
+              amount,
+            }
+      )
     }, PAY_MS)
     timers.current.set(key, handle)
+  }
+
+  const dismissPaymentResult = () => {
+    setPaymentResult(null)
+  }
+
+  const acknowledgePaymentSuccess = () => {
+    if (paymentResult?.status !== "success") return
+    setPaymentResult(null)
+    confirmBooking()
   }
 
   const cancelBooking = (id: string) => {
@@ -1560,7 +1611,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setFillMode,
     toggleInvite,
     paying,
+    paymentResult,
     pay,
+    acknowledgePaymentSuccess,
+    dismissPaymentResult,
     confirmBooking,
     cancelBooking,
     slotBlocked,

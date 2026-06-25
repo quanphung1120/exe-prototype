@@ -367,7 +367,7 @@
     "pay": {
       "amountDue": "Amount due",
       "holdFee": "Holding fee",
-      "holdNote": "Court fee {amount} — settle at the venue",
+      "holdNote": "Pay the full court fee now to secure this slot.",
       "courtFee": "court fee",
       "method": "Payment method",
       "qr": "VietQR",
@@ -389,7 +389,18 @@
       "collectHint": "You'll collect {amount}/player from your team afterward",
       "payNow": "Pay {amount}",
       "processing": "Processing…",
-      "secure": "Demo payment — no card is charged"
+      "secure": "Demo payment — no card is charged",
+      "result": {
+        "successTitle": "Payment successful",
+        "successBody": "We received {amount}. Confirm to finish the booking and lock the court.",
+        "successHint": "Your slot is ready to be confirmed.",
+        "successCta": "Finish booking",
+        "failedTitle": "Payment failed",
+        "failedBody": "The payment for {amount} did not go through. Please try again.",
+        "failedConflict": "That time slot was taken while you were paying. Pick another slot and try again.",
+        "failedHint": "No booking was created.",
+        "failedCta": "Try again"
+      }
     },
     "roomTitle": "{sport} at {court}",
     "toast": {
