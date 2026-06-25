@@ -104,7 +104,7 @@ export function ChatView() {
 
         <div
           ref={scrollRef}
-          className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
+          className="flex flex-1 flex-col gap-3 overflow-y-auto no-scrollbar p-4"
         >
           <div className="mx-auto rounded-full bg-muted px-3 py-1 font-mono text-[10px] tracking-wide text-muted-foreground uppercase">
             {tc("when.today")}

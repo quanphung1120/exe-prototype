@@ -1,28 +1,31 @@
 "use client"
 
 import * as React from "react"
+import { useChat } from "@ai-sdk/react"
+import type { UIMessage } from "ai"
 import {
   ArrowUp,
-  CalendarCheck,
   CheckCheck,
-  CircleHelp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
+  Loader2,
   MapPin,
-  Mic,
   Plus,
-  Search,
   Shield,
-  SlidersHorizontal,
   Sparkles,
   Star,
   Users,
   X,
-  Zap,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 
-import { roomChatId, useChat } from "@/components/dashboard/chat-store"
+import {
+  roomChatId,
+  useChat as useChatStore,
+} from "@/components/dashboard/chat-store"
 import { useBooking } from "@/components/dashboard/booking"
 import {
   formatVnd,
@@ -32,7 +35,6 @@ import {
 } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
 import { useSession } from "@/components/dashboard/session"
-import { useSportFilter } from "@/components/dashboard/sport-filter"
 import {
   CourtImage,
   LevelChip,
@@ -49,99 +51,54 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { cn } from "@/lib/utils"
 import { useRouter } from "@/i18n/navigation"
 import {
   chooseSuggestedCourt,
-  detectAiIntent,
-  findMatchedPlayers,
   summarizeInviteDay,
   type PlayerMatchIntent,
   type PlayerMatchResult,
 } from "@/lib/player-matching"
 
-type PlanMode = "best" | "near" | "budget" | "team"
+// ─── Types mirroring tool execute return values ───────────────────────────────
 
-interface AiPlan {
-  prompt: string
-  mode: PlanMode
-  sport: SportKey | null
+interface CourtToolResult {
   courts: Court[]
-  summary: string
+  sortBy: string
+  sport: SportKey | null
 }
 
-type AiResponse =
-  | {
-      kind: "court"
-      plan: AiPlan
-    }
-  | {
-      kind: "player"
-      prompt: string
-      intent: PlayerMatchIntent
-      players: PlayerMatchResult[]
-    }
+interface PlayerToolResult {
+  intent: PlayerMatchIntent
+  players: PlayerMatchResult[]
+}
+
+// Discriminate a tool's output by shape, not by tool name — some models stream
+// the tool name too late for the AI SDK to type the part (the part type ends up
+// a bare `tool-`), but the output payload is always there and unambiguous.
+type ToolResult =
+  | { kind: "courts"; value: CourtToolResult }
+  | { kind: "players"; value: PlayerToolResult }
+
+function toolResult(output: unknown): ToolResult | null {
+  if (!output || typeof output !== "object") return null
+  const o = output as Record<string, unknown>
+  if (Array.isArray(o.courts))
+    return { kind: "courts", value: output as CourtToolResult }
+  if (Array.isArray(o.players))
+    return { kind: "players", value: output as PlayerToolResult }
+  return null
+}
+
+// ─── Quick prompts ────────────────────────────────────────────────────────────
 
 const QUICK_PROMPTS = [
+  "Find badminton courts near me",
+  "Cheapest pickleball court tonight",
   "Find badminton teammates tonight",
-  "Find pickleball players near me",
   "Match me with same-level players",
-  "Create a group for this weekend",
 ]
-
-function detectPlan(
-  prompt: string,
-  courts: Court[],
-  selectedSport: SportKey | "all"
-): AiPlan {
-  const q = prompt.toLowerCase()
-  const sport =
-    [
-      { key: "badminton" as const, labels: ["badminton", "cầu lông", "cau long"] },
-      { key: "pickleball" as const, labels: ["pickleball", "pickle"] },
-    ].find((item) => item.labels.some((label) => q.includes(label)))?.key ??
-    (selectedSport === "all" ? null : selectedSport)
-
-  const mode: PlanMode = /cheap|budget|low|price|affordable/.test(q)
-    ? "budget"
-    : /near|close|closest|nearby|distance/.test(q)
-      ? "near"
-      : /team|teammate|partner|player|double|fill/.test(q)
-        ? "team"
-        : "best"
-
-  const pool = courts.filter((court) => !sport || court.sports.includes(sport))
-  const candidates = pool.length ? pool : courts
-  const ranked = [...candidates].sort((a, b) => {
-    if (mode === "budget") return a.pricePerHour - b.pricePerHour
-    if (mode === "near") return a.distanceKm - b.distanceKm
-    if (mode === "team") return b.openSlots - a.openSlots || b.rating - a.rating
-    return b.rating - a.rating || a.distanceKm - b.distanceKm
-  })
-
-  const summary =
-    mode === "budget"
-      ? "I ranked courts by lowest hourly price, then checked rating and open slots."
-      : mode === "near"
-        ? "I prioritized short travel time and kept only courts with usable slots."
-        : mode === "team"
-          ? "I looked for courts with enough open capacity to start a booking and fill seats."
-          : "I balanced rating, availability, travel time, and price for the strongest booking option."
-
-  return {
-    prompt,
-    mode,
-    sport,
-    courts: ranked.slice(0, 3),
-    summary,
-  }
-}
 
 function trustTone(trust: number) {
   if (trust >= 90) return "bg-brand/10 text-brand"
@@ -150,113 +107,82 @@ function trustTone(trust: number) {
 }
 
 function buildInviteTitle(intent: PlayerMatchIntent, sport: SportKey) {
-  const sportLabel = sport === "badminton" ? "Badminton" : "Pickleball"
-  if (intent.timeLabel) return `${sportLabel} ${intent.timeLabel} group`
-  if (intent.locationLabel) return `${sportLabel} ${intent.locationLabel} group`
-  return `${sportLabel} teammate group`
+  const label = sport === "badminton" ? "Badminton" : "Pickleball"
+  if (intent.timeLabel) return `${label} ${intent.timeLabel} group`
+  if (intent.locationLabel) return `${label} ${intent.locationLabel} group`
+  return `${label} teammate group`
 }
+
+// ─── Main view ───────────────────────────────────────────────────────────────
 
 export function AiNativeDashboardView() {
   const tc = useTranslations("Common")
-  const { courts, players } = useData()
-  const { sport } = useSportFilter()
-  const { openBooking, openPlay } = useBooking()
-  const { createInviteRoom, userLevelForSport, userName } = useSession()
-  const { setActiveChatId } = useChat()
+  const { courts } = useData()
+  const { openBooking } = useBooking()
+  const { createInviteRoom, userLevelForSport } = useSession()
+  const { setActiveChatId } = useChatStore()
   const router = useRouter()
 
-  const [draft, setDraft] = React.useState("")
-  const [response, setResponse] = React.useState<AiResponse | null>(null)
-  const [loading, setLoading] = React.useState(false)
+  const [input, setInput] = React.useState("")
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [profile, setProfile] = React.useState<PlayerMatchResult | null>(null)
   const [inviteState, setInviteState] = React.useState<{
     status: "idle" | "sending" | "sent"
     roomId: string | null
   }>({ status: "idle", roomId: null })
-
-  const loadingTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const inviteTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+
+  // AI SDK v6 — sendMessage replaces handleSubmit/append
+  const { messages, sendMessage, status } = useChat()
+  const isLoading = status === "streaming" || status === "submitted"
+
+  // Auto-scroll on new content
+  React.useEffect(() => {
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    })
+  }, [messages, isLoading])
 
   React.useEffect(() => {
     return () => {
-      if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current)
       if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current)
     }
   }, [])
 
-  const playerResponse = response?.kind === "player" ? response : null
-  const courtResponse = response?.kind === "court" ? response.plan : null
-  const bestCourt = courtResponse?.courts[0] ?? courts[0]
+  const showWelcome = messages.length === 0
+
+  // Find the last player result anywhere in the conversation. Detect by output
+  // shape (see toolResult) so it works even when the tool name is missing.
+  const lastPlayerResult = React.useMemo<PlayerToolResult | null>(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i]
+      if (msg.role !== "assistant") continue
+      for (const part of msg.parts ?? []) {
+        const type = part.type
+        if (type !== "dynamic-tool" && !type.startsWith("tool-")) continue
+        if ((part as { state?: string }).state !== "output-available") continue
+        const result = toolResult((part as { output?: unknown }).output)
+        if (result?.kind === "players") return result.value
+      }
+    }
+    return null
+  }, [messages])
 
   const selectedPlayers = React.useMemo(
     () =>
-      playerResponse
-        ? playerResponse.players.filter((player) => selectedIds.includes(player.id))
+      lastPlayerResult
+        ? lastPlayerResult.players.filter((p) => selectedIds.includes(p.id))
         : [],
-    [playerResponse, selectedIds]
+    [lastPlayerResult, selectedIds]
   )
 
-  const clearPendingTimers = () => {
-    if (loadingTimerRef.current) {
-      clearTimeout(loadingTimerRef.current)
-      loadingTimerRef.current = null
-    }
-    if (inviteTimerRef.current) {
-      clearTimeout(inviteTimerRef.current)
-      inviteTimerRef.current = null
-    }
-  }
-
-  const runCourtPlan = (prompt: string) => {
-    setLoading(false)
-    setResponse({
-      kind: "court",
-      plan: detectPlan(prompt, courts, sport),
-    })
-  }
-
-  const runPlayerMatch = (prompt: string) => {
-    const defaultSport = sport === "all" ? "badminton" : sport
-    setLoading(true)
-    loadingTimerRef.current = setTimeout(() => {
-      const { intent, matches } = findMatchedPlayers(
-        prompt,
-        players,
-        sport,
-        userLevelForSport(defaultSport)
-      )
-
-      setResponse({
-        kind: "player",
-        prompt,
-        intent,
-        players: matches,
-      })
-      setLoading(false)
-      loadingTimerRef.current = null
-    }, 850)
-  }
-
-  const submit = (value = draft) => {
-    const prompt = value.trim()
-    if (!prompt) {
-      toast.error("Prompt cannot be empty.")
-      return
-    }
-
-    clearPendingTimers()
-    setSelectedIds([])
-    setInviteState({ status: "idle", roomId: null })
-    setProfile(null)
-    setDraft("")
-
-    if (detectAiIntent(prompt) === "player") {
-      runPlayerMatch(prompt)
-      return
-    }
-
-    runCourtPlan(prompt)
+  const submit = (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed || isLoading) return
+    setInput("")
+    sendMessage({ text: trimmed })
   }
 
   const togglePlayer = (player: PlayerMatchResult) => {
@@ -267,10 +193,6 @@ export function AiNativeDashboardView() {
     )
   }
 
-  const removeSelected = (playerId: string) => {
-    setSelectedIds((prev) => prev.filter((id) => id !== playerId))
-  }
-
   const openGroupChat = () => {
     if (!inviteState.roomId) return
     setActiveChatId(roomChatId(inviteState.roomId))
@@ -278,57 +200,52 @@ export function AiNativeDashboardView() {
   }
 
   const inviteToChat = () => {
-    if (!playerResponse) return
-    if (!selectedPlayers.length) {
+    if (!lastPlayerResult || !selectedPlayers.length) {
       toast.error("Select at least one player before sending an invite.")
       return
     }
-
-    const inviteSport =
-      playerResponse.intent.sport ?? selectedPlayers[0]?.sport ?? "badminton"
+    const inviteSport: SportKey =
+      lastPlayerResult.intent.sport ?? selectedPlayers[0]?.sport ?? "badminton"
     const suggestedCourt = chooseSuggestedCourt(
       courts,
       inviteSport,
-      playerResponse.intent.locationLabel
+      lastPlayerResult.intent.locationLabel
     )
-    const schedule = summarizeInviteDay(playerResponse.intent.timeKey)
+    const schedule = summarizeInviteDay(lastPlayerResult.intent.timeKey)
 
     setInviteState({ status: "sending", roomId: null })
     inviteTimerRef.current = setTimeout(() => {
       try {
         const roomId = createInviteRoom({
-          title: buildInviteTitle(playerResponse.intent, inviteSport),
+          title: buildInviteTitle(lastPlayerResult.intent, inviteSport),
           sport: inviteSport,
           format: selectedPlayers.length + 1 >= 4 ? "Doubles" : "Singles",
           courtId: suggestedCourt?.id ?? null,
           venue: suggestedCourt?.name ?? "SportMatch Group",
           district:
-            playerResponse.intent.locationLabel ??
+            lastPlayerResult.intent.locationLabel ??
             suggestedCourt?.district ??
             "Near you",
-          distanceKm: suggestedCourt?.distanceKm ?? selectedPlayers[0]?.distanceKm ?? 1,
+          distanceKm:
+            suggestedCourt?.distanceKm ?? selectedPlayers[0]?.distanceKm ?? 1,
           dayKey: schedule.dayKey,
           dayLabel: schedule.dayLabel,
           slot: schedule.slot,
           durationMin: 90,
           level:
-            (playerResponse.intent.targetLevel as Level | null) ??
+            (lastPlayerResult.intent.targetLevel as Level | null) ??
             userLevelForSport(inviteSport),
           pricePerHour: suggestedCourt?.pricePerHour ?? 0,
-          invitees: selectedPlayers.map((player) => player.initials),
+          invitees: selectedPlayers.map((p) => p.initials),
         })
-
-        if (!roomId) {
-          throw new Error("Unable to create group chat")
-        }
-
+        if (!roomId) throw new Error("Unable to create group chat")
         setInviteState({ status: "sent", roomId })
         toast.success("Invitation sent", {
           description: "Group chat created. Waiting for players to accept.",
         })
       } catch {
         setInviteState({ status: "idle", roomId: null })
-        toast.error("Failed to send invite to group chat.")
+        toast.error("Failed to send invite.")
       } finally {
         inviteTimerRef.current = null
       }
@@ -336,325 +253,165 @@ export function AiNativeDashboardView() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-8.5rem)] w-full max-w-6xl flex-col">
-      <section className="flex flex-1 flex-col items-center justify-center gap-6 py-8 text-center lg:py-12">
-        <div className="flex flex-col items-center gap-3">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
-            <Sparkles className="size-3.5 text-brand" />
-            SportMatch AI booking and matching
+    <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-3xl flex-col">
+      {/* Welcome hero — collapses once the chat starts */}
+      {showWelcome ? (
+        <section className="flex flex-col items-center gap-4 py-12 text-center">
+          <span className="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-lime to-brand text-brand-foreground shadow-sm">
+            <Sparkles className="size-5" />
           </span>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-            Find a court or match the right players
-          </h1>
-          <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
-            Ask for court recommendations or teammate matching in the same AI flow.
-          </p>
-        </div>
+          <div>
+            <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
+              SportMatch AI
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Find a court or match the right players — just ask.
+            </p>
+          </div>
+        </section>
+      ) : null}
 
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            submit()
-          }}
-          className="w-full max-w-3xl"
-        >
-          <div className="rounded-[2rem] border border-border bg-background p-2 shadow-xl shadow-foreground/5">
-            <div className="flex items-end gap-2">
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                className="mb-1 rounded-full"
-                aria-label="Add booking context"
-              >
-                <Plus />
-              </Button>
-              <Textarea
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault()
-                    submit()
-                  }
-                }}
-                placeholder="Ask AI to book courts or match teammates for your group"
-                aria-label="Ask SportMatch AI"
-                className="max-h-32 min-h-12 flex-1 border-0 bg-transparent px-0 py-3 text-base shadow-none focus-visible:ring-0"
-              />
-              <div className="mb-1 hidden items-center gap-1 sm:flex">
-                <span className="rounded-full px-2 text-sm text-muted-foreground">
-                  High
-                </span>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full"
-                  aria-label="Voice input"
-                >
-                  <Mic />
-                </Button>
-              </div>
-              <Button
-                type="submit"
-                size="icon"
-                className="mb-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
-                aria-label="Run AI search"
-                disabled={!draft.trim()}
-              >
-                <ArrowUp />
-              </Button>
+      {/* Thread */}
+      <div
+        ref={scrollRef}
+        className="flex flex-1 flex-col gap-4 overflow-y-auto no-scrollbar px-1 py-2"
+      >
+        {messages.map((msg) => (
+          <ChatMessageRow
+            key={msg.id}
+            message={msg}
+            selectedIds={selectedIds}
+            onTogglePlayer={togglePlayer}
+            onOpenProfile={setProfile}
+            onBook={(courtId) => openBooking(courtId)}
+            tc={tc}
+          />
+        ))}
+
+        {/* Pulse while waiting for first token */}
+        {isLoading && messages[messages.length - 1]?.role === "user" ? (
+          <div className="flex justify-start">
+            <div className="flex items-center gap-2 rounded-3xl rounded-bl-md bg-muted px-4 py-3 text-sm text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin text-brand" />
+              Thinking…
             </div>
           </div>
-        </form>
+        ) : null}
+      </div>
 
-        <div className="flex max-w-3xl flex-wrap justify-center gap-2">
-          {QUICK_PROMPTS.map((prompt) => (
+      {/* Player invite action bar */}
+      {lastPlayerResult && !showWelcome ? (
+        <div className="shrink-0 border-t border-border/60 bg-background px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedPlayers.length ? (
+              <>
+                <span className="text-xs text-muted-foreground">
+                  {selectedPlayers.length} selected:
+                </span>
+                {selectedPlayers.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => togglePlayer(p)}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-xs"
+                  >
+                    {p.name}
+                    <X className="size-3 text-muted-foreground" />
+                  </button>
+                ))}
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                Select players above to create a group.
+              </span>
+            )}
+            <div className="ml-auto flex gap-2">
+              {inviteState.status === "sent" ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={openGroupChat}
+                >
+                  <Sparkles />
+                  Open group chat
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  className="rounded-full"
+                  onClick={inviteToChat}
+                  disabled={
+                    !selectedPlayers.length || inviteState.status === "sending"
+                  }
+                >
+                  <Users />
+                  {inviteState.status === "sending"
+                    ? "Sending…"
+                    : "Invite to group chat"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Quick prompts — only shown in welcome state */}
+      {showWelcome ? (
+        <div className="shrink-0 flex flex-wrap justify-center gap-2 px-2 pb-3">
+          {QUICK_PROMPTS.map((p) => (
             <button
-              key={prompt}
+              key={p}
               type="button"
-              onClick={() => submit(prompt)}
+              onClick={() => submit(p)}
               className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
             >
-              {prompt.includes("same-level") ? (
-                <SlidersHorizontal className="size-4" />
-              ) : prompt.includes("group") ? (
-                <Users className="size-4" />
-              ) : (
-                <Search className="size-4" />
-              )}
-              {prompt}
+              {p}
             </button>
           ))}
         </div>
-      </section>
+      ) : null}
 
-      {loading ? <PlayerMatchSkeleton /> : null}
-
-      {courtResponse && bestCourt ? (
-        <section className="grid gap-4 pb-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="flex min-w-0 flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-left">
-                <p className="text-sm font-medium text-muted-foreground">
-                  AI plan for
-                </p>
-                <h2 className="font-heading text-xl font-semibold tracking-tight">
-                  "{courtResponse.prompt}"
-                </h2>
-              </div>
-              <Button
-                className="rounded-full"
-                onClick={() =>
-                  openBooking(bestCourt.id, {
-                    fillMode: courtResponse.mode === "team" ? "find" : "court",
-                  })
-                }
-              >
-                <CalendarCheck />
-                Book best match
-              </Button>
-            </div>
-
-            <div className="grid gap-3">
-              {courtResponse.courts.map((court, index) => (
-                <AiCourtResult
-                  key={court.id}
-                  court={court}
-                  rank={index + 1}
-                  mode={courtResponse.mode}
-                  sportLabel={
-                    courtResponse.sport
-                      ? tc(`sports.${courtResponse.sport}`)
-                      : undefined
-                  }
-                  onBook={() =>
-                    openBooking(court.id, {
-                      fillMode: courtResponse.mode === "team" ? "find" : "court",
-                    })
-                  }
-                />
-              ))}
-            </div>
-          </div>
-
-          <aside className="flex flex-col gap-3 rounded-3xl border border-border bg-background p-4 shadow-md shadow-foreground/5">
-            <div className="flex items-center gap-2">
-              <span className="grid size-9 place-items-center rounded-full bg-brand/12 text-brand">
-                <Zap className="size-4" />
-              </span>
-              <div className="min-w-0 text-left">
-                <p className="font-heading text-sm font-semibold">
-                  AI native flow
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Recommend, book, then fill seats
-                </p>
-              </div>
-            </div>
-            <div className="space-y-3 text-left text-sm text-muted-foreground">
-              <p>{courtResponse.summary}</p>
-              <div className="rounded-2xl bg-muted/60 p-3">
-                <p className="font-medium text-foreground">Next action</p>
-                <p>
-                  {courtResponse.mode === "team"
-                    ? "Open the booking wizard in teammate-finding mode."
-                    : "Open the booking wizard with this court preselected."}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Metric label="Best rating" value={bestCourt.rating.toFixed(1)} />
-                <Metric label="Open slots" value={String(bestCourt.openSlots)} />
-                <Metric label="Distance" value={`${bestCourt.distanceKm}km`} />
-                <Metric label="From" value={formatVnd(bestCourt.pricePerHour)} />
-              </div>
-            </div>
+      {/* Composer */}
+      <div className="shrink-0 pb-2 pt-1">
+        <div className="rounded-[2rem] border border-border bg-background p-2 shadow-xl shadow-foreground/5">
+          <div className="flex items-end gap-2">
             <Button
-              variant="outline"
-              className="mt-auto rounded-full"
-              onClick={openPlay}
+              type="button"
+              size="icon"
+              variant="ghost"
+              className="mb-1 rounded-full"
+              aria-label="Add context"
             >
-              <Users />
-              Choose play mode
+              <Plus />
             </Button>
-          </aside>
-        </section>
-      ) : null}
-
-      {playerResponse ? (
-        <section className="grid gap-4 pb-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <div className="flex min-w-0 flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-left">
-                <p className="text-sm font-medium text-muted-foreground">
-                  AI player match for
-                </p>
-                <h2 className="font-heading text-xl font-semibold tracking-tight">
-                  "{playerResponse.prompt}"
-                </h2>
-              </div>
-              <div className="flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-sm text-muted-foreground">
-                <Users className="size-4 text-brand" />
-                {selectedPlayers.length} players selected
-              </div>
-            </div>
-
-            {playerResponse.players.length ? (
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                {playerResponse.players.map((player) => (
-                  <PlayerMatchCard
-                    key={player.id}
-                    player={player}
-                    selected={selectedIds.includes(player.id)}
-                    onToggle={() => togglePlayer(player)}
-                    onOpenProfile={() => setProfile(player)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <PlayerEmptyState />
-            )}
-          </div>
-
-          <aside className="flex flex-col gap-4 rounded-3xl border border-border bg-background p-4 shadow-md shadow-foreground/5">
-            <div className="flex items-center gap-2">
-              <span className="grid size-9 place-items-center rounded-full bg-brand/12 text-brand">
-                <Users className="size-4" />
-              </span>
-              <div className="min-w-0 text-left">
-                <p className="font-heading text-sm font-semibold">
-                  Player matching
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Match, invite, then move into chat
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-3 text-left text-sm text-muted-foreground">
-              <p>
-                {playerResponse.intent.sport
-                  ? `Prioritizing ${tc(`sports.${playerResponse.intent.sport}`)} players`
-                  : "Matching across available sports"}
-                {playerResponse.intent.timeLabel
-                  ? `, available ${playerResponse.intent.timeLabel.toLowerCase()}.`
-                  : "."}
-              </p>
-
-              {selectedPlayers.length ? (
-                <div className="rounded-2xl bg-muted/60 p-3">
-                  <p className="font-medium text-foreground">Selected players</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {selectedPlayers.map((player) => (
-                      <button
-                        key={player.id}
-                        type="button"
-                        onClick={() => removeSelected(player.id)}
-                        className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-foreground"
-                      >
-                        {player.name}
-                        <X className="size-3.5 text-muted-foreground" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl bg-muted/60 p-3 text-sm">
-                  Select one or more players to create an invite thread.
-                </div>
-              )}
-
-              <div className="rounded-2xl border border-border bg-background p-3">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  Trust score
-                  <TrustTooltip />
-                </div>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Match percentage combines sport fit, level, area, time, and reputation.
-                </p>
-              </div>
-
-              {inviteState.status === "sent" ? (
-                <div className="rounded-2xl bg-brand/10 p-3 text-sm text-brand">
-                  <div className="flex items-start gap-2">
-                    <CheckCheck className="mt-0.5 size-4 shrink-0" />
-                    <div>
-                      <p className="font-medium">Invitation sent</p>
-                      <p>Group chat created</p>
-                      <p>Waiting for players to accept</p>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-auto flex flex-col gap-2">
-              <Button
-                className="rounded-full"
-                onClick={inviteToChat}
-                disabled={
-                  !selectedPlayers.length || inviteState.status === "sending"
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault()
+                  submit(input)
                 }
-              >
-                <Users />
-                {inviteState.status === "sending"
-                  ? "Sending invite..."
-                  : "Invite to group chat"}
-              </Button>
-              <Button
-                variant="outline"
-                className="rounded-full"
-                onClick={openGroupChat}
-                disabled={!inviteState.roomId}
-              >
-                <Sparkles />
-                Open group chat
-              </Button>
-            </div>
-          </aside>
-        </section>
-      ) : null}
+              }}
+              placeholder={isLoading ? "Thinking…" : "Ask about courts or teammates…"}
+              aria-label="Ask SportMatch AI"
+              disabled={isLoading}
+              className="max-h-32 min-h-12 flex-1 border-0 bg-transparent px-0 py-3 text-base shadow-none focus-visible:ring-0"
+            />
+            <Button
+              type="button"
+              size="icon"
+              className="mb-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
+              aria-label="Send"
+              onClick={() => submit(input)}
+              disabled={isLoading || !input.trim()}
+            >
+              <ArrowUp />
+            </Button>
+          </div>
+        </div>
+      </div>
 
       <PlayerProfileDialog
         player={profile}
@@ -667,7 +424,409 @@ export function AiNativeDashboardView() {
   )
 }
 
-function PlayerMatchCard({
+// ─── Message row ──────────────────────────────────────────────────────────────
+
+function ChatMessageRow({
+  message,
+  selectedIds,
+  onTogglePlayer,
+  onOpenProfile,
+  onBook,
+  tc,
+}: {
+  message: UIMessage
+  selectedIds: string[]
+  onTogglePlayer: (p: PlayerMatchResult) => void
+  onOpenProfile: (p: PlayerMatchResult) => void
+  onBook: (courtId: string) => void
+  tc: ReturnType<typeof useTranslations>
+}) {
+  if (message.role === "user") {
+    const text = (message.parts ?? [])
+      .filter((p) => p.type === "text")
+      .map((p) => (p as { text: string }).text)
+      .join("")
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[85%] rounded-3xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+          {text}
+        </div>
+      </div>
+    )
+  }
+
+  if (message.role !== "assistant") return null
+
+  const parts = message.parts ?? []
+
+  return (
+    <div className="flex flex-col gap-3">
+      {parts.map((part, i) => {
+        const p = part as Record<string, unknown>
+
+        // Real streamed model reasoning (chain of thought).
+        if (p.type === "reasoning") {
+          if (!((p.text as string) ?? "").trim()) return null
+          return (
+            <ThinkingBlock
+              key={i}
+              text={p.text as string}
+              done={p.state !== "streaming"}
+            />
+          )
+        }
+
+        // Plain text
+        if (p.type === "text" && p.text) {
+          return (
+            <div key={i} className="flex justify-start">
+              <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-4 py-2.5 text-sm">
+                {p.text as string}
+              </div>
+            </div>
+          )
+        }
+
+        // Tool part. Statically-defined server tools arrive as
+        // `tool-<name>` (ToolUIPart); runtime tools as `dynamic-tool`.
+        // NOTE: some models (e.g. tencent/hy3-preview) stream the tool name
+        // late, so the part type can be a bare `tool-` with no name. Discriminate
+        // by the OUTPUT shape rather than the name so cards always render.
+        const partType = p.type as string
+        if (partType === "dynamic-tool" || partType.startsWith("tool-")) {
+          const isDone = (p.state as string) === "output-available"
+          const result = toolResult(p.output)
+
+          if (isDone && result?.kind === "courts") {
+            return (
+              <CourtChatResult
+                key={i}
+                courts={result.value.courts}
+                sortBy={result.value.sortBy}
+                onBook={onBook}
+                tc={tc}
+              />
+            )
+          }
+
+          if (isDone && result?.kind === "players") {
+            return (
+              <PlayerChatResult
+                key={i}
+                players={result.value.players}
+                selectedIds={selectedIds}
+                onToggle={onTogglePlayer}
+                onOpenProfile={onOpenProfile}
+              />
+            )
+          }
+
+          // Tool call resolving — lightweight searching indicator.
+          if (!isDone) {
+            const toolName =
+              partType === "dynamic-tool"
+                ? (p.toolName as string)
+                : partType.slice("tool-".length)
+            return <SearchingIndicator key={i} toolName={toolName} />
+          }
+
+          return null
+        }
+
+        return null
+      })}
+    </div>
+  )
+}
+
+// ─── Thinking block (real streamed model reasoning) ───────────────────────────
+
+function ThinkingBlock({ text, done }: { text: string; done: boolean }) {
+  // Open while the model is thinking; auto-collapse shortly after it finishes.
+  const [collapsed, setCollapsed] = React.useState(false)
+  const bodyRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    if (!done) return
+    const t = setTimeout(() => setCollapsed(true), 1200)
+    return () => clearTimeout(t)
+  }, [done])
+
+  // Keep the latest reasoning in view as it streams.
+  React.useEffect(() => {
+    if (!done && bodyRef.current) {
+      bodyRef.current.scrollTop = bodyRef.current.scrollHeight
+    }
+  }, [text, done])
+
+  return (
+    <div className="rounded-3xl bg-muted/40 p-3 ring-1 ring-foreground/5 dark:ring-foreground/10">
+      <button
+        type="button"
+        onClick={() => done && setCollapsed((c) => !c)}
+        disabled={!done}
+        className="flex w-full items-center gap-2 text-left"
+      >
+        {done ? (
+          <Sparkles className="size-3.5 text-brand" />
+        ) : (
+          <Loader2 className="size-3.5 animate-spin text-brand" />
+        )}
+        <span className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+          {done ? "Reasoning" : "Thinking…"}
+        </span>
+        {done ? (
+          <ChevronDown
+            className={cn(
+              "ml-auto size-3.5 text-muted-foreground transition-transform",
+              collapsed && "-rotate-90"
+            )}
+          />
+        ) : null}
+      </button>
+
+      {!collapsed ? (
+        <div
+          ref={bodyRef}
+          className={cn(
+            "mt-2.5 max-h-44 overflow-y-auto pr-1 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground [scrollbar-width:thin]",
+            !done &&
+              "[mask-image:linear-gradient(to_bottom,transparent,black_1.5rem)]"
+          )}
+        >
+          {text}
+          {!done ? (
+            <span className="ml-0.5 inline-block h-3.5 w-1.5 translate-y-0.5 animate-pulse rounded-full bg-brand/70" />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+// ─── Searching indicator (tool call in flight) ────────────────────────────────
+
+function SearchingIndicator({ toolName }: { toolName: string }) {
+  const label =
+    toolName === "findCourts"
+      ? "Searching courts…"
+      : toolName === "findPlayers"
+        ? "Matching players…"
+        : "Working…"
+  return (
+    <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-foreground/5">
+      <Loader2 className="size-3.5 animate-spin text-brand" />
+      {label}
+    </div>
+  )
+}
+
+// ─── Court results ────────────────────────────────────────────────────────────
+
+function CourtChatResult({
+  courts,
+  sortBy,
+  onBook,
+  tc,
+}: {
+  courts: Court[]
+  sortBy: string
+  onBook: (courtId: string) => void
+  tc: ReturnType<typeof useTranslations>
+}) {
+  const scroller = React.useRef<HTMLDivElement>(null)
+  const [atStart, setAtStart] = React.useState(true)
+  const [atEnd, setAtEnd] = React.useState(false)
+
+  const sync = React.useCallback(() => {
+    const el = scroller.current
+    if (!el) return
+    const max = el.scrollWidth - el.clientWidth
+    setAtStart(el.scrollLeft <= 2)
+    setAtEnd(el.scrollLeft >= max - 2)
+  }, [])
+
+  React.useEffect(() => {
+    sync()
+  }, [sync, courts])
+
+  const nudge = (dir: 1 | -1) => {
+    const el = scroller.current
+    if (!el) return
+    el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" })
+  }
+
+  const rankLabel =
+    sortBy === "price"
+      ? "lowest price"
+      : sortBy === "distance"
+        ? "nearest"
+        : sortBy === "team"
+          ? "most open slots"
+          : "best overall"
+
+  const single = courts.length < 2
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="pl-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        Top {courts.length} courts · ranked by {rankLabel}
+      </p>
+      <div className="relative">
+        <div
+          ref={scroller}
+          onScroll={sync}
+          className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {courts.map((court, index) => (
+            <CourtCard
+              key={court.id}
+              court={court}
+              rank={index + 1}
+              solo={single}
+              onBook={onBook}
+              tc={tc}
+            />
+          ))}
+        </div>
+        {!atStart ? (
+          <>
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-muted/50 to-transparent" />
+            <button
+              type="button"
+              onClick={() => nudge(-1)}
+              aria-label="Previous"
+              className="absolute left-1 top-1/2 z-10 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-card/80 shadow ring-1 ring-foreground/10 backdrop-blur-sm"
+            >
+              <ChevronLeft className="size-3.5" />
+            </button>
+          </>
+        ) : null}
+        {!atEnd ? (
+          <>
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-muted/50 to-transparent" />
+            <button
+              type="button"
+              onClick={() => nudge(1)}
+              aria-label="Next"
+              className="absolute right-1 top-1/2 z-10 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-card/80 shadow ring-1 ring-foreground/10 backdrop-blur-sm"
+            >
+              <ChevronRight className="size-3.5" />
+            </button>
+          </>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function CourtCard({
+  court,
+  rank,
+  solo,
+  onBook,
+}: {
+  court: Court
+  rank: number
+  solo?: boolean
+  onBook: (courtId: string) => void
+  tc: ReturnType<typeof useTranslations>
+}) {
+  const scoreWord =
+    court.rating >= 4.7
+      ? "exceptional"
+      : court.rating >= 4.5
+        ? "excellent"
+        : "veryGood"
+  const tf = useTranslations("CourtFinder")
+  const ts = useTranslations("Shared")
+  const ta = useTranslations("Assistant")
+
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 snap-start flex-col gap-3 rounded-3xl bg-muted/50 p-3 ring-1 ring-foreground/5 dark:ring-foreground/10",
+        solo ? "w-full" : "w-60"
+      )}
+    >
+      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/5">
+        <CourtImage court={court} className="absolute inset-0 h-full w-full" />
+        <span className="absolute top-2 left-2 rounded-full bg-background/85 px-2 py-0.5 text-xs font-semibold backdrop-blur">
+          #{rank}
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <p className="truncate text-sm font-medium">{court.name}</p>
+        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <MapPin className="size-3 shrink-0" />
+          {court.district} · {court.distanceKm} km
+        </p>
+        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">
+          <Star className="size-3 fill-lime text-lime" />
+          {court.rating}
+          <span className="text-[10px] font-medium text-muted-foreground">
+            {tf(`score.${scoreWord}`)}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <span className="font-heading text-base font-bold tabular-nums">
+          {formatVnd(court.pricePerHour)}
+          <span className="text-xs font-normal text-muted-foreground">
+            {ts("perHour")}
+          </span>
+        </span>
+      </div>
+
+      <Button size="sm" className="rounded-full" onClick={() => onBook(court.id)}>
+        {ta("book")}
+      </Button>
+    </div>
+  )
+}
+
+// ─── Player results ───────────────────────────────────────────────────────────
+
+function PlayerChatResult({
+  players,
+  selectedIds,
+  onToggle,
+  onOpenProfile,
+}: {
+  players: PlayerMatchResult[]
+  selectedIds: string[]
+  onToggle: (p: PlayerMatchResult) => void
+  onOpenProfile: (p: PlayerMatchResult) => void
+}) {
+  if (!players.length) {
+    return (
+      <div className="rounded-3xl border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted-foreground">
+        No matching players found. Try broadening the area or time.
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="pl-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+        {players.length} players matched
+      </p>
+      {players.map((player) => (
+        <PlayerChatCard
+          key={player.id}
+          player={player}
+          selected={selectedIds.includes(player.id)}
+          onToggle={() => onToggle(player)}
+          onOpenProfile={() => onOpenProfile(player)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function PlayerChatCard({
   player,
   selected,
   onToggle,
@@ -683,45 +842,44 @@ function PlayerMatchCard({
       role="button"
       tabIndex={0}
       onClick={onOpenProfile}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
           onOpenProfile()
         }
       }}
-      className="grid cursor-pointer gap-4 rounded-3xl border border-border bg-background p-4 text-left shadow-md shadow-foreground/5 transition-shadow hover:shadow-lg"
+      className="grid cursor-pointer gap-3 rounded-3xl border border-border bg-background p-3 text-left shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Avatar className="size-12">
-            <AvatarFallback className="bg-secondary font-semibold text-secondary-foreground">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Avatar className="size-10">
+            <AvatarFallback className="bg-secondary text-sm font-semibold text-secondary-foreground">
               {player.initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="truncate font-heading text-lg font-semibold">
+            <div className="flex items-center gap-1.5">
+              <h3 className="truncate font-heading font-semibold">
                 {player.name}
               </h3>
               {player.online ? (
-                <span className="size-2 rounded-full bg-brand" aria-hidden />
+                <span className="size-1.5 rounded-full bg-brand" aria-hidden />
               ) : null}
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">{player.blurb}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {player.blurb}
+            </p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <MatchMeter pct={player.matchPct} />
-          <p className="text-[11px] font-medium text-muted-foreground">
-            Match score
-          </p>
-        </div>
+        <MatchMeter pct={player.matchPct} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap gap-1.5">
         <SportTag sport={player.sport} />
         <LevelChip level={player.level} />
-        <Badge variant="outline">{player.preferredArea}</Badge>
+        <Badge variant="outline" className="text-xs">
+          {player.preferredArea}
+        </Badge>
         <span
           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${trustTone(player.trust)}`}
         >
@@ -730,49 +888,37 @@ function PlayerMatchCard({
         </span>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Signal icon={Clock} label="Available" value={player.availability[0]} />
-        <Signal icon={MapPin} label="Area" value={player.location} />
+      <div className="flex items-center gap-2">
+        <Clock className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">
+          {player.availability[0]}
+        </span>
       </div>
 
-      <div className="rounded-2xl bg-muted/60 p-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            Match reason
-          </p>
-          <span className="text-xs text-muted-foreground">
-            {player.matchPct}% based on sport, level, area, time, and trust
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-foreground">{player.reason}</p>
-      </div>
-
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation()
-            onOpenProfile()
-          }}
-          className="inline-flex min-h-11 items-center rounded-full px-4 text-base font-medium text-brand transition-colors hover:bg-brand/10"
-        >
-          View full profile
-        </button>
+      <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
+        <p className="truncate text-xs text-muted-foreground">{player.reason}</p>
         <Button
-          className="min-h-11 rounded-full px-5 text-base"
+          size="sm"
           variant={selected ? "secondary" : "default"}
-          onClick={(event) => {
-            event.stopPropagation()
+          className="shrink-0 rounded-full"
+          onClick={(e) => {
+            e.stopPropagation()
             onToggle()
           }}
         >
-          {selected ? <CheckCheck /> : <Plus />}
+          {selected ? (
+            <CheckCheck className="size-3.5" />
+          ) : (
+            <Plus className="size-3.5" />
+          )}
           {selected ? "Selected" : "Select"}
         </Button>
       </div>
     </article>
   )
 }
+
+// ─── Player profile dialog ────────────────────────────────────────────────────
 
 function PlayerProfileDialog({
   player,
@@ -785,7 +931,7 @@ function PlayerProfileDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="font-montserrat max-h-[85vh] overflow-y-auto p-0 sm:max-w-2xl">
+      <DialogContent className="max-h-[85vh] overflow-y-auto p-0 sm:max-w-2xl">
         {player ? (
           <>
             <DialogHeader className="border-b border-border px-6 py-5 pr-14 text-left sm:px-7">
@@ -805,7 +951,6 @@ function PlayerProfileDialog({
                 </div>
               </div>
             </DialogHeader>
-
             <div className="flex flex-col gap-5 p-6 sm:p-7">
               <div className="flex flex-wrap gap-2">
                 {player.badges.map((badge) => (
@@ -814,28 +959,21 @@ function PlayerProfileDialog({
                   </Badge>
                 ))}
               </div>
-
               <div className="grid gap-3 sm:grid-cols-2">
                 <Metric label="Sport" value={player.sportPreferences.join(", ")} />
                 <Metric label="Skill level" value={player.level} />
                 <Metric label="Play style" value={player.playStyle} />
                 <Metric label="Availability" value={player.availability[0]} />
-                <Metric label="Completed matches" value={String(player.completedMatches)} />
+                <Metric
+                  label="Completed matches"
+                  value={String(player.completedMatches)}
+                />
                 <Metric label="Rating" value={`${player.rating.toFixed(1)} / 5`} />
               </div>
-
-              <div className="rounded-2xl bg-muted/60 p-4">
-                <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
-                  Reputation score
-                  <TrustTooltip />
-                </div>
-                <p className="mt-2 text-2xl font-semibold text-brand">
-                  {player.trust}
-                </p>
-              </div>
-
               <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">Review snippets</p>
+                <p className="text-sm font-medium text-foreground">
+                  Review snippets
+                </p>
                 {player.reviewSnippets.map((review) => (
                   <div
                     key={review}
@@ -850,179 +988,6 @@ function PlayerProfileDialog({
         ) : null}
       </DialogContent>
     </Dialog>
-  )
-}
-
-function TrustTooltip() {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            type="button"
-            className="inline-flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Trust score explanation"
-          />
-        }
-      >
-        <CircleHelp className="size-3.5" />
-      </TooltipTrigger>
-      <TooltipContent>
-        Reputation score is based on completed matches, ratings, punctuality, and
-        user reviews.
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-function PlayerMatchSkeleton() {
-  return (
-    <section className="grid gap-4 pb-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="flex flex-col gap-4 rounded-3xl border border-border bg-background p-4 shadow-md shadow-foreground/5"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Skeleton className="size-12 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-40" />
-                </div>
-              </div>
-              <Skeleton className="size-11 rounded-full" />
-            </div>
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <div className="flex justify-end">
-              <Skeleton className="h-9 w-28 rounded-full" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="rounded-3xl border border-border bg-background p-4 shadow-md shadow-foreground/5">
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="mt-4 h-20 w-full" />
-        <Skeleton className="mt-3 h-20 w-full" />
-        <Skeleton className="mt-6 h-10 w-full rounded-full" />
-      </div>
-    </section>
-  )
-}
-
-function PlayerEmptyState() {
-  return (
-    <div className="flex min-h-72 flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-border bg-background px-6 py-12 text-center">
-      <div className="grid size-12 place-items-center rounded-2xl bg-muted text-muted-foreground">
-        <Users className="size-5" />
-      </div>
-      <p className="font-medium text-foreground">No matching players found</p>
-      <p className="max-w-md text-sm text-muted-foreground">
-        Try a broader area, remove the time constraint, or switch sport keywords.
-      </p>
-    </div>
-  )
-}
-
-function AiCourtResult({
-  court,
-  rank,
-  mode,
-  sportLabel,
-  onBook,
-}: {
-  court: Court
-  rank: number
-  mode: PlanMode
-  sportLabel?: string
-  onBook: () => void
-}) {
-  const reason =
-    mode === "budget"
-      ? "Lowest price in the current recommendation set"
-      : mode === "near"
-        ? "Shortest travel distance with available time"
-        : mode === "team"
-          ? "Enough open slots to book and fill a group"
-          : "Best blend of rating, distance, and availability"
-
-  return (
-    <article className="grid overflow-hidden rounded-3xl border border-border bg-background text-left shadow-md shadow-foreground/5 transition-shadow hover:shadow-lg sm:grid-cols-[12rem_minmax(0,1fr)]">
-      <div className="relative min-h-40 sm:min-h-full">
-        <CourtImage court={court} className="absolute inset-0 h-full w-full" />
-        <span className="absolute top-3 left-3 inline-flex items-center rounded-full bg-background/90 px-2.5 py-1 text-xs font-semibold shadow-sm backdrop-blur">
-          #{rank} match
-        </span>
-      </div>
-      <div className="flex min-w-0 flex-col gap-4 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="truncate font-heading text-lg font-semibold">
-              {court.name}
-            </h3>
-            <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
-              <MapPin className="size-4 shrink-0" />
-              <span className="truncate">
-                {court.district} / {court.distanceKm} km
-              </span>
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-sm font-semibold text-secondary-foreground">
-            <Star className="size-4 fill-lime text-lime" />
-            {court.rating}
-          </span>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {court.sports.map((sport) => (
-            <SportTag key={sport} sport={sport} />
-          ))}
-          {sportLabel ? (
-            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
-              {sportLabel} intent
-            </span>
-          ) : null}
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Signal icon={Clock} label="Next slot" value={court.nextSlot} />
-          <Signal label="Open today" value={`${court.openSlots} slots`} />
-          <Signal label="Price" value={`${formatVnd(court.pricePerHour)}/h`} />
-        </div>
-
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
-          <p className="max-w-xl text-sm text-muted-foreground">{reason}</p>
-          <Button className="rounded-full" onClick={onBook}>
-            <CalendarCheck />
-            Book this
-          </Button>
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function Signal({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon?: React.ComponentType<{ className?: string }>
-  label: string
-  value: string
-}) {
-  return (
-    <div className="rounded-2xl bg-muted/60 px-3 py-2">
-      <p className="flex items-center gap-1 text-xs text-muted-foreground">
-        {Icon ? <Icon className="size-3.5" /> : null}
-        {label}
-      </p>
-      <p className="mt-0.5 truncate text-sm font-semibold tabular-nums">
-        {value}
-      </p>
-    </div>
   )
 }
 
