@@ -9,6 +9,7 @@ import { AuthUserProvider } from "@/components/dashboard/auth-user"
 import { ChatProvider } from "@/components/dashboard/chat-store"
 import { DataProvider } from "@/components/dashboard/data-provider"
 import { NotificationsProvider } from "@/components/dashboard/notifications"
+import { PlayerAssessmentGate } from "@/components/dashboard/player-assessment-gate"
 import { PlayerChrome } from "@/components/dashboard/player-chrome"
 import { SessionProvider } from "@/components/dashboard/session"
 import { SportFilterProvider } from "@/components/dashboard/sport-filter"
@@ -45,19 +46,21 @@ export default async function DashboardLayout({
             <NotificationsProvider>
               <ChatProvider>
                 <SportFilterProvider>
-                  <SidebarProvider className="font-geist">
-                    <AppSidebar />
-                    <SidebarInset className="overflow-hidden">
-                      <DashboardTopbar />
-                      <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-                        {children}
-                      </main>
-                    </SidebarInset>
-                  </SidebarProvider>
+                  <PlayerAssessmentGate>
+                    <SidebarProvider className="font-geist">
+                      <AppSidebar />
+                      <SidebarInset className="overflow-hidden">
+                        <DashboardTopbar />
+                        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+                          {children}
+                        </main>
+                      </SidebarInset>
+                    </SidebarProvider>
+                    <PlayerChrome />
+                  </PlayerAssessmentGate>
                 </SportFilterProvider>
               </ChatProvider>
             </NotificationsProvider>
-            <PlayerChrome />
             <Toaster />
           </SessionProvider>
         </DataProvider>

@@ -35,6 +35,8 @@ export function useMatchmaking() {
     setActiveRoomId: s.setActiveRoomId,
     userLevel: s.userLevel,
     setUserLevel: s.setUserLevel,
+    userLevels: s.userLevels,
+    userLevelForSport: s.userLevelForSport,
     userName: s.userName,
     setUserName: s.setUserName,
     search: s.search,
@@ -70,7 +72,7 @@ export function useMatchmaking() {
 export function MatchmakingDock() {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
-  const { search, userLevel, cancelSearch, dismissSearch, openManager } =
+  const { search, userLevelForSport, cancelSearch, dismissSearch, openManager } =
     useMatchmaking()
   const { playerByInitials } = useData()
   const ready = search?.status === "ready"
@@ -107,7 +109,7 @@ export function MatchmakingDock() {
                     ? t("dock.found", { name: partnerName })
                     : `${tc(`sports.${search.sport}`)} · ${tc(
                         `format.${search.format.toLowerCase()}`
-                      )} · ${tc(`levels.${userLevel}`)}`}
+                      )} · ${tc(`levels.${userLevelForSport(search.sport)}`)}`}
                 </p>
               </div>
 
