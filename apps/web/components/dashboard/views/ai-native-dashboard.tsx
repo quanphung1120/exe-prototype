@@ -52,6 +52,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import { LogoMark } from "@/components/logo"
+import { type LatLng } from "@/components/dashboard/court-map"
+import { Flip, gsap, prefersReducedMotion } from "@/lib/gsap"
 import { cn } from "@/lib/utils"
 import { useRouter } from "@/i18n/navigation"
 import {
@@ -91,15 +94,6 @@ function toolResult(output: unknown): ToolResult | null {
   return null
 }
 
-// ─── Quick prompts ────────────────────────────────────────────────────────────
-
-const QUICK_PROMPTS = [
-  "Find badminton courts near me",
-  "Cheapest pickleball court tonight",
-  "Find badminton teammates tonight",
-  "Match me with same-level players",
-]
-
 function trustTone(trust: number) {
   if (trust >= 90) return "bg-brand/10 text-brand"
   if (trust >= 80) return "bg-secondary text-secondary-foreground"
@@ -113,13 +107,18 @@ function buildInviteTitle(intent: PlayerMatchIntent, sport: SportKey) {
   return `${label} teammate group`
 }
 
+// Flip must read/write the DOM before paint to avoid a one-frame flash at the
+// destination; fall back to useEffect on the server where layout effects no-op.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect
+
 // ─── Main view ───────────────────────────────────────────────────────────────
 
 export function AiNativeDashboardView() {
-  const tc = useTranslations("Common")
+  const t = useTranslations("AiDashboard")
   const { courts } = useData()
   const { openBooking } = useBooking()
-  const { createInviteRoom, userLevelForSport } = useSession()
+  const { createInviteRoom, userLevelForSport, userLevels } = useSession()
   const { setActiveChatId } = useChatStore()
   const router = useRouter()
 
@@ -130,19 +129,74 @@ export function AiNativeDashboardView() {
     status: "idle" | "sending" | "sent"
     roomId: string | null
   }>({ status: "idle", roomId: null })
-  const inviteTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inviteTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
   const scrollRef = React.useRef<HTMLDivElement>(null)
+  // Composer geometry captured in the welcome state, replayed once the first
+  // message swaps in the thread layout so the composer glides down rather than
+  // snapping to the bottom. See the Flip effect below.
+  const composerFlip = React.useRef<ReturnType<typeof Flip.getState> | null>(
+    null
+  )
+
+  // The user's real position, attached to every request so the model can rank
+  // courts by actual distance (the seed `distanceKm` is static). Stays null if
+  // the browser denies/lacks geolocation — the server then falls back to seed.
+  const [userLoc, setUserLoc] = React.useState<LatLng | null>(null)
+
+  // Ask for a fix once on mount. Deferred a tick so the synchronous "no
+  // geolocation" path never calls setState inside the effect body
+  // (react-hooks/set-state-in-effect).
+  React.useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return
+    const id = setTimeout(() => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) =>
+          setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {},
+        { enableHighAccuracy: true, timeout: 10000 }
+      )
+    }, 0)
+    return () => clearTimeout(id)
+  }, [])
+
+  // Best-effort geolocation for a single request: return the cached fix if we
+  // have one, otherwise make a short on-demand attempt so an early "near me"
+  // query still gets real coordinates instead of silently falling back to the
+  // static seed distances. Resolves null (never rejects) when denied/unavailable.
+  const resolveLocation = React.useCallback(
+    () =>
+      new Promise<LatLng | null>((resolve) => {
+        if (userLoc) return resolve(userLoc)
+        if (typeof navigator === "undefined" || !navigator.geolocation)
+          return resolve(null)
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+            setUserLoc(loc)
+            resolve(loc)
+          },
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 8000 }
+        )
+      }),
+    [userLoc]
+  )
 
   // AI SDK v6 — sendMessage replaces handleSubmit/append
   const { messages, sendMessage, status } = useChat()
   const isLoading = status === "streaming" || status === "submitted"
 
-  // Auto-scroll on new content
+  // Stick to the bottom as new content streams — but only when the user is
+  // already near the bottom, so scrolling up to read earlier results isn't
+  // yanked back on every token. Instant ("auto") scroll avoids the jank of a
+  // smooth animation restarting on each streamed chunk.
   React.useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: "smooth",
-    })
+    const el = scrollRef.current
+    if (!el) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    if (nearBottom) el.scrollTo({ top: el.scrollHeight })
   }, [messages, isLoading])
 
   React.useEffect(() => {
@@ -152,6 +206,38 @@ export function AiNativeDashboardView() {
   }, [])
 
   const showWelcome = messages.length === 0
+
+  // Play the welcome → thread transition: the composer (tagged with a shared
+  // data-flip-id in both layouts) glides from screen-centre down to its pinned
+  // position, while the first message fades up beside it. The "from" geometry is
+  // captured in submit() while the welcome layout is still mounted.
+  useIsomorphicLayoutEffect(() => {
+    if (showWelcome) return
+    const state = composerFlip.current
+    if (!state) return
+    composerFlip.current = null
+
+    const flip = Flip.from(state, {
+      duration: 0.55,
+      ease: "power3.inOut",
+    })
+
+    const intro = scrollRef.current
+      ? gsap.from(scrollRef.current.children, {
+          opacity: 0,
+          y: 12,
+          duration: 0.4,
+          ease: "power2.out",
+          stagger: 0.06,
+          delay: 0.1,
+        })
+      : null
+
+    return () => {
+      flip?.kill()
+      intro?.kill()
+    }
+  }, [showWelcome])
 
   // Find the last player result anywhere in the conversation. Detect by output
   // shape (see toolResult) so it works even when the tool name is missing.
@@ -178,11 +264,31 @@ export function AiNativeDashboardView() {
     [lastPlayerResult, selectedIds]
   )
 
-  const submit = (text: string) => {
+  const submit = async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || isLoading) return
+    // Capture the centered composer's geometry while it's still on screen, so
+    // the Flip effect can animate it down once this message swaps in the thread.
+    if (messages.length === 0 && !prefersReducedMotion()) {
+      composerFlip.current = Flip.getState('[data-flip-id="ai-composer"]')
+    }
+    // A new query starts a fresh result context — clear selections, the open
+    // profile, and any invite state (incl. a pending invite timer) carried over
+    // from the previous search, so the invite bar can't show a stale "sent"
+    // state wired to the old room while displaying new players.
+    if (inviteTimerRef.current) {
+      clearTimeout(inviteTimerRef.current)
+      inviteTimerRef.current = null
+    }
+    setSelectedIds([])
+    setProfile(null)
+    setInviteState({ status: "idle", roomId: null })
     setInput("")
-    sendMessage({ text: trimmed })
+    // Resolve location before sending so the first "near me" query ranks by real
+    // distance. Attach the per-sport skill levels and location as extra request
+    // body fields — the route reads them to personalise ranking + matching.
+    const userLocation = await resolveLocation()
+    sendMessage({ text: trimmed }, { body: { userLevels, userLocation } })
   }
 
   const togglePlayer = (player: PlayerMatchResult) => {
@@ -201,7 +307,7 @@ export function AiNativeDashboardView() {
 
   const inviteToChat = () => {
     if (!lastPlayerResult || !selectedPlayers.length) {
-      toast.error("Select at least one player before sending an invite.")
+      toast.error(t("selectPlayerError"))
       return
     }
     const inviteSport: SportKey =
@@ -240,41 +346,118 @@ export function AiNativeDashboardView() {
         })
         if (!roomId) throw new Error("Unable to create group chat")
         setInviteState({ status: "sent", roomId })
-        toast.success("Invitation sent", {
-          description: "Group chat created. Waiting for players to accept.",
+        toast.success(t("inviteSent"), {
+          description: t("groupChatCreated"),
         })
       } catch {
         setInviteState({ status: "idle", roomId: null })
-        toast.error("Failed to send invite.")
+        toast.error(t("inviteFailed"))
       } finally {
         inviteTimerRef.current = null
       }
     }, 700)
   }
 
-  return (
-    <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-3xl flex-col">
-      {/* Welcome hero — collapses once the chat starts */}
-      {showWelcome ? (
-        <section className="flex flex-col items-center gap-4 py-12 text-center">
-          <span className="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-lime to-brand text-brand-foreground shadow-sm">
-            <Sparkles className="size-5" />
-          </span>
+  // Shared composer — identical input in both the empty and active states.
+  const composer = (
+    <div
+      data-flip-id="ai-composer"
+      className="rounded-[2rem] border border-border bg-background p-2 shadow-xl shadow-foreground/5"
+    >
+      <div className="flex items-end gap-2">
+        <Textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault()
+              submit(input)
+            }
+          }}
+          placeholder={isLoading ? t("thinking") : t("inputPlaceholder")}
+          aria-label="Ask SportMatch AI"
+          disabled={isLoading}
+          className="max-h-32 min-h-12 flex-1 border-0 bg-transparent py-3 pr-0 pl-3 text-base shadow-none focus-visible:ring-0"
+        />
+        <Button
+          type="button"
+          size="icon"
+          className="mb-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
+          aria-label="Send"
+          onClick={() => submit(input)}
+          disabled={isLoading || !input.trim()}
+        >
+          <ArrowUp />
+        </Button>
+      </div>
+    </div>
+  )
+
+  const quickPromptsList = [
+    t("prompts.badmintonNearMe"),
+    t("prompts.cheapestPickleball"),
+    t("prompts.badmintonTeammates"),
+    t("prompts.sameLevelPlayers"),
+  ]
+
+  const quickPrompts = (
+    <div className="flex flex-wrap justify-center gap-2 px-2">
+      {quickPromptsList.map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => submit(p)}
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+        >
+          {p}
+        </button>
+      ))}
+    </div>
+  )
+
+  const profileDialog = (
+    <PlayerProfileDialog
+      player={profile}
+      open={Boolean(profile)}
+      onOpenChange={(open) => {
+        if (!open) setProfile(null)
+      }}
+    />
+  )
+
+  // Empty state — centered hero + composer, ChatGPT-style. Collapses into the
+  // thread layout below as soon as the first message lands.
+  if (showWelcome) {
+    return (
+      <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-3xl flex-col items-center justify-center gap-7 px-2">
+        <section className="flex flex-col items-center gap-4 text-center">
+          <LogoMark className="size-14 text-primary" />
           <div>
             <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
-              SportMatch AI
+              {t("welcomeTitle")}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Find a court or match the right players — just ask.
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {t("welcomeSubtitle")}
             </p>
           </div>
         </section>
-      ) : null}
 
+        <div className="w-full">{composer}</div>
+
+        {quickPrompts}
+
+        {profileDialog}
+      </div>
+    )
+  }
+
+  // Active conversation — thread scrolls, composer pinned at the bottom.
+  return (
+    <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-3xl flex-col">
       {/* Thread */}
       <div
         ref={scrollRef}
-        className="flex flex-1 flex-col gap-4 overflow-y-auto no-scrollbar px-1 py-2"
+        className="no-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto px-1 py-2"
       >
         {messages.map((msg) => (
           <ChatMessageRow
@@ -284,7 +467,6 @@ export function AiNativeDashboardView() {
             onTogglePlayer={togglePlayer}
             onOpenProfile={setProfile}
             onBook={(courtId) => openBooking(courtId)}
-            tc={tc}
           />
         ))}
 
@@ -293,20 +475,20 @@ export function AiNativeDashboardView() {
           <div className="flex justify-start">
             <div className="flex items-center gap-2 rounded-3xl rounded-bl-md bg-muted px-4 py-3 text-sm text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin text-brand" />
-              Thinking…
+              {t("thinking")}
             </div>
           </div>
         ) : null}
       </div>
 
       {/* Player invite action bar */}
-      {lastPlayerResult && !showWelcome ? (
+      {lastPlayerResult ? (
         <div className="shrink-0 border-t border-border/60 bg-background px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
             {selectedPlayers.length ? (
               <>
                 <span className="text-xs text-muted-foreground">
-                  {selectedPlayers.length} selected:
+                  {t("selectedCount", { count: selectedPlayers.length })}
                 </span>
                 {selectedPlayers.map((p) => (
                   <button
@@ -322,7 +504,7 @@ export function AiNativeDashboardView() {
               </>
             ) : (
               <span className="text-xs text-muted-foreground">
-                Select players above to create a group.
+                {t("selectPlayersInvite")}
               </span>
             )}
             <div className="ml-auto flex gap-2">
@@ -334,7 +516,7 @@ export function AiNativeDashboardView() {
                   onClick={openGroupChat}
                 >
                   <Sparkles />
-                  Open group chat
+                  {t("openGroupChat")}
                 </Button>
               ) : (
                 <Button
@@ -347,8 +529,8 @@ export function AiNativeDashboardView() {
                 >
                   <Users />
                   {inviteState.status === "sending"
-                    ? "Sending…"
-                    : "Invite to group chat"}
+                    ? t("sending")
+                    : t("inviteToGroupChat")}
                 </Button>
               )}
             </div>
@@ -356,70 +538,10 @@ export function AiNativeDashboardView() {
         </div>
       ) : null}
 
-      {/* Quick prompts — only shown in welcome state */}
-      {showWelcome ? (
-        <div className="shrink-0 flex flex-wrap justify-center gap-2 px-2 pb-3">
-          {QUICK_PROMPTS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => submit(p)}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
       {/* Composer */}
-      <div className="shrink-0 pb-2 pt-1">
-        <div className="rounded-[2rem] border border-border bg-background p-2 shadow-xl shadow-foreground/5">
-          <div className="flex items-end gap-2">
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="mb-1 rounded-full"
-              aria-label="Add context"
-            >
-              <Plus />
-            </Button>
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault()
-                  submit(input)
-                }
-              }}
-              placeholder={isLoading ? "Thinking…" : "Ask about courts or teammates…"}
-              aria-label="Ask SportMatch AI"
-              disabled={isLoading}
-              className="max-h-32 min-h-12 flex-1 border-0 bg-transparent px-0 py-3 text-base shadow-none focus-visible:ring-0"
-            />
-            <Button
-              type="button"
-              size="icon"
-              className="mb-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
-              aria-label="Send"
-              onClick={() => submit(input)}
-              disabled={isLoading || !input.trim()}
-            >
-              <ArrowUp />
-            </Button>
-          </div>
-        </div>
-      </div>
+      <div className="shrink-0 pt-1 pb-2">{composer}</div>
 
-      <PlayerProfileDialog
-        player={profile}
-        open={Boolean(profile)}
-        onOpenChange={(open) => {
-          if (!open) setProfile(null)
-        }}
-      />
+      {profileDialog}
     </div>
   )
 }
@@ -432,14 +554,12 @@ function ChatMessageRow({
   onTogglePlayer,
   onOpenProfile,
   onBook,
-  tc,
 }: {
   message: UIMessage
   selectedIds: string[]
   onTogglePlayer: (p: PlayerMatchResult) => void
   onOpenProfile: (p: PlayerMatchResult) => void
   onBook: (courtId: string) => void
-  tc: ReturnType<typeof useTranslations>
 }) {
   if (message.role === "user") {
     const text = (message.parts ?? [])
@@ -504,7 +624,6 @@ function ChatMessageRow({
                 courts={result.value.courts}
                 sortBy={result.value.sortBy}
                 onBook={onBook}
-                tc={tc}
               />
             )
           }
@@ -542,6 +661,7 @@ function ChatMessageRow({
 // ─── Thinking block (real streamed model reasoning) ───────────────────────────
 
 function ThinkingBlock({ text, done }: { text: string; done: boolean }) {
+  const t = useTranslations("AiDashboard")
   // Open while the model is thinking; auto-collapse shortly after it finishes.
   const [collapsed, setCollapsed] = React.useState(false)
   const bodyRef = React.useRef<HTMLDivElement>(null)
@@ -572,8 +692,8 @@ function ThinkingBlock({ text, done }: { text: string; done: boolean }) {
         ) : (
           <Loader2 className="size-3.5 animate-spin text-brand" />
         )}
-        <span className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-          {done ? "Reasoning" : "Thinking…"}
+        <span className="font-mono text-[11px] tracking-wide text-muted-foreground uppercase">
+          {done ? t("reasoning") : t("thinking")}
         </span>
         {done ? (
           <ChevronDown
@@ -584,14 +704,13 @@ function ThinkingBlock({ text, done }: { text: string; done: boolean }) {
           />
         ) : null}
       </button>
-
       {!collapsed ? (
         <div
           ref={bodyRef}
           className={cn(
-            "mt-2.5 max-h-44 overflow-y-auto pr-1 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground [scrollbar-width:thin]",
+            "mt-2.5 no-scrollbar max-h-44 overflow-y-auto pr-1 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground",
             !done &&
-              "[mask-image:linear-gradient(to_bottom,transparent,black_1.5rem)]"
+              "mask-[linear-gradient(to_bottom,transparent,black_1.5rem)]"
           )}
         >
           {text}
@@ -607,12 +726,13 @@ function ThinkingBlock({ text, done }: { text: string; done: boolean }) {
 // ─── Searching indicator (tool call in flight) ────────────────────────────────
 
 function SearchingIndicator({ toolName }: { toolName: string }) {
+  const t = useTranslations("AiDashboard")
   const label =
     toolName === "findCourts"
-      ? "Searching courts…"
+      ? t("searchingCourts")
       : toolName === "findPlayers"
-        ? "Matching players…"
-        : "Working…"
+        ? t("matchingPlayers")
+        : t("working")
   return (
     <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-foreground/5">
       <Loader2 className="size-3.5 animate-spin text-brand" />
@@ -627,13 +747,12 @@ function CourtChatResult({
   courts,
   sortBy,
   onBook,
-  tc,
 }: {
   courts: Court[]
   sortBy: string
   onBook: (courtId: string) => void
-  tc: ReturnType<typeof useTranslations>
 }) {
+  const t = useTranslations("AiDashboard")
   const scroller = React.useRef<HTMLDivElement>(null)
   const [atStart, setAtStart] = React.useState(true)
   const [atEnd, setAtEnd] = React.useState(false)
@@ -658,25 +777,25 @@ function CourtChatResult({
 
   const rankLabel =
     sortBy === "price"
-      ? "lowest price"
+      ? t("rank.price")
       : sortBy === "distance"
-        ? "nearest"
+        ? t("rank.distance")
         : sortBy === "team"
-          ? "most open slots"
-          : "best overall"
+          ? t("rank.team")
+          : t("rank.best")
 
   const single = courts.length < 2
 
   return (
     <div className="flex flex-col gap-1.5">
-      <p className="pl-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-        Top {courts.length} courts · ranked by {rankLabel}
+      <p className="pl-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+        {t("topCourtsRanked", { count: courts.length, sortBy: rankLabel })}
       </p>
       <div className="relative">
         <div
           ref={scroller}
           onScroll={sync}
-          className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          className="flex snap-x snap-mandatory [scrollbar-width:none] gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {courts.map((court, index) => (
             <CourtCard
@@ -685,7 +804,6 @@ function CourtChatResult({
               rank={index + 1}
               solo={single}
               onBook={onBook}
-              tc={tc}
             />
           ))}
         </div>
@@ -696,7 +814,7 @@ function CourtChatResult({
               type="button"
               onClick={() => nudge(-1)}
               aria-label="Previous"
-              className="absolute left-1 top-1/2 z-10 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-card/80 shadow ring-1 ring-foreground/10 backdrop-blur-sm"
+              className="absolute top-1/2 left-1 z-10 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-card/80 shadow ring-1 ring-foreground/10 backdrop-blur-sm"
             >
               <ChevronLeft className="size-3.5" />
             </button>
@@ -709,7 +827,7 @@ function CourtChatResult({
               type="button"
               onClick={() => nudge(1)}
               aria-label="Next"
-              className="absolute right-1 top-1/2 z-10 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-card/80 shadow ring-1 ring-foreground/10 backdrop-blur-sm"
+              className="absolute top-1/2 right-1 z-10 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-card/80 shadow ring-1 ring-foreground/10 backdrop-blur-sm"
             >
               <ChevronRight className="size-3.5" />
             </button>
@@ -730,7 +848,6 @@ function CourtCard({
   rank: number
   solo?: boolean
   onBook: (courtId: string) => void
-  tc: ReturnType<typeof useTranslations>
 }) {
   const scoreWord =
     court.rating >= 4.7
@@ -780,7 +897,11 @@ function CourtCard({
         </span>
       </div>
 
-      <Button size="sm" className="rounded-full" onClick={() => onBook(court.id)}>
+      <Button
+        size="sm"
+        className="rounded-full"
+        onClick={() => onBook(court.id)}
+      >
         {ta("book")}
       </Button>
     </div>
@@ -810,7 +931,7 @@ function PlayerChatResult({
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="pl-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      <p className="pl-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
         {players.length} players matched
       </p>
       {players.map((player) => (
@@ -896,7 +1017,9 @@ function PlayerChatCard({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
-        <p className="truncate text-xs text-muted-foreground">{player.reason}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {player.reason}
+        </p>
         <Button
           size="sm"
           variant={selected ? "secondary" : "default"}
@@ -960,7 +1083,10 @@ function PlayerProfileDialog({
                 ))}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Metric label="Sport" value={player.sportPreferences.join(", ")} />
+                <Metric
+                  label="Sport"
+                  value={player.sportPreferences.join(", ")}
+                />
                 <Metric label="Skill level" value={player.level} />
                 <Metric label="Play style" value={player.playStyle} />
                 <Metric label="Availability" value={player.availability[0]} />
@@ -968,7 +1094,10 @@ function PlayerProfileDialog({
                   label="Completed matches"
                   value={String(player.completedMatches)}
                 />
-                <Metric label="Rating" value={`${player.rating.toFixed(1)} / 5`} />
+                <Metric
+                  label="Rating"
+                  value={`${player.rating.toFixed(1)} / 5`}
+                />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-foreground">

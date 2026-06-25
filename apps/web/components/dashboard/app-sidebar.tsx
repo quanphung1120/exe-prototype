@@ -15,7 +15,6 @@ import { useLocale, useTranslations } from "next-intl"
 import { initialsOf } from "@repo/shared"
 
 import { LogoMark } from "@/components/logo"
-import { CourtAssistant } from "@/components/dashboard/court-assistant"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -56,7 +55,7 @@ export function AppSidebar() {
   const router = useRouter()
   const locale = useLocale()
   const { signOut } = useClerk()
-  const { isMobile, setOpenMobile, state } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const { userName } = useMatchmaking()
   const { user: USER, venues: VENUES } = useData()
 
@@ -287,7 +286,7 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
-            {state === "expanded" ? <CourtAssistant /> : null}
+            {/* CourtAssistant has been removed */}
           </div>
 
           <div className="flex items-center gap-3">

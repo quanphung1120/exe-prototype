@@ -96,8 +96,8 @@
   "Nav": {
     "groupPlay": "Play",
     "dashboard": {
-      "label": "Dashboard",
-      "caption": "Your court at a glance"
+      "label": "AI Assistant",
+      "caption": "Find courts and players"
     },
     "play": {
       "label": "Play",
@@ -1468,72 +1468,6 @@
     "empty": "No customers in this segment yet.",
     "leaderTitle": "Top players by value"
   },
-  "VenueCopilot": {
-    "metaTitle": "Venue Copilot",
-    "metaDescription": "An operator AI assistant for Shuttle Republic — surface idle courts, revenue, peak hours and promos on demand.",
-    "title": "Venue Copilot",
-    "subtitle": "Operations AI · {venue}",
-    "greeting": "Hi {manager} — I'm watching the floor. Ask me about tonight's free courts, today's revenue, peak hours, or off-peak promos.",
-    "tryAsking": "Try asking",
-    "placeholder": "Ask about courts, revenue, peak hours…",
-    "thinking": "Analyzing…",
-    "thoughtFor": "Reasoned for {seconds}s",
-    "queued": "Queued",
-    "closeAria": "Close copilot",
-    "inputAria": "Message the venue copilot",
-    "sendAria": "Send",
-    "toggleOpen": "Open venue copilot",
-    "toggleClose": "Close venue copilot",
-    "suggestions": {
-      "free": "What's free tonight?",
-      "revenue": "How's revenue today?",
-      "peak": "When are peak hours?",
-      "promo": "Draft an off-peak promo"
-    },
-    "steps": {
-      "scanGrid": "Reading tonight's grid ({window})",
-      "filterFree": "Filtering for unsold court-hours",
-      "crossPeak": "Keeping only peak slots (17:00+)",
-      "draftFix": "Drafting a fill recommendation",
-      "pullLedger": "Pulling the 7-day revenue ledger",
-      "sumWeek": "Summing the weekly total",
-      "compareAvg": "Comparing today to the daily average",
-      "findSoft": "Finding soft demand windows",
-      "priceOffPeak": "Modeling an off-peak discount",
-      "composeMsg": "Composing a broadcast message",
-      "aggregateWeek": "Aggregating utilization across the week",
-      "rankHours": "Ranking the busiest hours",
-      "parse": "Reading your request",
-      "surveyData": "Surveying venue signals"
-    },
-    "reply": {
-      "free": "You have {count} unsold peak court-hours tonight. Filling them at an off-peak rate is the fastest revenue lift.",
-      "freeNone": "Nice — every peak court-hour tonight is already booked. Nothing to fill.",
-      "revenueUp": "Today is tracking {today} — that's {pct}% above the 7-day daily average. Strong day.",
-      "revenueDown": "Today is tracking {today} — that's {pct}% below the 7-day daily average. Worth a push.",
-      "promo": "Here's a ready-to-send off-peak promo to fill the quiet hours. Review and broadcast when you're happy.",
-      "peak": "Your busiest hour is {hour} at {util}% utilization. Prime-time demand is where pricing matters most.",
-      "default": "I can help you run {venue}. Ask me anything below and I'll pull from your live floor data."
-    },
-    "metric": {
-      "today": "Today",
-      "week": "This week",
-      "dailyAvg": "Daily average"
-    },
-    "promo": {
-      "draft": "🏸 {venue} off-peak hours just got better — book a quiet slot today and save 15%. {open} courts open now!"
-    },
-    "actions": {
-      "offPeak": "Apply off-peak discount",
-      "broadcast": "Broadcast to players"
-    },
-    "can": {
-      "free": "Find idle courts to fill tonight",
-      "revenue": "Summarize today vs the week",
-      "peak": "Rank the busiest hours",
-      "promo": "Draft an off-peak promo"
-    }
-  },
   "CourtFinder": {
     "metaTitle": "Find a Court",
     "metaDescription": "Search, filter and book a court near you.",
@@ -1599,6 +1533,38 @@
       "c6": {
         "surface": "Tournament glass"
       }
+    }
+  },
+  "AiDashboard": {
+    "welcomeTitle": "How can I help you today?",
+    "welcomeSubtitle": "Find a court or match with players instantly.",
+    "inputPlaceholder": "Ask about courts or teammates…",
+    "thinking": "Thinking…",
+    "reasoning": "Reasoning",
+    "searchingCourts": "Searching courts…",
+    "matchingPlayers": "Matching players…",
+    "working": "Working…",
+    "topCourtsRanked": "Top {count} courts · ranked by {sortBy}",
+    "selectPlayersInvite": "Select players above to create a group.",
+    "inviteToGroupChat": "Invite to group chat",
+    "sending": "Sending…",
+    "openGroupChat": "Open group chat",
+    "selectPlayerError": "Select at least one player before sending an invite.",
+    "inviteSent": "Invitation sent",
+    "groupChatCreated": "Group chat created. Waiting for players to accept.",
+    "inviteFailed": "Failed to send invite.",
+    "selectedCount": "{count, plural, one {# selected:} other {# selected:}}",
+    "rank": {
+      "price": "lowest price",
+      "distance": "nearest",
+      "team": "most open slots",
+      "best": "best overall"
+    },
+    "prompts": {
+      "badmintonNearMe": "Find badminton courts near me",
+      "cheapestPickleball": "Cheapest pickleball court tonight",
+      "badmintonTeammates": "Find badminton teammates tonight",
+      "sameLevelPlayers": "Match me with same-level players"
     }
   }
 }
