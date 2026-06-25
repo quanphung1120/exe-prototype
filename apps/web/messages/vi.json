@@ -1570,6 +1570,8 @@
     },
     "availability": {
       "label": "Tình trạng trống",
+      "slots": "khung giờ",
+      "total": "tổng số",
       "manySlots": "5+ khung trống hôm nay",
       "mostlyFree": "Còn trống nửa ngày"
     },
