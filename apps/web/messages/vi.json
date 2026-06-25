@@ -367,7 +367,7 @@
     "pay": {
       "amountDue": "Số tiền cần trả",
       "holdFee": "Phí giữ chỗ",
-      "holdNote": "Phí sân {amount} — thanh toán tại sân",
+      "holdNote": "Thanh toán toàn bộ tiền sân ngay bây giờ để giữ khung giờ này.",
       "courtFee": "phí sân",
       "method": "Phương thức thanh toán",
       "qr": "VietQR",
@@ -389,7 +389,18 @@
       "collectHint": "Bạn sẽ thu lại {amount}/người từ đội của mình sau đó",
       "payNow": "Trả {amount}",
       "processing": "Đang xử lý…",
-      "secure": "Thanh toán demo — không trừ tiền thẻ"
+      "secure": "Thanh toán demo — không trừ tiền thẻ",
+      "result": {
+        "successTitle": "Thanh toán thành công",
+        "successBody": "Hệ thống đã nhận {amount}. Xác nhận để hoàn tất đặt sân và giữ chỗ.",
+        "successHint": "Khung giờ của bạn đã sẵn sàng để chốt.",
+        "successCta": "Hoàn tất đặt sân",
+        "failedTitle": "Thanh toán thất bại",
+        "failedBody": "Giao dịch {amount} chưa hoàn tất. Vui lòng thử lại.",
+        "failedConflict": "Khung giờ này vừa có người khác đặt trong lúc bạn thanh toán. Hãy chọn giờ khác rồi thử lại.",
+        "failedHint": "Chưa có booking nào được tạo.",
+        "failedCta": "Thử lại"
+      }
     },
     "roomTitle": "{sport} tại {court}",
     "toast": {

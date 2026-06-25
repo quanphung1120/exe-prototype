@@ -21,6 +21,14 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import {
   COURT_OPEN_FROM,
@@ -30,7 +38,6 @@ import {
   formatDuration,
   formatVnd,
   formatVndFull,
-  HOLD_FEE,
   priceFor,
   slotRange,
   type Court,
@@ -196,7 +203,10 @@ export function BookView() {
     setDuration,
     pickSlot,
     paying,
+    paymentResult,
     pay,
+    acknowledgePaymentSuccess,
+    dismissPaymentResult,
   } = useBooking()
   const { courts: COURTS } = useData()
 
@@ -525,9 +535,9 @@ export function BookView() {
                 moving between the two steps feels stable) */}
             <CourtPreviewCard
               court={court}
-              label={t("pay.holdFee")}
-              amount={formatVndFull(HOLD_FEE)}
-              subline={t("pay.holdNote", { amount: formatVndFull(total) })}
+              label={t("pay.amountDue")}
+              amount={formatVndFull(total)}
+              subline={t("pay.holdNote")}
               t={t}
             />
 
@@ -545,7 +555,7 @@ export function BookView() {
                 <div className="text-center">
                   <p className="text-sm font-medium">{t("pay.qrAccount")}</p>
                   <p className="font-mono text-xs text-muted-foreground tabular-nums">
-                    {formatVndFull(HOLD_FEE)}
+                    {formatVndFull(total)}
                   </p>
                 </div>
                 <p className="inline-flex items-center gap-1.5 text-center text-xs text-muted-foreground">
@@ -563,6 +573,65 @@ export function BookView() {
       </div>
 
       {/* Action bar — sticky on phones so the primary action stays reachable. */}
+      <Dialog
+        open={paymentResult !== null}
+        onOpenChange={(open) => {
+          if (!open) dismissPaymentResult()
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {paymentResult?.status === "success"
+                ? t("pay.result.successTitle")
+                : t("pay.result.failedTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {paymentResult?.status === "success"
+                ? t("pay.result.successBody", {
+                    amount: formatVndFull(paymentResult.amount),
+                  })
+                : t(
+                    paymentResult?.reason === "conflict"
+                      ? "pay.result.failedConflict"
+                      : "pay.result.failedBody",
+                    { amount: formatVndFull(paymentResult?.amount ?? 0) }
+                  )}
+            </DialogDescription>
+          </DialogHeader>
+          <div
+            className={cn(
+              "flex items-center gap-3 rounded-3xl px-4 py-3 text-sm",
+              paymentResult?.status === "success"
+                ? "bg-brand/10 text-brand"
+                : "bg-destructive/10 text-destructive"
+            )}
+          >
+            {paymentResult?.status === "success" ? (
+              <Check className="size-5 shrink-0" />
+            ) : (
+              <TriangleAlert className="size-5 shrink-0" />
+            )}
+            <span>
+              {paymentResult?.status === "success"
+                ? t("pay.result.successHint")
+                : t("pay.result.failedHint")}
+            </span>
+          </div>
+          <DialogFooter>
+            {paymentResult?.status === "success" ? (
+              <Button className="rounded-full" onClick={acknowledgePaymentSuccess}>
+                {t("pay.result.successCta")}
+              </Button>
+            ) : (
+              <Button className="rounded-full" onClick={dismissPaymentResult}>
+                {t("pay.result.failedCta")}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between gap-2 border-t border-border bg-background/90 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
         {step > 0 ? (
           <Button
@@ -586,7 +655,7 @@ export function BookView() {
             ) : (
               <>
                 <Lock />
-                {t("pay.payNow", { amount: court ? formatVnd(HOLD_FEE) : "" })}
+                {t("pay.payNow", { amount: court ? formatVnd(total) : "" })}
               </>
             )}
           </Button>
