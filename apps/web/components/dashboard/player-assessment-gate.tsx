@@ -72,9 +72,9 @@ function AssessmentLoading() {
     <div className="grid min-h-dvh place-items-center bg-[radial-gradient(circle_at_top_left,color-mix(in_oklch,var(--brand)_18%,transparent),transparent_34%),linear-gradient(135deg,var(--background),var(--muted))] p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Đang kiểm tra hồ sơ trình độ</CardTitle>
+          <CardTitle>Dang kiem tra ho so trinh do</CardTitle>
           <CardDescription>
-            Chúng tôi đang đọc kết quả đã lưu trên thiết bị này.
+            Chung toi dang doc ket qua da luu tren thiet bi nay.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -100,6 +100,16 @@ function PlayerAssessmentScreen({
     (question) => currentAnswers[question.id]
   ).length
   const canContinue = answeredCount === current.questions.length
+  const completedSports = ASSESSMENTS.filter((definition) =>
+    definition.questions.every(
+      (question) => typeof answers[definition.sport]?.[question.id] === "string"
+    )
+  )
+  const canFinish = completedSports.length > 0
+  const currentDone = completedSports.some(
+    (definition) => definition.sport === current.sport
+  )
+  const hasNextSport = step < ASSESSMENTS.length - 1
   const progress =
     ((step + answeredCount / current.questions.length) / ASSESSMENTS.length) *
     100
@@ -119,28 +129,37 @@ function PlayerAssessmentScreen({
     }))
   }
 
-  const next = () => {
-    setSubmitted(true)
-    if (!canContinue) return
-    setSubmitted(false)
-    if (step < ASSESSMENTS.length - 1) {
-      setStep((s) => s + 1)
-      return
-    }
-
+  const buildAssessment = (): PlayerAssessment => {
     const results = Object.fromEntries(
-      ASSESSMENTS.map((definition) => [
+      completedSports.map((definition) => [
         definition.sport,
         calculateAssessmentResult(definition, answers[definition.sport] ?? {}),
       ])
     ) as PlayerAssessment["results"]
-    const nextAssessment: PlayerAssessment = {
+
+    return {
       version: 1,
       completedAt: new Date().toISOString(),
       results,
     }
+  }
+
+  const complete = () => {
+    if (!canFinish) return
+    const nextAssessment = buildAssessment()
     writeStoredAssessment(nextAssessment)
     onComplete(nextAssessment)
+  }
+
+  const next = () => {
+    setSubmitted(true)
+    if (!canContinue) return
+    setSubmitted(false)
+    if (hasNextSport) {
+      setStep((s) => s + 1)
+      return
+    }
+    complete()
   }
 
   return (
@@ -150,24 +169,23 @@ function PlayerAssessmentScreen({
           <Card className="lg:sticky lg:top-6 lg:self-start">
             <CardHeader>
               <Badge variant="secondary" className="w-fit">
-                Bắt buộc trước khi vào game
+                Bat buoc truoc khi vao game
               </Badge>
               <CardTitle className="text-2xl sm:text-3xl">
-                Đánh giá trình độ người chơi
+                Danh gia trinh do nguoi choi
               </CardTitle>
               <CardDescription>
-                Hoàn thành cả Badminton và Pickleball. Kết quả được lưu trên
-                localStorage của trình duyệt này.
+                Hoan thanh it nhat 1 mon trong Badminton hoac Pickleball. Ket
+                qua duoc luu tren localStorage cua trinh duyet nay.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
               <Progress value={progress} />
               <div className="grid gap-2">
                 {ASSESSMENTS.map((definition, index) => {
-                  const done =
-                    definition.questions.every(
-                      (question) => answers[definition.sport]?.[question.id]
-                    ) && index < step
+                  const done = definition.questions.every(
+                    (question) => answers[definition.sport]?.[question.id]
+                  )
                   const active = index === step
                   return (
                     <button
@@ -186,7 +204,7 @@ function PlayerAssessmentScreen({
                           {definition.title}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {definition.questions.length} câu hỏi
+                          {definition.questions.length} cau hoi
                         </span>
                       </span>
                       {done ? (
@@ -211,7 +229,7 @@ function PlayerAssessmentScreen({
                   <CardDescription>{current.description}</CardDescription>
                 </div>
                 <Badge variant="outline">
-                  {answeredCount}/{current.questions.length} câu
+                  {answeredCount}/{current.questions.length} cau
                 </Badge>
               </div>
             </CardHeader>
@@ -267,7 +285,7 @@ function PlayerAssessmentScreen({
                     </div>
                     {missing ? (
                       <p className="mt-2 text-sm text-destructive">
-                        Vui lòng chọn một đáp án cho câu này.
+                        Vui long chon mot dap an cho cau nay.
                       </p>
                     ) : null}
                   </fieldset>
@@ -285,25 +303,40 @@ function PlayerAssessmentScreen({
                     setStep((s) => Math.max(0, s - 1))
                   }}
                 >
-                  Quay lại
+                  Quay lai
                 </Button>
                 <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                   {!canContinue && submitted ? (
                     <span className="text-sm text-destructive">
-                      Hãy trả lời đầy đủ trước khi tiếp tục.
+                      Hay tra loi day du truoc khi tiep tuc.
                     </span>
                   ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={complete}
+                    disabled={!canFinish}
+                  >
+                    Hoan thanh va vao app
+                  </Button>
                   <Button
                     type="button"
                     className="rounded-full"
                     onClick={next}
                   >
-                    {step === ASSESSMENTS.length - 1
-                      ? "Hoàn thành đánh giá"
-                      : "Tiếp tục"}
+                    {hasNextSport
+                      ? "Tiep tuc mon tiep theo"
+                      : "Hoan thanh danh gia"}
                   </Button>
                 </div>
               </div>
+              {currentDone && hasNextSport ? (
+                <p className="text-sm text-muted-foreground">
+                  Ban da co the vao app ngay, hoac lam tiep mon con lai de co
+                  ket qua day du hon.
+                </p>
+              ) : null}
             </CardContent>
           </Card>
         </div>
@@ -345,7 +378,7 @@ export function ResetPlayerAssessmentButton({
           <Trophy className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-heading font-semibold">Kết quả đánh giá</p>
+          <p className="font-heading font-semibold">Ket qua danh gia</p>
           <div className="mt-2 grid gap-1 text-sm text-muted-foreground">
             {ASSESSMENTS.map((definition) => {
               const result = assessment.results[definition.sport]
@@ -354,7 +387,9 @@ export function ResetPlayerAssessmentButton({
                   <span className="font-medium text-foreground">
                     {definition.title}:
                   </span>{" "}
-                  {result.score} điểm - {result.levelLabel}
+                  {result
+                    ? `${result.score} diem - ${result.levelLabel}`
+                    : "Chua danh gia"}
                 </p>
               )
             })}
@@ -368,7 +403,7 @@ export function ResetPlayerAssessmentButton({
         onClick={clearStoredAssessment}
       >
         <RotateCcw className="size-4" />
-        Làm lại đánh giá
+        Lam lai danh gia
       </Button>
     </div>
   )

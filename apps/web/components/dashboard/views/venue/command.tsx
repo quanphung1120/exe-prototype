@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { formatVnd } from "@/components/dashboard/data"
 import { useVenueData } from "@/components/dashboard/venue-data-provider"
+import { venueBase } from "@/components/dashboard/venue/nav"
 import { SportTag } from "@/components/dashboard/shared"
 import { useVenue } from "@/components/dashboard/venue/venue-provider"
 import {
@@ -53,6 +54,7 @@ export function VenueCommandView() {
   const { stats, priceSuggestions } = useVenue()
 
   const insight = priceSuggestions[0] ?? null
+  const base = venueBase(VENUE.id)
 
   // Today's arrivals still to come through the door.
   const arrivals = RESERVATIONS.filter(
@@ -277,7 +279,7 @@ export function VenueCommandView() {
                 size="sm"
                 className="rounded-full"
                 nativeButton={false}
-                render={<Link href="/dashboard/venue/analytics" />}
+                render={<Link href={`${base}/analytics`} />}
               >
                 {t("reviewInAnalytics")}
                 <ArrowUpRight />
@@ -301,9 +303,7 @@ export function VenueCommandView() {
               size="sm"
               className="rounded-full"
               nativeButton={false}
-              render={
-                <Link href="/dashboard/venue/schedule?tab=reservations" />
-              }
+              render={<Link href={`${base}/schedule?tab=reservations`} />}
             >
               {t("seeAll")}
             </Button>

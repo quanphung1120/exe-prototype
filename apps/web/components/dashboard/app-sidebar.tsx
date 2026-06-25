@@ -15,7 +15,6 @@ import { useLocale, useTranslations } from "next-intl"
 import { initialsOf } from "@repo/shared"
 
 import { LogoMark } from "@/components/logo"
-import { CourtAssistant } from "@/components/dashboard/court-assistant"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -287,7 +286,6 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
-            {state === "expanded" ? <CourtAssistant /> : null}
           </div>
 
           <div className="flex items-center gap-3">

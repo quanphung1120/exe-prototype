@@ -4,7 +4,6 @@ import {
   CalendarPlus,
   LayoutDashboard,
   MessageSquare,
-  Sparkles,
 } from "lucide-react"
 
 export type SectionKey = "dashboard" | "play" | "chat" | "bookings" | "book"
@@ -33,13 +32,6 @@ export const NAV: NavItem<SectionKey>[] = [
     label: "Dashboard",
     icon: LayoutDashboard,
     caption: "Your court at a glance",
-  },
-  {
-    key: "play",
-    href: "/dashboard/play",
-    label: "Play",
-    icon: Sparkles,
-    caption: "Browse open rooms or find a court",
   },
   {
     key: "chat",

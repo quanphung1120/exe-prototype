@@ -40,7 +40,7 @@ export interface SportAssessmentResult {
 export interface PlayerAssessment {
   version: 1
   completedAt: string
-  results: Record<AssessmentSport, SportAssessmentResult>
+  results: Partial<Record<AssessmentSport, SportAssessmentResult>>
 }
 
 export const PLAYER_ASSESSMENT_STORAGE_KEY = "sportmatch.playerAssessment.v1"
@@ -267,9 +267,10 @@ export function isCompleteAssessment(
   const assessment = value as Partial<PlayerAssessment>
   if (assessment.version !== 1 || !assessment.results) return false
 
-  return ASSESSMENTS.every((definition) => {
+  const validSports = ASSESSMENTS.filter((definition) => {
     const result = assessment.results?.[definition.sport]
-    if (!result || result.sport !== definition.sport) return false
+    if (!result) return false
+    if (result.sport !== definition.sport) return false
     if (typeof result.score !== "number") return false
     if (typeof result.levelLabel !== "string") return false
     if (!["beginner", "intermediate", "advanced"].includes(result.bucket))
@@ -280,6 +281,8 @@ export function isCompleteAssessment(
         question.answers.some((answer) => answer.key === result.answers[question.id])
     )
   })
+
+  return validSports.length > 0
 }
 
 export function readStoredAssessment(): PlayerAssessment | null {
