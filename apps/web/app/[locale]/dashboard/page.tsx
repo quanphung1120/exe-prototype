@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { CourtFinderView } from "@/components/dashboard/views/court-finder"
+import { AiNativeDashboardView } from "@/components/dashboard/views/ai-native-dashboard"
 
 export async function generateMetadata({
   params,
@@ -23,5 +23,5 @@ export default async function DashboardPage({
 }) {
   const { locale } = await params
   setRequestLocale(locale)
-  return <CourtFinderView />
+  return <AiNativeDashboardView />
 }
