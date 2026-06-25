@@ -1,9 +1,15 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { useTranslations } from "next-intl"
 import { usePathname } from "next/navigation"
-import { AnimatePresence, motion } from "framer-motion"
+import {
+  AnimatePresence,
+  motion,
+  useDragControls,
+  type PanInfo,
+} from "framer-motion"
 import {
   ArrowDown,
   Check,
@@ -121,7 +127,63 @@ export function CourtAssistant() {
   const { openPlay, openBooking } = useBooking()
   const { courts: COURTS } = useData()
   const pathname = usePathname()
-  const onBookingPage = pathname === "/dashboard/book"
+  const constraintsRef = React.useRef<HTMLDivElement>(null)
+  const dragControls = useDragControls()
+  const pointerStartRef = React.useRef<{ x: number; y: number } | null>(null)
+  const draggedRef = React.useRef(false)
+  const [align, setAlign] = React.useState<{
+    v: "top" | "bottom"
+    h: "left" | "right"
+  }>({ v: "bottom", h: "right" })
+
+  const handleDragEnd = (
+    event: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo
+  ) => {
+    const x = info.point.x
+    const y = info.point.y
+    const midX = typeof window !== "undefined" ? window.innerWidth / 2 : 0
+    const midY = typeof window !== "undefined" ? window.innerHeight / 2 : 0
+
+    setAlign({
+      v: y < midY ? "top" : "bottom",
+      h: x < midX ? "left" : "right",
+    })
+  }
+
+  const handleTogglePointerDown = (
+    event: React.PointerEvent<HTMLButtonElement>
+  ) => {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY }
+    draggedRef.current = false
+
+    if (!open) {
+      dragControls.start(event)
+    }
+  }
+
+  const handleTogglePointerMove = (
+    event: React.PointerEvent<HTMLButtonElement>
+  ) => {
+    const start = pointerStartRef.current
+    if (!start) return
+
+    const dx = event.clientX - start.x
+    const dy = event.clientY - start.y
+    if (Math.hypot(dx, dy) > 4) {
+      draggedRef.current = true
+    }
+  }
+
+  const handleToggleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (draggedRef.current) {
+      event.preventDefault()
+      draggedRef.current = false
+      return
+    }
+
+    setOpen((o) => !o)
+  }
 
   const GREETING: Msg = {
     id: "greet",
@@ -133,6 +195,7 @@ export function CourtAssistant() {
   const SUGGESTIONS = SUGGESTION_KEYS.map((k) => t(`suggestions.${k}`))
 
   const [open, setOpen] = React.useState(false)
+  const [portalRoot, setPortalRoot] = React.useState<HTMLElement | null>(null)
   const [messages, setMessages] = React.useState<Msg[]>([GREETING])
   const [draft, setDraft] = React.useState("")
   const [busy, setBusy] = React.useState(false)
@@ -141,12 +204,19 @@ export function CourtAssistant() {
   const timers = React.useRef<ReturnType<typeof setTimeout>[]>([])
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const pathnameRef = React.useRef(pathname)
 
   const uid = () => `m${idRef.current++}`
 
+  React.useEffect(() => {
+    const frame = requestAnimationFrame(() => setPortalRoot(document.body))
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
   // Clear any pending timers on unmount.
   React.useEffect(() => {
-    return () => timers.current.forEach(clearTimeout)
+    const currentTimers = timers.current
+    return () => currentTimers.forEach(clearTimeout)
   }, [])
 
   // Keep the thread pinned to the latest message.
@@ -161,7 +231,10 @@ export function CourtAssistant() {
 
   // Close the panel whenever navigation changes the visible page.
   React.useEffect(() => {
-    setOpen(false)
+    if (pathnameRef.current !== pathname) {
+      pathnameRef.current = pathname
+      setOpen(false)
+    }
   }, [pathname])
 
   const send = (raw: string) => {
@@ -240,142 +313,165 @@ export function CourtAssistant() {
 
   const showSuggestions = messages.length === 1 && !busy
 
-  return (
-    <div className="relative inline-flex flex-col items-start gap-3 overflow-visible">
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            key="panel"
-            initial={{ opacity: 0, y: 12, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.96 }}
-            transition={{ type: "spring", stiffness: 360, damping: 30 }}
-            style={{
-              transformOrigin: onBookingPage ? "bottom right" : "bottom left",
-            }}
-            className={cn(
-              "absolute bottom-full z-[70] mb-3 flex h-[620px] w-[600px] max-h-[calc(100vh-6rem)] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-4xl bg-card shadow-2xl ring-1 ring-foreground/5 dark:ring-foreground/10",
-              onBookingPage ? "right-0 left-auto" : "left-0"
-            )}
-          >
-            {/* Header */}
-            <header className="flex items-center gap-3 border-b border-border/60 p-4">
-              <span className="grid size-9 place-items-center rounded-2xl bg-gradient-to-br from-lime to-brand text-brand-foreground shadow-sm">
-                <Sparkles className="size-4.5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-heading text-base font-bold tracking-tight sm:text-lg">
-                  {t("title")}
-                </p>
-                <p className="inline-flex items-center gap-1 text-sm text-muted-foreground sm:text-[15px]">
-                  <span className="size-1.5 rounded-full bg-brand" />
-                  {t("subtitle")}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="rounded-full"
-                aria-label={t("closeAria")}
-                onClick={() => setOpen(false)}
-              >
-                <X />
-              </Button>
-            </header>
+  const assistant = (
+    <>
+      <div
+        ref={constraintsRef}
+        className="pointer-events-none fixed inset-4 z-[70]"
+      />
 
-            {/* Thread */}
-            <div
-              ref={scrollRef}
-              className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
-            >
-              {messages.map((m) =>
-                m.type === "thinking" ? (
-                  <ThinkingBlock
-                    key={m.id}
-                    msg={m}
-                    onToggle={() => toggleCollapse(m.id)}
-                  />
-                ) : m.type === "result" ? (
-                  <ResultBlock key={m.id} msg={m} onBook={handleBook} />
-                ) : (
-                  <Bubble key={m.id} mine={m.role === "user"} text={m.text} />
-                )
-              )}
-
-              {showSuggestions ? (
-                <div className="mt-1 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpen(false)
-                      openPlay()
-                    }}
-                    className="rounded-full bg-brand/12 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand/20"
-                  >
-                    {tPlay("button")}
-                  </button>
-                  {SUGGESTIONS.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => send(s)}
-                      className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-muted"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            {/* Composer */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault()
-                send(draft)
-              }}
-              className="flex items-center gap-2 border-t border-border/60 p-3"
-            >
-              <Input
-                ref={inputRef}
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder={busy ? t("thinking") : t("placeholder")}
-                className="rounded-full"
-                aria-label={t("inputAria")}
-                disabled={busy}
-              />
-              <Button
-                type="submit"
-                size="icon"
-                className="shrink-0 rounded-full"
-                aria-label={t("sendAria")}
-                disabled={busy || !draft.trim()}
-              >
-                <Send />
-              </Button>
-            </form>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      {/* Assistant toggle */}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-label={open ? t("toggleClose") : t("toggleOpen")}
-        className="relative grid size-12 shrink-0 place-items-center rounded-full bg-gradient-to-br from-lime to-brand text-brand-foreground shadow-lg ring-1 ring-foreground/5 transition-transform hover:scale-105 active:scale-95 dark:ring-foreground/10"
+      <motion.div
+        drag
+        dragControls={dragControls}
+        dragConstraints={constraintsRef}
+        dragElastic={0.1}
+        dragMomentum={false}
+        dragListener={false}
+        onDragEnd={handleDragEnd}
+        className="pointer-events-auto fixed right-5 bottom-5 z-[70] flex flex-col items-end gap-3 sm:right-6 sm:bottom-6"
       >
-        {!open ? (
-          <span className="animate-pulse-ring absolute inline-flex size-full rounded-full bg-brand/50" />
-        ) : null}
-        <span className="relative">
-          {open ? <X className="size-5" /> : <Sparkles className="size-5" />}
-        </span>
-      </button>
-    </div>
+        <AnimatePresence>
+          {open ? (
+            <motion.div
+              key="panel"
+              initial={{ opacity: 0, y: 12, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.96 }}
+              transition={{ type: "spring", stiffness: 360, damping: 30 }}
+              style={{
+                transformOrigin: `${align.v} ${align.h}`,
+              }}
+              className={cn(
+                "absolute z-[70] isolate flex h-[620px] max-h-[calc(100vh-6rem)] w-[600px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-4xl bg-popover text-popover-foreground shadow-2xl ring-1 ring-foreground/5 dark:ring-foreground/10",
+                align.v === "bottom"
+                  ? "top-auto bottom-full mb-3"
+                  : "top-full bottom-auto mt-3",
+                align.h === "right" ? "right-0 left-auto" : "right-auto left-0"
+              )}
+            >
+              {/* Header */}
+              <header className="flex items-center gap-3 border-b border-border/60 p-4">
+                <span className="grid size-9 place-items-center rounded-2xl bg-gradient-to-br from-lime to-brand text-brand-foreground shadow-sm">
+                  <Sparkles className="size-4.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-heading text-base font-bold tracking-tight sm:text-lg">
+                    {t("title")}
+                  </p>
+                  <p className="inline-flex items-center gap-1 text-sm text-muted-foreground sm:text-[15px]">
+                    <span className="size-1.5 rounded-full bg-brand" />
+                    {t("subtitle")}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="rounded-full"
+                  aria-label={t("closeAria")}
+                  onClick={() => setOpen(false)}
+                >
+                  <X />
+                </Button>
+              </header>
+
+              {/* Thread */}
+              <div
+                ref={scrollRef}
+                className="flex flex-1 flex-col gap-3 overflow-y-auto p-4"
+              >
+                {messages.map((m) =>
+                  m.type === "thinking" ? (
+                    <ThinkingBlock
+                      key={m.id}
+                      msg={m}
+                      onToggle={() => toggleCollapse(m.id)}
+                    />
+                  ) : m.type === "result" ? (
+                    <ResultBlock key={m.id} msg={m} onBook={handleBook} />
+                  ) : (
+                    <Bubble key={m.id} mine={m.role === "user"} text={m.text} />
+                  )
+                )}
+
+                {showSuggestions ? (
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpen(false)
+                        openPlay()
+                      }}
+                      className="rounded-full bg-brand/12 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand/20"
+                    >
+                      {tPlay("button")}
+                    </button>
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => send(s)}
+                        className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-muted"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Composer */}
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  send(draft)
+                }}
+                className="flex items-center gap-2 border-t border-border/60 p-3"
+              >
+                <Input
+                  ref={inputRef}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder={busy ? t("thinking") : t("placeholder")}
+                  className="rounded-full"
+                  aria-label={t("inputAria")}
+                  disabled={busy}
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="shrink-0 rounded-full"
+                  aria-label={t("sendAria")}
+                  disabled={busy || !draft.trim()}
+                >
+                  <Send />
+                </Button>
+              </form>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        {/* Assistant toggle */}
+        <button
+          type="button"
+          onPointerDown={handleTogglePointerDown}
+          onPointerMove={handleTogglePointerMove}
+          onClick={handleToggleClick}
+          aria-expanded={open}
+          aria-label={open ? t("toggleClose") : t("toggleOpen")}
+          className="relative grid size-12 shrink-0 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-lime to-brand text-brand-foreground shadow-lg ring-1 ring-foreground/5 transition-transform hover:scale-105 active:scale-95 dark:ring-foreground/10"
+        >
+          {!open ? (
+            <span className="animate-pulse-ring absolute inline-flex size-full rounded-full bg-brand/50" />
+          ) : null}
+          <span className="relative">
+            {open ? <X className="size-5" /> : <Sparkles className="size-5" />}
+          </span>
+        </button>
+      </motion.div>
+    </>
   )
+
+  return portalRoot ? createPortal(assistant, portalRoot) : null
 }
 
 function Bubble({ mine, text }: { mine: boolean; text: string }) {
@@ -630,10 +726,10 @@ function CourtCard({
           </p>
           <div className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground shadow-sm ring-1 ring-foreground/5">
             <Star className="size-3 shrink-0 fill-lime text-lime" />
-            <span className="text-sm font-bold leading-none tabular-nums text-secondary-foreground">
+            <span className="text-sm leading-none font-bold text-secondary-foreground tabular-nums">
               {court.rating}
             </span>
-            <span className="text-[10px] font-medium leading-none text-muted-foreground">
+            <span className="text-[10px] leading-none font-medium text-muted-foreground">
               {tf(`score.${scoreWord}`)}
             </span>
           </div>

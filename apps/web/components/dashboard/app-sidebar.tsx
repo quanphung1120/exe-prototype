@@ -46,6 +46,7 @@ import { useAuthUser } from "@/components/dashboard/auth-user"
 import { useData } from "@/components/dashboard/data-provider"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import { WorkspaceSettingsDialog } from "@/components/dashboard/workspace-settings"
+import { ProfileDialog } from "@/components/dashboard/profile-dialog"
 import { venueBase } from "@/components/dashboard/venue/nav"
 import { navContext } from "@/components/dashboard/workspace"
 import { Link, usePathname, useRouter } from "@/i18n/navigation"
@@ -64,6 +65,7 @@ export function AppSidebar() {
   const sUser = useAuthUser()
 
   const [settingsOpen, setSettingsOpen] = React.useState(false)
+  const [profileOpen, setProfileOpen] = React.useState(false)
 
   const { workspace, ns, items, active, venueId } = navContext(pathname)
   const isVenue = workspace === "venue"
@@ -335,7 +337,9 @@ export function AppSidebar() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="grid leading-tight">
-                          <span className="text-sm font-medium">{accountName}</span>
+                          <span className="text-sm font-medium">
+                            {accountName}
+                          </span>
                           <span className="text-xs text-muted-foreground">
                             {accountSubtitle}
                           </span>
@@ -343,7 +347,7 @@ export function AppSidebar() {
                       </DropdownMenuLabel>
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setProfileOpen(true)}>
                       <UserRound />
                       {t("profile")}
                     </DropdownMenuItem>
@@ -352,7 +356,10 @@ export function AppSidebar() {
                       {t("settings")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onClick={handleSignOut}
+                    >
                       <LogOut />
                       {t("logout")}
                     </DropdownMenuItem>
@@ -374,6 +381,8 @@ export function AppSidebar() {
         activeVenueId={VENUE.id}
         initials={USER.initials}
       />
+
+      <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </Sidebar>
   )
 }
