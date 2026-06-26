@@ -45,7 +45,6 @@ export function venueNav(venueId: string): NavItem<VenueSectionKey>[] {
       label: "Insights",
       icon: BarChart3,
       caption: "Revenue, demand and players",
-      badge: "AI",
     },
     {
       key: "manage",
