@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl"
 import {
   ArrowLeft,
   Check,
-  ClipboardList,
   Clock,
   Loader2,
   Lock,
@@ -16,7 +15,6 @@ import {
   ShieldCheck,
   Star,
   TriangleAlert,
-  type LucideIcon,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -476,114 +474,138 @@ export function BookView() {
 
         {/* CONFIRM */}
         {stepName === "confirm" && court && draft.slot ? (
-          <div className="flex w-full flex-col gap-4">
-            {/* Left — court preview (shared with the pay step for continuity) */}
-            <CourtPreviewCard
-              court={court}
-              label={t("price")}
-              amount={formatVndFull(total)}
-              subline={`${t(`days.${draft.dayKey}`)} · ${slotRange(
-                draft.slot,
-                draft.durationMin
-              )}`}
-              t={t}
-            />
-
-            {/* Right — booking details */}
-            <div className={cn(CARD, "flex flex-col gap-5")}>
-              <CardTitle
-                icon={ClipboardList}
-                title={t("summary")}
-                hint={court.name}
-              />
-              <div className="flex flex-col gap-3">
-                <SummaryRow
-                  label={t("when")}
-                  value={`${t(`days.${draft.dayKey}`)} · ${slotRange(
-                    draft.slot,
-                    draft.durationMin
-                  )}`}
-                />
-                <SummaryRow
-                  label={t("durationLabel")}
-                  value={formatDuration(draft.durationMin)}
-                />
-                {roomId ? (
-                  <SummaryRow
-                    label={t("format")}
-                    value={tc(`format.${draft.format.toLowerCase()}`)}
-                  />
-                ) : null}
-                <SummaryRow label={t("players")} value={playersLine} />
-              </div>
-              <div className="flex flex-col gap-2 rounded-2xl bg-muted/50 px-3 py-3 ring-1 ring-border/60">
-                <SummaryRow
-                  label={t("price")}
-                  value={formatVndFull(total)}
-                />
-                <SummaryRow
-                  label={t("pay.holdFeePercent")}
-                  value={formatVndFull(holdingFee)}
-                />
-                <div className="h-px bg-border" />
-                <SummaryRow
-                  label={t("pay.balanceAtVenue")}
-                  value={formatVndFull(total - holdingFee)}
-                />
-              </div>
-              {conflict ? (
-                <p className="mt-auto inline-flex items-center gap-1.5 border-t border-border pt-4 text-xs font-medium text-destructive">
-                  <TriangleAlert className="size-3.5 shrink-0" />
-                  {conflict === "self-overlap"
-                    ? t("conflictSelf")
-                    : t("conflictCourt")}
-                </p>
-              ) : null}
+          <div className={cn(CARD, "flex flex-col gap-6")}>
+            {/* Court name + location */}
+            <div className="flex flex-col gap-1.5">
+              <p className="font-heading text-2xl leading-tight font-bold">
+                {court.name}
+              </p>
+              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <MapPin className="size-3.5 shrink-0" />
+                <span className="truncate">
+                  {court.district} · {t("distance", { km: court.distanceKm })}
+                </span>
+              </p>
             </div>
+
+            <div className="h-px bg-border" />
+
+            {/* Booking details */}
+            <div className="flex flex-col gap-3.5">
+              <p className="font-heading text-lg font-semibold leading-tight">
+                {t("summary")}
+              </p>
+              {[
+                {
+                  label: t("when"),
+                  value: `${t(`days.${draft.dayKey}`)} · ${slotRange(draft.slot, draft.durationMin)}`,
+                },
+                { label: t("durationLabel"), value: formatDuration(draft.durationMin) },
+                ...(roomId
+                  ? [{ label: t("format"), value: tc(`format.${draft.format.toLowerCase()}`) }]
+                  : []),
+                { label: t("players"), value: playersLine },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between gap-3 text-base">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="text-right font-medium">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="h-px bg-border" />
+
+            {/* Price breakdown */}
+            <div className="flex flex-col gap-3">
+              {[
+                { label: t("price"), value: formatVndFull(total) },
+                { label: t("pay.holdFeePercent"), value: formatVndFull(holdingFee) },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between gap-3 text-base">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="tabular-nums font-medium">{value}</span>
+                </div>
+              ))}
+              <div className="h-px bg-border" />
+              <div className="flex items-center justify-between gap-3 text-lg font-semibold">
+                <span>{t("pay.amountDue")}</span>
+                <span className="tabular-nums">{formatVndFull(total + holdingFee)}</span>
+              </div>
+            </div>
+
+            {conflict ? (
+              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
+                <TriangleAlert className="size-4 shrink-0" />
+                {conflict === "self-overlap"
+                  ? t("conflictSelf")
+                  : t("conflictCourt")}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
         {/* PAY — bank transfer via QR only */}
         {stepName === "pay" && court && draft.slot ? (
-          <div className="flex w-full flex-col gap-4">
-            {/* Court preview (same card as confirm; headline flips to the flat
-                holding fee — the court fee itself is settled at the venue — so
-                moving between the two steps feels stable) */}
-            <CourtPreviewCard
-              court={court}
-              label={t("pay.amountDue")}
-              amount={formatVndFull(holdingFee)}
-              subline={t("pay.holdNote")}
-              t={t}
-            />
-
-            {/* Scan to transfer */}
-            <div className={cn(CARD, "flex flex-col gap-5")}>
-              <CardTitle
-                icon={QrCode}
-                title={t("pay.qr")}
-                hint={t("pay.qrOnly")}
-              />
-              <div className="flex flex-1 flex-col items-center justify-center gap-3">
-                <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
-                  <FakeQr seed={`${court.id}:${draft.dayKey}:${draft.slot}`} />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium">{t("pay.qrAccount")}</p>
-                  <p className="font-mono text-xs text-muted-foreground tabular-nums">
-                    {formatVndFull(holdingFee)}
-                  </p>
-                </div>
-                <p className="inline-flex items-center gap-1.5 text-center text-xs text-muted-foreground">
-                  <QrCode className="size-3.5 shrink-0" />
-                  {t("pay.qrHint")}
-                </p>
-              </div>
-              <p className="inline-flex items-center justify-center gap-1.5 border-t border-border pt-4 text-[11px] text-muted-foreground">
-                <ShieldCheck className="size-3.5 shrink-0" />
-                {t("pay.secure")}
+          <div className={cn(CARD, "flex flex-col gap-6")}>
+            {/* Court name + location */}
+            <div className="flex flex-col gap-1.5">
+              <p className="font-heading text-2xl leading-tight font-bold">
+                {court.name}
+              </p>
+              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <MapPin className="size-3.5 shrink-0" />
+                <span className="truncate">
+                  {court.district} · {t("distance", { km: court.distanceKm })}
+                </span>
               </p>
             </div>
+
+            <div className="h-px bg-border" />
+
+            {/* Amount due */}
+            <div className="flex flex-col gap-3">
+              <p className="font-heading text-lg font-semibold leading-tight">
+                {t("pay.amountDue")}
+              </p>
+              {[
+                { label: t("price"), value: formatVndFull(total) },
+                { label: t("pay.holdFeePercent"), value: formatVndFull(holdingFee) },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between gap-3 text-base">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="tabular-nums font-medium">{value}</span>
+                </div>
+              ))}
+              <div className="h-px bg-border" />
+              <div className="flex items-center justify-between gap-3 text-lg font-semibold">
+                <span>{t("pay.amountDue")}</span>
+                <span className="tabular-nums">{formatVndFull(total + holdingFee)}</span>
+              </div>
+            </div>
+
+            <div className="h-px bg-border" />
+
+            {/* QR */}
+            <div className="flex flex-col items-center gap-4">
+              <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
+                <FakeQr seed={`${court.id}:${draft.dayKey}:${draft.slot}`} />
+              </div>
+              <div className="text-center">
+                <p className="text-base font-medium">{t("pay.qrAccount")}</p>
+                <p className="font-mono text-sm text-muted-foreground tabular-nums">
+                  {formatVndFull(total + holdingFee)}
+                </p>
+              </div>
+              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <QrCode className="size-4 shrink-0" />
+                {t("pay.qrHint")}
+              </p>
+            </div>
+
+            <p className="inline-flex items-center justify-center gap-1.5 border-t border-border pt-2 text-sm text-muted-foreground">
+              <ShieldCheck className="size-4 shrink-0" />
+              {t("pay.secure")}
+            </p>
           </div>
         ) : null}
       </div>
@@ -671,7 +693,7 @@ export function BookView() {
             ) : (
               <>
                 <Lock />
-                {t("pay.payNow", { amount: court ? formatVnd(holdingFee) : "" })}
+                {t("pay.payNow", { amount: court ? formatVnd(total + holdingFee) : "" })}
               </>
             )}
           </Button>
@@ -1009,87 +1031,3 @@ function CourtPickCard({
   )
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value}</span>
-    </div>
-  )
-}
-
-/**
- * Shared header for the confirm / pay step cards: a tinted icon tile + title and
- * optional one-line hint. Keeps the two final steps visually consistent.
- */
-function CardTitle({
-  icon: Icon,
-  title,
-  hint,
-}: {
-  icon: LucideIcon
-  title: string
-  hint?: string
-}) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-brand/12 text-brand">
-        <Icon className="size-4" />
-      </span>
-      <div className="flex min-w-0 flex-col">
-        <p className="font-heading text-base leading-tight font-semibold">
-          {title}
-        </p>
-        {hint ? (
-          <p className="truncate text-xs text-muted-foreground">{hint}</p>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-/**
- * The "what you're booking" card shared by the confirm and pay steps: a court
- * banner, name + location, and a single headline figure (price on confirm,
- * amount due on pay). Rendering the same card in both steps keeps the final
- * stretch of the wizard balanced and continuous.
- */
-function CourtPreviewCard({
-  court,
-  label,
-  amount,
-  subline,
-  t,
-}: {
-  court: Court
-  label: string
-  amount: string
-  subline: string
-  t: ReturnType<typeof useTranslations>
-}) {
-  return (
-    <div className={cn(CARD, "flex flex-col overflow-hidden p-0")}>
-      <CourtImage court={court} className="h-24 w-full" />
-      <div className="flex flex-1 flex-col gap-4 p-5 sm:p-6">
-        <div className="flex flex-col gap-1">
-          <p className="font-heading text-lg leading-tight font-semibold">
-            {court.name}
-          </p>
-          <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin className="size-3 shrink-0" />
-            <span className="truncate">
-              {court.district} · {t("distance", { km: court.distanceKm })}
-            </span>
-          </p>
-        </div>
-        <div className="mt-auto flex flex-col gap-1 rounded-3xl bg-gradient-to-br from-brand/12 to-lime/10 p-4 ring-1 ring-brand/15">
-          <Label>{label}</Label>
-          <span className="font-heading text-2xl leading-none font-bold tracking-tight tabular-nums">
-            {amount}
-          </span>
-          <p className="text-xs text-muted-foreground">{subline}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
