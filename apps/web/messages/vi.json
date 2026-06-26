@@ -620,16 +620,16 @@
     },
     "pricingSection": {
       "eyebrow": "Bảng giá",
-      "title": "Một khoản phí nhỏ. Miễn phí cho địa điểm.",
-      "subtitle": "Người chơi trả phí giữ chỗ 5% để giữ sân. Địa điểm đăng và nhận đặt sân hoàn toàn miễn phí.",
+      "title": "Miễn phí cho người chơi. Chỉ thu khi có đặt sân thành công.",
+      "subtitle": "Người chơi đặt sân hoàn toàn miễn phí. Địa điểm chỉ trả 5% hoa hồng trên mỗi lượt đặt thành công — không phí cố định.",
       "badge": "Miễn phí 100%"
     },
     "pricing": {
       "players": {
         "name": "Cho người chơi",
-        "price": "5%",
-        "period": "giá trị đặt sân",
-        "tagline": "Chỉ 5% phí giữ chỗ để giữ sân của Quý khách.",
+        "price": "Miễn phí",
+        "period": "trọn đời",
+        "tagline": "Đặt sân, ghép trận và trò chuyện nhóm — hoàn toàn không mất phí.",
         "features": [
           "Xem các sân trống gần đây",
           "Trợ lý đặt sân AI",
@@ -641,15 +641,15 @@
       },
       "venues": {
         "name": "Cho địa điểm",
-        "price": "Miễn phí",
-        "period": "trọn đời",
-        "tagline": "Đưa địa điểm lên hệ thống và nhận đặt sân từ AI mà không tốn phí.",
+        "price": "5%",
+        "period": "mỗi lượt đặt thành công",
+        "tagline": "Chỉ thu 5% hoa hồng khi có khách đặt sân — không phí đăng ký hay phí cố định.",
         "features": [
           "Hồ sơ và hiển thị địa điểm",
           "Lịch đặt sân theo thời gian thực",
           "Ghép trận tự động lấp đầy sân",
           "Phân tích công suất sân",
-          "Không thu hoa hồng trên mỗi lượt đặt"
+          "Không phí cố định — chỉ trả khi có doanh thu"
         ],
         "cta": "Trở thành đối tác"
       }

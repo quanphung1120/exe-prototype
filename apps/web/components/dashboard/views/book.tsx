@@ -220,7 +220,7 @@ export function BookView() {
 
   // Free-form booking: a start + end time (any minute), priced pro-rata.
   const total = court ? priceFor(court.pricePerHour, draft.durationMin) : 0
-  const holdingFee = Math.round(total * 0.05)
+
   const endTime = draft.slot ? addMinutes(draft.slot, draft.durationMin) : ""
   const setEnd = (end: string) => {
     if (!draft.slot || !end) return
@@ -515,22 +515,10 @@ export function BookView() {
 
             <div className="h-px bg-border" />
 
-            {/* Price breakdown */}
-            <div className="flex flex-col gap-3">
-              {[
-                { label: t("price"), value: formatVndFull(total) },
-                { label: t("pay.holdFeePercent"), value: formatVndFull(holdingFee) },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between gap-3 text-base">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="tabular-nums font-medium">{value}</span>
-                </div>
-              ))}
-              <div className="h-px bg-border" />
-              <div className="flex items-center justify-between gap-3 text-lg font-semibold">
-                <span>{t("pay.amountDue")}</span>
-                <span className="tabular-nums">{formatVndFull(total + holdingFee)}</span>
-              </div>
+            {/* Price */}
+            <div className="flex items-center justify-between gap-3 text-lg font-semibold">
+              <span>{t("pay.amountDue")}</span>
+              <span className="tabular-nums">{formatVndFull(total)}</span>
             </div>
 
             {conflict ? (
@@ -563,24 +551,9 @@ export function BookView() {
             <div className="h-px bg-border" />
 
             {/* Amount due */}
-            <div className="flex flex-col gap-3">
-              <p className="font-heading text-lg font-semibold leading-tight">
-                {t("pay.amountDue")}
-              </p>
-              {[
-                { label: t("price"), value: formatVndFull(total) },
-                { label: t("pay.holdFeePercent"), value: formatVndFull(holdingFee) },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between gap-3 text-base">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="tabular-nums font-medium">{value}</span>
-                </div>
-              ))}
-              <div className="h-px bg-border" />
-              <div className="flex items-center justify-between gap-3 text-lg font-semibold">
-                <span>{t("pay.amountDue")}</span>
-                <span className="tabular-nums">{formatVndFull(total + holdingFee)}</span>
-              </div>
+            <div className="flex items-center justify-between gap-3 text-lg font-semibold">
+              <span>{t("pay.amountDue")}</span>
+              <span className="tabular-nums">{formatVndFull(total)}</span>
             </div>
 
             <div className="h-px bg-border" />
@@ -593,7 +566,7 @@ export function BookView() {
               <div className="text-center">
                 <p className="text-base font-medium">{t("pay.qrAccount")}</p>
                 <p className="font-mono text-sm text-muted-foreground tabular-nums">
-                  {formatVndFull(total + holdingFee)}
+                  {formatVndFull(total)}
                 </p>
               </div>
               <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -693,7 +666,7 @@ export function BookView() {
             ) : (
               <>
                 <Lock />
-                {t("pay.payNow", { amount: court ? formatVnd(total + holdingFee) : "" })}
+                {t("pay.payNow", { amount: court ? formatVnd(total) : "" })}
               </>
             )}
           </Button>

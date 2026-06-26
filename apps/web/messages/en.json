@@ -620,16 +620,16 @@
     },
     "pricingSection": {
       "eyebrow": "Pricing",
-      "title": "One small fee. Nothing for venues.",
-      "subtitle": "Players pay a 5% holding fee to lock in a court. Venues list and take bookings completely free.",
+      "title": "Free for players. Only pay when you get a booking.",
+      "subtitle": "Players book courts at no cost. Venues pay a 5% commission on each successful booking — no fixed fees.",
       "badge": "100% free"
     },
     "pricing": {
       "players": {
         "name": "For players",
-        "price": "5%",
-        "period": "of court fee",
-        "tagline": "Just a small 5% holding fee to secure your court.",
+        "price": "Free",
+        "period": "always",
+        "tagline": "Book courts, find matches, and chat with your team — completely free.",
         "features": [
           "Browse open courts nearby",
           "AI booking assistant",
@@ -641,15 +641,15 @@
       },
       "venues": {
         "name": "For venues",
-        "price": "Free",
-        "period": "always",
-        "tagline": "List your venue and take AI-driven bookings at no cost.",
+        "price": "5%",
+        "period": "per successful booking",
+        "tagline": "Only pay 5% when a booking is confirmed — no setup fee, no monthly cost.",
         "features": [
           "Venue profile and listing",
           "Real-time booking calendar",
           "Automatic court-filling matchmaking",
           "Court utilization analytics",
-          "Zero commission on every booking"
+          "No fixed costs — only pay when you earn"
         ],
         "cta": "Become a partner"
       }
