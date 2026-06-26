@@ -1,7 +1,7 @@
 "use client"
 
 import type { ComponentType } from "react"
-import { CalendarPlus, Play, Plus } from "lucide-react"
+import { CalendarPlus, Play, Plus, RotateCcw } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
@@ -36,6 +36,20 @@ function PlayAction() {
     <Button size="sm" className="rounded-full" onClick={openPlay}>
       <Play />
       <span className="hidden sm:inline">{tPlay("button")}</span>
+    </Button>
+  )
+}
+
+/** Clear all messages on the AI Assistant chat. */
+function ClearChatAction() {
+  const t = useTranslations("AiDashboard")
+  const handleClear = () => {
+    window.dispatchEvent(new CustomEvent("clear-ai-chat"))
+  }
+  return (
+    <Button size="sm" variant="outline" className="rounded-full" onClick={handleClear}>
+      <RotateCcw className="size-4 mr-1.5" />
+      <span>{t("clearChat")}</span>
     </Button>
   )
 }
@@ -75,6 +89,7 @@ function VenueNewBookingAction() {
 
 /** Sections whose topbar action differs from the workspace default. */
 const PLAYER_ACTIONS: Partial<Record<SectionKey, ComponentType>> = {
+  dashboard: ClearChatAction,
   // Play hosts its own segmented toolbar (Matches/Courts + Quick Join), so the
   // topbar carries no extra CTA there.
   play: () => null,

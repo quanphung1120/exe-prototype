@@ -346,6 +346,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [paying, setPaying] = React.useState(false)
   const [paymentResult, setPaymentResult] =
     React.useState<PaymentResult | null>(null)
+  const [payAttempts, setPayAttempts] = React.useState(0)
 
   const idRef = React.useRef(0)
   const newId = (p: string) => `s-${p}-${idRef.current++}`
@@ -1220,6 +1221,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setStep(0)
     setPaying(false)
     setPaymentResult(null)
+    setPayAttempts(0)
     setDraft({
       dayKey: linked ? linked.dayKey : "today",
       // Carry the room's proposed start so the wizard pre-fills it (and surfaces
@@ -1515,10 +1517,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     setPaying(true)
     const key = "pay:new:run"
+    const currentAttempt = payAttempts
+    setPayAttempts((prev) => prev + 1)
     const handle = setTimeout(() => {
       timers.current.delete(key)
       setPaying(false)
       const shouldFail =
+        currentAttempt === 0 &&
         hash(
           `${court.id}:${draft.dayKey}:${draft.slot}:${draft.durationMin}:${linkedId ?? "new"}`
         ) %

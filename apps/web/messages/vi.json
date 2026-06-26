@@ -1567,6 +1567,7 @@
     }
   },
   "AiDashboard": {
+    "clearChat": "Reset cuộc trò chuyện",
     "welcomeTitle": "Tôi có thể giúp gì cho bạn hôm nay?",
     "welcomeSubtitle": "Tìm sân hoặc kết nối với bạn chơi tức thì. Bạn có thể tìm sân theo quận hoặc môn thể thao, kiểm tra lịch trống thời gian thực, đặt sân trực tiếp, hoặc tìm người chơi cùng trình độ để mời vào nhóm chat.",
     "inputPlaceholder": "Hỏi về sân hoặc bạn chơi…",
@@ -1601,10 +1602,23 @@
     "slotsOpen": "{count} khung giờ còn trống",
     "prompts": {
       "quickMatch": "Ghép trận nhanh gần tôi",
+      "quickMatchDesc": "Tham gia phòng chơi đang mở phù hợp trình độ và bộ môn",
       "badmintonNearMe": "Tìm sân cầu lông gần tôi",
-      "cheapestPickleball": "Sân pickleball rẻ nhất tối nay",
+      "badmintonNearMeDesc": "Khám phá và kiểm tra sân trống tại các cơ sở gần bạn",
+      "bookTomorrow": "Đặt sân lúc 6 giờ tối mai",
+      "bookTomorrowDesc": "Giữ chỗ trực tiếp cho khung giờ chơi mong muốn",
       "badmintonTeammates": "Tìm đồng đội cầu lông tối nay",
-      "sameLevelPlayers": "Ghép tôi với người chơi cùng trình độ"
+      "badmintonTeammatesDesc": "Kết nối với người chơi địa phương đang tìm trận tối nay",
+      "sameLevelPlayers": "Ghép tôi với người chơi cùng trình độ",
+      "sameLevelPlayersDesc": "Tìm đối thủ và bạn chơi có trình độ tương đương bạn",
+      "assessPickleball": "Đánh giá trình độ pickleball",
+      "assessPickleballDesc": "Làm bài kiểm tra ngắn để mở khóa ghép cặp và lịch đặt",
+      "categories": {
+        "courts": "Sân bãi",
+        "teammates": "Người chơi",
+        "rooms": "Chơi nhanh",
+        "assessment": "Trình độ"
+      }
     },
     "findingRooms": "Đang tìm phòng…",
     "quickMatchRooms": "{count} phòng đang mở",

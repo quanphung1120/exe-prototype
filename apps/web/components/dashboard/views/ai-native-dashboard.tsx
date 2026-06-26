@@ -67,6 +67,8 @@ import { LogoMark } from "@/components/logo"
 import { PlayerProfileDialog } from "@/components/dashboard/profile-dialog"
 import { type LatLng } from "@/components/dashboard/court-map"
 import { Flip, gsap, prefersReducedMotion } from "@/lib/gsap"
+import { Streamdown } from "streamdown"
+import "streamdown/styles.css"
 import { cn } from "@/lib/utils"
 import { useRouter } from "@/i18n/navigation"
 import {
@@ -86,6 +88,7 @@ interface CourtToolResult {
   courts: Court[]
   sortBy: string
   sport: SportKey | null
+  sports?: SportKey[] | null
   filteredByTime?: string | null
   districtMatched?: boolean | null
 }
@@ -107,6 +110,7 @@ interface AssessmentToolResult {
 interface RoomToolResult {
   rooms: MatchRoom[]
   sport: SportKey | null
+  sports?: SportKey[] | null
   level: Level | null
   districtMatched?: boolean | null
 }
@@ -253,8 +257,24 @@ export function AiNativeDashboardView() {
   )
 
   // AI SDK v6 — sendMessage replaces handleSubmit/append
-  const { messages, sendMessage, status } = useChat()
+  const { messages, sendMessage, status, setMessages } = useChat()
   const isLoading = status === "streaming" || status === "submitted"
+
+  React.useEffect(() => {
+    const handleClear = () => {
+      setMessages([])
+      setInput("")
+      setSelectedIds([])
+      setInviteState({ status: "idle", roomId: null })
+      if (inviteTimerRef.current) {
+        clearTimeout(inviteTimerRef.current)
+      }
+    }
+    window.addEventListener("clear-ai-chat", handleClear)
+    return () => {
+      window.removeEventListener("clear-ai-chat", handleClear)
+    }
+  }, [setMessages])
 
   // Stick to the bottom as new content streams — but only when the user is
   // already near the bottom, so scrolling up to read earlier results isn't
@@ -519,25 +539,40 @@ export function AiNativeDashboardView() {
     </div>
   )
 
-  const quickPromptsList = [
-    t("prompts.quickMatch"),
-    t("prompts.badmintonNearMe"),
-    t("prompts.cheapestPickleball"),
-    t("prompts.badmintonTeammates"),
+  const promptItems = [
+    { key: "badmintonNearMe" },
+    { key: "bookTomorrow" },
+    { key: "sameLevelPlayers" },
+    { key: "badmintonTeammates" },
+    { key: "quickMatch" },
   ]
 
   const quickPrompts = (
-    <div className="flex flex-wrap justify-center gap-2 px-2">
-      {quickPromptsList.map((p) => (
-        <button
-          key={p}
-          type="button"
-          onClick={() => submit(p)}
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm sm:text-base text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
-        >
-          {p}
-        </button>
-      ))}
+    <div className="flex flex-wrap justify-center gap-3 w-full px-2">
+      {promptItems.map(({ key }) => {
+        const text = t(`prompts.${key}`)
+        const desc = t(`prompts.${key}Desc`)
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => submit(text)}
+            className={cn(
+              "group relative flex w-full sm:w-56 flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/80 bg-background/50 p-4 text-center shadow-sm backdrop-blur-sm transition-all duration-300",
+              "hover:-translate-y-0.5 hover:border-primary/40 hover:bg-muted/30 hover:shadow-md"
+            )}
+          >
+            <div className="space-y-1">
+              <h3 className="font-heading text-sm font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
+                {text}
+              </h3>
+              <p className="text-xs text-muted-foreground line-clamp-2">
+                {desc}
+              </p>
+            </div>
+          </button>
+        )
+      })}
     </div>
   )
 
@@ -555,7 +590,7 @@ export function AiNativeDashboardView() {
   // thread layout below as soon as the first message lands.
   if (showWelcome) {
     return (
-      <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-3xl flex-col items-center justify-center gap-7 px-2">
+      <div className="mx-auto flex min-h-[calc(100vh-9.5rem)] w-full max-w-3xl flex-col items-center justify-center gap-8 px-2 py-4">
         <section className="flex flex-col items-center gap-4 text-center">
           <LogoMark className="size-14 text-primary" />
           <div>
@@ -593,6 +628,7 @@ export function AiNativeDashboardView() {
             // Only the latest turn's clarify chips stay tappable, and never
             // while a response is streaming.
             interactive={!isLoading && index === messages.length - 1}
+            isStreaming={isLoading && index === messages.length - 1}
             onChoose={submit}
             onTogglePlayer={togglePlayer}
             onOpenProfile={(p) => setProfile(p.initials)}
@@ -731,6 +767,7 @@ function ChatMessageRow({
   message,
   selectedIds,
   interactive,
+  isStreaming,
   onChoose,
   onTogglePlayer,
   onOpenProfile,
@@ -740,6 +777,7 @@ function ChatMessageRow({
   message: UIMessage
   selectedIds: string[]
   interactive: boolean
+  isStreaming: boolean
   onChoose: (text: string) => void
   onTogglePlayer: (p: PlayerMatchResult) => void
   onOpenProfile: (p: PlayerMatchResult) => void
@@ -783,7 +821,9 @@ function ChatMessageRow({
           return (
             <div key={i} className="flex justify-start">
               <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base">
-                {part.text}
+                <Streamdown animated isAnimating={isStreaming}>
+                  {part.text}
+                </Streamdown>
               </div>
             </div>
           )

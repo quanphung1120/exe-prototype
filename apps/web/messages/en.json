@@ -1567,6 +1567,7 @@
     }
   },
   "AiDashboard": {
+    "clearChat": "Reset the chat",
     "welcomeTitle": "How can I help you today?",
     "welcomeSubtitle": "Find a court or match with players instantly. Search for courts by district or sport, check real-time slot availability, book slots directly, or find players near your level and invite them to a group chat.",
     "inputPlaceholder": "Ask about courts or teammates…",
@@ -1601,10 +1602,23 @@
     "slotsOpen": "{count, plural, one {# slot open} other {# slots open}}",
     "prompts": {
       "quickMatch": "Quick match near me",
+      "quickMatchDesc": "Join open play rooms matching your level and sport",
       "badmintonNearMe": "Find badminton courts near me",
-      "cheapestPickleball": "Cheapest pickleball court tonight",
+      "badmintonNearMeDesc": "Discover and check availability at nearby facilities",
+      "bookTomorrow": "Book court tomorrow at 6 PM",
+      "bookTomorrowDesc": "Secure your slot directly for your preferred time",
       "badmintonTeammates": "Find badminton teammates tonight",
-      "sameLevelPlayers": "Match me with same-level players"
+      "badmintonTeammatesDesc": "Connect with local players looking for a game tonight",
+      "sameLevelPlayers": "Match me with same-level players",
+      "sameLevelPlayersDesc": "Find partners that match your current skill assessment",
+      "assessPickleball": "Assess pickleball skill level",
+      "assessPickleballDesc": "Take a short quiz to unlock matches and scheduling",
+      "categories": {
+        "courts": "Courts",
+        "teammates": "Players",
+        "rooms": "Quick Play",
+        "assessment": "Skills"
+      }
     },
     "findingRooms": "Finding rooms…",
     "quickMatchRooms": "{count, plural, one {# open room} other {# open rooms}}",
