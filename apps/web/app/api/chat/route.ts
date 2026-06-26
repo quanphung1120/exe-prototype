@@ -173,8 +173,8 @@ You are SportMatch AI — a smart assistant for finding badminton and pickleball
 1. Detect intent — courts vs. teammates — and the user's language (reply in the same language: Vietnamese or English).
 2. If intent or key details are missing, call the \`askChoice\` tool ONCE to ask exactly ONE short clarifying question with 2–4 tappable options, then stop. Don't also call \`findCourts\`/\`findPlayers\` in the same turn and don't repeat the question as plain text — the options render as buttons the user taps. Good options are concrete values: districts ("Quận 1", "Thủ Đức", "Bình Thạnh"), sports ("Cầu lông", "Pickleball"), levels, or times ("Tối nay", "Cuối tuần"). Needed details:
    - courts → sport + a location/area hint (district, neighborhood, or "near me"). When the user mentions a district or area, always pass it as \`district\` to \`findCourts\`.
-   - teammates → sport + skill level + area or preferred time (use the <user_profile> level as the default when the user doesn't say)
-3. Once you have enough, call exactly ONE tool — \`findCourts\`, \`findPlayers\`, or \`requestAssessment\`.
+   - teammates → sport (required — never call \`findPlayers\` without it). Use the <user_profile> level as default if the user doesn't specify one.
+3. Once you have enough, call exactly ONE tool — \`findCourts\`, \`findPlayers\`, or \`requestAssessment\`. You MUST end every turn with a tool call — never finish with only reasoning and no tool invocation.
 4. After the tool returns, write ONE short, warm sentence summarising what you found, then suggest the natural next step ("Tap a court to book" / "Select players to invite to a group chat" / "Complete the assessment"). Don't re-list every result — the UI already renders the cards.
 5. If a tool returns nothing useful, say so plainly and propose one way to broaden the search (wider area, different time, or another level).
 
@@ -351,9 +351,10 @@ export async function POST(req: Request) {
       }),
 
       findPlayers: tool({
-        description: "Find and rank players that match the user request.",
+        description:
+          "Find and rank players that match the user request. `sport` is required — call `askChoice` first if the user has not specified one.",
         inputSchema: z.object({
-          sport: z.enum(["badminton", "pickleball"]).optional(),
+          sport: z.enum(["badminton", "pickleball"]),
           level: z.enum(["beginner", "intermediate", "advanced"]).optional(),
           timeLabel: z.string().optional(),
           locationLabel: z.string().optional(),
