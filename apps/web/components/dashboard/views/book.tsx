@@ -222,6 +222,7 @@ export function BookView() {
 
   // Free-form booking: a start + end time (any minute), priced pro-rata.
   const total = court ? priceFor(court.pricePerHour, draft.durationMin) : 0
+  const holdingFee = Math.round(total * 0.05)
   const endTime = draft.slot ? addMinutes(draft.slot, draft.durationMin) : ""
   const setEnd = (end: string) => {
     if (!draft.slot || !end) return
@@ -536,7 +537,7 @@ export function BookView() {
             <CourtPreviewCard
               court={court}
               label={t("pay.amountDue")}
-              amount={formatVndFull(total)}
+              amount={formatVndFull(holdingFee)}
               subline={t("pay.holdNote")}
               t={t}
             />
@@ -555,7 +556,7 @@ export function BookView() {
                 <div className="text-center">
                   <p className="text-sm font-medium">{t("pay.qrAccount")}</p>
                   <p className="font-mono text-xs text-muted-foreground tabular-nums">
-                    {formatVndFull(total)}
+                    {formatVndFull(holdingFee)}
                   </p>
                 </div>
                 <p className="inline-flex items-center gap-1.5 text-center text-xs text-muted-foreground">

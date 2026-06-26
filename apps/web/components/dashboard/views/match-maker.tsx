@@ -21,6 +21,8 @@ import { LevelChip, SportTag } from "@/components/dashboard/shared"
 import { useSportFilter } from "@/components/dashboard/sport-filter"
 import { formatVnd, type MatchRoom } from "@/components/dashboard/data"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
+import { useAuthUser } from "@/components/dashboard/auth-user"
+import { useData } from "@/components/dashboard/data-provider"
 
 /** Map a stored English day word ("Today"/"Tomorrow") to a localized label. */
 function roomDayLabel(day: string, tc: (key: string) => string) {
@@ -107,6 +109,9 @@ function RoomCard({
 }) {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
+  const sUser = useAuthUser()
+  const { userName } = useMatchmaking()
+  const { user: USER } = useData()
   const [leaveHint, setLeaveHint] = React.useState(false)
   const full = room.joined >= room.capacity
   const openSeats = room.capacity - room.joined
@@ -179,7 +184,7 @@ function RoomCard({
 
       <div className="mt-auto flex items-center gap-2 pt-1">
         <span className="min-w-0 truncate text-xs text-muted-foreground">
-          {t("hostedBy", { name: room.host.name })}
+          {t("hostedBy", { name: room.host.initials === USER.initials ? (sUser.name || userName) : room.host.name })}
           {!joined && !requested && !full
             ? ` · ${t("openSeats", { count: openSeats })}`
             : ""}

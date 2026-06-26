@@ -60,7 +60,10 @@ import { useData } from "@/components/dashboard/data-provider"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import { useSession } from "@/components/dashboard/session"
 import { roomChatId, useChat } from "@/components/dashboard/chat-store"
+import { PlayerProfileDialog } from "@/components/dashboard/profile-dialog"
 import { useRouter } from "@/i18n/navigation"
+import { initialsOf } from "@repo/shared"
+import { useAuthUser } from "@/components/dashboard/auth-user"
 
 /** Map a stored English day word ("Today"/"Tomorrow") to a localized label. */
 function roomDayLabel(day: string, tc: (key: string) => string) {
@@ -154,8 +157,9 @@ function RoomDetail({
   const t = useTranslations("ActiveRoom")
   const tc = useTranslations("Common")
   const tm = useTranslations("MatchMaker")
-  const { joinedRooms, setActiveRoomId, leaveRoom, setRoomCapacity } =
+  const { joinedRooms, setActiveRoomId, leaveRoom, setRoomCapacity, userName } =
     useMatchmaking()
+  const sUser = useAuthUser()
   const {
     sessions,
     invitePlayer,
@@ -197,6 +201,16 @@ function RoomDetail({
         b.matchPct - a.matchPct
     )
 
+  const [profileInitials, setProfileInitials] = React.useState<string | null>(
+    null
+  )
+  const [profileOpen, setProfileOpen] = React.useState(false)
+
+  const openProfile = (initials: string) => {
+    setProfileInitials(initials)
+    setProfileOpen(true)
+  }
+
   const openChat = () => {
     setActiveChatId(roomChatId(room.id))
     router.push("/dashboard/chat")
@@ -231,7 +245,7 @@ function RoomDetail({
         </div>
         <SheetTitle className="text-lg leading-tight">{title}</SheetTitle>
         <SheetDescription>
-          {tm("hostedBy", { name: room.host.name })}
+          {tm("hostedBy", { name: isHost ? (sUser.name || userName) : room.host.name })}
         </SheetDescription>
       </SheetHeader>
 
@@ -243,7 +257,7 @@ function RoomDetail({
             <div className="min-w-0">
               <p className="text-sm font-medium">{t("awaitingApproval")}</p>
               <p className="mt-0.5 text-xs text-amber-700/80 dark:text-amber-400/80">
-                {t("awaitingApprovalBody", { name: room.host.name })}
+                {t("awaitingApprovalBody", { name: isHost ? (sUser.name || userName) : room.host.name })}
               </p>
             </div>
           </div>
@@ -324,6 +338,7 @@ function RoomDetail({
                   full={full}
                   onApprove={() => approveRequest(room.id, p.initials)}
                   onDecline={() => declineRequest(room.id, p.initials)}
+                  onViewProfile={openProfile}
                 />
               ))}
             </div>
@@ -343,6 +358,7 @@ function RoomDetail({
                 initials={initials}
                 canKick={isHost && initials !== USER.initials}
                 onKick={() => kickPlayer(room.id, initials)}
+                onViewProfile={openProfile}
               />
             ))}
           </div>
@@ -501,6 +517,12 @@ function RoomDetail({
           </>
         )}
       </SheetFooter>
+
+      <PlayerProfileDialog
+        initials={profileInitials}
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+      />
     </>
   )
 }
@@ -510,26 +532,31 @@ function ParticipantRow({
   initials,
   canKick,
   onKick,
+  onViewProfile,
 }: {
   sport: MatchRoom["sport"]
   initials: string
   canKick?: boolean
   onKick?: () => void
+  onViewProfile?: (initials: string) => void
 }) {
   const t = useTranslations("ActiveRoom")
-  const { userLevelForSport } = useMatchmaking()
+  const { userLevelForSport, userName } = useMatchmaking()
+  const sUser = useAuthUser()
   const { user: USER, playerByInitials } = useData()
   const { name, level, trust } = playerByInitials(initials)
   const tier = trustTier(trust)
   const isYou = initials === USER.initials
+  const displayName = isYou ? (sUser.name || userName) : name
+  const displayInitials = isYou ? initialsOf(sUser.name || userName) : initials
 
-  return (
-    <div className="flex items-center gap-3">
-      <PlayerAvatar initials={initials} />
+  const info = (
+    <>
+      <PlayerAvatar initials={displayInitials} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">
-            {name}
+            {displayName}
             {isYou ? (
               <span className="text-muted-foreground"> ({t("you")})</span>
             ) : null}
@@ -547,6 +574,22 @@ function ParticipantRow({
           <span className="text-muted-foreground">· {t(`trust.${tier}`)}</span>
         </div>
       </div>
+    </>
+  )
+
+  return (
+    <div className="flex items-center gap-3">
+      {!isYou && onViewProfile ? (
+        <button
+          type="button"
+          className="-m-1 flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/40"
+          onClick={() => onViewProfile(initials)}
+        >
+          {info}
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3">{info}</div>
+      )}
       {canKick ? (
         <Button
           variant="ghost"
@@ -568,11 +611,13 @@ function RequestRow({
   full,
   onApprove,
   onDecline,
+  onViewProfile,
 }: {
   initials: string
   full: boolean
   onApprove: () => void
   onDecline: () => void
+  onViewProfile?: (initials: string) => void
 }) {
   const t = useTranslations("ActiveRoom")
   const { playerByInitials } = useData()
@@ -581,7 +626,12 @@ function RequestRow({
 
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl bg-muted/40 p-3">
-      <div className="flex items-center gap-3">
+      <button
+        type="button"
+        className="-m-1 flex items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/40"
+        onClick={() => onViewProfile?.(initials)}
+        disabled={!onViewProfile}
+      >
         <PlayerAvatar initials={initials} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -601,7 +651,7 @@ function RequestRow({
             </span>
           </div>
         </div>
-      </div>
+      </button>
       <div className="flex items-center gap-2">
         <Button
           size="xs"

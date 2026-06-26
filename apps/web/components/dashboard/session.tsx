@@ -30,6 +30,7 @@ import {
 } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
 import { useRouter } from "@/i18n/navigation"
+import { useAuthUser } from "@/components/dashboard/auth-user"
 import {
   PLAYER_ASSESSMENT_UPDATED_EVENT,
   levelsBySport,
@@ -195,6 +196,7 @@ interface SessionContextValue {
   ) => void
   bookCourtForSession: (sessionId: string) => void
   addTeamToSession: (sessionId: string) => void
+  addPlayersToSession: (sessionId: string, initials: string[]) => number
   rebookFrom: (bookingId: string) => void
   closeBooking: () => void
   next: () => void
@@ -325,7 +327,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [assessmentLevels, setAssessmentLevels] = React.useState<
     Record<AssessmentSport, Level>
   >(() => levelsBySport(null, USER.level))
-  const [userName, setUserName] = React.useState<string>(USER.name)
+  const authUser = useAuthUser()
+  const [userName, setUserName] = React.useState<string>(
+    () => authUser.name || USER.name
+  )
   const [search, setSearch] = React.useState<PartnerSearch | null>(null)
   const [managerOpen, setManagerOpen] = React.useState(false)
   const [quickJoinOpen, setQuickJoinOpen] = React.useState(false)
@@ -1278,6 +1283,43 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     toast(ts("toast.addTeam"))
   }
 
+  // Atomically grow capacity + add players in one setState so the stale-closure
+  // guard in invitePlayer (which reads the pre-update sessions) is bypassed.
+  // Returns the count actually added (may be < initials.length when at cap 8).
+  const addPlayersToSession = (sessionId: string, initials: string[]): number => {
+    const s = sessions.find((x) => x.id === sessionId)
+    if (!s) return 0
+    const fresh = initials.filter(
+      (init) => !s.roster.some((p) => p.initials === init)
+    )
+    if (!fresh.length) return 0
+    const currentActive = activeRoster(s).length
+    const canFit = Math.max(0, MAX_CAPACITY - currentActive)
+    const toAdd = fresh.slice(0, canFit)
+    if (!toAdd.length) return 0
+    const newCapacity = Math.max(s.capacity, currentActive + toAdd.length)
+    setSessions((prev) =>
+      prev.map((x) =>
+        x.id !== sessionId
+          ? x
+          : {
+              ...x,
+              capacity: newCapacity,
+              roster: [
+                ...x.roster,
+                ...toAdd.map((init) => ({
+                  name: playerByInitials(init).name,
+                  initials: init,
+                  rsvp: "pending" as Rsvp,
+                })),
+              ],
+            }
+      )
+    )
+    scheduleRsvp(sessionId, toAdd)
+    return toAdd.length
+  }
+
   const closeBooking = () => {
     // Abandon any in-flight faked payment so a stale timer can't fire.
     const handle = timers.current.get("pay:new:run")
@@ -1461,7 +1503,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    */
   const pay = () => {
     if (!court || !draft.slot || paying) return
-    const amount = priceFor(court.pricePerHour, draft.durationMin)
+    const amount = Math.round(priceFor(court.pricePerHour, draft.durationMin) * 0.05)
     // Never charge for a slot that was taken in the meantime.
     if (draftConflict) {
       setPaymentResult({
@@ -1598,6 +1640,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     armBooking,
     bookCourtForSession,
     addTeamToSession,
+    addPlayersToSession,
     rebookFrom,
     closeBooking,
     next,

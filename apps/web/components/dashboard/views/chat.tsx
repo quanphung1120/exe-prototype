@@ -10,17 +10,41 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { type Chat, type Message } from "@/components/dashboard/data"
 import { useChat } from "@/components/dashboard/chat-store"
+import { useData } from "@/components/dashboard/data-provider"
+import { PlayerProfileDialog } from "@/components/dashboard/profile-dialog"
 
 export function ChatView() {
   const t = useTranslations("Chat")
   const tc = useTranslations("Common")
   const { chats, activeChatId, setActiveChatId, threadFor, sendMessage } =
     useChat()
+  const { players } = useData()
   const [draft, setDraft] = React.useState("")
+  const [profileInitials, setProfileInitials] = React.useState<string | null>(
+    null
+  )
+  const [profileOpen, setProfileOpen] = React.useState(false)
   const scrollRef = React.useRef<HTMLDivElement>(null)
 
   const active = chats.find((c) => c.id === activeChatId) ?? chats[0]
   const messages = threadFor(active.id)
+
+  const openProfileByInitials = (initials: string) => {
+    setProfileInitials(initials)
+    setProfileOpen(true)
+  }
+
+  const openProfileByAuthor = (authorName: string) => {
+    const player = players.find(
+      (p) =>
+        p.name === authorName ||
+        p.name.split(" ").at(-1) === authorName
+    )
+    if (player) {
+      setProfileInitials(player.initials)
+      setProfileOpen(true)
+    }
+  }
 
   React.useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
@@ -67,31 +91,47 @@ export function ChatView() {
       {/* Active thread */}
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between gap-3 border-b border-border p-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <Avatar>
-              <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-                {active.initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <p className="truncate font-medium">{active.name}</p>
-              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                {active.group ? (
-                  <>
-                    <Users className="size-3" />
-                    {t("members", { count: active.members ?? 4 })}
-                  </>
-                ) : active.online ? (
-                  <>
-                    <span className="size-1.5 rounded-full bg-brand" />
-                    {t("online")}
-                  </>
-                ) : (
-                  t("offline")
-                )}
-              </p>
+          {active.group ? (
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar>
+                <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
+                  {active.initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate font-medium">{active.name}</p>
+                <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users className="size-3" />
+                  {t("members", { count: active.members ?? 4 })}
+                </p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <button
+              type="button"
+              className="-m-1 flex min-w-0 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/40"
+              onClick={() => openProfileByInitials(active.initials)}
+            >
+              <Avatar>
+                <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
+                  {active.initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate font-medium">{active.name}</p>
+                <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  {active.online ? (
+                    <>
+                      <span className="size-1.5 rounded-full bg-brand" />
+                      {t("online")}
+                    </>
+                  ) : (
+                    t("offline")
+                  )}
+                </p>
+              </div>
+            </button>
+          )}
           <div className="flex gap-1">
             <Button variant="ghost" size="icon-sm" aria-label={t("call")}>
               <Phone />
@@ -118,6 +158,9 @@ export function ChatView() {
                 t.has(`thread.${m.id}.text`) ? t(`thread.${m.id}.text`) : m.text
               }
               time={m.time === "now" ? t("now") : m.time}
+              onViewProfile={
+                active.group && !m.mine ? openProfileByAuthor : undefined
+              }
             />
           ))}
         </div>
@@ -147,6 +190,11 @@ export function ChatView() {
           </Button>
         </form>
       </section>
+      <PlayerProfileDialog
+        initials={profileInitials}
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+      />
     </div>
   )
 }
@@ -206,11 +254,13 @@ function MessageBubble({
   group,
   text,
   time,
+  onViewProfile,
 }: {
   message: Message
   group: boolean
   text: string
   time: string
+  onViewProfile?: (author: string) => void
 }) {
   return (
     <div
@@ -220,9 +270,19 @@ function MessageBubble({
       )}
     >
       {group && !message.mine ? (
-        <span className="mb-0.5 px-3 text-[11px] font-medium text-muted-foreground">
-          {message.author}
-        </span>
+        onViewProfile ? (
+          <button
+            type="button"
+            className="mb-0.5 rounded px-3 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => onViewProfile(message.author)}
+          >
+            {message.author}
+          </button>
+        ) : (
+          <span className="mb-0.5 px-3 text-[11px] font-medium text-muted-foreground">
+            {message.author}
+          </span>
+        )
       ) : null}
       <div
         className={cn(

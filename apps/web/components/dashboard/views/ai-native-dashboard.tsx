@@ -2,6 +2,12 @@
 
 import * as React from "react"
 import { useChat } from "@ai-sdk/react"
+import {
+  isToolUIPart,
+  getToolName,
+  isTextUIPart,
+  isReasoningUIPart,
+} from "ai"
 import type { UIMessage } from "ai"
 import {
   ArrowUp,
@@ -17,6 +23,7 @@ import {
   Sparkles,
   Star,
   Users,
+  UserPlus,
   X,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -28,9 +35,11 @@ import {
 } from "@/components/dashboard/chat-store"
 import { useBooking } from "@/components/dashboard/booking"
 import {
+  activeRoster,
   formatVnd,
   type Court,
   type Level,
+  type PlaySession,
   type SportKey,
 } from "@/components/dashboard/data"
 import { useData } from "@/components/dashboard/data-provider"
@@ -45,14 +54,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { LogoMark } from "@/components/logo"
+import { PlayerProfileDialog } from "@/components/dashboard/profile-dialog"
 import { type LatLng } from "@/components/dashboard/court-map"
 import { Flip, gsap, prefersReducedMotion } from "@/lib/gsap"
 import { cn } from "@/lib/utils"
@@ -108,9 +117,9 @@ interface BookingToolResult {
   suggestTime?: string
 }
 
-// Discriminate a tool's output by shape, not by tool name — some models stream
-// the tool name too late for the AI SDK to type the part (the part type ends up
-// a bare `tool-`), but the output payload is always there and unambiguous.
+// Discriminate the tool output by payload shape rather than tool name.
+// Server tool types aren't imported on the client, so we rely on the
+// output payload's structure instead of the typed discriminant.
 type ToolResult =
   | { kind: "courts"; value: CourtToolResult }
   | { kind: "players"; value: PlayerToolResult }
@@ -161,15 +170,15 @@ const useIsomorphicLayoutEffect =
 
 export function AiNativeDashboardView() {
   const t = useTranslations("AiDashboard")
-  const { courts } = useData()
+  const { courts, user: USER } = useData()
   const { openBooking } = useBooking()
-  const { createInviteRoom, userLevelForSport, userLevels } = useSession()
+  const { createInviteRoom, addPlayersToSession, sessions, joinedIds, userLevelForSport, userLevels } = useSession()
   const { setActiveChatId } = useChatStore()
   const router = useRouter()
 
   const [input, setInput] = React.useState("")
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
-  const [profile, setProfile] = React.useState<PlayerMatchResult | null>(null)
+  const [profile, setProfile] = React.useState<string | null>(null)
   const [inviteState, setInviteState] = React.useState<{
     status: "idle" | "sending" | "sent"
     roomId: string | null
@@ -258,10 +267,9 @@ export function AiNativeDashboardView() {
   const aiBookedCourtIds = React.useMemo(() => {
     const ids = new Set<string>()
     for (const msg of messages) {
-      for (const part of (msg.parts ?? []) as Record<string, unknown>[]) {
-        const partType = (part.type as string) ?? ""
-        if (partType === "dynamic-tool" || partType.startsWith("tool-")) {
-          const result = toolResult(part.output)
+      for (const part of msg.parts ?? []) {
+        if (isToolUIPart(part) && part.state === "output-available") {
+          const result = toolResult((part as { output: unknown }).output)
           if (result?.kind === "booking" && result.value.success && result.value.courtId) {
             ids.add(result.value.courtId)
           }
@@ -310,15 +318,28 @@ export function AiNativeDashboardView() {
       const msg = messages[i]
       if (msg.role !== "assistant") continue
       for (const part of msg.parts ?? []) {
-        const type = part.type
-        if (type !== "dynamic-tool" && !type.startsWith("tool-")) continue
-        if ((part as { state?: string }).state !== "output-available") continue
-        const result = toolResult((part as { output?: unknown }).output)
+        if (!isToolUIPart(part) || part.state !== "output-available") continue
+        const result = toolResult((part as { output: unknown }).output)
         if (result?.kind === "players") return result.value
       }
     }
     return null
   }, [messages])
+
+  // Rooms the user hosts that are active and have space to accept more players.
+  // Only hosted rooms are shown — inviting players to someone else's room doesn't
+  // make sense without host approval (which is a separate join-request flow).
+  const eligibleRooms = React.useMemo<PlaySession[]>(
+    () =>
+      sessions.filter(
+        (s) =>
+          joinedIds.has(s.id) &&
+          s.host.initials === USER.initials &&
+          s.status !== "cancelled" &&
+          activeRoster(s).length < 8
+      ),
+    [sessions, joinedIds, USER.initials]
+  )
 
   const selectedPlayers = React.useMemo(
     () =>
@@ -430,6 +451,25 @@ export function AiNativeDashboardView() {
     }, 700)
   }
 
+  const addToRoom = (session: PlaySession) => {
+    if (!selectedPlayers.length) {
+      toast.error(t("selectPlayerError"))
+      return
+    }
+    const added = addPlayersToSession(
+      session.id,
+      selectedPlayers.map((p) => p.initials)
+    )
+    if (added === 0) {
+      toast.error(t("inviteFailed"))
+      return
+    }
+    setInviteState({ status: "sent", roomId: session.id })
+    toast.success(t("addedToRoom"), {
+      description: t("addedToRoomDesc"),
+    })
+  }
+
   // Shared composer — identical input in both the empty and active states.
   const composer = (
     <div
@@ -489,7 +529,7 @@ export function AiNativeDashboardView() {
 
   const profileDialog = (
     <PlayerProfileDialog
-      player={profile}
+      initials={profile}
       open={Boolean(profile)}
       onOpenChange={(open) => {
         if (!open) setProfile(null)
@@ -541,7 +581,7 @@ export function AiNativeDashboardView() {
             interactive={!isLoading && index === messages.length - 1}
             onChoose={submit}
             onTogglePlayer={togglePlayer}
-            onOpenProfile={setProfile}
+            onOpenProfile={(p) => setProfile(p.initials)}
             onBook={(courtId) => {
               if (aiBookedCourtIds.has(courtId)) {
                 toast.info("Already booked via chat — check My Bookings.")
@@ -589,7 +629,7 @@ export function AiNativeDashboardView() {
                 {t("selectPlayersInvite")}
               </span>
             )}
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex shrink-0 gap-2">
               {inviteState.status === "sent" ? (
                 <Button
                   size="sm"
@@ -601,19 +641,61 @@ export function AiNativeDashboardView() {
                   {t("openGroupChat")}
                 </Button>
               ) : (
-                <Button
-                  size="sm"
-                  className="rounded-full"
-                  onClick={inviteToChat}
-                  disabled={
-                    !selectedPlayers.length || inviteState.status === "sending"
-                  }
-                >
-                  <Users />
-                  {inviteState.status === "sending"
-                    ? t("sending")
-                    : t("inviteToGroupChat")}
-                </Button>
+                <>
+                  {eligibleRooms.length > 0 ? (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-full"
+                            disabled={
+                              !selectedPlayers.length ||
+                              inviteState.status === "sending"
+                            }
+                          >
+                            <UserPlus />
+                            {t("addToExistingRoom")}
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" className="w-56">
+                        {eligibleRooms.map((room) => {
+                          const open = room.capacity - activeRoster(room).length
+                          return (
+                            <DropdownMenuItem
+                              key={room.id}
+                              onClick={() => addToRoom(room)}
+                            >
+                              <div className="flex min-w-0 flex-col">
+                                <span className="truncate font-medium">
+                                  {room.title}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {room.dayLabel} · {open} open
+                                </span>
+                              </div>
+                            </DropdownMenuItem>
+                          )
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    className="rounded-full"
+                    onClick={inviteToChat}
+                    disabled={
+                      !selectedPlayers.length || inviteState.status === "sending"
+                    }
+                  >
+                    <Users />
+                    {inviteState.status === "sending"
+                      ? t("sending")
+                      : t("inviteToGroupChat")}
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -644,7 +726,7 @@ function ChatMessageRow({
   interactive: boolean
   onChoose: (text: string) => void
   onTogglePlayer: (p: PlayerMatchResult) => void
-  onOpenProfile: (p: PlayerMatchResult) => void
+  onOpenProfile: (p: PlayerMatchResult) => void  // receives full result; caller extracts initials
   onBook: (courtId: string) => void
 }) {
   if (message.role === "user") {
@@ -668,40 +750,33 @@ function ChatMessageRow({
   return (
     <div className="flex flex-col gap-3">
       {parts.map((part, i) => {
-        const p = part as Record<string, unknown>
-
-        // Real streamed model reasoning (chain of thought).
-        if (p.type === "reasoning") {
-          if (!((p.text as string) ?? "").trim()) return null
+        if (isReasoningUIPart(part)) {
+          if (!part.text.trim()) return null
           return (
             <ThinkingBlock
               key={i}
-              text={p.text as string}
-              done={p.state !== "streaming"}
+              text={part.text}
+              done={part.state !== "streaming"}
             />
           )
         }
 
-        // Plain text
-        if (p.type === "text" && p.text) {
+        if (isTextUIPart(part)) {
+          if (!part.text) return null
           return (
             <div key={i} className="flex justify-start">
               <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base">
-                {p.text as string}
+                {part.text}
               </div>
             </div>
           )
         }
 
-        // Tool part. Statically-defined server tools arrive as
-        // `tool-<name>` (ToolUIPart); runtime tools as `dynamic-tool`.
-        // NOTE: some models (e.g. tencent/hy3-preview) stream the tool name
-        // late, so the part type can be a bare `tool-` with no name. Discriminate
-        // by the OUTPUT shape rather than the name so cards always render.
-        const partType = p.type as string
-        if (partType === "dynamic-tool" || partType.startsWith("tool-")) {
-          const isDone = (p.state as string) === "output-available"
-          const result = toolResult(p.output)
+        if (isToolUIPart(part)) {
+          const isDone = part.state === "output-available"
+          const result = isDone
+            ? toolResult((part as { output: unknown }).output)
+            : null
 
           if (isDone && result?.kind === "courts") {
             return (
@@ -758,13 +833,8 @@ function ChatMessageRow({
             )
           }
 
-          // Tool call resolving — lightweight searching indicator.
           if (!isDone) {
-            const toolName =
-              partType === "dynamic-tool"
-                ? (p.toolName as string)
-                : partType.slice("tool-".length)
-            return <SearchingIndicator key={i} toolName={toolName} />
+            return <SearchingIndicator key={i} toolName={getToolName(part)} />
           }
 
           return null
@@ -1316,90 +1386,3 @@ function PlayerChatCard({
   )
 }
 
-// ─── Player profile dialog ────────────────────────────────────────────────────
-
-function PlayerProfileDialog({
-  player,
-  open,
-  onOpenChange,
-}: {
-  player: PlayerMatchResult | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto p-0 sm:max-w-2xl">
-        {player ? (
-          <>
-            <DialogHeader className="border-b border-border px-6 py-5 pr-14 text-left sm:px-7">
-              <div className="flex items-center gap-4">
-                <Avatar className="size-14">
-                  <AvatarFallback className="bg-secondary text-base font-semibold text-secondary-foreground">
-                    {player.initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <DialogTitle className="text-xl font-semibold">
-                    {player.name}
-                  </DialogTitle>
-                  <DialogDescription className="mt-1">
-                    {player.age} years old · {player.location}
-                  </DialogDescription>
-                </div>
-              </div>
-            </DialogHeader>
-            <div className="flex flex-col gap-5 p-6 sm:p-7">
-              <div className="flex flex-wrap gap-2">
-                {player.badges.map((badge) => (
-                  <Badge key={badge} variant="secondary">
-                    {badge}
-                  </Badge>
-                ))}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Metric
-                  label="Sport"
-                  value={player.sportPreferences.join(", ")}
-                />
-                <Metric label="Skill level" value={player.level} />
-                <Metric label="Play style" value={player.playStyle} />
-                <Metric label="Availability" value={player.availability[0]} />
-                <Metric
-                  label="Completed matches"
-                  value={String(player.completedMatches)}
-                />
-                <Metric
-                  label="Rating"
-                  value={`${player.rating.toFixed(1)} / 5`}
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">
-                  Review snippets
-                </p>
-                {player.reviewSnippets.map((review) => (
-                  <div
-                    key={review}
-                    className="rounded-2xl border border-border bg-background p-3 text-sm text-muted-foreground"
-                  >
-                    {review}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-border bg-background px-3 py-2">
-      <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-      <p className="mt-0.5 font-heading text-sm font-semibold">{value}</p>
-    </div>
-  )
-}

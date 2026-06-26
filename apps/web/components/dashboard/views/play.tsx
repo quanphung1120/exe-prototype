@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import { RoomsView } from "@/components/dashboard/views/match-maker"
 import { FindCourtsView } from "@/components/dashboard/views/find-courts"
+import { SportFilter } from "@/components/dashboard/sport-filter"
 
 export type PlayTab = "rooms" | "courts"
 
@@ -27,18 +28,22 @@ export function PlayView({ initialTab = "courts" }: { initialTab?: PlayTab }) {
     <div className="flex flex-col gap-5">
       {/* Segmented toggle + contextual actions */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as PlayTab)}>
-          <TabsList>
-            <TabsTrigger value="courts">
-              <MapPin />
-              {t("courts")}
-            </TabsTrigger>
-            <TabsTrigger value="rooms">
-              <Users />
-              {t("rooms")}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex flex-wrap items-center gap-3">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as PlayTab)}>
+            <TabsList>
+              <TabsTrigger value="courts">
+                <MapPin />
+                {t("courts")}
+              </TabsTrigger>
+              <TabsTrigger value="rooms">
+                <Users />
+                {t("rooms")}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <SportFilter />
+        </div>
 
         {tab === "rooms" ? (
           <div className="flex items-center gap-2">

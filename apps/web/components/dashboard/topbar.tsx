@@ -8,22 +8,14 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ActiveRoomPill } from "@/components/dashboard/active-room"
 import { NotificationsButton } from "@/components/dashboard/notifications"
 import { SectionActions } from "@/components/dashboard/section-actions"
-import {
-  SportFilter,
-  SportFilterSheet,
-} from "@/components/dashboard/sport-filter"
 import { navContext } from "@/components/dashboard/workspace"
 import { usePathname } from "@/i18n/navigation"
-
-/** Player sections whose content is filtered by the global sport selection. */
-const SPORT_FILTERED = new Set(["dashboard", "play"])
 
 /** Sticky dashboard header — its title and actions track the active workspace. */
 export function DashboardTopbar() {
   const pathname = usePathname()
   const { ns, active, workspace } = navContext(pathname)
   const isVenue = workspace === "venue"
-  const showSportFilter = !isVenue && SPORT_FILTERED.has(active.key)
   const tNav = useTranslations(ns)
 
   return (
@@ -38,12 +30,6 @@ export function DashboardTopbar() {
           {tNav(`${active.key}.caption`)}
         </p>
       </div>
-      {showSportFilter ? (
-        <>
-          <SportFilter className="hidden sm:flex" />
-          <SportFilterSheet className="sm:hidden" />
-        </>
-      ) : null}
       {isVenue ? null : <ActiveRoomPill />}
       <NotificationsButton />
       <LocaleSwitcher />

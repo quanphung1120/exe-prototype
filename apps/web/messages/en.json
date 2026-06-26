@@ -367,7 +367,7 @@
     "pay": {
       "amountDue": "Amount due",
       "holdFee": "Holding fee",
-      "holdNote": "Pay the full court fee now to secure this slot.",
+      "holdNote": "Pay a 5% holding fee now to secure this slot. The rest will be paid at the venue.",
       "courtFee": "court fee",
       "method": "Payment method",
       "qr": "VietQR",
@@ -621,15 +621,15 @@
     "pricingSection": {
       "eyebrow": "Pricing",
       "title": "One small fee. Nothing for venues.",
-      "subtitle": "Players pay a 10K holding fee to lock in a court. Venues list and take bookings completely free.",
+      "subtitle": "Players pay a 5% holding fee to lock in a court. Venues list and take bookings completely free.",
       "badge": "100% free"
     },
     "pricing": {
       "players": {
         "name": "For players",
-        "price": "10K",
-        "period": "per booking",
-        "tagline": "Just a small holding fee to secure your court.",
+        "price": "5%",
+        "period": "of court fee",
+        "tagline": "Just a small 5% holding fee to secure your court.",
         "features": [
           "Browse open courts nearby",
           "AI booking assistant",
@@ -1585,6 +1585,9 @@
     "inviteSent": "Invitation sent",
     "groupChatCreated": "Group chat created. Waiting for players to accept.",
     "inviteFailed": "Failed to send invite.",
+    "addToExistingRoom": "Add to room",
+    "addedToRoom": "Players added",
+    "addedToRoomDesc": "Invites sent. Check the group chat for updates.",
     "selectedCount": "{count, plural, one {# selected:} other {# selected:}}",
     "requireAssessment": "You must complete the skill assessment for {sport} before matching with partners.",
     "completeAssessment": "Complete Assessment",
@@ -1814,10 +1817,17 @@
   },
   "Profile": {
     "dialogDescription": "Displays player profile and skill level",
+    "playerDialogDescription": "View player profile and stats",
     "bio": "Passionate about racquet sports, always looking for worthy opponents to play and improve my skills. Play well, socialize, reliable!",
     "yourLevel": "Your skill level",
+    "playerLevel": "Skill level",
     "notAssessed": "Not assessed",
     "points": "{score} pts",
-    "reliability": "Reliability"
+    "reliability": "Reliability",
+    "matchScore": "Match score",
+    "kmAway": "{km} km away",
+    "viewProfile": "View Profile",
+    "reviewsLabel": "Reviews",
+    "ratingsCount": "{count} ratings"
   }
 }

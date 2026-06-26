@@ -146,10 +146,10 @@ export function priceFor(pricePerHour: number, durationMin: number): number {
 }
 
 /**
- * Flat slot-holding fee (VND) charged at checkout. Players pay only this to
- * lock in a court; the full court fee is settled at the venue.
+ * Percentage slot-holding fee (5%) charged at checkout. Players pay only this to
+ * lock in a court; the rest is settled at the venue.
  */
-export const HOLD_FEE = 10000
+export const HOLD_FEE_PCT = 0.05
 
 /** Compact duration label, e.g. "1h", "1h 30m", "45m". */
 export function formatDuration(min: number): string {

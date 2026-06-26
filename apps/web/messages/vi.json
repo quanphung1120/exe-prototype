@@ -367,7 +367,7 @@
     "pay": {
       "amountDue": "Số tiền cần trả",
       "holdFee": "Phí giữ chỗ",
-      "holdNote": "Thanh toán toàn bộ tiền sân ngay bây giờ để giữ khung giờ này.",
+      "holdNote": "Thanh toán 5% phí giữ chỗ ngay bây giờ để giữ sân. Phần còn lại thanh toán tại sân.",
       "courtFee": "phí sân",
       "method": "Phương thức thanh toán",
       "qr": "VietQR",
@@ -621,15 +621,15 @@
     "pricingSection": {
       "eyebrow": "Bảng giá",
       "title": "Một khoản phí nhỏ. Miễn phí cho địa điểm.",
-      "subtitle": "Người chơi trả phí giữ chỗ 10K để giữ sân. Địa điểm đăng và nhận đặt sân hoàn toàn miễn phí.",
+      "subtitle": "Người chơi trả phí giữ chỗ 5% để giữ sân. Địa điểm đăng và nhận đặt sân hoàn toàn miễn phí.",
       "badge": "Miễn phí 100%"
     },
     "pricing": {
       "players": {
         "name": "Cho người chơi",
-        "price": "10K",
-        "period": "mỗi lượt đặt",
-        "tagline": "Chỉ một khoản phí giữ chỗ nhỏ để giữ sân của Quý khách.",
+        "price": "5%",
+        "period": "giá trị đặt sân",
+        "tagline": "Chỉ 5% phí giữ chỗ để giữ sân của Quý khách.",
         "features": [
           "Xem các sân trống gần đây",
           "Trợ lý đặt sân AI",
@@ -1585,6 +1585,9 @@
     "inviteSent": "Đã gửi lời mời",
     "groupChatCreated": "Đã tạo nhóm trò chuyện. Đang chờ người chơi chấp nhận.",
     "inviteFailed": "Không thể gửi lời mời.",
+    "addToExistingRoom": "Thêm vào phòng",
+    "addedToRoom": "Đã thêm người chơi",
+    "addedToRoomDesc": "Đã gửi lời mời. Kiểm tra nhóm trò chuyện để cập nhật.",
     "selectedCount": "Đã chọn {count}:",
     "requireAssessment": "Bạn cần hoàn thành đánh giá trình độ môn {sport} trước khi tìm kiếm đồng đội.",
     "completeAssessment": "Hoàn thành đánh giá",
@@ -1814,10 +1817,17 @@
   },
   "Profile": {
     "dialogDescription": "Hiển thị thông tin cá nhân và trình độ của người chơi",
+    "playerDialogDescription": "Xem hồ sơ và thống kê người chơi",
     "bio": "Đam mê các môn thể thao vợt, luôn tìm kiếm đối thủ xứng tầm để giao lưu và nâng cao trình độ. Chơi hay, giao lưu vui vẻ, đáng tin cậy!",
     "yourLevel": "Trình độ của bạn",
+    "playerLevel": "Trình độ",
     "notAssessed": "Chưa đánh giá",
     "points": "{score} điểm",
-    "reliability": "Độ tin cậy (Reliability)"
+    "reliability": "Độ tin cậy (Reliability)",
+    "matchScore": "Độ phù hợp",
+    "kmAway": "Cách {km} km",
+    "viewProfile": "Xem hồ sơ",
+    "reviewsLabel": "Đánh giá",
+    "ratingsCount": "{count} đánh giá"
   }
 }
