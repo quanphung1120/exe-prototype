@@ -75,6 +75,11 @@ export async function generateMetadata({
       title: t("twitterTitle"),
       description: t("twitterDescription"),
     },
+    icons: {
+      icon: "/logo.svg",
+      shortcut: "/logo.svg",
+      apple: "/logo.svg",
+    },
   }
 }
 

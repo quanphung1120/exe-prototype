@@ -29,7 +29,7 @@ import {
   Zap,
 } from "lucide-react"
 import { toast } from "sonner"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 
 import {
   roomChatId,
@@ -188,6 +188,7 @@ const useIsomorphicLayoutEffect =
 
 export function AiNativeDashboardView() {
   const t = useTranslations("AiDashboard")
+  const locale = useLocale()
   const { courts, user: USER } = useData()
   const { openBooking } = useBooking()
   const { createInviteRoom, addPlayersToSession, sessions, joinedIds, joinRoom, userLevelForSport, userLevels } = useSession()
@@ -415,7 +416,7 @@ export function AiNativeDashboardView() {
     if (assessment?.results?.pickleball) {
       activeUserLevels.pickleball = userLevels.pickleball
     }
-    sendMessage({ text: trimmed }, { body: { userLevels: activeUserLevels, userLocation } })
+    sendMessage({ text: trimmed }, { body: { userLevels: activeUserLevels, userLocation, locale } })
   }
 
   const togglePlayer = (player: PlayerMatchResult) => {

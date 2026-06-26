@@ -63,6 +63,7 @@ const bodySchema = z.object({
   messages: z.array(z.unknown()).max(50),
   userLevels: sportLevelsSchema,
   userLocation: latLngSchema,
+  locale: z.enum(["en", "vi"]).optional(),
 })
 
 // Fold the (now validated) skill levels + location into a system-prompt block.
@@ -71,9 +72,19 @@ const bodySchema = z.object({
 // of the enum validation above.
 function buildUserContext(
   levels: SportLevels | undefined,
-  loc: LatLng | null | undefined
+  loc: LatLng | null | undefined,
+  locale: string | undefined
 ) {
   const lines: string[] = []
+  if (locale) {
+    lines.push(
+      `- Preferred user language/locale: ${locale} (${
+        locale === "vi" ? "Vietnamese" : "English"
+      }). You MUST default to responding in this language (${
+        locale === "vi" ? "Vietnamese" : "English"
+      }) unless the user explicitly asks a question in another language.`
+    )
+  }
   // Re-derive pairs from the closed enums only — never trust arbitrary keys.
   const levelPairs = (["badminton", "pickleball"] as const)
     .map((sport) => [sport, levels?.[sport]] as const)
@@ -171,7 +182,7 @@ You are SportMatch AI — a smart assistant for finding badminton and pickleball
 - If the user mentions or is interested in multiple sports (e.g. both badminton and pickleball), pass them as an array in the \`sports\` parameter instead of a single \`sport\` parameter. Do not force them to pick one or ask choice questions if they want both.
 
 ## How to respond
-1. Detect intent (courts vs. teammates) and the user's language (reply in the same language: Vietnamese or English).
+1. Detect intent (courts vs. teammates) and the user's language. Reply in the user's preferred language/locale (Vietnamese or English) as passed in the user profile/locale context. If the user explicitly asks a question in a different language, respond in the language of their query.
 2. If key details are missing, call the \`askChoice\` tool ONCE to ask exactly ONE short clarifying question with 2–4 tappable options, then stop. Do not repeat the question as plain text (the options render as buttons). Needed details:
    - courts → sport/sports + a location/area hint (district, neighborhood, or "near me"). Pass district name to \`findCourts\` when mentioned.
    - teammates → sport/sports (required — never call \`findPlayers\` without it). Use the <user_profile> level as default if not specified.
@@ -227,7 +238,7 @@ export async function POST(req: Request) {
     console.error("Zod validation error in chat API route:", parsed.error)
     return new Response("Invalid request body", { status: 400 })
   }
-  const { userLevels, userLocation } = parsed.data
+  const { userLevels, userLocation, locale } = parsed.data
 
   // Lazy loader — only fetches on the first tool call that needs court/player
   // data; turns that only call askChoice/requestAssessment pay no network cost.
@@ -241,7 +252,7 @@ export async function POST(req: Request) {
     // (OpenRouterModelOptions has a pass-through index signature) to keep the
     // streamed chain of thought concise and snappy on a small model.
     model: openrouter(MODEL, { reasoning: { effort: "low" } }),
-    system: SYSTEM + buildUserContext(userLevels, userLocation),
+    system: SYSTEM + buildUserContext(userLevels, userLocation, locale),
     messages,
     // Stop after 5 steps OR as soon as the model asks a clarifying question or
     // requests an assessment — so control returns to the user. bookCourt is NOT

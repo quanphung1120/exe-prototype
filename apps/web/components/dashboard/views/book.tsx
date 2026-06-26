@@ -516,6 +516,21 @@ export function BookView() {
                 ) : null}
                 <SummaryRow label={t("players")} value={playersLine} />
               </div>
+              <div className="flex flex-col gap-2 rounded-2xl bg-muted/50 px-3 py-3 ring-1 ring-border/60">
+                <SummaryRow
+                  label={t("price")}
+                  value={formatVndFull(total)}
+                />
+                <SummaryRow
+                  label={t("pay.holdFeePercent")}
+                  value={formatVndFull(holdingFee)}
+                />
+                <div className="h-px bg-border" />
+                <SummaryRow
+                  label={t("pay.balanceAtVenue")}
+                  value={formatVndFull(total - holdingFee)}
+                />
+              </div>
               {conflict ? (
                 <p className="mt-auto inline-flex items-center gap-1.5 border-t border-border pt-4 text-xs font-medium text-destructive">
                   <TriangleAlert className="size-3.5 shrink-0" />
@@ -656,7 +671,7 @@ export function BookView() {
             ) : (
               <>
                 <Lock />
-                {t("pay.payNow", { amount: court ? formatVnd(total) : "" })}
+                {t("pay.payNow", { amount: court ? formatVnd(holdingFee) : "" })}
               </>
             )}
           </Button>

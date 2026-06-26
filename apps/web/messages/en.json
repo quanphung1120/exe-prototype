@@ -367,6 +367,8 @@
     "pay": {
       "amountDue": "Amount due",
       "holdFee": "Holding fee",
+      "holdFeePercent": "Holding fee (5%)",
+      "balanceAtVenue": "Balance at venue",
       "holdNote": "Pay a 5% holding fee now to secure this slot. The rest will be paid at the venue.",
       "courtFee": "court fee",
       "method": "Payment method",

@@ -367,6 +367,8 @@
     "pay": {
       "amountDue": "Số tiền cần trả",
       "holdFee": "Phí giữ chỗ",
+      "holdFeePercent": "Phí giữ chỗ (5%)",
+      "balanceAtVenue": "Còn lại tại sân",
       "holdNote": "Thanh toán 5% phí giữ chỗ ngay bây giờ để giữ sân. Phần còn lại thanh toán tại sân.",
       "courtFee": "phí sân",
       "method": "Phương thức thanh toán",
