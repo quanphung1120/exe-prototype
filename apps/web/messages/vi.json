@@ -487,6 +487,21 @@
       },
       "c6": {
         "surface": "Kính thi đấu"
+      },
+      "c7": {
+        "surface": "Sàn gỗ đàn hồi · Trong nhà"
+      },
+      "c8": {
+        "surface": "Thảm PVC · Trong nhà"
+      },
+      "c9": {
+        "surface": "Sàn gỗ đàn hồi · Trong nhà"
+      },
+      "c10": {
+        "surface": "Sàn vinyl đệm êm · Trong nhà"
+      },
+      "c11": {
+        "surface": "Thảm PVC · Trong nhà"
       }
     }
   },
@@ -1553,7 +1568,7 @@
   },
   "AiDashboard": {
     "welcomeTitle": "Tôi có thể giúp gì cho bạn hôm nay?",
-    "welcomeSubtitle": "Tìm sân chơi hoặc kết nối với bạn chơi ngay lập tức.",
+    "welcomeSubtitle": "Tìm sân hoặc kết nối với bạn chơi tức thì. Bạn có thể tìm sân theo quận hoặc môn thể thao, kiểm tra lịch trống thời gian thực, đặt sân trực tiếp, hoặc tìm người chơi cùng trình độ để mời vào nhóm chat.",
     "inputPlaceholder": "Hỏi về sân hoặc bạn chơi…",
     "thinking": "Đang suy nghĩ…",
     "reasoning": "Lập luận",

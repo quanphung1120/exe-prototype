@@ -111,13 +111,27 @@ function buildUserContext(
 }
 
 // ─── In-memory slot conflict tracker (prototype; resets on server restart) ────
-// Tracks booked windows so the same slot can't be double-booked within a session.
-// Key: "<courtId>:<date>:<HH:MM>", value: { bookingId, durationMin }.
+// Key: "<courtId>:<YYYY-MM-DD>:<HH:MM>", value: { bookingId, durationMin }.
+// PROTOTYPE LIMITATION: module-level Map — not shared across Vercel instances.
+// Two users on different instances can both book the same slot. Wire to
+// Prisma/Neon in apps/api before going to production.
 const bookedSlots = new Map<string, { bookingId: string; durationMin: number }>()
 
 function timeToMin(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number)
   return h * 60 + m
+}
+
+// Normalize "today"/"tomorrow" and undefined to YYYY-MM-DD so relative date
+// strings never become permanent Map keys that block future days.
+function resolveDate(raw: string | undefined): string {
+  const d = new Date()
+  if (!raw || raw === "today") return d.toISOString().slice(0, 10)
+  if (raw === "tomorrow") {
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().slice(0, 10)
+  }
+  return raw
 }
 
 // Returns the slot key and conflicting booking if any overlap exists.
@@ -172,6 +186,14 @@ You are SportMatch AI — a smart assistant for finding badminton and pickleball
 ## Booking flow
 When the user wants to book: first surface courts via \`findCourts\`. If they mention a time (e.g. "at 18:00", "lúc 7 giờ tối"), pass that as \`time\` to \`findCourts\` so only available courts are shown — courts already booked at that slot are excluded automatically. Once they pick a court and you have a time, call \`bookCourt\`. If the time is still missing, use \`askChoice\` (options like "17:00", "18:00", "19:00", "20:00"). After \`bookCourt\` returns, confirm the booking in one sentence.
 
+## Capabilities and guidance
+- When asked what you can do, how you work, or how to use the app, clearly and friendly explain that you are an AI assistant who can help find courts, check availability, book slots, and match players for badminton and pickleball in Ho Chi Minh City.
+- Explicitly guide the user:
+  1. For finding courts: Mention that they can tap on any court card shown in the interface to book it.
+  2. For finding teammates: Tell them they can select the players they want from the results card and tap "Invite to group chat" to create a chat thread.
+  3. If they need to change/complete their skill level, they can click "Complete Assessment" or go to the profile settings.
+- Encourage users to query by specific districts (e.g., District 1, 3, 7, Binh Thanh, Phu Nhuan, Thu Duc) for more tailored recommendations.
+
 Be friendly and concise. Keep every text response to 1–2 short sentences.`
 
 export async function POST(req: Request) {
@@ -201,7 +223,11 @@ export async function POST(req: Request) {
     return new Response("Invalid request body", { status: 400 })
   }
   const { userLevels, userLocation } = parsed.data
-  const { courts, players } = await fetchSeed()
+
+  // Lazy loader — only fetches on the first tool call that needs court/player
+  // data; turns that only call askChoice/requestAssessment pay no network cost.
+  let _seedPromise: ReturnType<typeof fetchSeed> | null = null
+  const getSeed = () => (_seedPromise ??= fetchSeed())
 
   const messages = await convertToModelMessages(parsed.data.messages as UIMessage[])
 
@@ -212,13 +238,13 @@ export async function POST(req: Request) {
     model: openrouter(MODEL, { reasoning: { effort: "low" } }),
     system: SYSTEM + buildUserContext(userLevels, userLocation),
     messages,
-    // Stop after 5 steps OR as soon as the model asks a clarifying question, requests assessment,
-    // or confirms a booking — so control returns to the user (human in the loop).
+    // Stop after 5 steps OR as soon as the model asks a clarifying question or
+    // requests an assessment — so control returns to the user. bookCourt is NOT
+    // in this list so the model gets one more step to write a confirmation sentence.
     stopWhen: [
       stepCountIs(5),
       hasToolCall("askChoice"),
       hasToolCall("requestAssessment"),
-      hasToolCall("bookCourt"),
     ],
     tools: {
       // Human-in-the-loop: when a key detail is missing the model calls this
@@ -275,34 +301,35 @@ export async function POST(req: Request) {
             .describe("Intended play duration in minutes (default 60). Used to widen the conflict window."),
         }),
         execute: async ({ sport, sortBy, district, time, date, durationMin }) => {
+          const { courts } = await getSeed()
           const sportFiltered = courts.filter(
             (c: Court) => !sport || c.sports.includes(sport)
           )
           // Apply district filter when provided — substring match so "Quận 3" and
           // "quan 3" both work, and partial names like "Bình Thạnh" still hit.
+          // No silent fallback: if the district has no courts, return empty so
+          // the model knows to tell the user and suggest a broader search.
           const pool = district
             ? sportFiltered.filter((c: Court) =>
                 c.district.toLowerCase().includes(district.toLowerCase())
               )
             : sportFiltered
-          // If the district filter produced no results fall back to the sport pool
-          // so the user still gets something rather than an empty list.
-          const base = pool.length ? pool : sportFiltered
           // When we have the user's real position, override the static seed
           // distance with the actual great-circle distance so distance ranking
           // (and the distance shown on each card) reflects where they are.
           const withDistance = userLocation
-            ? base.map((c: Court) => ({
+            ? pool.map((c: Court) => ({
                 ...c,
                 distanceKm: Math.round(haversineKm(userLocation, c) * 10) / 10,
               }))
-            : base
+            : pool
           // Filter out courts with a known booking conflict at the requested time.
+          const resolvedDate = resolveDate(date)
           const available =
             time
               ? withDistance.filter(
                   (c: Court) =>
-                    !findConflict(c.id, date ?? "today", time, durationMin ?? 60)
+                    !findConflict(c.id, resolvedDate, time, durationMin ?? 60)
                 )
               : withDistance
           const ranked = [...available].sort((a: Court, b: Court) => {
@@ -313,10 +340,12 @@ export async function POST(req: Request) {
             return b.rating - a.rating || a.distanceKm - b.distanceKm
           })
           return {
-            courts: ranked.slice(0, 3),
+            courts: ranked.slice(0, 5),
             sortBy: sortBy ?? "rating",
             sport: (sport ?? null) as SportKey | null,
             filteredByTime: time ?? null,
+            // Explicit signal so the model knows when the district filter matched nothing.
+            districtMatched: district ? pool.length > 0 : null,
           }
         },
       }),
@@ -330,6 +359,7 @@ export async function POST(req: Request) {
           locationLabel: z.string().optional(),
         }),
         execute: async ({ sport, level, timeLabel, locationLabel }) => {
+          const { players } = await getSeed()
           const prompt = [sport, level, timeLabel, locationLabel]
             .filter(Boolean)
             .join(" ")
@@ -370,6 +400,7 @@ export async function POST(req: Request) {
           sport: z.enum(["badminton", "pickleball"]).optional(),
         }),
         execute: async ({ courtId, date, time, durationMin, sport }) => {
+          const { courts } = await getSeed()
           const court = courts.find((c: Court) => c.id === courtId)
           if (!court) return { success: false, reason: "Court not found." }
           const sportKey: SportKey = sport ?? (court.sports[0] as SportKey)
@@ -379,8 +410,8 @@ export async function POST(req: Request) {
               reason: `${court.name} does not support ${sportKey}.`,
             }
           const mins = durationMin ?? 60
-          // Check against the in-memory booked-slot store first.
-          const conflict = findConflict(courtId, date, time, mins)
+          const resolvedDate = resolveDate(date)
+          const conflict = findConflict(courtId, resolvedDate, time, mins)
           if (conflict) {
             const conflictEnd =
               timeToMin(conflict.existingTime) + conflict.entry.durationMin
@@ -388,10 +419,13 @@ export async function POST(req: Request) {
               .toString()
               .padStart(2, "0")
             const endMin = (conflictEnd % 60).toString().padStart(2, "0")
+            // Use computed end time as "next available" — court.nextSlot is a
+            // static seed value that is never updated after bookings.
+            const nextAvailable = `${endHr}:${endMin}`
             return {
               success: false,
-              reason: `That slot is already booked until ${endHr}:${endMin}. Next available: ${court.nextSlot}.`,
-              suggestTime: court.nextSlot,
+              reason: `That slot is already booked until ${endHr}:${endMin}. Next available: ${nextAvailable}.`,
+              suggestTime: nextAvailable,
             }
           }
           // Simulate capacity: courts with 0 open slots are fully booked today.
@@ -402,14 +436,15 @@ export async function POST(req: Request) {
             }
           const totalPrice = Math.round((court.pricePerHour * mins) / 60)
           const bookingId = `BK-${courtId.toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
-          bookedSlots.set(`${courtId}:${date}:${time}`, { bookingId, durationMin: mins })
+          bookedSlots.set(`${courtId}:${resolvedDate}:${time}`, { bookingId, durationMin: mins })
           return {
             success: true,
             bookingId,
+            courtId,
             court: court.name,
             district: court.district,
             sport: sportKey,
-            date,
+            date: resolvedDate,
             time,
             durationMin: mins,
             pricePerHour: court.pricePerHour,

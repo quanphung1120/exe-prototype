@@ -36,6 +36,13 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -406,6 +413,7 @@ interface AddCustomerDialogProps {
 }
 
 function AddCustomerDialog({ isOpen, onClose, onAdd, locale, customersList }: AddCustomerDialogProps) {
+  const tc = useTranslations("Common")
   const [name, setName] = React.useState("")
   const [phone, setPhone] = React.useState("")
   const [sport, setSport] = React.useState<"pickleball" | "badminton">("badminton")
@@ -503,17 +511,23 @@ function AddCustomerDialog({ isOpen, onClose, onAdd, locale, customersList }: Ad
               placeholder="e.g. 0901234567"
             />
           </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            {copy.sport}
-            <select
+          <div className="flex flex-col gap-1.5 text-sm font-medium">
+            <span>{copy.sport}</span>
+            <Select
               value={sport}
-              onChange={(e) => setSport(e.target.value as "pickleball" | "badminton")}
-              className="flex h-9 w-full rounded-2xl border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring"
+              onValueChange={(v) => setSport(v as "pickleball" | "badminton")}
             >
-              <option value="badminton">Badminton</option>
-              <option value="pickleball">Pickleball</option>
-            </select>
-          </label>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {(v) => tc(`sports.${v as "pickleball" | "badminton"}`)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="badminton">{tc("sports.badminton")}</SelectItem>
+                <SelectItem value="pickleball">{tc("sports.pickleball")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex justify-end gap-2 mt-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
               {copy.cancel}

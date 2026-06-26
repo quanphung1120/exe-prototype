@@ -74,6 +74,8 @@ interface CourtToolResult {
   courts: Court[]
   sortBy: string
   sport: SportKey | null
+  filteredByTime?: string | null
+  districtMatched?: boolean | null
 }
 
 interface PlayerToolResult {
@@ -93,6 +95,7 @@ interface AssessmentToolResult {
 interface BookingToolResult {
   success: boolean
   bookingId?: string
+  courtId?: string
   court?: string
   district?: string
   sport?: SportKey
@@ -248,6 +251,25 @@ export function AiNativeDashboardView() {
   }, [])
 
   const showWelcome = messages.length === 0
+
+  // Collect court IDs that were successfully booked via the AI chat in this
+  // session, so tapping "Book" on an earlier findCourts card doesn't open the
+  // wizard and create a duplicate booking for the same court.
+  const aiBookedCourtIds = React.useMemo(() => {
+    const ids = new Set<string>()
+    for (const msg of messages) {
+      for (const part of (msg.parts ?? []) as Record<string, unknown>[]) {
+        const partType = (part.type as string) ?? ""
+        if (partType === "dynamic-tool" || partType.startsWith("tool-")) {
+          const result = toolResult(part.output)
+          if (result?.kind === "booking" && result.value.success && result.value.courtId) {
+            ids.add(result.value.courtId)
+          }
+        }
+      }
+    }
+    return ids
+  }, [messages])
 
   // Play the welcome → thread transition: the composer (tagged with a shared
   // data-flip-id in both layouts) glides from screen-centre down to its pinned
@@ -427,7 +449,7 @@ export function AiNativeDashboardView() {
           placeholder={isLoading ? t("thinking") : t("inputPlaceholder")}
           aria-label="Ask SportMatch AI"
           disabled={isLoading}
-          className="max-h-32 min-h-12 flex-1 border-0 bg-transparent py-3 pr-0 pl-3 text-base shadow-none focus-visible:ring-0"
+          className="max-h-32 min-h-12 flex-1 border-0 bg-transparent py-3.5 pr-0 pl-3 sm:pl-4 text-base sm:text-lg shadow-none focus-visible:ring-0"
         />
         <Button
           type="button"
@@ -457,7 +479,7 @@ export function AiNativeDashboardView() {
           key={p}
           type="button"
           onClick={() => submit(p)}
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-sm text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-4 py-2.5 text-sm sm:text-base text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground"
         >
           {p}
         </button>
@@ -483,10 +505,10 @@ export function AiNativeDashboardView() {
         <section className="flex flex-col items-center gap-4 text-center">
           <LogoMark className="size-14 text-primary" />
           <div>
-            <h1 className="font-heading text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("welcomeTitle")}
             </h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
+            <p className="mt-2 text-sm sm:text-base text-muted-foreground">
               {t("welcomeSubtitle")}
             </p>
           </div>
@@ -520,14 +542,20 @@ export function AiNativeDashboardView() {
             onChoose={submit}
             onTogglePlayer={togglePlayer}
             onOpenProfile={setProfile}
-            onBook={(courtId) => openBooking(courtId)}
+            onBook={(courtId) => {
+              if (aiBookedCourtIds.has(courtId)) {
+                toast.info("Already booked via chat — check My Bookings.")
+                return
+              }
+              openBooking(courtId)
+            }}
           />
         ))}
 
         {/* Pulse while waiting for first token */}
         {isLoading && messages[messages.length - 1]?.role === "user" ? (
           <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-3xl rounded-bl-md bg-muted px-4 py-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base text-muted-foreground">
               <Loader2 className="size-3.5 animate-spin text-brand" />
               {t("thinking")}
             </div>
@@ -626,7 +654,7 @@ function ChatMessageRow({
       .join("")
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-3xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+        <div className="max-w-[85%] rounded-3xl rounded-br-md bg-primary px-5 py-3 text-sm sm:text-base text-primary-foreground">
           {text}
         </div>
       </div>
@@ -658,7 +686,7 @@ function ChatMessageRow({
         if (p.type === "text" && p.text) {
           return (
             <div key={i} className="flex justify-start">
-              <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-4 py-2.5 text-sm">
+              <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base">
                 {p.text as string}
               </div>
             </div>
@@ -758,8 +786,8 @@ function ThinkingBlock({ text, done }: { text: string; done: boolean }) {
 
   React.useEffect(() => {
     if (!done) return
-    const t = setTimeout(() => setCollapsed(true), 1200)
-    return () => clearTimeout(t)
+    const timerId = setTimeout(() => setCollapsed(true), 1200)
+    return () => clearTimeout(timerId)
   }, [done])
 
   // Keep the latest reasoning in view as it streams.
@@ -798,7 +826,7 @@ function ThinkingBlock({ text, done }: { text: string; done: boolean }) {
         <div
           ref={bodyRef}
           className={cn(
-            "mt-2.5 no-scrollbar max-h-44 overflow-y-auto pr-1 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground",
+            "mt-2.5 no-scrollbar max-h-44 overflow-y-auto pr-1 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground",
             !done &&
               "mask-[linear-gradient(to_bottom,transparent,black_1.5rem)]"
           )}
@@ -826,7 +854,7 @@ function SearchingIndicator({ toolName }: { toolName: string }) {
           ? t("bookingCourt")
           : t("working")
   return (
-    <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-foreground/5">
+    <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3.5 py-2 text-xs sm:text-sm text-muted-foreground ring-1 ring-foreground/5">
       <Loader2 className="size-3.5 animate-spin text-brand" />
       {label}
     </div>
@@ -851,7 +879,7 @@ function ClarifyChatResult({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex justify-start">
-        <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-4 py-2.5 text-sm">
+        <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base">
           {question}
         </div>
       </div>
@@ -862,7 +890,7 @@ function ClarifyChatResult({
             type="button"
             disabled={disabled}
             onClick={() => onChoose(option)}
-            className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center rounded-full border border-border bg-background px-4 py-2 text-sm sm:text-base text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {option}
           </button>
@@ -882,7 +910,7 @@ function RequestAssessmentChatResult({ sport }: { sport: SportKey }) {
   return (
     <div className="flex flex-col gap-3 self-start">
       <div className="flex justify-start">
-        <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-4 py-2.5 text-sm">
+        <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base">
           {t("requireAssessment", { sport: tc(`sports.${sport}`) })}
         </div>
       </div>
@@ -890,8 +918,7 @@ function RequestAssessmentChatResult({ sport }: { sport: SportKey }) {
         <Button
           onClick={() => router.push(PLAYER_ASSESSMENT_PATH)}
           variant="outline"
-          size="sm"
-          className="rounded-full shadow-sm"
+          className="rounded-full shadow-sm text-sm sm:text-base py-2 px-4"
         >
           {t("completeAssessment")}
         </Button>
@@ -915,7 +942,7 @@ function BookingChatResult({
     return (
       <div className="flex flex-col gap-2">
         <div className="flex justify-start">
-          <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-4 py-2.5 text-sm text-muted-foreground">
+          <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base text-muted-foreground">
             {booking.reason ?? "Booking failed — please try again."}
           </div>
         </div>
@@ -927,9 +954,9 @@ function BookingChatResult({
               onClick={() =>
                 onChoose(`Book at ${booking.suggestTime} instead`)
               }
-              className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center rounded-full border border-border bg-background px-4 py-2 text-sm sm:text-base text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Clock className="mr-1.5 size-3" />
+              <Clock className="mr-1.5 size-3.5" />
               Try {booking.suggestTime}
             </button>
           </div>
@@ -949,31 +976,31 @@ function BookingChatResult({
         : `${rem}m`
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-3xl bg-brand/5 p-4 ring-1 ring-brand/20">
+    <div className="flex flex-col gap-2.5 rounded-3xl bg-brand/5 p-4 sm:p-5 ring-1 ring-brand/20">
       <div className="flex items-center gap-2">
         <div className="grid size-7 shrink-0 place-items-center rounded-full bg-brand/10">
           <CheckCheck className="size-3.5 text-brand" />
         </div>
-        <span className="font-heading font-semibold text-sm">
+        <span className="font-heading font-semibold text-sm sm:text-base">
           Booking confirmed
         </span>
       </div>
-      <div className="flex flex-col gap-1.5 text-sm">
+      <div className="flex flex-col gap-1.5 text-sm sm:text-base">
         <p className="font-medium">{booking.court}</p>
-        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-          <MapPin className="size-3 shrink-0" />
+        <p className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
+          <MapPin className="size-3.5 shrink-0" />
           {booking.district}
         </p>
-        <p className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="size-3 shrink-0" />
+        <p className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
+          <Clock className="size-3.5 shrink-0" />
           {booking.date} · {booking.time} · {durationLabel}
         </p>
       </div>
       <div className="flex items-center justify-between border-t border-brand/10 pt-2.5">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+        <span className="font-mono text-[10px] sm:text-xs tracking-wider text-muted-foreground uppercase">
           {booking.bookingId}
         </span>
-        <span className="font-heading font-bold tabular-nums">
+        <span className="font-heading font-bold tabular-nums text-sm sm:text-base">
           {booking.totalPrice != null ? formatVnd(booking.totalPrice) : "—"}
         </span>
       </div>

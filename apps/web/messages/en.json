@@ -487,6 +487,21 @@
       },
       "c6": {
         "surface": "Tournament glass"
+      },
+      "c7": {
+        "surface": "Sprung timber · indoor"
+      },
+      "c8": {
+        "surface": "PVC mat · indoor"
+      },
+      "c9": {
+        "surface": "Sprung timber · indoor"
+      },
+      "c10": {
+        "surface": "Cushioned vinyl · indoor"
+      },
+      "c11": {
+        "surface": "PVC mat · indoor"
       }
     }
   },
@@ -1553,7 +1568,7 @@
   },
   "AiDashboard": {
     "welcomeTitle": "How can I help you today?",
-    "welcomeSubtitle": "Find a court or match with players instantly.",
+    "welcomeSubtitle": "Find a court or match with players instantly. Search for courts by district or sport, check real-time slot availability, book slots directly, or find players near your level and invite them to a group chat.",
     "inputPlaceholder": "Ask about courts or teammates…",
     "thinking": "Thinking…",
     "reasoning": "Reasoning",

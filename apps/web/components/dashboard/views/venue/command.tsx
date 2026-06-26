@@ -11,7 +11,6 @@ import {
   CircleDollarSign,
   Clock,
   LayoutGrid,
-  Sparkles,
   TrendingUp,
   UserCheck,
   Users,
@@ -36,7 +35,6 @@ import {
 import {
   courtStateAccent,
   locStr,
-  severityAccent,
   type CourtState,
   type Reservation,
 } from "@/components/dashboard/venue/data"
@@ -50,9 +48,7 @@ export function VenueCommandView() {
     venue: VENUE,
     venueCourts: VENUE_COURTS,
   } = useVenueData()
-  const { stats, priceSuggestions } = useVenue()
-
-  const insight = priceSuggestions[0] ?? null
+  const { stats } = useVenue()
 
   // Today's arrivals still to come through the door.
   const arrivals = RESERVATIONS.filter(
@@ -227,67 +223,7 @@ export function VenueCommandView() {
         </div>
       </section>
 
-      {/* ── Top AI insight teaser ──────────────────────────────────── */}
-      <VenuePanel
-        title={t("topInsight")}
-        icon={Sparkles}
-        action={
-          insight ? (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium",
-                severityAccent[insight.severity].chip
-              )}
-            >
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  severityAccent[insight.severity].dot
-                )}
-              />
-              {t(`severity.${insight.severity}`)}
-            </span>
-          ) : null
-        }
-      >
-        {insight ? (
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <p className="font-heading text-lg font-semibold tracking-tight">
-                {locStr(insight.title, locale)}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {locStr(insight.detail, locale)}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
-              <div className="flex flex-wrap items-center gap-2">
-                {insight.target ? (
-                  <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 font-mono text-[11px] tracking-wide text-muted-foreground">
-                    {locStr(insight.target, locale)}
-                  </span>
-                ) : null}
-                <span className="inline-flex items-center gap-1 rounded-full bg-brand/12 px-2.5 py-1 text-[11px] font-semibold text-brand tabular-nums">
-                  <TrendingUp className="size-3" />
-                  {locStr(insight.impact, locale)}
-                </span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                nativeButton={false}
-                render={<Link href="/dashboard/venue/analytics" />}
-              >
-                {t("reviewInAnalytics")}
-                <ArrowUpRight />
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <VenueEmpty text={t("emptyInsight")} />
-        )}
-      </VenuePanel>
+
 
       {/* ── Arrivals + revenue ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
