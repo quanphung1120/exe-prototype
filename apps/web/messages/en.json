@@ -1137,6 +1137,10 @@
       "label": "Insights",
       "caption": "Revenue, demand and players"
     },
+    "customers": {
+      "label": "Customers",
+      "caption": "Manage players and customer relationships"
+    },
     "manage": {
       "label": "Venues",
       "caption": "Add, edit and switch your venues"
@@ -1465,6 +1469,7 @@
     },
     "col": {
       "customer": "Customer",
+      "phone": "Phone",
       "sport": "Sport",
       "visits": "Visits",
       "lastVisit": "Last visit",
@@ -1554,6 +1559,7 @@
     "reasoning": "Reasoning",
     "searchingCourts": "Searching courts…",
     "matchingPlayers": "Matching players…",
+    "bookingCourt": "Booking court…",
     "working": "Working…",
     "topCourtsRanked": "Top {count} courts · ranked by {sortBy}",
     "selectPlayersInvite": "Select players above to create a group.",
@@ -1573,6 +1579,8 @@
       "team": "most open slots",
       "best": "best overall"
     },
+    "availableFrom": "Available from {time}",
+    "slotsOpen": "{count, plural, one {# slot open} other {# slots open}}",
     "prompts": {
       "badmintonNearMe": "Find badminton courts near me",
       "cheapestPickleball": "Cheapest pickleball court tonight",

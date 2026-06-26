@@ -70,7 +70,10 @@ export type TrustTier = "trusted" | "reliable" | "new"
 export interface Court {
   id: string
   name: string
+  /** Cấp quận/huyện — full Vietnamese name e.g. "Quận 1", "Quận Bình Thạnh", "Thành phố Thủ Đức" */
   district: string
+  /** Tỉnh/thành phố trực thuộc trung ương — e.g. "TP. Hồ Chí Minh", "Hà Nội" */
+  city: string
   sports: SportKey[]
   surface: string
   pricePerHour: number

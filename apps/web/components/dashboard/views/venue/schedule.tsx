@@ -733,13 +733,17 @@ function WalkInDialog({
   const [durationMin, setDurationMin] = React.useState("60")
   const [isPending, startTransition] = React.useTransition()
 
-  React.useEffect(() => {
-    if (!reservation) return
-    setName("")
-    setPhone("")
-    setStart(reservation.start)
-    setDurationMin(String(Math.max(15, reservation.durationMin)))
-  }, [reservation])
+  const [prevReservation, setPrevReservation] = React.useState<typeof reservation>(null)
+
+  if (reservation !== prevReservation) {
+    setPrevReservation(reservation)
+    if (reservation) {
+      setName("")
+      setPhone("")
+      setStart(reservation.start)
+      setDurationMin(String(Math.max(15, reservation.durationMin)))
+    }
+  }
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()

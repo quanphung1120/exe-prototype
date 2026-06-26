@@ -90,6 +90,21 @@ interface AssessmentToolResult {
   sport: SportKey
 }
 
+interface BookingToolResult {
+  success: boolean
+  bookingId?: string
+  court?: string
+  district?: string
+  sport?: SportKey
+  date?: string
+  time?: string
+  durationMin?: number
+  pricePerHour?: number
+  totalPrice?: number
+  reason?: string
+  suggestTime?: string
+}
+
 // Discriminate a tool's output by shape, not by tool name — some models stream
 // the tool name too late for the AI SDK to type the part (the part type ends up
 // a bare `tool-`), but the output payload is always there and unambiguous.
@@ -98,6 +113,7 @@ type ToolResult =
   | { kind: "players"; value: PlayerToolResult }
   | { kind: "clarify"; value: ClarifyToolResult }
   | { kind: "assessment"; value: AssessmentToolResult }
+  | { kind: "booking"; value: BookingToolResult }
 
 function toolResult(output: unknown): ToolResult | null {
   if (!output || typeof output !== "object") return null
@@ -108,6 +124,8 @@ function toolResult(output: unknown): ToolResult | null {
     return { kind: "players", value: output as PlayerToolResult }
   if (typeof o.question === "string" && Array.isArray(o.options))
     return { kind: "clarify", value: output as ClarifyToolResult }
+  if (typeof o.success === "boolean" && ("bookingId" in o || "reason" in o))
+    return { kind: "booking", value: output as BookingToolResult }
   if (
     typeof o.sport === "string" &&
     (o.sport === "badminton" || o.sport === "pickleball") &&
@@ -701,6 +719,17 @@ function ChatMessageRow({
             )
           }
 
+          if (isDone && result?.kind === "booking") {
+            return (
+              <BookingChatResult
+                key={i}
+                booking={result.value}
+                disabled={!interactive}
+                onChoose={onChoose}
+              />
+            )
+          }
+
           // Tool call resolving — lightweight searching indicator.
           if (!isDone) {
             const toolName =
@@ -793,7 +822,9 @@ function SearchingIndicator({ toolName }: { toolName: string }) {
       ? t("searchingCourts")
       : toolName === "findPlayers"
         ? t("matchingPlayers")
-        : t("working")
+        : toolName === "bookCourt"
+          ? t("bookingCourt")
+          : t("working")
   return (
     <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground ring-1 ring-foreground/5">
       <Loader2 className="size-3.5 animate-spin text-brand" />
@@ -864,6 +895,87 @@ function RequestAssessmentChatResult({ sport }: { sport: SportKey }) {
         >
           {t("completeAssessment")}
         </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Booking confirmation ─────────────────────────────────────────────────────
+
+function BookingChatResult({
+  booking,
+  disabled,
+  onChoose,
+}: {
+  booking: BookingToolResult
+  disabled: boolean
+  onChoose: (text: string) => void
+}) {
+  if (!booking.success) {
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex justify-start">
+          <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-4 py-2.5 text-sm text-muted-foreground">
+            {booking.reason ?? "Booking failed — please try again."}
+          </div>
+        </div>
+        {booking.suggestTime ? (
+          <div className="flex flex-wrap gap-2 pl-1">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() =>
+                onChoose(`Book at ${booking.suggestTime} instead`)
+              }
+              className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Clock className="mr-1.5 size-3" />
+              Try {booking.suggestTime}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  const mins = booking.durationMin ?? 60
+  const hrs = Math.floor(mins / 60)
+  const rem = mins % 60
+  const durationLabel =
+    hrs > 0 && rem > 0
+      ? `${hrs}h ${rem}m`
+      : hrs > 0
+        ? `${hrs}h`
+        : `${rem}m`
+
+  return (
+    <div className="flex flex-col gap-2.5 rounded-3xl bg-brand/5 p-4 ring-1 ring-brand/20">
+      <div className="flex items-center gap-2">
+        <div className="grid size-7 shrink-0 place-items-center rounded-full bg-brand/10">
+          <CheckCheck className="size-3.5 text-brand" />
+        </div>
+        <span className="font-heading font-semibold text-sm">
+          Booking confirmed
+        </span>
+      </div>
+      <div className="flex flex-col gap-1.5 text-sm">
+        <p className="font-medium">{booking.court}</p>
+        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <MapPin className="size-3 shrink-0" />
+          {booking.district}
+        </p>
+        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Clock className="size-3 shrink-0" />
+          {booking.date} · {booking.time} · {durationLabel}
+        </p>
+      </div>
+      <div className="flex items-center justify-between border-t border-brand/10 pt-2.5">
+        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+          {booking.bookingId}
+        </span>
+        <span className="font-heading font-bold tabular-nums">
+          {booking.totalPrice != null ? formatVnd(booking.totalPrice) : "—"}
+        </span>
       </div>
     </div>
   )
@@ -986,6 +1098,7 @@ function CourtCard({
   const tf = useTranslations("CourtFinder")
   const ts = useTranslations("Shared")
   const ta = useTranslations("Assistant")
+  const tad = useTranslations("AiDashboard")
 
   return (
     <div
@@ -1012,6 +1125,13 @@ function CourtCard({
           {court.rating}
           <span className="text-[10px] font-medium text-muted-foreground">
             {tf(`score.${scoreWord}`)}
+          </span>
+        </div>
+        <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+          <Clock className="size-3 shrink-0" />
+          {tad("availableFrom", { time: court.nextSlot })}
+          <span className="font-normal text-muted-foreground">
+            · {tad("slotsOpen", { count: court.openSlots })}
           </span>
         </div>
       </div>

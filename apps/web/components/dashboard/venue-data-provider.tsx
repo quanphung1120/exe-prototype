@@ -39,6 +39,7 @@ interface VenueDataContextValue {
   peakHours: PeakHourPoint[]
   venueInsights: VenueInsight[]
   addReservation: (reservation: Reservation) => void
+  addCustomer: (customer: VenueCustomer) => void
   // Bound helpers
   courtById: (id: string) => VenueCourt | undefined
   courtDayEvents: (courtId: string, dayKey: string) => ScheduleEvent[]
@@ -126,9 +127,55 @@ export function VenueDataProvider({
   const [reservations, setReservations] = React.useState<Reservation[]>(
     seed.reservations
   )
+  const [customers, setCustomers] = React.useState<VenueCustomer[]>(
+    seed.customers
+  )
+
+  const addCustomer = React.useCallback((customer: VenueCustomer) => {
+    setCustomers((current) => {
+      if (current.some((c) => c.id === customer.id)) {
+        return current
+      }
+      return [...current, customer]
+    })
+  }, [])
 
   const addReservation = React.useCallback((reservation: Reservation) => {
     setReservations((current) => [...current, reservation])
+
+    if (reservation.source === "walk-in" && reservation.customer?.phone) {
+      const phone = reservation.customer.phone.trim()
+      setCustomers((currentCustomers) => {
+        const exists = currentCustomers.find((c) => c.id === phone)
+        if (!exists) {
+          const newCust: VenueCustomer = {
+            id: phone,
+            name: reservation.customer.name,
+            initials: reservation.customer.initials || "??",
+            favoriteSport: reservation.sport,
+            visits: 1,
+            lastVisit: { en: "Today", vi: "Hôm nay" },
+            ltv: reservation.price,
+            noShowRate: 0,
+            tier: "new",
+            trend: 0,
+          }
+          return [...currentCustomers, newCust]
+        } else {
+          return currentCustomers.map((c) => {
+            if (c.id === phone) {
+              return {
+                ...c,
+                visits: c.visits + 1,
+                lastVisit: { en: "Today", vi: "Hôm nay" },
+                ltv: c.ltv + reservation.price,
+              }
+            }
+            return c
+          })
+        }
+      })
+    }
   }, [])
 
   const value = React.useMemo<VenueDataContextValue>(() => {
@@ -218,13 +265,14 @@ export function VenueDataProvider({
       venueStats: seed.stats,
       venueCourts: courts,
       reservations,
-      venueCustomers: seed.customers,
+      venueCustomers: customers,
       revenueSeries: seed.revenueSeries,
       sportMix: seed.sportMix,
       channelMix: seed.channelMix,
       peakHours: seed.peakHours,
       venueInsights: seed.insights,
       addReservation,
+      addCustomer,
       // Bound helpers
       courtById: (id) => courtByIdFn(courts, id),
       courtDayEvents,
@@ -232,7 +280,7 @@ export function VenueDataProvider({
       venueEventsFor,
       venueScheduleFor,
     }
-  }, [addReservation, reservations, seed, venueId])
+  }, [addReservation, addCustomer, reservations, customers, seed, venueId])
 
   return (
     <VenueDataContext.Provider value={value}>

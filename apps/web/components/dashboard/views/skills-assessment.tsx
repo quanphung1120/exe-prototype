@@ -50,15 +50,18 @@ export function SkillsAssessmentView() {
   // Pre-populate from any saved assessment so the user only needs to fill
   // in the missing sport rather than redo everything from scratch.
   React.useEffect(() => {
-    const existing = readStoredAssessment()
-    if (!existing) return
-    setSelectedSports(existing.selectedSports)
-    const preAnswers: DraftAnswers = {}
-    existing.selectedSports.forEach((sport) => {
-      const result = existing.results[sport]
-      if (result?.answers) preAnswers[sport] = result.answers
-    })
-    setAnswers(preAnswers)
+    const timer = setTimeout(() => {
+      const existing = readStoredAssessment()
+      if (!existing) return
+      setSelectedSports(existing.selectedSports)
+      const preAnswers: DraftAnswers = {}
+      existing.selectedSports.forEach((sport) => {
+        const result = existing.results[sport]
+        if (result?.answers) preAnswers[sport] = result.answers
+      })
+      setAnswers(preAnswers)
+    }, 0)
+    return () => clearTimeout(timer)
   }, [])
 
   const steps = React.useMemo<Step[]>(

@@ -1137,6 +1137,10 @@
       "label": "Phân tích",
       "caption": "Doanh thu, nhu cầu và khách chơi"
     },
+    "customers": {
+      "label": "Khách hàng",
+      "caption": "Quản lý khách chơi và quan hệ khách hàng"
+    },
     "manage": {
       "label": "Địa điểm",
       "caption": "Thêm, sửa và chuyển đổi địa điểm"
@@ -1465,6 +1469,7 @@
     },
     "col": {
       "customer": "Khách hàng",
+      "phone": "Số điện thoại",
       "sport": "Môn",
       "visits": "Lượt",
       "lastVisit": "Lần cuối",
@@ -1554,6 +1559,7 @@
     "reasoning": "Lập luận",
     "searchingCourts": "Đang tìm kiếm sân…",
     "matchingPlayers": "Đang ghép người chơi…",
+    "bookingCourt": "Đang đặt sân…",
     "working": "Đang xử lý…",
     "topCourtsRanked": "Top {count} sân · xếp theo {sortBy}",
     "selectPlayersInvite": "Chọn người chơi ở trên để tạo nhóm.",
@@ -1573,6 +1579,8 @@
       "team": "nhiều khung trống nhất",
       "best": "tốt nhất"
     },
+    "availableFrom": "Còn chỗ từ {time}",
+    "slotsOpen": "{count} khung giờ còn trống",
     "prompts": {
       "badmintonNearMe": "Tìm sân cầu lông gần tôi",
       "cheapestPickleball": "Sân pickleball rẻ nhất tối nay",
