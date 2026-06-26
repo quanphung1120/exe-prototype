@@ -5,6 +5,7 @@ import * as z from "zod"
 
 import {
   addCourt,
+  addWalkInReservation,
   createVenue,
   getVenue,
   listVenues,
@@ -38,6 +39,14 @@ const courtInput = z.object({
   state: z.enum(["available", "in-play", "upcoming", "maintenance"]).optional(),
 })
 const courtPatch = courtInput.partial()
+const walkInInput = z.object({
+  courtId: z.string().min(1),
+  dayKey: z.string().min(1),
+  start: time,
+  durationMin: z.number().int().min(15).max(24 * 60),
+  customerName: z.string().min(2).max(80),
+  customerPhone: z.string().min(6).max(30),
+})
 
 const idParam = z.object({ id: z.string().min(1) })
 const courtParam = z.object({
@@ -105,3 +114,24 @@ export const venues = new Hono()
       throw new HTTPException(404, { message: "Court not found" })
     return c.json({ ok: true })
   })
+  .post(
+    "/:id/reservations/walk-in",
+    zValidator("param", idParam),
+    zValidator("json", walkInInput),
+    (c) => {
+      let reservation
+      try {
+        reservation = addWalkInReservation(
+          c.req.valid("param").id,
+          c.req.valid("json")
+        )
+      } catch (error) {
+        throw new HTTPException(400, {
+          message: error instanceof Error ? error.message : "Invalid walk-in",
+        })
+      }
+      if (!reservation)
+        throw new HTTPException(404, { message: "Court or venue not found" })
+      return c.json(reservation, 201)
+    }
+  )

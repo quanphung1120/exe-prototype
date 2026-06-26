@@ -96,7 +96,7 @@ function matchesFilter(r: Reservation, filter: FilterKey): boolean {
       return r.status === "confirmed"
     case "today":
       return (
-        r.day.en === "Today" &&
+        r.dayKey === "today" &&
         (r.status === "confirmed" ||
           r.status === "checked-in" ||
           r.status === "pending")
@@ -158,6 +158,11 @@ function useReservationColumns(
                     </Badge>
                   ) : null}
                 </div>
+                {r.customer.phone ? (
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {r.customer.phone}
+                  </div>
+                ) : null}
                 <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                   <SportTag sport={r.sport} />
                   <span aria-hidden>·</span>

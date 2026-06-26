@@ -408,6 +408,7 @@ export interface ScheduleEvent {
   durationMin: number
   kind: Exclude<SlotKind, "free">
   customer?: string
+  customerPhone?: string
   sport: SportKey
   party?: number
   /** True once the event has fully passed (today only). */
@@ -427,10 +428,14 @@ export type ReservationStatus =
 
 export interface Reservation {
   id: string
-  customer: { name: string; initials: string }
+  customer: { name: string; initials: string; phone?: string }
   sport: SportKey
+  courtId?: string
   court: string
+  dayKey?: string
   day: Localized
+  start?: string
+  durationMin?: number
   time: string
   party: number
   source: BookingSource

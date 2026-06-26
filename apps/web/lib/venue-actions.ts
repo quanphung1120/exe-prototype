@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import type { SportKey, Venue, VenueCourt } from "@repo/shared"
+import type { Reservation, SportKey, Venue, VenueCourt } from "@repo/shared"
 
 import { API_URL } from "@/lib/api"
 
@@ -44,6 +44,15 @@ export interface CourtInput {
   surface: string
   pricePerHour: number
   state?: VenueCourt["state"]
+}
+
+export interface WalkInReservationInput {
+  courtId: string
+  dayKey: string
+  start: string
+  durationMin: number
+  customerName: string
+  customerPhone: string
 }
 
 export async function createVenue(input: VenueInput): Promise<Venue> {
@@ -110,4 +119,19 @@ export async function deleteCourt(
   await api(`/api/venues/${venueId}/courts/${courtId}`, { method: "DELETE" })
   // Revalidate the specific venue's layout
   revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+}
+
+export async function addWalkInReservation(
+  venueId: string,
+  input: WalkInReservationInput
+): Promise<Reservation> {
+  const reservation = await api<Reservation>(
+    `/api/venues/${venueId}/reservations/walk-in`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    }
+  )
+  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  return reservation
 }

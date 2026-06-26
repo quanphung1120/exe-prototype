@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useLocale } from "next-intl"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import {
@@ -9,7 +10,7 @@ import {
   CalendarRange,
   Footprints,
   Lock,
-  MessageSquare,
+  Phone,
   Plus,
   Sparkles,
   Users,
@@ -19,12 +20,22 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
   slotKindAccent,
+  type Reservation,
   type ScheduleEvent,
   type SlotKind,
   type VenueCourt,
@@ -61,6 +72,7 @@ import {
   VenuePanel,
 } from "@/components/dashboard/venue/shared"
 import { useVenue } from "@/components/dashboard/venue/venue-provider"
+import { addWalkInReservation } from "@/lib/venue-actions"
 
 const LEGEND_KINDS: Exclude<SlotKind, "free">[] = [
   "booked",
@@ -81,13 +93,16 @@ export function VenueScheduleView({
 }: {
   embedded?: boolean
 } = {}) {
+  const locale = useLocale()
   const t = useTranslations("VenueSchedule")
   const tc = useTranslations("Common")
   const tcal = useTranslations("Calendar")
   const { stats } = useVenue()
   const {
+    venueId,
     venue: VENUE,
     venueCourts: VENUE_COURTS,
+    addReservation,
     courtDayEvents,
     venueScheduleFor,
   } = useVenueData()
@@ -98,6 +113,13 @@ export function VenueScheduleView({
   const [weekCourtId, setWeekCourtId] = React.useState<string>(
     VENUE_COURTS[0]?.id ?? ""
   )
+  const [walkInDialog, setWalkInDialog] = React.useState<{
+    courtId: string
+    courtName: string
+    dayKey: string
+    start: string
+    durationMin: number
+  } | null>(null)
 
   const monthsShort = tcal.raw("monthsShort") as string[]
   const months = tcal.raw("months") as string[]
@@ -162,10 +184,13 @@ export function VenueScheduleView({
         {gaps.map((g) => (
           <FreeBand
             key={`${court.id}-${dateIso}-${g.start}`}
+            courtId={court.id}
             courtName={court.name}
+            dayKey={seedForDate(dateIso)}
             start={g.start}
             durationMin={g.durationMin}
             t={t}
+            onAddWalkIn={(input) => setWalkInDialog(input)}
           />
         ))}
         {events.map((ev) => (
@@ -173,6 +198,7 @@ export function VenueScheduleView({
             key={ev.id}
             event={ev}
             courtName={court.name}
+            locale={locale}
             t={t}
             tc={tc}
           />
@@ -482,6 +508,15 @@ export function VenueScheduleView({
           </div>
         ) : null}
       </VenuePanel>
+
+      <WalkInDialog
+        locale={locale}
+        venueId={venueId}
+        reservation={walkInDialog}
+        onClose={() => setWalkInDialog(null)}
+        onCreated={addReservation}
+        t={t}
+      />
     </div>
   )
 }
@@ -490,11 +525,13 @@ export function VenueScheduleView({
 function EventBlock({
   event,
   courtName,
+  locale,
   t,
   tc,
 }: {
   event: ScheduleEvent
   courtName: string
+  locale: string
   t: ReturnType<typeof useTranslations>
   tc: ReturnType<typeof useTranslations>
 }) {
@@ -504,6 +541,18 @@ function EventBlock({
   const compact = height < 46
   const blocked = event.kind === "blocked"
   const Icon = event.kind === "walk-in" ? Footprints : Users
+  const infoCopy =
+    locale === "vi"
+      ? {
+          customer: "Khách đặt sân",
+          phone: "Số điện thoại",
+          noPhone: "Chưa có số điện thoại",
+        }
+      : {
+          customer: "Customer",
+          phone: "Phone",
+          noPhone: "No phone number",
+        }
 
   return (
     <div className="absolute inset-x-1 z-10" style={{ top: top + 1, height }}>
@@ -586,18 +635,16 @@ function EventBlock({
               </Button>
             ) : (
               <div className="flex flex-col gap-1.5">
-                <Button
-                  size="sm"
-                  className="w-full justify-start rounded-full"
-                  onClick={() =>
-                    toast.success(t("toast.messaged"), {
-                      description: event.customer,
-                    })
-                  }
-                >
-                  <MessageSquare />
-                  {t("event.message")}
-                </Button>
+                <div className="rounded-2xl bg-muted/50 px-3 py-2 text-sm">
+                  <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    {infoCopy.customer}
+                  </div>
+                  <div className="mt-1 font-medium">{event.customer}</div>
+                  <div className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Phone className="size-3.5" />
+                    <span>{event.customerPhone ?? infoCopy.noPhone}</span>
+                  </div>
+                </div>
                 <Button
                   size="sm"
                   variant="outline"
@@ -633,16 +680,181 @@ function EventBlock({
   )
 }
 
-/** A free gap — subtle until hovered, click to add a walk-in or block it. */
-function FreeBand({
-  courtName,
-  start,
-  durationMin,
+function WalkInDialog({
+  locale,
+  venueId,
+  reservation,
+  onClose,
+  onCreated,
   t,
 }: {
+  locale: string
+  venueId: string
+  reservation: {
+    courtId: string
+    courtName: string
+    dayKey: string
+    start: string
+    durationMin: number
+  } | null
+  onClose: () => void
+  onCreated: (reservation: Reservation) => void
+  t: ReturnType<typeof useTranslations>
+}) {
+  const copy =
+    locale === "vi"
+      ? {
+          title: "Thêm khách vãng lai",
+          description:
+            "Nhập tên, số điện thoại, giờ bắt đầu và thời lượng để giữ khung sân này.",
+          name: "Tên khách",
+          phone: "Số điện thoại",
+          start: "Giờ bắt đầu",
+          duration: "Thời lượng (phút)",
+          cancel: "Hủy",
+          submit: "Giữ sân",
+          saving: "Đang lưu...",
+        }
+      : {
+          title: "Add walk-in",
+          description:
+            "Enter the guest's name, phone, start time and duration to hold this court.",
+          name: "Guest name",
+          phone: "Phone number",
+          start: "Start time",
+          duration: "Duration (minutes)",
+          cancel: "Cancel",
+          submit: "Hold court",
+          saving: "Saving...",
+        }
+  const [name, setName] = React.useState("")
+  const [phone, setPhone] = React.useState("")
+  const [start, setStart] = React.useState("06:00")
+  const [durationMin, setDurationMin] = React.useState("60")
+  const [isPending, startTransition] = React.useTransition()
+
+  React.useEffect(() => {
+    if (!reservation) return
+    setName("")
+    setPhone("")
+    setStart(reservation.start)
+    setDurationMin(String(Math.max(15, reservation.durationMin)))
+  }, [reservation])
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!reservation) return
+    startTransition(async () => {
+      try {
+        const created = await addWalkInReservation(venueId, {
+          courtId: reservation.courtId,
+          dayKey: reservation.dayKey,
+          start,
+          durationMin: Number(durationMin),
+          customerName: name,
+          customerPhone: phone,
+        })
+        onCreated(created)
+        toast.success(t("toast.walkInTitle"), {
+          description: `${reservation.courtName} · ${created.time}`,
+        })
+        onClose()
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to add walk-in"
+        )
+      }
+    })
+  }
+
+  return (
+    <Dialog open={reservation !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{copy.title}</DialogTitle>
+          <DialogDescription>{copy.description}</DialogDescription>
+        </DialogHeader>
+        {reservation ? (
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="rounded-2xl bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              {reservation.courtName} · {start}
+            </div>
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              {copy.name}
+              <Input
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              {copy.phone}
+              <Input
+                required
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+              />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5 text-sm font-medium">
+                {copy.start}
+                <Input
+                  required
+                  type="time"
+                  step={900}
+                  value={start}
+                  onChange={(event) => setStart(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-medium">
+                {copy.duration}
+                <Input
+                  required
+                  min={15}
+                  step={15}
+                  type="number"
+                  value={durationMin}
+                  onChange={(event) => setDurationMin(event.target.value)}
+                />
+              </label>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                {copy.cancel}
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? copy.saving : copy.submit}
+              </Button>
+            </DialogFooter>
+          </form>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** A free gap — subtle until hovered, click to add a walk-in or block it. */
+function FreeBand({
+  courtId,
+  courtName,
+  dayKey,
+  start,
+  durationMin,
+  onAddWalkIn,
+  t,
+}: {
+  courtId: string
   courtName: string
+  dayKey: string
   start: string
   durationMin: number
+  onAddWalkIn: (input: {
+    courtId: string
+    courtName: string
+    dayKey: string
+    start: string
+    durationMin: number
+  }) => void
   t: ReturnType<typeof useTranslations>
 }) {
   const top = toMin(start) * PX_PER_MIN
@@ -670,8 +882,12 @@ function FreeBand({
                 size="sm"
                 className="w-full justify-start rounded-full"
                 onClick={() =>
-                  toast.success(t("toast.walkInTitle"), {
-                    description: slotLabel,
+                  onAddWalkIn({
+                    courtId,
+                    courtName,
+                    dayKey,
+                    start,
+                    durationMin: Math.min(60, Math.max(15, durationMin)),
                   })
                 }
               >

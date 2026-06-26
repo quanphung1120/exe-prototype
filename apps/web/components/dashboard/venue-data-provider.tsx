@@ -3,11 +3,10 @@
 import * as React from "react"
 
 import {
+  SCHEDULE_HOURS,
+  VENUE_DAYS,
   courtById as courtByIdFn,
   courtDayEvents as courtDayEventsFn,
-  courtDaySlots as courtDaySlotsFn,
-  venueEventsFor as venueEventsForFn,
-  venueScheduleFor as venueScheduleForFn,
   type ChannelMixPoint,
   type PeakHourPoint,
   type Reservation,
@@ -39,6 +38,7 @@ interface VenueDataContextValue {
   channelMix: ChannelMixPoint[]
   peakHours: PeakHourPoint[]
   venueInsights: VenueInsight[]
+  addReservation: (reservation: Reservation) => void
   // Bound helpers
   courtById: (id: string) => VenueCourt | undefined
   courtDayEvents: (courtId: string, dayKey: string) => ScheduleEvent[]
@@ -65,6 +65,50 @@ export function useOptionalVenueData(): VenueDataContextValue | null {
   return React.useContext(VenueDataContext)
 }
 
+const TIME_RANGE_RE = /(\d{2}:\d{2})/g
+const ACTIVE_SCHEDULE_STATUSES = new Set<string>([
+  "pending",
+  "confirmed",
+  "checked-in",
+  "completed",
+] as const)
+
+function toMinutes(hhmm: string): number {
+  const [hour, minute] = hhmm.split(":").map(Number)
+  return (hour || 0) * 60 + (minute || 0)
+}
+
+function reservationDayKey(reservation: Reservation): string {
+  if (reservation.dayKey) return reservation.dayKey
+  return (
+    VENUE_DAYS.find((day) => day.label.en === reservation.day.en)?.key ?? "past"
+  )
+}
+
+function reservationStart(reservation: Reservation): string | null {
+  if (reservation.start) return reservation.start
+  const [start] = reservation.time.match(TIME_RANGE_RE) ?? []
+  return start ?? null
+}
+
+function reservationDuration(reservation: Reservation): number {
+  if (reservation.durationMin) return reservation.durationMin
+  const [start, end] = reservation.time.match(TIME_RANGE_RE) ?? []
+  if (!start || !end) return 60
+  return Math.max(15, toMinutes(end) - toMinutes(start))
+}
+
+function overlaps(
+  startA: string,
+  durationA: number,
+  startB: string,
+  durationB: number
+): boolean {
+  const a = toMinutes(startA)
+  const b = toMinutes(startB)
+  return a < b + durationB && b < a + durationA
+}
+
 /**
  * Provides venue-scoped data fetched from the per-venue layout.
  * Mounted in `/dashboard/venue/[venueId]/layout.tsx` so all venue-workspace
@@ -79,32 +123,116 @@ export function VenueDataProvider({
   venueId: string
   children: React.ReactNode
 }) {
+  const [reservations, setReservations] = React.useState<Reservation[]>(
+    seed.reservations
+  )
+
+  const addReservation = React.useCallback((reservation: Reservation) => {
+    setReservations((current) => [...current, reservation])
+  }, [])
+
   const value = React.useMemo<VenueDataContextValue>(() => {
     const venue = seed.info
     const courts = seed.courts
+    const courtDayEvents = (courtId: string, dayKey: string) => {
+      const base = courtDayEventsFn(venue, courts, courtId, dayKey)
+      const overlays = reservations
+        .filter((reservation) => {
+          if (!ACTIVE_SCHEDULE_STATUSES.has(reservation.status)) return false
+          if (reservationDayKey(reservation) !== dayKey) return false
+          const mappedCourtId =
+            reservation.courtId ??
+            courts.find((court) => court.name === reservation.court)?.id
+          return mappedCourtId === courtId
+        })
+        .map((reservation) => {
+          const start = reservationStart(reservation)
+          if (!start) return null
+          const durationMin = reservationDuration(reservation)
+          const event: ScheduleEvent = {
+            id: reservation.id,
+            courtId,
+            start,
+            durationMin,
+            kind: reservation.source === "walk-in" ? "walk-in" : "booked",
+            customer: reservation.customer.name,
+            customerPhone: reservation.customer.phone,
+            sport: reservation.sport,
+            party: reservation.party,
+            past:
+              dayKey === "today" &&
+              toMinutes(start) + durationMin <= toMinutes(venue.now),
+          }
+          return event
+        })
+        .filter((event): event is ScheduleEvent => event !== null)
+
+      if (!overlays.length) return base
+      const filteredBase = base.filter((event) =>
+        overlays.every(
+          (overlay) =>
+            !overlaps(
+              event.start,
+              event.durationMin,
+              overlay.start,
+              overlay.durationMin
+            )
+        )
+      )
+      return [...filteredBase, ...overlays].sort(
+        (a, b) => toMinutes(a.start) - toMinutes(b.start)
+      )
+    }
+    const courtDaySlots = (courtId: string, dayKey: string) => {
+      const court = courtByIdFn(courts, courtId)
+      const sport = court?.sport ?? "badminton"
+      const events = courtDayEvents(courtId, dayKey)
+      const nowIdx = SCHEDULE_HOURS.indexOf(venue.now)
+      return SCHEDULE_HOURS.map((hour, index): ScheduleSlot => {
+        const event = events.find((item) =>
+          overlaps(hour, 60, item.start, item.durationMin)
+        )
+        const past = dayKey === "today" && index < nowIdx
+        if (!event) {
+          return { courtId, hour, kind: "free", sport, past }
+        }
+        return {
+          courtId,
+          hour,
+          kind: event.kind,
+          customer: event.customer,
+          sport,
+          party: event.party,
+          past,
+        } satisfies ScheduleSlot
+      })
+    }
+    const venueEventsFor = (dayKey: string) =>
+      courts.map((court) => courtDayEvents(court.id, dayKey))
+    const venueScheduleFor = (dayKey: string) =>
+      courts.map((court) => courtDaySlots(court.id, dayKey))
 
     return {
       venueId,
       venue,
       venueStats: seed.stats,
       venueCourts: courts,
-      reservations: seed.reservations,
+      reservations,
       venueCustomers: seed.customers,
       revenueSeries: seed.revenueSeries,
       sportMix: seed.sportMix,
       channelMix: seed.channelMix,
       peakHours: seed.peakHours,
       venueInsights: seed.insights,
+      addReservation,
       // Bound helpers
       courtById: (id) => courtByIdFn(courts, id),
-      courtDayEvents: (courtId, dayKey) =>
-        courtDayEventsFn(venue, courts, courtId, dayKey),
-      courtDaySlots: (courtId, dayKey) =>
-        courtDaySlotsFn(venue, courts, courtId, dayKey),
-      venueEventsFor: (dayKey) => venueEventsForFn(venue, courts, dayKey),
-      venueScheduleFor: (dayKey) => venueScheduleForFn(venue, courts, dayKey),
+      courtDayEvents,
+      courtDaySlots,
+      venueEventsFor,
+      venueScheduleFor,
     }
-  }, [seed, venueId])
+  }, [addReservation, reservations, seed, venueId])
 
   return (
     <VenueDataContext.Provider value={value}>
