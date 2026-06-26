@@ -1565,6 +1565,8 @@
     "groupChatCreated": "Group chat created. Waiting for players to accept.",
     "inviteFailed": "Failed to send invite.",
     "selectedCount": "{count, plural, one {# selected:} other {# selected:}}",
+    "requireAssessment": "You must complete the skill assessment for {sport} before matching with partners.",
+    "completeAssessment": "Complete Assessment",
     "rank": {
       "price": "lowest price",
       "distance": "nearest",
@@ -1577,5 +1579,222 @@
       "badmintonTeammates": "Find badminton teammates tonight",
       "sameLevelPlayers": "Match me with same-level players"
     }
+  },
+  "Assessment": {
+    "metaTitle": "Skill Assessment",
+    "metaDescription": "Assess your racquet sport skill level before you start playing.",
+    "loading": {
+      "title": "Checking skill profile",
+      "description": "We are reading saved results on this device."
+    },
+    "gate": {
+      "requiredBadge": "Required before entering the game",
+      "title": "Player Skill Assessment",
+      "description": "Select the sports you participate in and answer the questions. You can always redo this assessment later.",
+      "selectSports": "Select sports",
+      "sportsSelected": "{count} selected",
+      "questionsCount": "{count} questions",
+      "stepProgress": "{stepNum}/{totalSteps}"
+    },
+    "stepper": {
+      "sports": "Sports"
+    },
+    "progress": {
+      "step": "Step {current} of {total}",
+      "answered": "{answered}/{total} answered"
+    },
+    "complete": {
+      "title": "You're all set!",
+      "subtitle": "Here's your skill profile. You can redo this assessment anytime from settings.",
+      "cta": "Enter dashboard"
+    },
+    "sportsSelect": {
+      "title": "Sports you want to play",
+      "description": "Select the sports you want to play on the app. We will show the appropriate assessment.",
+      "noticeTitle": "Important Notice",
+      "noticeBody": "You can always change your selected sports and redo this assessment at any time from your account settings.",
+      "badminton": {
+        "title": "Badminton",
+        "description": "Badminton - a high-speed sport that requires quick reflexes and agile court movement."
+      },
+      "pickleball": {
+        "title": "Pickleball",
+        "description": "Pickleball - a highly trendy new sport, easy to learn and brings lots of fun."
+      }
+    },
+    "badminton": {
+      "title": "Badminton",
+      "description": "Each answer is scored from 1-6 points according to answers A-F in the Questionnaire.",
+      "questions": {
+        "q1": {
+          "text": "How long have you been playing badminton?",
+          "answers": {
+            "A": "Under 3 months",
+            "B": "3 months - 1 year",
+            "C": "1 - 2 years",
+            "D": "Over 2 years with regular training",
+            "E": "Over 5 years with high intensity",
+            "F": "Currently/formerly playing professionally"
+          }
+        },
+        "q2": {
+          "text": "How well do you control your shots?",
+          "answers": {
+            "A": "Often miss or hit off-center",
+            "B": "Have intent but shots don't always go where wanted",
+            "C": "Most shots go where intended",
+            "D": "Good control over power and placement",
+            "E": "Flexible adjustment of speed and spin",
+            "F": "Complete control during competition"
+          }
+        },
+        "q3": {
+          "text": "Which techniques can you execute?",
+          "answers": {
+            "A": "Just clearing over the net",
+            "B": "Basic clears and drops",
+            "C": "Basic smashes, lobs, and drives",
+            "D": "Proficient in most techniques",
+            "E": "Have personal signature techniques",
+            "F": "Use techniques at professional competition level"
+          }
+        },
+        "q4": {
+          "text": "How do you build strategy during play?",
+          "answers": {
+            "A": "No strategy",
+            "B": "Play purely on reflex",
+            "C": "Have intent but inconsistent",
+            "D": "Know how to set up for the next shot",
+            "E": "Regularly exploit opponent's weaknesses",
+            "F": "Adapt strategy flexibly during the match"
+          }
+        },
+        "q5": {
+          "text": "At what level do you compete?",
+          "answers": {
+            "A": "Recreational play only",
+            "B": "Playing with friends",
+            "C": "Playing in club sessions",
+            "D": "Amateur tournaments",
+            "E": "Semi-professional tournaments",
+            "F": "Professional tournaments"
+          }
+        }
+      },
+      "ranges": {
+        "r0": "Novice",
+        "r1": "Average",
+        "r2": "Intermediate",
+        "r3": "Advanced",
+        "r4": "Semi-professional",
+        "r5": "Professional"
+      }
+    },
+    "pickleball": {
+      "title": "Pickleball",
+      "description": "Each answer is scored from 1-8 points according to answers A-H in the Questionnaire.",
+      "questions": {
+        "q1": {
+          "text": "How is your forehand shot?",
+          "answers": {
+            "A": "Just starting, often miss or hit in wrong direction",
+            "B": "Can get it over the net but with little control",
+            "C": "Can hit at moderate speed but inconsistent",
+            "D": "Fairly consistent in most situations",
+            "E": "Good control over direction and pace",
+            "F": "Can vary pace, depth, and placement",
+            "G": "Hit with high precision and clear intent in match play",
+            "H": "Capable of playing at a very high / professional level"
+          }
+        },
+        "q2": {
+          "text": "How is your backhand shot?",
+          "answers": {
+            "A": "Rarely use it",
+            "B": "Can use it but very weak and error-prone",
+            "C": "Basic hit but inconsistent",
+            "D": "Relatively stable in simple situations",
+            "E": "Good control over direction and pace",
+            "F": "Can handle various spin/ball types",
+            "G": "Consistent and precise in match play",
+            "H": "Capable of playing at a very high / professional level"
+          }
+        },
+        "q3": {
+          "text": "How is your dink shot (play near the net)?",
+          "answers": {
+            "A": "Not yet familiar or rarely execute",
+            "B": "Can execute but often too high or make errors",
+            "C": "Can sustain a few short rallies but cannot keep it up",
+            "D": "Can sustain basic dink rallies",
+            "E": "Know how to hit soft, keep it low and minimize errors",
+            "F": "Use soft game to create advantage",
+            "G": "Patient, excellent control of net play",
+            "H": "Net play at a very high / professional level"
+          }
+        },
+        "q4": {
+          "text": "How is your third shot drop (transitioning to net)?",
+          "answers": {
+            "A": "Do not know how to execute yet",
+            "B": "Know but often hit error or too high",
+            "C": "Succeed occasionally",
+            "D": "Can use it to get ball over and advance to net",
+            "E": "Know when to play soft drop or hard drive depending on situation",
+            "F": "Execute with good consistency and clear intent",
+            "G": "Proficient on both forehand and backhand sides",
+            "H": "Execute at a very high / professional level"
+          }
+        },
+        "q5": {
+          "text": "When playing matches, what is your tactical awareness?",
+          "answers": {
+            "A": "Mainly hitting to get ball over, no strategy",
+            "B": "Play on reflex, don't know where to position",
+            "C": "Understand basic positioning and movement",
+            "D": "Position correctly in singles or doubles",
+            "E": "Coordinate with partner to create court openings",
+            "F": "Observe and exploit opponent's weaknesses",
+            "G": "Vary style based on opponent and match situations",
+            "H": "Capable of tactical play at a very high / professional level"
+          }
+        }
+      },
+      "ranges": {
+        "r0": "Level 1.0-2.0",
+        "r1": "Level 2.5",
+        "r2": "Level 3.0",
+        "r3": "Level 3.5",
+        "r4": "Level 4.0",
+        "r5": "Level 4.5",
+        "r6": "Level 5.0",
+        "r7": "Level 5.5+"
+      }
+    },
+    "actions": {
+      "continue": "Continue",
+      "back": "Back",
+      "complete": "Complete assessment",
+      "redo": "Redo assessment"
+    },
+    "validation": {
+      "missingAnswer": "Please choose an answer for this question.",
+      "incompleteAlert": "Please answer all questions before continuing."
+    },
+    "results": {
+      "title": "Assessment Results",
+      "resultText": "{score} points - {levelLabel}",
+      "notAssessed": "Not assessed",
+      "skipped": "Skipped"
+    }
+  },
+  "Profile": {
+    "dialogDescription": "Displays player profile and skill level",
+    "bio": "Passionate about racquet sports, always looking for worthy opponents to play and improve my skills. Play well, socialize, reliable!",
+    "yourLevel": "Your skill level",
+    "notAssessed": "Not assessed",
+    "points": "{score} pts",
+    "reliability": "Reliability"
   }
 }

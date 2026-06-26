@@ -63,6 +63,10 @@ import {
   type PlayerMatchIntent,
   type PlayerMatchResult,
 } from "@/lib/player-matching"
+import {
+  readStoredAssessment,
+  PLAYER_ASSESSMENT_PATH,
+} from "@/lib/player-assessment"
 
 // ─── Types mirroring tool execute return values ───────────────────────────────
 
@@ -82,6 +86,10 @@ interface ClarifyToolResult {
   options: string[]
 }
 
+interface AssessmentToolResult {
+  sport: SportKey
+}
+
 // Discriminate a tool's output by shape, not by tool name — some models stream
 // the tool name too late for the AI SDK to type the part (the part type ends up
 // a bare `tool-`), but the output payload is always there and unambiguous.
@@ -89,6 +97,7 @@ type ToolResult =
   | { kind: "courts"; value: CourtToolResult }
   | { kind: "players"; value: PlayerToolResult }
   | { kind: "clarify"; value: ClarifyToolResult }
+  | { kind: "assessment"; value: AssessmentToolResult }
 
 function toolResult(output: unknown): ToolResult | null {
   if (!output || typeof output !== "object") return null
@@ -99,6 +108,13 @@ function toolResult(output: unknown): ToolResult | null {
     return { kind: "players", value: output as PlayerToolResult }
   if (typeof o.question === "string" && Array.isArray(o.options))
     return { kind: "clarify", value: output as ClarifyToolResult }
+  if (
+    typeof o.sport === "string" &&
+    (o.sport === "badminton" || o.sport === "pickleball") &&
+    !("courts" in o) &&
+    !("players" in o)
+  )
+    return { kind: "assessment", value: output as AssessmentToolResult }
   return null
 }
 
@@ -296,7 +312,15 @@ export function AiNativeDashboardView() {
     // distance. Attach the per-sport skill levels and location as extra request
     // body fields — the route reads them to personalise ranking + matching.
     const userLocation = await resolveLocation()
-    sendMessage({ text: trimmed }, { body: { userLevels, userLocation } })
+    const assessment = readStoredAssessment()
+    const activeUserLevels: Record<string, string> = {}
+    if (assessment?.results?.badminton) {
+      activeUserLevels.badminton = userLevels.badminton
+    }
+    if (assessment?.results?.pickleball) {
+      activeUserLevels.pickleball = userLevels.pickleball
+    }
+    sendMessage({ text: trimmed }, { body: { userLevels: activeUserLevels, userLocation } })
   }
 
   const togglePlayer = (player: PlayerMatchResult) => {
@@ -668,6 +692,15 @@ function ChatMessageRow({
             )
           }
 
+          if (isDone && result?.kind === "assessment") {
+            return (
+              <RequestAssessmentChatResult
+                key={i}
+                sport={result.value.sport}
+              />
+            )
+          }
+
           // Tool call resolving — lightweight searching indicator.
           if (!isDone) {
             const toolName =
@@ -803,6 +836,34 @@ function ClarifyChatResult({
             {option}
           </button>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Assessment Required Refusal (Human-in-the-loop) ──────────────────────────
+
+function RequestAssessmentChatResult({ sport }: { sport: SportKey }) {
+  const t = useTranslations("AiDashboard")
+  const tc = useTranslations("Common")
+  const router = useRouter()
+
+  return (
+    <div className="flex flex-col gap-3 self-start">
+      <div className="flex justify-start">
+        <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-4 py-2.5 text-sm">
+          {t("requireAssessment", { sport: tc(`sports.${sport}`) })}
+        </div>
+      </div>
+      <div className="pl-1">
+        <Button
+          onClick={() => router.push(PLAYER_ASSESSMENT_PATH)}
+          variant="outline"
+          size="sm"
+          className="rounded-full shadow-sm"
+        >
+          {t("completeAssessment")}
+        </Button>
       </div>
     </div>
   )

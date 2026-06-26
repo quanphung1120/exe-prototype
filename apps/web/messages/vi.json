@@ -1565,6 +1565,8 @@
     "groupChatCreated": "Đã tạo nhóm trò chuyện. Đang chờ người chơi chấp nhận.",
     "inviteFailed": "Không thể gửi lời mời.",
     "selectedCount": "Đã chọn {count}:",
+    "requireAssessment": "Bạn cần hoàn thành đánh giá trình độ môn {sport} trước khi tìm kiếm đồng đội.",
+    "completeAssessment": "Hoàn thành đánh giá",
     "rank": {
       "price": "giá thấp nhất",
       "distance": "gần nhất",
@@ -1577,5 +1579,222 @@
       "badmintonTeammates": "Tìm đồng đội cầu lông tối nay",
       "sameLevelPlayers": "Ghép tôi với người chơi cùng trình độ"
     }
+  },
+  "Assessment": {
+    "metaTitle": "Đánh giá trình độ",
+    "metaDescription": "Đánh giá trình độ bộ môn thể thao của bạn trước khi bắt đầu chơi.",
+    "loading": {
+      "title": "Đang kiểm tra hồ sơ trình độ",
+      "description": "Chúng tôi đang đọc kết quả đã lưu trên thiết bị này."
+    },
+    "gate": {
+      "requiredBadge": "Bắt buộc trước khi vào game",
+      "title": "Đánh giá trình độ người chơi",
+      "description": "Chọn môn thể thao bạn tham gia và trả lời câu hỏi. Bạn luôn có thể làm lại đánh giá này sau.",
+      "selectSports": "Chọn bộ môn",
+      "sportsSelected": "{count} môn được chọn",
+      "questionsCount": "{count} câu hỏi",
+      "stepProgress": "{stepNum}/{totalSteps}"
+    },
+    "stepper": {
+      "sports": "Bộ môn"
+    },
+    "progress": {
+      "step": "Bước {current}/{total}",
+      "answered": "Đã trả lời {answered}/{total}"
+    },
+    "complete": {
+      "title": "Hoàn tất!",
+      "subtitle": "Đây là hồ sơ trình độ của bạn. Bạn có thể làm lại đánh giá bất cứ lúc nào trong phần cài đặt.",
+      "cta": "Vào trang chính"
+    },
+    "sportsSelect": {
+      "title": "Môn thể thao bạn muốn tham gia",
+      "description": "Chọn các bộ môn bạn muốn tham gia chơi trên ứng dụng. Chúng tôi sẽ hiển thị bài đánh giá phù hợp.",
+      "noticeTitle": "Lưu ý quan trọng",
+      "noticeBody": "Bạn luôn có thể thay đổi lựa chọn bộ môn và thực hiện lại bài đánh giá này bất kỳ lúc nào từ phần cài đặt tài khoản cá nhân.",
+      "badminton": {
+        "title": "Badminton",
+        "description": "Cầu lông - môn thể thao tốc độ cao, rèn luyện phản xạ nhanh nhạy và di chuyển linh hoạt trên sân."
+      },
+      "pickleball": {
+        "title": "Pickleball",
+        "description": "Pickleball - xu hướng thể thao mới cực kỳ thịnh hành, dễ làm quen và mang lại nhiều niềm vui."
+      }
+    },
+    "badminton": {
+      "title": "Cầu lông",
+      "description": "Mỗi câu trả lời được chấm từ 1-6 điểm theo đáp án A-F trong Bộ câu hỏi.",
+      "questions": {
+        "q1": {
+          "text": "Bạn đã chơi cầu lông bao lâu?",
+          "answers": {
+            "A": "Dưới 3 tháng",
+            "B": "3 tháng - 1 năm",
+            "C": "1 - 2 năm",
+            "D": "Trên 2 năm và tập thường xuyên",
+            "E": "Trên 5 năm, tập cường độ cao",
+            "F": "Đang/đã thi đấu chuyên nghiệp"
+          }
+        },
+        "q2": {
+          "text": "Mức độ kiểm soát đường cầu của bạn?",
+          "answers": {
+            "A": "Thường đánh lệch, hụt cầu",
+            "B": "Có ý đồ nhưng cầu chưa đi đúng mong muốn",
+            "C": "Đa số đường cầu đúng ý",
+            "D": "Kiểm soát tốt lực và điểm rơi",
+            "E": "Điều chỉnh tốc độ, độ xoáy linh hoạt",
+            "F": "Kiểm soát hoàn toàn trong thi đấu"
+          }
+        },
+        "q3": {
+          "text": "Bạn thực hiện được những kỹ thuật nào?",
+          "answers": {
+            "A": "Chỉ đánh qua lưới",
+            "B": "Phông, bỏ nhỏ cơ bản",
+            "C": "Đập, lốp, phản tạt cơ bản",
+            "D": "Thành thạo đa số kỹ thuật",
+            "E": "Có kỹ thuật sở trường riêng",
+            "F": "Sử dụng kỹ thuật ở cấp độ thi đấu chuyên nghiệp"
+          }
+        },
+        "q4": {
+          "text": "Bạn xây dựng chiến thuật khi thi đấu như thế nào?",
+          "answers": {
+            "A": "Không có chiến thuật",
+            "B": "Chỉ đánh theo phản xạ",
+            "C": "Có ý đồ nhưng chưa ổn định",
+            "D": "Biết chuẩn bị cho cú đánh tiếp theo",
+            "E": "Thường xuyên khai thác điểm yếu đối thủ",
+            "F": "Thay đổi chiến thuật linh hoạt trong trận"
+          }
+        },
+        "q5": {
+          "text": "Bạn tham gia thi đấu ở mức nào?",
+          "answers": {
+            "A": "Chỉ chơi giải trí",
+            "B": "Giao lưu bạn bè",
+            "C": "Giao lưu CLB",
+            "D": "Giải phong trào",
+            "E": "Giải bán chuyên",
+            "F": "Giải chuyên nghiệp"
+          }
+        }
+      },
+      "ranges": {
+        "r0": "Yếu",
+        "r1": "Trung bình",
+        "r2": "Khá",
+        "r3": "Tốt",
+        "r4": "Bán chuyên",
+        "r5": "Chuyên nghiệp"
+      }
+    },
+    "pickleball": {
+      "title": "Pickleball",
+      "description": "Mỗi câu trả lời được chấm từ 1-8 điểm theo đáp án A-H trong Bộ câu hỏi.",
+      "questions": {
+        "q1": {
+          "text": "Khả năng đánh bóng bằng tay thuận của bạn như thế nào?",
+          "answers": {
+            "A": "Mới tập, thường đánh hụt hoặc bóng đi sai hướng",
+            "B": "Đánh qua lưới được nhưng chưa kiểm soát tốt",
+            "C": "Đánh được ở tốc độ vừa phải nhưng chưa ổn định",
+            "D": "Đánh khá ổn trong đa số tình huống",
+            "E": "Kiểm soát tốt hướng bóng và lực đánh",
+            "F": "Có thể thay đổi lực đánh, tốc độ và điểm rơi",
+            "G": "Đánh chính xác, có mục đích rõ khi thi đấu",
+            "H": "Có khả năng thi đấu ở trình độ rất cao/chuyên nghiệp"
+          }
+        },
+        "q2": {
+          "text": "Khả năng đánh bóng bằng tay trái / bên không thuận của bạn như thế nào?",
+          "answers": {
+            "A": "Hầu như không dùng được",
+            "B": "Dùng được nhưng rất yếu và dễ lỗi",
+            "C": "Đánh được cơ bản nhưng chưa ổn định",
+            "D": "Đánh tương đối ổn trong tình huống đơn giản",
+            "E": "Kiểm soát khá tốt hướng bóng và lực đánh",
+            "F": "Có thể xử lý nhiều kiểu bóng khác nhau",
+            "G": "Đánh ổn định, chính xác trong thi đấu",
+            "H": "Có khả năng thi đấu ở trình độ rất cao/chuyên nghiệp"
+          }
+        },
+        "q3": {
+          "text": "Khả năng đánh bóng nhẹ gần lưới của bạn như thế nào?",
+          "answers": {
+            "A": "Chưa biết hoặc rất ít khi thực hiện",
+            "B": "Thực hiện được nhưng bóng thường quá cao hoặc lỗi",
+            "C": "Đánh được vài pha ngắn nhưng chưa giữ bóng lâu",
+            "D": "Có thể duy trì qua lại gần lưới ở mức cơ bản",
+            "E": "Biết đánh nhẹ, giữ bóng thấp và hạn chế lỗi",
+            "F": "Biết dùng cú đánh nhẹ để tạo lợi thế",
+            "G": "Kiên nhẫn, kiểm soát tốt các pha bóng gần lưới",
+            "H": "Xử lý bóng gần lưới ở trình độ rất cao/chuyên nghiệp"
+          }
+        },
+        "q4": {
+          "text": "Khả năng xử lý cú đánh quan trọng để tiến lên lưới của bạn như thế nào?",
+          "answers": {
+            "A": "Chưa biết cách thực hiện",
+            "B": "Biết nhưng thường đánh lỗi hoặc bóng quá cao",
+            "C": "Đôi lúc thực hiện thành công",
+            "D": "Có thể dùng để đưa bóng qua và tiến lên lưới",
+            "E": "Biết chọn lúc đánh nhẹ hoặc đánh mạnh tùy tình huống",
+            "F": "Thực hiện khá ổn định và có mục đích rõ ràng",
+            "G": "Thành thạo cả bên thuận tay và không thuận tay",
+            "H": "Thực hiện ở trình độ rất cao/chuyên nghiệp"
+          }
+        },
+        "q5": {
+          "text": "Khi chơi trận, bạn thường xử lý chiến thuật như thế nào?",
+          "answers": {
+            "A": "Chủ yếu đánh cho qua lưới, chưa có chiến thuật",
+            "B": "Đánh theo phản xạ, chưa biết chọn vị trí",
+            "C": "Hiểu cơ bản mình nên đứng đâu và di chuyển thế nào",
+            "D": "Biết chọn vị trí hợp lý khi đánh đôi hoặc đánh đơn",
+            "E": "Biết phối hợp với đồng đội và tạo khoảng trống trên sân",
+            "F": "Biết quan sát điểm yếu của đối thủ để khai thác",
+            "G": "Có thể thay đổi cách chơi tùy đối thủ và tình huống trận",
+            "H": "Có khả năng thi đấu chiến thuật ở trình độ rất cao/chuyên nghiệp"
+          }
+        }
+      },
+      "ranges": {
+        "r0": "Level 1.0-2.0",
+        "r1": "Level 2.5",
+        "r2": "Level 3.0",
+        "r3": "Level 3.5",
+        "r4": "Level 4.0",
+        "r5": "Level 4.5",
+        "r6": "Level 5.0",
+        "r7": "Level 5.5+"
+      }
+    },
+    "actions": {
+      "continue": "Tiếp tục",
+      "back": "Quay lại",
+      "complete": "Hoàn thành đánh giá",
+      "redo": "Làm lại đánh giá"
+    },
+    "validation": {
+      "missingAnswer": "Vui lòng chọn một đáp án cho câu này.",
+      "incompleteAlert": "Hãy trả lời đầy đủ trước khi tiếp tục."
+    },
+    "results": {
+      "title": "Kết quả đánh giá",
+      "resultText": "{score} điểm - {levelLabel}",
+      "notAssessed": "Chưa đánh giá",
+      "skipped": "Đã bỏ qua"
+    }
+  },
+  "Profile": {
+    "dialogDescription": "Hiển thị thông tin cá nhân và trình độ của người chơi",
+    "bio": "Đam mê các môn thể thao vợt, luôn tìm kiếm đối thủ xứng tầm để giao lưu và nâng cao trình độ. Chơi hay, giao lưu vui vẻ, đáng tin cậy!",
+    "yourLevel": "Trình độ của bạn",
+    "notAssessed": "Chưa đánh giá",
+    "points": "{score} điểm",
+    "reliability": "Độ tin cậy (Reliability)"
   }
 }

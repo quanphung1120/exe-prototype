@@ -40,11 +40,16 @@ export interface SportAssessmentResult {
 export interface PlayerAssessment {
   version: 1
   completedAt: string
-  results: Record<AssessmentSport, SportAssessmentResult>
+  selectedSports: AssessmentSport[]
+  results: Record<AssessmentSport, SportAssessmentResult | undefined>
 }
 
 export const PLAYER_ASSESSMENT_STORAGE_KEY = "sportmatch.playerAssessment.v1"
 export const PLAYER_ASSESSMENT_UPDATED_EVENT = "player-assessment-updated"
+
+// The dedicated route hosting the assessment wizard. The gate redirects
+// incomplete players here, and "redo" sends them back to it.
+export const PLAYER_ASSESSMENT_PATH = "/assessment"
 
 const badmintonAnswers = {
   q1: [
@@ -267,9 +272,17 @@ export function isCompleteAssessment(
   const assessment = value as Partial<PlayerAssessment>
   if (assessment.version !== 1 || !assessment.results) return false
 
-  return ASSESSMENTS.every((definition) => {
-    const result = assessment.results?.[definition.sport]
-    if (!result || result.sport !== definition.sport) return false
+  const selectedSports = Array.isArray(assessment.selectedSports)
+    ? (assessment.selectedSports as AssessmentSport[])
+    : (["badminton", "pickleball"] as AssessmentSport[])
+
+  if (selectedSports.length === 0) return false
+
+  return selectedSports.every((sport) => {
+    const definition = ASSESSMENTS.find((a) => a.sport === sport)
+    if (!definition) return false
+    const result = assessment.results?.[sport]
+    if (!result || result.sport !== sport) return false
     if (typeof result.score !== "number") return false
     if (typeof result.levelLabel !== "string") return false
     if (!["beginner", "intermediate", "advanced"].includes(result.bucket))
@@ -286,8 +299,12 @@ export function readStoredAssessment(): PlayerAssessment | null {
   try {
     const raw = window.localStorage.getItem(PLAYER_ASSESSMENT_STORAGE_KEY)
     if (!raw) return null
-    const parsed: unknown = JSON.parse(raw)
-    return isCompleteAssessment(parsed) ? parsed : null
+    const parsed = JSON.parse(raw) as Partial<PlayerAssessment>
+    if (!isCompleteAssessment(parsed)) return null
+    if (!parsed.selectedSports) {
+      parsed.selectedSports = ["badminton", "pickleball"]
+    }
+    return parsed as PlayerAssessment
   } catch {
     return null
   }
@@ -298,7 +315,7 @@ export function levelForSport(
   sport: AssessmentSport,
   fallback: Level
 ): Level {
-  return assessment?.results[sport]?.bucket ?? fallback
+  return assessment?.results?.[sport]?.bucket ?? fallback
 }
 
 export function levelsBySport(
@@ -322,4 +339,11 @@ export function writeStoredAssessment(assessment: PlayerAssessment) {
 export function clearStoredAssessment() {
   window.localStorage.removeItem(PLAYER_ASSESSMENT_STORAGE_KEY)
   window.dispatchEvent(new Event(PLAYER_ASSESSMENT_UPDATED_EVENT))
+}
+
+export function getRangeIndex(sport: AssessmentSport, score: number): number {
+  const definition = ASSESSMENTS.find((a) => a.sport === sport)
+  if (!definition) return 0
+  const index = definition.ranges.findIndex((r) => score >= r.min && score <= r.max)
+  return index !== -1 ? index : 0
 }

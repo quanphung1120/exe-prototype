@@ -18,6 +18,7 @@ import { useData } from "@/components/dashboard/data-provider"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
 import {
   readStoredAssessment,
+  getRangeIndex,
   type PlayerAssessment,
 } from "@/lib/player-assessment"
 
@@ -27,7 +28,10 @@ interface ProfileDialogProps {
 }
 
 export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
-  const t = useTranslations("Sidebar")
+  const tSidebar = useTranslations("Sidebar")
+  const tProfile = useTranslations("Profile")
+  const tAssessment = useTranslations("Assessment")
+  const tc = useTranslations("Common")
   const sUser = useAuthUser()
   const { userName } = useMatchmaking()
   const { user: USER } = useData()
@@ -54,8 +58,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
     ? accountSubtitle
     : `@${accountSubtitle}`
 
-  const bio =
-    "Đam mê các môn thể thao vợt, luôn tìm kiếm đối thủ xứng tầm để giao lưu và nâng cao trình độ. Chơi hay, giao lưu vui vẻ, đáng tin cậy!"
+  const bio = tProfile("bio")
 
   const badminton = assessment?.results?.badminton
   const pickleball = assessment?.results?.pickleball
@@ -64,9 +67,9 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="p-0 overflow-hidden max-w-[calc(100%-2rem)] sm:max-w-md gap-0">
         <DialogHeader className="sr-only">
-          <DialogTitle>{t("profile")}</DialogTitle>
+          <DialogTitle>{tSidebar("profile")}</DialogTitle>
           <DialogDescription>
-            Hiển thị thông tin cá nhân và trình độ của người chơi
+            {tProfile("dialogDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -109,7 +112,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
           {/* Current Levels */}
           <div className="mt-5 flex flex-col gap-3">
             <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-              Trình độ của bạn
+              {tProfile("yourLevel")}
             </h4>
             <div className="grid grid-cols-2 gap-3">
               {/* Badminton Level Card */}
@@ -118,15 +121,19 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                 <div className="z-10 flex items-center gap-1.5">
                   <span className="size-1.5 rounded-full bg-chart-3" />
                   <span className="font-mono text-[11px] font-semibold tracking-wider text-chart-3 uppercase">
-                    Badminton
+                    {tc("sports.badminton")}
                   </span>
                 </div>
                 <div className="z-10 mt-1">
                   <p className="font-heading text-base leading-tight font-bold text-foreground">
-                    {badminton ? badminton.levelLabel : "Chưa đánh giá"}
+                    {badminton ? (
+                      tAssessment(`badminton.ranges.r${getRangeIndex("badminton", badminton.score)}`)
+                    ) : (
+                      tProfile("notAssessed")
+                    )}
                   </p>
                   <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
-                    {badminton ? `${badminton.score} điểm` : "0 điểm"}
+                    {tProfile("points", { score: badminton ? badminton.score : 0 })}
                   </p>
                 </div>
               </div>
@@ -137,15 +144,19 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                 <div className="z-10 flex items-center gap-1.5">
                   <span className="size-1.5 rounded-full bg-lime" />
                   <span className="font-mono text-[11px] font-semibold tracking-wider text-lime-foreground uppercase dark:text-lime">
-                    Pickleball
+                    {tc("sports.pickleball")}
                   </span>
                 </div>
                 <div className="z-10 mt-1">
                   <p className="font-heading text-base leading-tight font-bold text-foreground">
-                    {pickleball ? pickleball.levelLabel : "Chưa đánh giá"}
+                    {pickleball ? (
+                      tAssessment(`pickleball.ranges.r${getRangeIndex("pickleball", pickleball.score)}`)
+                    ) : (
+                      tProfile("notAssessed")
+                    )}
                   </p>
                   <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
-                    {pickleball ? `${pickleball.score} điểm` : "0 điểm"}
+                    {tProfile("points", { score: pickleball ? pickleball.score : 0 })}
                   </p>
                 </div>
               </div>
@@ -156,7 +167,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
           <div className="mt-5 flex items-center justify-between rounded-2xl bg-muted/40 p-3 text-xs ring-1 ring-foreground/5 dark:ring-foreground/10">
             <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground uppercase">
               <Shield className="size-3.5 text-brand" />
-              Độ tin cậy (Reliability)
+              {tProfile("reliability")}
             </span>
             <span className="font-mono font-bold text-brand tabular-nums">
               {USER.trust}%
