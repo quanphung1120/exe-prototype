@@ -1600,11 +1600,20 @@
     "availableFrom": "Còn chỗ từ {time}",
     "slotsOpen": "{count} khung giờ còn trống",
     "prompts": {
+      "quickMatch": "Ghép trận nhanh gần tôi",
       "badmintonNearMe": "Tìm sân cầu lông gần tôi",
       "cheapestPickleball": "Sân pickleball rẻ nhất tối nay",
       "badmintonTeammates": "Tìm đồng đội cầu lông tối nay",
       "sameLevelPlayers": "Ghép tôi với người chơi cùng trình độ"
-    }
+    },
+    "findingRooms": "Đang tìm phòng…",
+    "quickMatchRooms": "{count} phòng đang mở",
+    "noRoomsFound": "Không tìm thấy phòng nào gần đây. Thử khu vực hoặc môn thể thao khác.",
+    "roomCapacity": "{joined}/{capacity} đã tham gia",
+    "roomSpotsOpen": "còn {count} chỗ",
+    "joinRoom": "Tham gia",
+    "joined": "Đã tham gia",
+    "requested": "Đã yêu cầu…"
   },
   "Assessment": {
     "metaTitle": "Đánh giá trình độ",

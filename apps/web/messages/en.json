@@ -1600,11 +1600,20 @@
     "availableFrom": "Available from {time}",
     "slotsOpen": "{count, plural, one {# slot open} other {# slots open}}",
     "prompts": {
+      "quickMatch": "Quick match near me",
       "badmintonNearMe": "Find badminton courts near me",
       "cheapestPickleball": "Cheapest pickleball court tonight",
       "badmintonTeammates": "Find badminton teammates tonight",
       "sameLevelPlayers": "Match me with same-level players"
-    }
+    },
+    "findingRooms": "Finding rooms…",
+    "quickMatchRooms": "{count, plural, one {# open room} other {# open rooms}}",
+    "noRoomsFound": "No open rooms found nearby. Try a different area or sport.",
+    "roomCapacity": "{joined}/{capacity} joined",
+    "roomSpotsOpen": "{count, plural, one {# spot open} other {# spots open}}",
+    "joinRoom": "Join",
+    "joined": "Joined",
+    "requested": "Requested…"
   },
   "Assessment": {
     "metaTitle": "Skill Assessment",

@@ -16,6 +16,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  LogIn,
   Loader2,
   MapPin,
   Plus,
@@ -25,6 +26,7 @@ import {
   Users,
   UserPlus,
   X,
+  Zap,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
@@ -39,6 +41,7 @@ import {
   formatVnd,
   type Court,
   type Level,
+  type MatchRoom,
   type PlaySession,
   type SportKey,
 } from "@/components/dashboard/data"
@@ -101,6 +104,13 @@ interface AssessmentToolResult {
   sport: SportKey
 }
 
+interface RoomToolResult {
+  rooms: MatchRoom[]
+  sport: SportKey | null
+  level: Level | null
+  districtMatched?: boolean | null
+}
+
 interface BookingToolResult {
   success: boolean
   bookingId?: string
@@ -123,6 +133,7 @@ interface BookingToolResult {
 type ToolResult =
   | { kind: "courts"; value: CourtToolResult }
   | { kind: "players"; value: PlayerToolResult }
+  | { kind: "rooms"; value: RoomToolResult }
   | { kind: "clarify"; value: ClarifyToolResult }
   | { kind: "assessment"; value: AssessmentToolResult }
   | { kind: "booking"; value: BookingToolResult }
@@ -134,6 +145,8 @@ function toolResult(output: unknown): ToolResult | null {
     return { kind: "courts", value: output as CourtToolResult }
   if (Array.isArray(o.players))
     return { kind: "players", value: output as PlayerToolResult }
+  if (Array.isArray(o.rooms))
+    return { kind: "rooms", value: output as RoomToolResult }
   if (typeof o.question === "string" && Array.isArray(o.options))
     return { kind: "clarify", value: output as ClarifyToolResult }
   if (typeof o.success === "boolean" && ("bookingId" in o || "reason" in o))
@@ -142,7 +155,8 @@ function toolResult(output: unknown): ToolResult | null {
     typeof o.sport === "string" &&
     (o.sport === "badminton" || o.sport === "pickleball") &&
     !("courts" in o) &&
-    !("players" in o)
+    !("players" in o) &&
+    !("rooms" in o)
   )
     return { kind: "assessment", value: output as AssessmentToolResult }
   return null
@@ -172,7 +186,7 @@ export function AiNativeDashboardView() {
   const t = useTranslations("AiDashboard")
   const { courts, user: USER } = useData()
   const { openBooking } = useBooking()
-  const { createInviteRoom, addPlayersToSession, sessions, joinedIds, userLevelForSport, userLevels } = useSession()
+  const { createInviteRoom, addPlayersToSession, sessions, joinedIds, joinRoom, userLevelForSport, userLevels } = useSession()
   const { setActiveChatId } = useChatStore()
   const router = useRouter()
 
@@ -506,10 +520,10 @@ export function AiNativeDashboardView() {
   )
 
   const quickPromptsList = [
+    t("prompts.quickMatch"),
     t("prompts.badmintonNearMe"),
     t("prompts.cheapestPickleball"),
     t("prompts.badmintonTeammates"),
-    t("prompts.sameLevelPlayers"),
   ]
 
   const quickPrompts = (
@@ -589,6 +603,7 @@ export function AiNativeDashboardView() {
               }
               openBooking(courtId)
             }}
+            onJoinRoom={joinRoom}
           />
         ))}
 
@@ -720,14 +735,16 @@ function ChatMessageRow({
   onTogglePlayer,
   onOpenProfile,
   onBook,
+  onJoinRoom,
 }: {
   message: UIMessage
   selectedIds: string[]
   interactive: boolean
   onChoose: (text: string) => void
   onTogglePlayer: (p: PlayerMatchResult) => void
-  onOpenProfile: (p: PlayerMatchResult) => void  // receives full result; caller extracts initials
+  onOpenProfile: (p: PlayerMatchResult) => void
   onBook: (courtId: string) => void
+  onJoinRoom: (room: MatchRoom) => void
 }) {
   if (message.role === "user") {
     const text = (message.parts ?? [])
@@ -797,6 +814,16 @@ function ChatMessageRow({
                 selectedIds={selectedIds}
                 onToggle={onTogglePlayer}
                 onOpenProfile={onOpenProfile}
+              />
+            )
+          }
+
+          if (isDone && result?.kind === "rooms") {
+            return (
+              <RoomChatResult
+                key={i}
+                rooms={result.value.rooms}
+                onJoin={onJoinRoom}
               />
             )
           }
@@ -920,9 +947,11 @@ function SearchingIndicator({ toolName }: { toolName: string }) {
       ? t("searchingCourts")
       : toolName === "findPlayers"
         ? t("matchingPlayers")
-        : toolName === "bookCourt"
-          ? t("bookingCourt")
-          : t("working")
+        : toolName === "findRooms"
+          ? t("findingRooms")
+          : toolName === "bookCourt"
+            ? t("bookingCourt")
+            : t("working")
   return (
     <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3.5 py-2 text-xs sm:text-sm text-muted-foreground ring-1 ring-foreground/5">
       <Loader2 className="size-3.5 animate-spin text-brand" />
@@ -1288,6 +1317,116 @@ function PlayerChatResult({
           onOpenProfile={() => onOpenProfile(player)}
         />
       ))}
+    </div>
+  )
+}
+
+// ─── Room results (Quick Match) ───────────────────────────────────────────────
+
+function RoomChatResult({
+  rooms,
+  onJoin,
+}: {
+  rooms: MatchRoom[]
+  onJoin: (room: MatchRoom) => void
+}) {
+  const t = useTranslations("AiDashboard")
+  if (!rooms.length) {
+    return (
+      <div className="rounded-3xl border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted-foreground">
+        {t("noRoomsFound")}
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="pl-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+        <Zap className="mr-1 inline size-3 text-brand" />
+        {t("quickMatchRooms", { count: rooms.length })}
+      </p>
+      {rooms.map((room) => (
+        <RoomCard key={room.id} room={room} onJoin={onJoin} />
+      ))}
+    </div>
+  )
+}
+
+function RoomCard({
+  room,
+  onJoin,
+}: {
+  room: MatchRoom
+  onJoin: (room: MatchRoom) => void
+}) {
+  const t = useTranslations("AiDashboard")
+  const { joinedIds, requestedIds } = useSession()
+  const open = room.capacity - room.joined
+  const isJoined = joinedIds.has(room.id)
+  const isRequested = requestedIds.has(room.id)
+
+  return (
+    <div className="flex flex-col gap-3 rounded-3xl border border-border bg-background p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-heading font-semibold text-sm">{room.title}</p>
+          <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+            <MapPin className="size-3 shrink-0" />
+            {room.venue} · {room.district} · {room.distanceKm} km
+          </p>
+        </div>
+        <SportTag sport={room.sport} />
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        <LevelChip level={room.level} />
+        <Badge variant="outline" className="text-xs">
+          {room.format}
+        </Badge>
+      </div>
+
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Clock className="size-3 shrink-0" />
+          {room.day} · {room.time}
+        </span>
+        <span className="flex items-center gap-1">
+          <Users className="size-3 shrink-0" />
+          {t("roomCapacity", { joined: room.joined, capacity: room.capacity })}
+          {open > 0 ? (
+            <span className="text-emerald-600 dark:text-emerald-400">
+              · {t("roomSpotsOpen", { count: open })}
+            </span>
+          ) : null}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-border pt-2.5">
+        <span className="font-heading font-bold tabular-nums text-sm">
+          {formatVnd(room.pricePerHour)}
+          <span className="text-xs font-normal text-muted-foreground">/hr</span>
+        </span>
+        <Button
+          size="sm"
+          className="rounded-full"
+          variant={isJoined ? "secondary" : "default"}
+          disabled={isRequested}
+          onClick={() => onJoin(room)}
+        >
+          {isJoined ? (
+            <>
+              <CheckCheck className="size-3.5" />
+              {t("joined")}
+            </>
+          ) : isRequested ? (
+            t("requested")
+          ) : (
+            <>
+              <LogIn className="size-3.5" />
+              {t("joinRoom")}
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   )
 }
