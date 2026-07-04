@@ -106,7 +106,7 @@ export function trustTier(trust: number): TrustTier {
 // ── Time math ────────────────────────────────────────────────────────────────
 
 /** Parse "HH:MM" to minutes since midnight. */
-function toMinutes(hhmm: string): number {
+export function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number)
   return (h || 0) * 60 + (m || 0)
 }
@@ -166,7 +166,7 @@ function startOf(timeRange: string): string {
 }
 
 /** Whether two intervals (start "HH:MM" + length in minutes) overlap. */
-function rangesOverlap(
+export function rangesOverlap(
   aStart: string,
   aDur: number,
   bStart: string,

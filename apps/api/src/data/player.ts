@@ -3,7 +3,6 @@
 // Values are intentionally static/deterministic (no Date.now()/random) so the
 // web app's server and client renders stay in sync.
 
-import { buildSeedSessions } from "@repo/shared"
 import type {
   ActivityItem,
   Booking,
@@ -13,7 +12,6 @@ import type {
   Message,
   NotificationItem,
   Player,
-  PlaySession,
   Stats,
   Streak,
   User,
@@ -623,12 +621,3 @@ export const NOTIFICATIONS: NotificationItem[] = [
     href: "/dashboard/bookings",
   },
 ]
-
-/** Derived seed sessions (built from rooms + bookings), served ready-to-hydrate. */
-export const SESSIONS: PlaySession[] = buildSeedSessions(
-  ROOMS,
-  BOOKINGS,
-  COURTS,
-  USER,
-  MATCH_SUGGESTIONS
-)

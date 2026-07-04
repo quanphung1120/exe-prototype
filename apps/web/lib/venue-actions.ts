@@ -3,19 +3,23 @@
 import { revalidatePath } from "next/cache"
 import type { Reservation, SportKey, Venue, VenueCourt } from "@repo/shared"
 
-import { API_URL } from "@/lib/api"
+import { API_URL, authHeaders } from "@/lib/api"
 
 // Server actions for venue management. They run on the server (so the Hono API
 // base stays off the client) and call the API's CRUD routes, then revalidate
 // the relevant venue path so the server-rendered seed refetches.
 // API_URL is shared with the seed reader (lib/api.ts) so writes hit the same
-// host/port as reads.
+// host/port as reads; authHeaders() forwards the Clerk token the API requires.
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     cache: "no-store",
     ...init,
-    headers: { "content-type": "application/json", ...init?.headers },
+    headers: {
+      "content-type": "application/json",
+      ...(await authHeaders()),
+      ...init?.headers,
+    },
   })
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as {

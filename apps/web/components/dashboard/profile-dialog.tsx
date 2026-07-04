@@ -2,11 +2,13 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import { Shield, Star } from "lucide-react"
+import { RotateCcw, Shield, Star } from "lucide-react"
 import { initialsOf } from "@repo/shared"
 
 import { cn } from "@/lib/utils"
+import { useRouter } from "@/i18n/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 
 const REVIEW_POOL = [
   {
@@ -73,6 +75,7 @@ import { LevelChip, SportDot } from "@/components/dashboard/shared"
 import {
   readStoredAssessment,
   getRangeIndex,
+  PLAYER_ASSESSMENT_PATH,
   type PlayerAssessment,
 } from "@/lib/player-assessment"
 
@@ -87,6 +90,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   const tAssessment = useTranslations("Assessment")
   const tc = useTranslations("Common")
   const sUser = useAuthUser()
+  const router = useRouter()
   const { userName } = useMatchmaking()
   const { user: USER } = useData()
 
@@ -223,6 +227,19 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                 </div>
               </div>
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full rounded-full"
+              onClick={() => {
+                onOpenChange(false)
+                router.push(PLAYER_ASSESSMENT_PATH)
+              }}
+            >
+              <RotateCcw className="size-4" />
+              {tProfile("redoSkills")}
+            </Button>
           </div>
 
           {/* Reliability / Trust Score */}

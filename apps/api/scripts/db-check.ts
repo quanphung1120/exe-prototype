@@ -1,7 +1,8 @@
-// Smoke test: confirm the Neon driver adapter can reach the database.
-// Run with `pnpm --filter api db:check`. Does not touch any tables.
-import { prisma } from "../src/db.js"
+// Smoke test: confirm Mongoose can reach MongoDB via DATABASE_URL.
+// Run with `pnpm --filter api db:check`. Does not touch any collections.
+import { connectDb, mongoose } from "../src/db.js"
 
-const rows = await prisma.$queryRaw`SELECT 1 AS ok`
-console.log("✅ Neon connection OK:", rows)
-await prisma.$disconnect()
+await connectDb()
+const ping = await mongoose.connection.db?.admin().ping()
+console.log("✅ MongoDB connection OK:", ping)
+await mongoose.disconnect()

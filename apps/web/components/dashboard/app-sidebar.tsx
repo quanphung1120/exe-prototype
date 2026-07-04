@@ -6,8 +6,7 @@ import {
   ChevronsUpDown,
   LogOut,
   Search,
-  Settings,
-  Settings2,
+  UserCog,
   UserRound,
 } from "lucide-react"
 import { useClerk } from "@clerk/nextjs"
@@ -44,7 +43,6 @@ import { cn } from "@/lib/utils"
 import { useAuthUser } from "@/components/dashboard/auth-user"
 import { useData } from "@/components/dashboard/data-provider"
 import { useMatchmaking } from "@/components/dashboard/matchmaking"
-import { WorkspaceSettingsDialog } from "@/components/dashboard/workspace-settings"
 import { ProfileDialog } from "@/components/dashboard/profile-dialog"
 import { venueBase } from "@/components/dashboard/venue/nav"
 import { navContext } from "@/components/dashboard/workspace"
@@ -54,7 +52,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const locale = useLocale()
-  const { signOut } = useClerk()
+  const { signOut, openUserProfile } = useClerk()
   const { isMobile, setOpenMobile } = useSidebar()
   const { userName } = useMatchmaking()
   const { user: USER, venues: VENUES } = useData()
@@ -63,7 +61,6 @@ export function AppSidebar() {
   // sidebar only renders inside the guarded dashboard, so a user is guaranteed.
   const sUser = useAuthUser()
 
-  const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [profileOpen, setProfileOpen] = React.useState(false)
 
   const { workspace, ns, items, active, venueId } = navContext(pathname)
@@ -274,21 +271,6 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <SidebarMenu className="min-w-0 flex-1">
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  tooltip={t("workspaceSettings")}
-                  onClick={() => setSettingsOpen(true)}
-                >
-                  <Settings2 />
-                  <span>{t("workspaceSettings")}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-            {/* CourtAssistant has been removed */}
-          </div>
-
           <div className="flex items-center gap-3">
             <SidebarMenu className="min-w-0 flex-1">
               <SidebarMenuItem>
@@ -350,9 +332,9 @@ export function AppSidebar() {
                       <UserRound />
                       {t("profile")}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
-                      <Settings />
-                      {t("settings")}
+                    <DropdownMenuItem onClick={() => openUserProfile()}>
+                      <UserCog />
+                      {t("accountSettings")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -371,15 +353,6 @@ export function AppSidebar() {
       </SidebarFooter>
 
       <SidebarRail />
-
-      <WorkspaceSettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        isVenue={isVenue}
-        venue={VENUE}
-        activeVenueId={VENUE.id}
-        initials={USER.initials}
-      />
 
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </Sidebar>

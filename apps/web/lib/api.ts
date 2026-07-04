@@ -1,5 +1,6 @@
 import "server-only"
 
+import { auth } from "@clerk/nextjs/server"
 import { notFound } from "next/navigation"
 
 import type { Seed, Venue, VenueSeed } from "@repo/shared"
@@ -10,12 +11,30 @@ import type { Seed, Venue, VenueSeed } from "@repo/shared"
 export const API_URL = process.env.API_URL ?? "http://localhost:6969"
 
 /**
+ * Authorization header carrying the signed-in user's Clerk session token. The
+ * Hono API is guarded by @clerk/hono and rejects anonymous requests, so every
+ * server-side call must forward the token. Returns `{}` when there's no
+ * session — the API then answers 401, which surfaces as a fetch failure.
+ *
+ * Runs only inside Clerk-middleware-matched server contexts (dashboard layout,
+ * pages, server actions, /api/chat) where `auth()` is available.
+ */
+export async function authHeaders(): Promise<Record<string, string>> {
+  const { getToken } = await auth()
+  const token = await getToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+/**
  * Fetch player-scoped dashboard seed from the Hono API. Called once in the
  * shared dashboard layout (a server component) and handed to the client `DataProvider`.
  */
 export async function fetchSeed(): Promise<Seed> {
   const url = new URL(`${API_URL}/api/seed`)
-  const res = await fetch(url, { cache: "no-store" })
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: await authHeaders(),
+  })
   if (!res.ok) {
     throw new Error(
       `Failed to load dashboard seed from ${url} (${res.status}). ` +
@@ -29,6 +48,7 @@ export async function fetchSeed(): Promise<Seed> {
 export async function fetchVenues(): Promise<Venue[]> {
   const res = await fetch(new URL(`${API_URL}/api/venues`), {
     cache: "no-store",
+    headers: await authHeaders(),
   })
   if (!res.ok) {
     throw new Error(
@@ -49,7 +69,7 @@ export async function fetchVenueBundle(venueId: string): Promise<VenueSeed> {
   // with empty courts/reservations/analytics.
   const res = await fetch(
     new URL(`${API_URL}/api/venue/bundle?venue=${venueId}`),
-    { cache: "no-store" }
+    { cache: "no-store", headers: await authHeaders() }
   )
 
   // Unknown/stale/typo'd id — render the not-found page rather than another

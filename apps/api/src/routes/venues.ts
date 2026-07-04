@@ -1,19 +1,8 @@
-import { zValidator } from "@hono/zod-validator"
 import { Hono } from "hono"
-import { HTTPException } from "hono/http-exception"
 import * as z from "zod"
 
-import {
-  addCourt,
-  addWalkInReservation,
-  createVenue,
-  getVenue,
-  listVenues,
-  removeCourt,
-  removeVenue,
-  updateCourt,
-  updateVenue,
-} from "../store/venue-store.js"
+import { venuesController } from "../controllers/venues-controller.js"
+import { validate } from "../validate.js"
 
 const sportEnum = z.enum(["pickleball", "badminton"])
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM")
@@ -54,84 +43,49 @@ const courtParam = z.object({
   courtId: z.string().min(1),
 })
 
-// Venue management (operator-owned CRUD). Chained for RPC type inference; the
-// records are held in the in-memory venue store.
+// Venue management (operator-owned CRUD). Route wiring + input validation only;
+// the controller maps service results to HTTP. Chained for RPC type inference.
 export const venues = new Hono()
-  .get("/", (c) => c.json(listVenues()))
-  .post("/", zValidator("json", venueInput), (c) =>
-    c.json(createVenue(c.req.valid("json")), 201)
+  .get("/", (c) => venuesController.list(c))
+  .post("/", validate("json", venueInput), (c) =>
+    venuesController.create(c, c.req.valid("json"))
   )
-  .get("/:id", zValidator("param", idParam), (c) => {
-    const venue = getVenue(c.req.valid("param").id)
-    if (!venue) throw new HTTPException(404, { message: "Venue not found" })
-    return c.json(venue)
-  })
+  .get("/:id", validate("param", idParam), (c) =>
+    venuesController.get(c, c.req.valid("param"))
+  )
   .put(
     "/:id",
-    zValidator("param", idParam),
-    zValidator("json", venuePatch),
-    (c) => {
-      const venue = updateVenue(c.req.valid("param").id, c.req.valid("json"))
-      if (!venue) throw new HTTPException(404, { message: "Venue not found" })
-      return c.json(venue)
-    }
+    validate("param", idParam),
+    validate("json", venuePatch),
+    (c) => venuesController.update(c, c.req.valid("param"), c.req.valid("json"))
   )
-  .delete("/:id", zValidator("param", idParam), (c) => {
-    const result = removeVenue(c.req.valid("param").id)
-    if (result === "not-found")
-      throw new HTTPException(404, { message: "Venue not found" })
-    if (result === "last")
-      throw new HTTPException(400, {
-        message: "Cannot delete the only venue",
-      })
-    return c.json({ ok: true })
-  })
+  .delete("/:id", validate("param", idParam), (c) =>
+    venuesController.remove(c, c.req.valid("param"))
+  )
   // ── Courts (scoped to a venue) ──
   .post(
     "/:id/courts",
-    zValidator("param", idParam),
-    zValidator("json", courtInput),
-    (c) => {
-      const court = addCourt(c.req.valid("param").id, c.req.valid("json"))
-      if (!court) throw new HTTPException(404, { message: "Venue not found" })
-      return c.json(court, 201)
-    }
+    validate("param", idParam),
+    validate("json", courtInput),
+    (c) => venuesController.addCourt(c, c.req.valid("param"), c.req.valid("json"))
   )
   .put(
     "/:id/courts/:courtId",
-    zValidator("param", courtParam),
-    zValidator("json", courtPatch),
-    (c) => {
-      const { id, courtId } = c.req.valid("param")
-      const court = updateCourt(id, courtId, c.req.valid("json"))
-      if (!court) throw new HTTPException(404, { message: "Court not found" })
-      return c.json(court)
-    }
+    validate("param", courtParam),
+    validate("json", courtPatch),
+    (c) =>
+      venuesController.updateCourt(
+        c,
+        c.req.valid("param"),
+        c.req.valid("json")
+      )
   )
-  .delete("/:id/courts/:courtId", zValidator("param", courtParam), (c) => {
-    const { id, courtId } = c.req.valid("param")
-    if (!removeCourt(id, courtId))
-      throw new HTTPException(404, { message: "Court not found" })
-    return c.json({ ok: true })
-  })
+  .delete("/:id/courts/:courtId", validate("param", courtParam), (c) =>
+    venuesController.removeCourt(c, c.req.valid("param"))
+  )
   .post(
     "/:id/reservations/walk-in",
-    zValidator("param", idParam),
-    zValidator("json", walkInInput),
-    (c) => {
-      let reservation
-      try {
-        reservation = addWalkInReservation(
-          c.req.valid("param").id,
-          c.req.valid("json")
-        )
-      } catch (error) {
-        throw new HTTPException(400, {
-          message: error instanceof Error ? error.message : "Invalid walk-in",
-        })
-      }
-      if (!reservation)
-        throw new HTTPException(404, { message: "Court or venue not found" })
-      return c.json(reservation, 201)
-    }
+    validate("param", idParam),
+    validate("json", walkInInput),
+    (c) => venuesController.addWalkIn(c, c.req.valid("param"), c.req.valid("json"))
   )

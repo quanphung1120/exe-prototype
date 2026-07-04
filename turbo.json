@@ -5,36 +5,23 @@
   "globalPassThroughEnv": ["PORT", "NODE_ENV"],
   "tasks": {
     "build": {
-      "dependsOn": ["^build", "db:generate"],
+      "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "env": [
-        "BETTER_AUTH_SECRET",
-        "BETTER_AUTH_URL",
+        "CLERK_SECRET_KEY",
+        "CLERK_PUBLISHABLE_KEY",
+        "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+        "OPENROUTER_API_KEY",
+        "OPENROUTER_MODEL",
         "WEB_URL",
-        "GOOGLE_CLIENT_ID",
-        "GOOGLE_CLIENT_SECRET",
-        "RESEND_API_KEY",
-        "EMAIL_FROM",
         "API_URL",
         "NEXT_PUBLIC_API_URL",
         "NEXT_PUBLIC_BOXMAP_TOKEN"
       ],
       "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "dist/**"]
     },
-    "db:generate": {
-      "cache": false
-    },
-    "db:migrate": {
-      "cache": false
-    },
-    "db:deploy": {
-      "cache": false
-    },
-    "db:push": {
-      "cache": false
-    },
     "dev": {
-      "dependsOn": ["^build", "db:generate"],
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
@@ -55,7 +42,7 @@
     },
     "lint": {},
     "typecheck": {
-      "dependsOn": ["^build", "db:generate"]
+      "dependsOn": ["^build"]
     }
   }
 }

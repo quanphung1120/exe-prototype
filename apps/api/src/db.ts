@@ -1,28 +1,42 @@
 import "dotenv/config"
 
-import { PrismaNeon } from "@prisma/adapter-neon"
+import mongoose from "mongoose"
 
-import { PrismaClient } from "./generated/prisma/client.js"
-
-const connectionString = process.env.DATABASE_URL
-
-if (!connectionString) {
+// MongoDB connection via Mongoose. The connection string (a `mongodb+srv://…`
+// Atlas URI) is read from `DATABASE_URL` in apps/api/.env.
+if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set — add it to apps/api/.env")
 }
 
-// The Neon serverless driver adapter. Prisma 7 runs its query compiler against
-// this adapter (no Rust query engine); it reads the pooled Neon connection
-// string from the env. CLI tasks (migrate/studio) use the same URL via
-// prisma.config.ts.
-const adapter = new PrismaNeon({ connectionString })
+// Narrowed to `string` so the closure below keeps the type (control-flow
+// narrowing of `process.env` doesn't reach into nested functions).
+const uri: string = process.env.DATABASE_URL
 
-// Reuse a single client across `tsx watch` hot-reloads in dev so we don't leak
-// Neon connections on every restart. In production a single module instance is
-// fine.
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter })
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma
+// Cache the connection promise across `tsx watch` hot-reloads (and across the
+// many modules that may call `connectDb()`) so we open a single Mongo pool
+// instead of leaking a new one on every restart / import.
+const globalForMongoose = globalThis as unknown as {
+  mongoosePromise?: Promise<typeof mongoose>
 }
+
+/**
+ * Connect to MongoDB (idempotent). Returns the shared connection promise, so
+ * concurrent callers await the same in-flight connect rather than racing.
+ */
+export function connectDb(): Promise<typeof mongoose> {
+  return (globalForMongoose.mongoosePromise ??= mongoose
+    .connect(uri, {
+      // Fail fast when the cluster is unreachable rather than hanging requests.
+      serverSelectionTimeoutMS: 8000,
+    })
+    .catch((err: unknown) => {
+      // Never cache a *failed* connection: a rejected promise is still truthy,
+      // so leaving it in the slot would make every later connectDb() re-await
+      // the same rejection and 500 forever, even after Mongo recovers. Clear
+      // the memo so the next caller opens a fresh attempt.
+      globalForMongoose.mongoosePromise = undefined
+      throw err
+    }))
+}
+
+export { mongoose }

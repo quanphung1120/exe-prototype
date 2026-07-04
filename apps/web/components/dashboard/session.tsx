@@ -37,6 +37,7 @@ import {
   readStoredAssessment,
   type AssessmentSport,
 } from "@/lib/player-assessment"
+import { saveSession } from "@/lib/session-actions"
 
 /** The dedicated booking-wizard route the Play / book actions navigate to. */
 const BOOK_PATH = "/dashboard/book"
@@ -348,8 +349,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     React.useState<PaymentResult | null>(null)
   const [payAttempts, setPayAttempts] = React.useState(0)
 
+  // A per-mount base keeps generated ids unique across reloads: the counter
+  // resets to 0 on every mount, so without a base a new session could reuse an
+  // old counter value and clobber a persisted session sharing that id. Seeded
+  // in an effect (not during render) since it draws on Date.now()/random, and
+  // newId only ever runs from event handlers — well after mount.
+  const idBase = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    idBase.current ??= `${Date.now().toString(36)}${Math.random()
+      .toString(36)
+      .slice(2, 8)}`
+  }, [])
   const idRef = React.useRef(0)
-  const newId = (p: string) => `s-${p}-${idRef.current++}`
+  const newId = (p: string) =>
+    `s-${p}-${idBase.current ?? "0"}-${idRef.current++}`
+
+  // Mirror a user-owned session to MongoDB so it survives refresh/restart (see
+  // lib/session-actions). Fire-and-forget: the client `sessions` array is the
+  // optimistic source of truth, so a failed write only forfeits durability and
+  // never blocks or reverts the UI.
+  const persist = (session: PlaySession) => {
+    void saveSession(session).catch((err: unknown) => {
+      console.error("Failed to persist session", err)
+    })
+  }
 
   React.useEffect(() => {
     const syncAssessment = () => {
@@ -800,6 +823,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSessions((prev) => [next, ...prev])
     setJoinedIds((prev) => new Set(prev).add(room.id))
     setActiveSessionId(room.id)
+    persist(next)
     scheduleJoinRequests(next)
   }
 
@@ -865,22 +889,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       pricePerHour,
     }
 
-    setSessions((prev) => [
-      {
-        ...next,
-        roster: [
-          ...next.roster,
-          ...invitees.map((initials) => ({
-            name: playerByInitials(initials).name,
-            initials,
-            rsvp: "pending" as Rsvp,
-          })),
-        ],
-      },
-      ...prev,
-    ])
+    const full: PlaySession = {
+      ...next,
+      roster: [
+        ...next.roster,
+        ...invitees.map((initials) => ({
+          name: playerByInitials(initials).name,
+          initials,
+          rsvp: "pending" as Rsvp,
+        })),
+      ],
+    }
+    setSessions((prev) => [full, ...prev])
     setJoinedIds((prev) => new Set(prev).add(id))
     setActiveSessionId(id)
+    persist(full)
     scheduleRsvp(id, invitees)
     return id
   }
@@ -1426,27 +1449,25 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
     if (linked) {
       // Transition an existing forming room into a booked one.
+      const booked: PlaySession = {
+        ...linked,
+        status: "booked",
+        hold: "confirmed",
+        courtId: court.id,
+        courtLabel,
+        dayKey: draft.dayKey,
+        dayLabel,
+        slot: draft.slot,
+        durationMin: draft.durationMin,
+        venue: court.name,
+        district: court.district,
+        distanceKm: court.distanceKm,
+        pricePerHour: court.pricePerHour,
+      }
       setSessions((prev) =>
-        prev.map((s) =>
-          s.id === linked.id
-            ? {
-                ...s,
-                status: "booked",
-                hold: "confirmed",
-                courtId: court.id,
-                courtLabel,
-                dayKey: draft.dayKey,
-                dayLabel,
-                slot: draft.slot,
-                durationMin: draft.durationMin,
-                venue: court.name,
-                district: court.district,
-                distanceKm: court.distanceKm,
-                pricePerHour: court.pricePerHour,
-              }
-            : s
-        )
+        prev.map((s) => (s.id === linked.id ? booked : s))
       )
+      persist(booked)
       toast.success(tb("toast.booked"), {
         description: `${court.name} · ${dayLabel} · ${time}`,
       })
@@ -1492,6 +1513,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       pricePerHour: court.pricePerHour,
     }
     setSessions((prev) => [next, ...prev])
+    persist(next)
     toast.success(tb("toast.booked"), {
       description: `${court.name} · ${dayLabel} · ${time}`,
     })
@@ -1560,25 +1582,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (!s) return
     if (s.listed) {
       // Keep the team's room open, drop the court hold (revert to forming).
-      setSessions((prev) =>
-        prev.map((x) =>
-          x.id === id
-            ? {
-                ...x,
-                status: "forming",
-                hold: undefined,
-                courtLabel: null,
-                slot: null,
-              }
-            : x
-        )
-      )
+      const reverted: PlaySession = {
+        ...s,
+        status: "forming",
+        hold: undefined,
+        courtLabel: null,
+        slot: null,
+      }
+      setSessions((prev) => prev.map((x) => (x.id === id ? reverted : x)))
+      persist(reverted)
     } else {
       clearTimersFor(id)
-      setSessions((prev) =>
-        prev.map((x) => (x.id === id ? { ...x, status: "cancelled" } : x))
-      )
+      const cancelled: PlaySession = { ...s, status: "cancelled" }
+      setSessions((prev) => prev.map((x) => (x.id === id ? cancelled : x)))
       dropJoined(id)
+      persist(cancelled)
     }
     toast(tb("toast.cancelled"), { description: s.venue })
   }
