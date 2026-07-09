@@ -818,7 +818,7 @@ function WalkInDialog({
     }
   }
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!reservation) return
     startTransition(async () => {
@@ -971,7 +971,7 @@ function RescheduleDialog({
     }
   }
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.SubmitEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!reservation) return
     startTransition(async () => {

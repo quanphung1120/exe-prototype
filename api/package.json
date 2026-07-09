@@ -20,6 +20,8 @@
     "@nestjs/core": "^11.1.28",
     "@nestjs/mongoose": "^11.0.4",
     "@nestjs/platform-express": "^11.1.28",
+    "@nestjs/terminus": "^11.1.1",
+    "@nestjs/throttler": "^6.5.0",
     "dotenv": "^17.4.2",
     "mongoose": "^8.24.1",
     "reflect-metadata": "^0.2.2",

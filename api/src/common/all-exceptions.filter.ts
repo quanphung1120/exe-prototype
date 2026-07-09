@@ -13,7 +13,7 @@ function messageOf(exception: HttpException): string {
   const response = exception.getResponse()
   if (typeof response === "string") return response
   if (response && typeof response === "object" && "message" in response) {
-    const message = (response as { message: unknown }).message
+    const message = response.message
     if (Array.isArray(message)) return message.join("; ")
     if (typeof message === "string") return message
   }

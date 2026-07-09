@@ -356,7 +356,7 @@ function CreateRoomDialog() {
     validators: {
       onSubmit: createRoomSchema,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: ({ value }) => {
       // Enforce the anti-spam cap before building the room (and keep the dialog
       // open so the user can cancel an existing room and retry).
       if (!canHostMore) {
@@ -414,7 +414,7 @@ function CreateRoomDialog() {
           id="create-room-form"
           onSubmit={(e) => {
             e.preventDefault()
-            form.handleSubmit()
+            void form.handleSubmit()
           }}
         >
           <FieldGroup>

@@ -2,7 +2,7 @@
 
 import type { PlayerAssessment } from "@/lib/shared"
 
-import { API_URL, authHeaders } from "@/lib/api"
+import { apiFetch } from "@/lib/api"
 
 // Server action mirroring a player's completed skills assessment to the Hono API
 // so it persists to MongoDB (per Clerk user). The wizard writes to localStorage
@@ -16,19 +16,8 @@ import { API_URL, authHeaders } from "@/lib/api"
 export async function saveAssessment(
   assessment: PlayerAssessment
 ): Promise<void> {
-  const res = await fetch(`${API_URL}/api/assessment`, {
+  await apiFetch("/api/assessment", {
     method: "PUT",
-    cache: "no-store",
-    headers: {
-      "content-type": "application/json",
-      ...(await authHeaders()),
-    },
-    body: JSON.stringify(assessment),
+    body: assessment,
   })
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new Error(body?.error ?? `Request failed (${res.status})`)
-  }
 }

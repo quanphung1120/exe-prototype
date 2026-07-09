@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Link, useRouter } from "@/i18n/navigation"
 
+import { formField } from "./form-field"
 import { AuthDivider, GoogleButton } from "./google-button"
 
 export function SignInForm() {
@@ -18,7 +19,7 @@ export function SignInForm() {
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!isLoaded) return
     setError(null)
@@ -26,8 +27,8 @@ export function SignInForm() {
     const form = new FormData(e.currentTarget)
     try {
       const res = await signIn.create({
-        identifier: String(form.get("email")),
-        password: String(form.get("password")),
+        identifier: formField(form, "email"),
+        password: formField(form, "password"),
       })
       if (res.status === "complete") {
         await setActive({ session: res.createdSessionId })
@@ -58,7 +59,7 @@ export function SignInForm() {
       <GoogleButton />
       <AuthDivider />
 
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="email">{t("emailLabel")}</Label>
           <Input

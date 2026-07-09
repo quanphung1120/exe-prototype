@@ -3,6 +3,10 @@ services:
     build: ./api
     env_file:
       - ./api/.env
+    environment:
+      # Non-interactive container: let pnpm's pre-run deps check reinstall
+      # without prompting to purge node_modules (no TTY → it would abort).
+      CI: "true"
     ports:
       - "6969:6969"
     volumes:
@@ -20,6 +24,9 @@ services:
     env_file:
       - ./web/.env.local
     environment:
+      # Non-interactive container: let pnpm's pre-run deps check reinstall
+      # without prompting to purge node_modules (no TTY → it would abort).
+      CI: "true"
       # Server-side calls stay inside the compose network; the browser still
       # hits the API through the published port on localhost.
       API_URL: http://api:6969

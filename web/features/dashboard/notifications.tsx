@@ -68,13 +68,13 @@ export function NotificationsProvider({
     const additions = joinedRooms.filter((r) => !seenRef.current.has(r.id))
     if (additions.length) {
       setItems((prev) => [
-        ...additions.map((room) => {
+        ...additions.map((room): NotificationItem => {
           const title = tm.has(`rooms.${room.id}.title`)
             ? tm(`rooms.${room.id}.title`)
             : room.title
           return {
             id: `nj-${room.id}`,
-            kind: "chat" as NotificationKind,
+            kind: "chat",
             text: t("newTeamChat", { title }),
             time: t("justNow"),
             read: false,

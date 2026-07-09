@@ -426,7 +426,7 @@ function AddCustomerDialog({ isOpen, onClose, onAdd, venueId, customersList }: A
   const [isPending, startTransition] = React.useTransition()
   const [error, setError] = React.useState("")
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
 

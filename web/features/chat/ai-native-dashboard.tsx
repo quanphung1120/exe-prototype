@@ -416,7 +416,10 @@ export function AiNativeDashboardView() {
     if (assessment?.results?.pickleball) {
       activeUserLevels.pickleball = userLevels.pickleball
     }
-    sendMessage({ text: trimmed }, { body: { userLevels: activeUserLevels, userLocation, locale } })
+    void sendMessage(
+      { text: trimmed },
+      { body: { userLevels: activeUserLevels, userLocation, locale } }
+    )
   }
 
   const togglePlayer = (player: PlayerMatchResult) => {
@@ -467,7 +470,7 @@ export function AiNativeDashboardView() {
           slot: schedule.slot,
           durationMin: 90,
           level:
-            (lastPlayerResult.intent.targetLevel as Level | null) ??
+            (lastPlayerResult.intent.targetLevel) ??
             userLevelForSport(inviteSport),
           pricePerHour: suggestedCourt?.pricePerHour ?? 0,
           invitees: selectedPlayers.map((p) => p.initials),
@@ -518,7 +521,7 @@ export function AiNativeDashboardView() {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault()
-              submit(input)
+              void submit(input)
             }
           }}
           placeholder={isLoading ? t("thinking") : t("inputPlaceholder")}
@@ -531,7 +534,7 @@ export function AiNativeDashboardView() {
           size="icon"
           className="mb-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
           aria-label="Send"
-          onClick={() => submit(input)}
+          onClick={() => void submit(input)}
           disabled={isLoading || !input.trim()}
         >
           <ArrowUp />
@@ -557,7 +560,7 @@ export function AiNativeDashboardView() {
           <button
             key={key}
             type="button"
-            onClick={() => submit(text)}
+            onClick={() => void submit(text)}
             className={cn(
               "group relative flex w-full sm:w-56 flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/80 bg-background/50 p-4 text-center shadow-sm backdrop-blur-sm transition-all duration-300",
               "hover:-translate-y-0.5 hover:border-primary/40 hover:bg-muted/30 hover:shadow-md"
@@ -630,7 +633,7 @@ export function AiNativeDashboardView() {
             // while a response is streaming.
             interactive={!isLoading && index === messages.length - 1}
             isStreaming={isLoading && index === messages.length - 1}
-            onChoose={submit}
+            onChoose={(text) => void submit(text)}
             onTogglePlayer={togglePlayer}
             onOpenProfile={(p) => setProfile(p.initials)}
             onBook={(courtId) => {

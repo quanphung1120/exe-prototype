@@ -99,7 +99,7 @@ export function AppSidebar() {
   }
 
   // End the Clerk session and return to the locale landing page.
-  const handleSignOut = () => signOut({ redirectUrl: "/" + locale })
+  const handleSignOut = () => void signOut({ redirectUrl: "/" + locale })
 
   // Switch to the player workspace.
   const switchToPlayer = () => {

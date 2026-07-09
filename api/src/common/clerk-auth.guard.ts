@@ -77,7 +77,15 @@ export class ClerkAuthGuard implements CanActivate {
     let userId: string | null | undefined
     try {
       await new Promise<void>((resolve, reject) => {
-        this.clerk(req, res, (err?: unknown) => (err ? reject(err) : resolve()))
+        this.clerk(req, res, (err?: unknown) =>
+          err
+            ? reject(
+                err instanceof Error
+                  ? err
+                  : new Error("Clerk middleware error", { cause: err })
+              )
+            : resolve()
+        )
       })
       userId = getAuth(req).userId
     } catch (err) {

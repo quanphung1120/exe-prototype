@@ -117,7 +117,7 @@ const fillHoles = (activities: Activity[]): Activity[] => {
     activities.map((a) => [a.date, a])
   );
 
-  const firstActivity = sortedActivities[0] as Activity;
+  const firstActivity = sortedActivities[0];
   const lastActivity = sortedActivities.at(-1);
 
   if (!lastActivity) {
@@ -151,7 +151,7 @@ const groupByWeeks = (
   }
 
   const normalizedActivities = fillHoles(activities);
-  const firstActivity = normalizedActivities[0] as Activity;
+  const firstActivity = normalizedActivities[0];
   const firstDate = parseISO(firstActivity.date);
   const firstCalendarDate =
     getDay(firstDate) === weekStart
@@ -184,7 +184,7 @@ const getMonthLabels = (
 
       if (!firstActivity) {
         throw new Error(
-          `Unexpected error: Week ${weekIndex + 1} is empty: [${week}].`
+          `Unexpected error: Week ${weekIndex + 1} is empty: ${JSON.stringify(week)}.`
         );
       }
 

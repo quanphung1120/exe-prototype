@@ -112,10 +112,10 @@ function TextField({
   const invalid = field.state.meta.isTouched && !field.state.meta.isValid
   return (
     <Field data-invalid={invalid}>
-      <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
+      <FieldLabel htmlFor={String(field.name)}>{label}</FieldLabel>
       <Input
-        id={field.name}
-        name={field.name}
+        id={String(field.name)}
+        name={String(field.name)}
         value={String(field.state.value ?? "")}
         onBlur={field.handleBlur}
         onChange={(e) =>
@@ -353,7 +353,7 @@ export function VenueManageView() {
       <RemoveDialog
         open={removeVenueTarget !== null}
         onCancel={() => setRemoveVenueTarget(null)}
-        onConfirm={confirmRemoveVenue}
+        onConfirm={() => void confirmRemoveVenue()}
         title={t("deleteVenue.title")}
         description={t("deleteVenue.description", {
           name: removeVenueTarget?.name ?? "",
@@ -362,7 +362,7 @@ export function VenueManageView() {
       <RemoveDialog
         open={removeCourtTarget !== null}
         onCancel={() => setRemoveCourtTarget(null)}
-        onConfirm={confirmRemoveCourt}
+        onConfirm={() => void confirmRemoveCourt()}
         title={t("deleteCourt.title")}
         description={t("deleteCourt.description", {
           name: removeCourtTarget?.name ?? "",
@@ -615,7 +615,7 @@ function VenueForm({
       name: venue?.name ?? "",
       district: venue?.district ?? "",
       city: venue?.city ?? "Hà Nội",
-      sports: (venue?.sports ?? ["badminton"]) as SportKey[],
+      sports: (venue?.sports ?? ["badminton"]),
       openFrom: venue?.openFrom ?? "06:00",
       openTo: venue?.openTo ?? "22:00",
       managerName: venue?.manager.name ?? "",
@@ -645,7 +645,7 @@ function VenueForm({
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        form.handleSubmit()
+        void form.handleSubmit()
       }}
     >
       <DialogHeader>
@@ -810,10 +810,10 @@ function CourtForm({
   const form = useForm({
     defaultValues: {
       name: court?.name ?? "",
-      sport: (court?.sport ?? "badminton") as SportKey,
+      sport: (court?.sport ?? "badminton"),
       surface: court?.surface ?? "",
       pricePerHour: court?.pricePerHour ?? 300000,
-      state: (court?.state ?? "available") as CourtState,
+      state: (court?.state ?? "available"),
     },
     validators: { onSubmit: schema },
     onSubmit: async ({ value }) => {
@@ -839,7 +839,7 @@ function CourtForm({
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        form.handleSubmit()
+        void form.handleSubmit()
       }}
     >
       <DialogHeader>

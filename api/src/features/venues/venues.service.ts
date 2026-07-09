@@ -277,7 +277,7 @@ export class VenuesService {
     // Two concurrent creates can compute the same `v<n>` id; the unique index
     // rejects the loser. Recompute and retry a few times rather than 500.
     for (let attempt = 1; ; attempt++) {
-      const ids = (await this.venueModel.distinct("venueId")) as string[]
+      const ids = await this.venueModel.distinct("venueId")
       const info: VenueInfo = {
         id: `v${maxSeq(ids, "v") + 1}`,
         name: input.name,

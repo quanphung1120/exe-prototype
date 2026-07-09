@@ -63,7 +63,7 @@ export async function generateMetadata({
       template: t("titleTemplate"),
     },
     description: t("description"),
-    keywords: t.raw("keywords"),
+    keywords: t.raw("keywords") as string[],
     openGraph: {
       title: t("ogTitle"),
       description: t("ogDescription"),

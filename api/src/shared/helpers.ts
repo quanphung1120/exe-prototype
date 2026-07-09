@@ -586,12 +586,12 @@ function roomToSession(
     courtLabel: null,
     host: r.host,
     capacity: r.capacity,
-    roster: r.players.map((init) => {
+    roster: r.players.map((init): SessionPlayer => {
       const p = playerByInitials(roster, init)
       return {
         name: p.name,
         initials: init,
-        rsvp: (init === r.host.initials ? "host" : "going") as Rsvp,
+        rsvp: init === r.host.initials ? "host" : "going",
       }
     }),
     level: r.level,

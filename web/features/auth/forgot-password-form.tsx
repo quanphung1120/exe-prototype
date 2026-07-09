@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Link, useRouter } from "@/i18n/navigation"
 
+import { formField } from "./form-field"
+
 // Clerk resets passwords with an emailed 6-digit code (no reset URL/token), so
 // the whole flow lives here as two steps. The code + new-password step has no
 // existing translation keys, so its copy is inlined per locale.
@@ -43,7 +45,7 @@ export function ForgotPasswordForm() {
   const [sent, setSent] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  const onRequest = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onRequest = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!isLoaded) return
     setError(null)
@@ -52,7 +54,7 @@ export function ForgotPasswordForm() {
     try {
       await signIn.create({
         strategy: "reset_password_email_code",
-        identifier: String(form.get("email")),
+        identifier: formField(form, "email"),
       })
       setSent(true)
       setLoading(false)
@@ -65,7 +67,7 @@ export function ForgotPasswordForm() {
     }
   }
 
-  const onReset = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onReset = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!isLoaded) return
     setError(null)
@@ -74,8 +76,8 @@ export function ForgotPasswordForm() {
     try {
       const res = await signIn.attemptFirstFactor({
         strategy: "reset_password_email_code",
-        code: String(form.get("code")),
-        password: String(form.get("password")),
+        code: formField(form, "code"),
+        password: formField(form, "password"),
       })
       if (res.status === "complete") {
         await setActive({ session: res.createdSessionId })
@@ -106,7 +108,10 @@ export function ForgotPasswordForm() {
       </div>
 
       {sent ? (
-        <form onSubmit={onReset} className="space-y-4">
+        <form
+          onSubmit={(e) => void onReset(e)}
+          className="space-y-4"
+        >
           <div className="space-y-1.5">
             <Label htmlFor="code">{r.codeLabel}</Label>
             <Input
@@ -145,7 +150,10 @@ export function ForgotPasswordForm() {
           </Button>
         </form>
       ) : (
-        <form onSubmit={onRequest} className="space-y-4">
+        <form
+          onSubmit={(e) => void onRequest(e)}
+          className="space-y-4"
+        >
           <div className="space-y-1.5">
             <Label htmlFor="email">{t("emailLabel")}</Label>
             <Input

@@ -58,7 +58,7 @@ export function GoogleButton() {
       variant="outline"
       size="lg"
       className="w-full"
-      onClick={onClick}
+      onClick={() => void onClick()}
       disabled={loading || !isLoaded}
     >
       <GoogleIcon />

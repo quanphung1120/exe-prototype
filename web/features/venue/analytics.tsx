@@ -23,7 +23,6 @@ import {
   locStr,
   utilizationHeatmap,
   type BookingSource,
-  type VenueInsight,
 } from "@/features/venue/data"
 import {
   Meter,

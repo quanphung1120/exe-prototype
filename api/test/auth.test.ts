@@ -57,21 +57,21 @@ function ctx(
   } as unknown as ExecutionContext
 }
 
-test("a @Public() route is allowed without any token", async () => {
+void test("a @Public() route is allowed without any token", async () => {
   const handler = () => undefined
   Reflect.defineMetadata(IS_PUBLIC_KEY, true, handler)
   const allowed = await makeGuard().canActivate(ctx({}, handler))
   assert.equal(allowed, true)
 })
 
-test("an anonymous request (no token) is rejected with 401", async () => {
+void test("an anonymous request (no token) is rejected with 401", async () => {
   await assert.rejects(
     () => makeGuard().canActivate(ctx()),
     (err: unknown) => err instanceof UnauthorizedException
   )
 })
 
-test("a malformed/corrupt bearer token is rejected with 401 (not 500)", async () => {
+void test("a malformed/corrupt bearer token is rejected with 401 (not 500)", async () => {
   for (const token of ["garbage.token.here", "a.b.c"]) {
     await assert.rejects(
       () => makeGuard().canActivate(ctx({ authorization: `Bearer ${token}` })),

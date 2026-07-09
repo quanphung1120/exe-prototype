@@ -25,7 +25,6 @@ import {
   type PlaySession,
   type Player,
   type RoomLevel,
-  type Rsvp,
   type SessionPlayer,
   type SportKey,
 } from "@/features/dashboard/data"
@@ -639,7 +638,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                 ...x,
                 roster: x.roster.map((p) =>
                   p.initials === USER.initials
-                    ? { ...p, rsvp: "going" as Rsvp }
+                    ? { ...p, rsvp: "going" }
                     : p
                 ),
               }
@@ -670,7 +669,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                 {
                   name: userName,
                   initials: USER.initials,
-                  rsvp: "requested" as Rsvp,
+                  rsvp: "requested",
                 },
               ],
             }
@@ -731,7 +730,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         return {
           ...x,
           roster: x.roster.map((p) =>
-            p.initials === initials ? { ...p, rsvp: "going" as Rsvp } : p
+            p.initials === initials ? { ...p, rsvp: "going" } : p
           ),
         }
       })
@@ -795,7 +794,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                     {
                       name: p.name,
                       initials: p.initials,
-                      rsvp: "requested" as Rsvp,
+                      rsvp: "requested",
                     },
                   ],
                 }
@@ -870,7 +869,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       roster: room.players.map((init) => ({
         name: playerByInitials(init).name,
         initials: init,
-        rsvp: (init === room.host.initials ? "host" : "going") as Rsvp,
+        rsvp: (init === room.host.initials ? "host" : "going"),
       })),
       level: room.level,
       status: "forming",
@@ -937,7 +936,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         {
           name: userName,
           initials: USER.initials,
-          rsvp: "host" as Rsvp,
+          rsvp: "host",
         },
       ],
       level,
@@ -954,11 +953,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       ...next,
       roster: [
         ...next.roster,
-        ...invitees.map((initials) => ({
-          name: playerByInitials(initials).name,
-          initials,
-          rsvp: "pending" as Rsvp,
-        })),
+        ...invitees.map(
+          (initials): SessionPlayer => ({
+            name: playerByInitials(initials).name,
+            initials,
+            rsvp: "pending",
+          })
+        ),
       ],
     }
     setSessions((prev) => [full, ...prev])
@@ -1013,7 +1014,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                       p.initials === init
                         ? {
                             ...p,
-                            rsvp: (declined ? "declined" : "going") as Rsvp,
+                            rsvp: (declined ? "declined" : "going"),
                           }
                         : p
                     ),
@@ -1050,7 +1051,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                 {
                   name: playerByInitials(initials).name,
                   initials,
-                  rsvp: "pending" as Rsvp,
+                  rsvp: "pending",
                 },
               ],
             }
@@ -1115,11 +1116,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                 ...x,
                 roster: [
                   ...x.roster,
-                  ...partners.map((p) => ({
-                    name: p.name,
-                    initials: p.initials,
-                    rsvp: "pending" as Rsvp,
-                  })),
+                  ...partners.map(
+                    (p): SessionPlayer => ({
+                      name: p.name,
+                      initials: p.initials,
+                      rsvp: "pending",
+                    })
+                  ),
                 ],
               }
             : x
@@ -1396,11 +1399,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
               capacity: newCapacity,
               roster: [
                 ...x.roster,
-                ...toAdd.map((init) => ({
-                  name: playerByInitials(init).name,
-                  initials: init,
-                  rsvp: "pending" as Rsvp,
-                })),
+                ...toAdd.map(
+                  (init): SessionPlayer => ({
+                    name: playerByInitials(init).name,
+                    initials: init,
+                    rsvp: "pending",
+                  })
+                ),
               ],
             }
       )

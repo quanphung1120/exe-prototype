@@ -86,7 +86,7 @@ export function SportFilter({ className }: { className?: string }) {
             {sport === "all" ? (
               <SlidersHorizontal className="size-4 text-muted-foreground" />
             ) : (
-              <SportDot sport={sport as SportKey} className="size-2" />
+              <SportDot sport={sport} className="size-2" />
             )}
             <span>{current.label}</span>
             <ChevronDown className="size-4 text-muted-foreground" />
@@ -104,7 +104,7 @@ export function SportFilter({ className }: { className?: string }) {
                 {opt.key === "all" ? (
                   <SlidersHorizontal className="size-3.5 text-muted-foreground" />
                 ) : (
-                  <SportDot sport={opt.key as SportKey} className="size-2" />
+                  <SportDot sport={opt.key} className="size-2" />
                 )}
                 <span>{opt.label}</span>
               </div>

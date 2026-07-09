@@ -11,7 +11,6 @@ import {
   CircleDollarSign,
   Clock,
   LayoutGrid,
-  TrendingUp,
   UserCheck,
   Users,
   Wrench,

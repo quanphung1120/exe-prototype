@@ -265,7 +265,7 @@ export function isCompleteAssessment(
   if (assessment.version !== 1 || !assessment.results) return false
 
   const selectedSports = Array.isArray(assessment.selectedSports)
-    ? (assessment.selectedSports as AssessmentSport[])
+    ? (assessment.selectedSports)
     : (["badminton", "pickleball"] as AssessmentSport[])
 
   if (selectedSports.length === 0) return false
@@ -296,7 +296,7 @@ export function readStoredAssessment(): PlayerAssessment | null {
     if (!parsed.selectedSports) {
       parsed.selectedSports = ["badminton", "pickleball"]
     }
-    return parsed as PlayerAssessment
+    return parsed
   } catch {
     return null
   }

@@ -12,7 +12,7 @@ import { auth } from "@clerk/nextjs/server"
 
 import { fetchSeed } from "@/lib/api"
 import { findMatchedPlayers } from "@/features/play/player-matching"
-import type { Court, Level, MatchRoom, SportKey } from "@/lib/shared"
+import type { Court, Level, SportKey } from "@/lib/shared"
 
 type SportLevels = Partial<Record<SportKey, Level>>
 type LatLng = { lat: number; lng: number }
@@ -275,7 +275,7 @@ export async function POST(req: Request) {
           question: z.string().max(140),
           options: z.array(z.string().max(40)).min(2).max(4),
         }),
-        execute: async ({ question, options }) => ({ question, options }),
+        execute: ({ question, options }) => ({ question, options }),
       }),
 
       requestAssessment: tool({
@@ -284,7 +284,7 @@ export async function POST(req: Request) {
         inputSchema: z.object({
           sport: z.enum(["badminton", "pickleball"]),
         }),
-        execute: async ({ sport }) => ({ sport }),
+        execute: ({ sport }) => ({ sport }),
       }),
 
       findCourts: tool({
@@ -363,8 +363,8 @@ export async function POST(req: Request) {
           return {
             courts: ranked.slice(0, 5),
             sortBy: sortBy ?? "rating",
-            sport: (sport ?? null) as SportKey | null,
-            sports: (sports ?? null) as SportKey[] | null,
+            sport: (sport ?? null),
+            sports: (sports ?? null),
             filteredByTime: time ?? null,
             // Explicit signal so the model knows when the district filter matched nothing.
             districtMatched: district ? pool.length > 0 : null,
@@ -429,7 +429,7 @@ export async function POST(req: Request) {
         execute: async ({ sport, sports, level, district }) => {
           const { rooms } = await getSeed()
           // Only surface rooms with at least one open seat.
-          let pool = (rooms as MatchRoom[]).filter(
+          let pool = (rooms).filter(
             (r) => r.joined < r.capacity
           )
           const targetSports = sports ?? (sport ? [sport] : undefined)
@@ -448,9 +448,9 @@ export async function POST(req: Request) {
           const sorted = [...pool].sort((a, b) => a.distanceKm - b.distanceKm)
           return {
             rooms: sorted.slice(0, 5),
-            sport: (sport ?? null) as SportKey | null,
-            sports: (sports ?? null) as SportKey[] | null,
-            level: (level ?? null) as Level | null,
+            sport: (sport ?? null),
+            sports: (sports ?? null),
+            level: (level ?? null),
             districtMatched: district ? pool.length > 0 : null,
           }
         },
@@ -483,7 +483,7 @@ export async function POST(req: Request) {
           const { courts } = await getSeed()
           const court = courts.find((c: Court) => c.id === courtId)
           if (!court) return { success: false, reason: "Court not found." }
-          const sportKey: SportKey = sport ?? (court.sports[0] as SportKey)
+          const sportKey: SportKey = sport ?? (court.sports[0])
           if (!court.sports.includes(sportKey))
             return {
               success: false,

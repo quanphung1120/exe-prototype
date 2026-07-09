@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Link, useRouter } from "@/i18n/navigation"
 
+import { formField } from "./form-field"
 import { AuthDivider, GoogleButton } from "./google-button"
 
 // Clerk sign-up is two steps (credentials, then an emailed 6-digit code). The
@@ -43,7 +44,7 @@ export function SignUpForm() {
   const [error, setError] = React.useState<string | null>(null)
   const [verifying, setVerifying] = React.useState(false)
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!isLoaded) return
     setError(null)
@@ -51,9 +52,9 @@ export function SignUpForm() {
     const form = new FormData(e.currentTarget)
     try {
       await signUp.create({
-        firstName: String(form.get("name")),
-        emailAddress: String(form.get("email")),
-        password: String(form.get("password")),
+        firstName: formField(form, "name"),
+        emailAddress: formField(form, "email"),
+        password: formField(form, "password"),
       })
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" })
       setVerifying(true)
@@ -67,7 +68,7 @@ export function SignUpForm() {
     }
   }
 
-  const onVerify = async (e: React.FormEvent<HTMLFormElement>) => {
+  const onVerify = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!isLoaded) return
     setError(null)
@@ -75,7 +76,7 @@ export function SignUpForm() {
     const form = new FormData(e.currentTarget)
     try {
       const res = await signUp.attemptEmailAddressVerification({
-        code: String(form.get("code")),
+        code: formField(form, "code"),
       })
       if (res.status === "complete") {
         await setActive({ session: res.createdSessionId })
@@ -104,7 +105,7 @@ export function SignUpForm() {
           <p className="text-sm text-muted-foreground">{v.subtitle}</p>
         </div>
 
-        <form onSubmit={onVerify} className="space-y-4">
+        <form onSubmit={(e) => void onVerify(e)} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="code">{v.codeLabel}</Label>
             <Input
@@ -156,7 +157,7 @@ export function SignUpForm() {
       <GoogleButton />
       <AuthDivider />
 
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="name">{t("signUp.nameLabel")}</Label>
           <Input

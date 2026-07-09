@@ -34,3 +34,9 @@ next-env.d.ts
 
 # prisma — generated client (regenerated via `prisma generate` / postinstall)
 api/src/generated/
+
+# scratch / superseded code kept locally, never committed
+.temp/
+
+# local pnpm store
+.pnpm-store/

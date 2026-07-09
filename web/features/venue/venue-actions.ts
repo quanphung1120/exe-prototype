@@ -10,31 +10,30 @@ import type {
   VenueCustomer,
 } from "@/lib/shared"
 
-import { API_URL, authHeaders } from "@/lib/api"
+import { apiFetch } from "@/lib/api"
 
 // Server actions for venue management. They run on the server (so the Hono API
 // base stays off the client) and call the API's CRUD routes, then revalidate
 // the relevant venue path so the server-rendered seed refetches.
-// API_URL is shared with the seed reader (lib/api.ts) so writes hit the same
-// host/port as reads; authHeaders() forwards the Clerk token the API requires.
+// apiFetch (lib/api.ts) carries the shared base URL, timeout and Clerk bearer
+// token, so writes hit the same host/port and auth as reads.
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    cache: "no-store",
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      ...(await authHeaders()),
-      ...init?.headers,
-    },
-  })
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new Error(body?.error ?? `Request failed (${res.status})`)
+// The API's onError maps every AppError to `{ error: message }` (see
+// CLAUDE.md § API auth); better-fetch surfaces that parsed body as
+// `BetterFetchError.error`, so unwrap it one level to get the message string.
+async function api<T>(
+  path: string,
+  init?: Parameters<typeof apiFetch>[1]
+): Promise<T> {
+  try {
+    return await apiFetch<T>(path, init)
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "error" in err
+        ? ((err as { error?: { error?: string } }).error?.error ?? undefined)
+        : undefined
+    throw new Error(message ?? "Request failed")
   }
-  return res.json() as Promise<T>
 }
 
 export interface VenueInput {

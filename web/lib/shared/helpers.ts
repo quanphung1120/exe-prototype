@@ -591,7 +591,7 @@ function roomToSession(
       return {
         name: p.name,
         initials: init,
-        rsvp: (init === r.host.initials ? "host" : "going") as Rsvp,
+        rsvp: (init === r.host.initials ? "host" : "going"),
       }
     }),
     level: r.level,
