@@ -1,0 +1,50 @@
+$ next build
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 8.1s
+  Running TypeScript ...
+  Finished TypeScript in 5.6s ...
+  Collecting page data using 23 workers ...
+  Generating static pages using 23 workers (0/30) ...
+  Generating static pages using 23 workers (7/30) 
+  Generating static pages using 23 workers (14/30) 
+  Generating static pages using 23 workers (22/30) 
+(node:17153) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ Generating static pages using 23 workers (30/30) in 440ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /_not-found
+├ ● /[locale]
+│ ├ /vi
+│ └ /en
+├ ƒ /[locale]/assessment
+├ ƒ /[locale]/dashboard
+├ ƒ /[locale]/dashboard/book
+├ ƒ /[locale]/dashboard/bookings
+├ ƒ /[locale]/dashboard/chat
+├ ƒ /[locale]/dashboard/play
+├ ƒ /[locale]/dashboard/venue
+├ ƒ /[locale]/dashboard/venue/[venueId]
+├ ƒ /[locale]/dashboard/venue/[venueId]/analytics
+├ ƒ /[locale]/dashboard/venue/[venueId]/customers
+├ ƒ /[locale]/dashboard/venue/[venueId]/manage
+├ ƒ /[locale]/dashboard/venue/[venueId]/schedule
+├ ƒ /[locale]/forgot-password
+├ ƒ /[locale]/reset-password
+├ ƒ /[locale]/sign-in
+├ ƒ /[locale]/sign-up
+├ ƒ /[locale]/sso-callback
+├ ƒ /api/chat
+└ ○ /icon.svg
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+

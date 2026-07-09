@@ -1,0 +1,37 @@
+services:
+  api:
+    build: ./api
+    env_file:
+      - ./api/.env
+    ports:
+      - "6969:6969"
+    volumes:
+      # Bind-mount source for hot reload; keep node_modules/dist inside the
+      # container so the host's install (which may differ per-OS) never
+      # clobbers them.
+      - ./api:/app
+      - api_node_modules:/app/node_modules
+      - api_dist:/app/dist
+
+  web:
+    build: ./web
+    env_file:
+      - ./web/.env.local
+    environment:
+      # Server-side calls stay inside the compose network; the browser still
+      # hits the API through the published port on localhost.
+      API_URL: http://api:6969
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    volumes:
+      - ./web:/app
+      - web_node_modules:/app/node_modules
+      - web_next:/app/.next
+
+volumes:
+  api_node_modules:
+  api_dist:
+  web_node_modules:
+  web_next:

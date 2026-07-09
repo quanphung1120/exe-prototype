@@ -1,0 +1,69 @@
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose"
+import { Schema as MongooseSchema, type HydratedDocument } from "mongoose"
+
+import type {
+  ActivityItem,
+  Booking,
+  Chat,
+  MatchRoom,
+  Message,
+  NotificationItem,
+  Stats,
+  Streak,
+  User,
+} from "../../shared/index.js"
+
+// A signed-in player's personal dashboard state — one document per Clerk user.
+// Unlike courts/players (shared discovery data), everything here is *personal*:
+// the doc is seeded per-user on first access from the hardcoded fixtures (see
+// profile.service) as their "pre-data", then their own mutations persist on top.
+// The sub-fields are stored as Mixed sub-documents — demo blobs (localized/derived
+// UI content) with no per-field query needs. `minimize: false` keeps
+// intentionally-empty arrays (e.g. no notifications).
+@Schema({ timestamps: true, minimize: false })
+export class Profile {
+  @Prop({ required: true, unique: true, index: true }) userId: string
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) user: User
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) streak: Streak
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) stats: Stats
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) rooms: MatchRoom[]
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) bookings: Booking[]
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) chats: Chat[]
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) thread: Message[]
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true })
+  activity: ActivityItem[]
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true })
+  notifications: NotificationItem[]
+}
+
+// The personal-data payload the profile carries (everything but `userId` and the
+// mongo-managed fields).
+export interface ProfileData {
+  user: User
+  streak: Streak
+  stats: Stats
+  rooms: MatchRoom[]
+  bookings: Booking[]
+  chats: Chat[]
+  thread: Message[]
+  activity: ActivityItem[]
+  notifications: NotificationItem[]
+}
+
+export type ProfileDocument = HydratedDocument<Profile>
+export const ProfileSchema = SchemaFactory.createForClass(Profile)
+
+/** Slice the personal-data payload out of a stored profile document. */
+export function toProfileData(doc: Profile): ProfileData {
+  return {
+    user: doc.user,
+    streak: doc.streak,
+    stats: doc.stats,
+    rooms: doc.rooms,
+    bookings: doc.bookings,
+    chats: doc.chats,
+    thread: doc.thread,
+    activity: doc.activity,
+    notifications: doc.notifications,
+  }
+}

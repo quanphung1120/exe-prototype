@@ -1,0 +1,8 @@
+allowBuilds:
+  esbuild: true
+  '@clerk/shared': false
+
+minimumReleaseAgeExclude:
+  - '@clerk/backend@3.11.2'
+  - '@clerk/express@2.1.38'
+  - '@clerk/shared@4.25.1'

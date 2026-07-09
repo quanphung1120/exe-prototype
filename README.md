@@ -1,44 +1,55 @@
 # SportMatch AI
 
 A prototype for an AI-powered court-booking and player-matchmaking app for racquet
-sports (pickleball, cầu lông/badminton). This is a **Turborepo monorepo**
-managed with **pnpm**.
+sports (pickleball, cầu lông/badminton). `web` and `api` are two
+**dedicated, standalone projects** (own `package.json`, own pnpm lockfile) —
+there is no Turborepo, no pnpm workspace, and no shared package linking them.
 
 ## Structure
 
 ```
 apps/
   web/   # Next.js 16 frontend — landing page (Vietnamese) + product dashboard
-  api/   # Hono server (Node) — zod-validated mock API, ready to grow a backend
-packages/  # (empty) shared code lives here when web + api need it
+  api/   # NestJS server (Node) — Mongoose-backed API
 ```
+
+Each app owns a copy of the small set of entity types/config/helpers it needs
+under `lib/shared` (web) / `src/shared` (api) — kept in sync by hand since the
+two projects don't share a package.
 
 ## Getting started
 
+Each app is installed and run independently:
+
 ```bash
-pnpm install     # install the whole workspace
-pnpm dev         # run every app's dev server (web :3000, api :3001)
+cd web && pnpm install && pnpm dev   # :3000
+cd api && pnpm install && pnpm dev   # :6969
+```
+
+Or bring both up together with Docker Compose from the repo root:
+
+```bash
+docker compose up --build
 ```
 
 ## Common tasks
 
-Run from the repo root; Turborepo fans each task out across the apps:
+Run from inside the app you're working on:
 
 ```bash
-pnpm build       # production builds (next build + tsc)
-pnpm lint        # eslint across all packages
-pnpm typecheck   # tsc --noEmit across all packages
-pnpm format      # prettier --write on **/*.{ts,tsx}
+pnpm build       # production build
+pnpm lint        # eslint
+pnpm typecheck   # tsc --noEmit
 ```
 
-Target one app with a filter, e.g. `pnpm --filter api dev` or `pnpm --filter web build`.
+`pnpm format` at the repo root runs prettier across both apps.
 
 ## Adding shadcn/ui components
 
 shadcn/ui (the `base-luma` style, built on `@base-ui/react`) lives in the web app:
 
 ```bash
-cd apps/web && npx shadcn@latest add button
+cd web && npx shadcn@latest add button
 ```
 
-Components land in `apps/web/components/ui/` and are imported via the `@/*` alias.
+Components land in `web/components/ui/` and are imported via the `@/*` alias.
