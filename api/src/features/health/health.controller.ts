@@ -9,6 +9,6 @@ export class HealthController {
   @Public()
   @Get()
   health() {
-    return { status: "ok", uptime: process.uptime() }
+    return { status: "ok", uptime: process.uptime(), hotReloadTest: false }
   }
 }
