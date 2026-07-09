@@ -438,7 +438,9 @@
       "joinRequest": "Wants to join your room",
       "approved": "Added to your room",
       "declined": "Request declined",
-      "full": "Room is full"
+      "full": "Room is full",
+      "overlapTitle": "Time conflict",
+      "overlapBody": "You're already in \"{title}\" at that time"
     }
   },
   "Shared": {
@@ -884,6 +886,7 @@
     "openSeats": "{count, plural, one {# open} other {# open}}",
     "joined": "Joined",
     "full": "Full",
+    "timeClash": "Time clash",
     "join": "Join",
     "selectCourt": "Select a court",
     "players": "{count, plural, one {# player} other {# players}}",

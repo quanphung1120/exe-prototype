@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { SkillsAssessmentView } from "@/components/dashboard/views/skills-assessment"
+import { SkillsAssessmentView } from "@/features/assessment/skills-assessment"
 
 export async function generateMetadata({
   params,

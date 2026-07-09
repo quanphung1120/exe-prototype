@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { BookView } from "@/components/dashboard/views/book"
+import { BookView } from "@/features/booking/book"
 
 export async function generateMetadata({
   params,

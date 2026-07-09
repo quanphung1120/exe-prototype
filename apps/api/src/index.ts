@@ -3,7 +3,7 @@ import "dotenv/config"
 import { serve } from "@hono/node-server"
 
 import { routes } from "./app.js"
-import { connectDb } from "./db.js"
+import { connectDb } from "./lib/db.js"
 
 export type { AppType } from "./app.js"
 

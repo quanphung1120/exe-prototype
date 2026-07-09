@@ -1,6 +1,6 @@
 import { fetchVenueBundle } from "@/lib/api"
-import { VenueDataProvider } from "@/components/dashboard/venue-data-provider"
-import { VenueWorkspaceProvider } from "@/components/dashboard/venue/venue-provider"
+import { VenueDataProvider } from "@/features/venue/venue-data-provider"
+import { VenueWorkspaceProvider } from "@/features/venue/venue-provider"
 
 /**
  * Per-venue workspace layout. Called when the user navigates to a specific

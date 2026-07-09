@@ -438,7 +438,9 @@
       "joinRequest": "Muốn tham gia phòng của bạn",
       "approved": "Đã thêm vào phòng",
       "declined": "Đã từ chối yêu cầu",
-      "full": "Phòng đã đầy"
+      "full": "Phòng đã đầy",
+      "overlapTitle": "Trùng giờ",
+      "overlapBody": "Quý khách đã tham gia \"{title}\" vào khung giờ đó"
     }
   },
   "Shared": {
@@ -884,6 +886,7 @@
     "openSeats": "{count, plural, other {còn # chỗ}}",
     "joined": "Đã tham gia",
     "full": "Đã đầy",
+    "timeClash": "Trùng giờ",
     "join": "Tham gia",
     "selectCourt": "Chọn sân",
     "players": "{count, plural, other {# người chơi}}",

@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { PlayView, type PlayTab } from "@/components/dashboard/views/play"
+import { PlayView, type PlayTab } from "@/features/play/play"
 
 export async function generateMetadata({
   params,

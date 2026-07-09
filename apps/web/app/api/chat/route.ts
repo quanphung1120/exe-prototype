@@ -11,7 +11,7 @@ import { z } from "zod"
 import { auth } from "@clerk/nextjs/server"
 
 import { fetchSeed } from "@/lib/api"
-import { findMatchedPlayers } from "@/lib/player-matching"
+import { findMatchedPlayers } from "@/features/play/player-matching"
 import type { Court, Level, MatchRoom, SportKey } from "@repo/shared"
 
 type SportLevels = Partial<Record<SportKey, Level>>

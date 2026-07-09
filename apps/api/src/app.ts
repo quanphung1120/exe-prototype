@@ -4,13 +4,13 @@ import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
 import { logger } from "hono/logger"
 
-import { AppError, UnauthorizedError } from "./errors.js"
-import { courts } from "./routes/courts.js"
-import { player } from "./routes/player.js"
-import { seed } from "./routes/seed.js"
-import { sessions } from "./routes/sessions.js"
-import { venue } from "./routes/venue.js"
-import { venues } from "./routes/venues.js"
+import { AppError, UnauthorizedError } from "./lib/errors.js"
+import { courts } from "./features/courts/route.js"
+import { player } from "./features/players/route.js"
+import { seed } from "./features/seed/route.js"
+import { sessions } from "./features/sessions/route.js"
+import { venue } from "./features/venues/venue-route.js"
+import { venues } from "./features/venues/venues-route.js"
 
 // The Hono app definition, free of server/DB side effects so it can be exercised
 // directly in tests via `routes.request(...)`. The bootstrap (serve + Mongo

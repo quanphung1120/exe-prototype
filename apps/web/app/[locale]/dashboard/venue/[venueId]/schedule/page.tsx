@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server"
 import {
   VenueScheduleWorkspace,
   type ScheduleTab,
-} from "@/components/dashboard/views/venue/schedule-workspace"
+} from "@/features/venue/schedule-workspace"
 
 export async function generateMetadata({
   params,

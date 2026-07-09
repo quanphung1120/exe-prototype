@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { AiNativeDashboardView } from "@/components/dashboard/views/ai-native-dashboard"
+import { AiNativeDashboardView } from "@/features/chat/ai-native-dashboard"
 
 export async function generateMetadata({
   params,

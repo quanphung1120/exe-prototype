@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { VenueManageView } from "@/components/dashboard/views/venue/manage"
+import { VenueManageView } from "@/features/venue/manage"
 
 export async function generateMetadata({
   params,

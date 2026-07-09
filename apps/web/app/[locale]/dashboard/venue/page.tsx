@@ -1,5 +1,5 @@
 import { fetchVenues } from "@/lib/api"
-import { venueBase } from "@/components/dashboard/venue/nav"
+import { venueBase } from "@/features/venue/nav"
 import { redirect } from "@/i18n/navigation"
 
 // The venue workspace is per-venue (`/dashboard/venue/[venueId]`). A bare

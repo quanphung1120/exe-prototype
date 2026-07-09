@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { ChatView } from "@/components/dashboard/views/chat"
+import { ChatView } from "@/features/chat/chat"
 
 export async function generateMetadata({
   params,
