@@ -10,10 +10,13 @@ import type { PlaySession as PlaySessionData } from "../../shared/index.js"
 // `sessionId`; the seed merge overrides any demo session sharing that id.
 @Schema({ timestamps: true, minimize: false })
 export class PlaySession {
-  // Clerk user id — every session is scoped to its owner.
-  @Prop({ required: true, index: true }) userId: string
+  // Clerk user id — every session is scoped to its owner. Explicit `type:
+  // String` (rather than relying on reflect-metadata to infer it from the TS
+  // annotation) since esbuild-based runners like tsx don't emit the design:type
+  // metadata @Prop() needs — see test/sessions-service.test.ts.
+  @Prop({ required: true, index: true, type: String }) userId: string
   // The client PlaySession.id this document mirrors.
-  @Prop({ required: true }) sessionId: string
+  @Prop({ required: true, type: String }) sessionId: string
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) data: PlaySessionData
 }
 

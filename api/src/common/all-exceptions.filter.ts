@@ -24,7 +24,8 @@ function messageOf(exception: HttpException): string {
  * Centralized JSON error shape — the single exit for every failure. Expected,
  * client-facing failures are thrown as Nest `HttpException`s (NotFound, BadRequest,
  * Conflict, Unauthorized, …) by services, controllers, the auth guard and the
- * zod pipe, and render as `{ error }` at their status. Everything else is
+ * global `ValidationPipe` (which throws BadRequest with a `message` array —
+ * joined here), and render as `{ error }` at their status. Everything else is
  * unexpected → logged → 500. Mirrors the old Hono `app.onError`.
  */
 @Catch()

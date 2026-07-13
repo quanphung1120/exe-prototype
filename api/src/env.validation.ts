@@ -8,6 +8,10 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
   CLERK_PUBLISHABLE_KEY: z.string().min(1, "CLERK_PUBLISHABLE_KEY is required"),
+  // GetStream.io Stream Chat — server key + secret. The secret signs user JWTs
+  // locally (no network) and authenticates server-side channel/user upserts.
+  STREAM_API_KEY: z.string().min(1, "STREAM_API_KEY is required"),
+  STREAM_API_SECRET: z.string().min(1, "STREAM_API_SECRET is required"),
   WEB_URL: z.string().min(1).default("http://localhost:3000"),
   PORT: z.coerce.number().int().positive().default(6969),
 })

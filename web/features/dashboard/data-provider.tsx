@@ -14,13 +14,11 @@ import {
   sessionToBooking as sessionToBookingFn,
   type ActivityItem,
   type Booking,
-  type Chat,
   type Conflict,
   type ConflictQuery,
   type Court,
   type CourtBand,
   type MatchRoom,
-  type Message,
   type NotificationItem,
   type Player,
   type PlaySession,
@@ -52,8 +50,6 @@ interface DataContextValue {
   bookings: Booking[]
   /** Seed sessions (built from rooms + bookings) the SessionProvider hydrates. */
   sessions: PlaySession[]
-  chats: Chat[]
-  thread: Message[]
   streak: Streak
   stats: Stats
   activity: ActivityItem[]
@@ -117,8 +113,6 @@ export function DataProvider({
       rooms: seed.rooms,
       bookings: seed.bookings,
       sessions: seed.sessions,
-      chats: seed.chats,
-      thread: seed.thread,
       streak: seed.streak,
       stats: seed.stats,
       activity: seed.activity,

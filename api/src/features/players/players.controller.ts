@@ -32,16 +32,6 @@ export class PlayersController {
     return (await this.profiles.getProfile(userId)).bookings
   }
 
-  @Get("chats")
-  async chats(@UserId() userId: string) {
-    return (await this.profiles.getProfile(userId)).chats
-  }
-
-  @Get("chats/thread")
-  async thread(@UserId() userId: string) {
-    return (await this.profiles.getProfile(userId)).thread
-  }
-
   @Get("activity")
   async activity(@UserId() userId: string) {
     return (await this.profiles.getProfile(userId)).activity

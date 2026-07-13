@@ -47,7 +47,6 @@ export const NAV: NavItem<SectionKey>[] = [
     label: "Chat",
     icon: MessageSquare,
     caption: "Coordinate your next match",
-    badge: "2",
   },
   {
     key: "bookings",

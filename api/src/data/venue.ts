@@ -34,6 +34,8 @@ export const VENUE: Venue = {
   reviews: 1240,
   manager: { name: "Lê Quang", initials: "LQ" },
   now: "18:00",
+  lat: 21.0333,
+  lng: 105.7908,
 }
 
 export const VENUE_COURTS: VenueCourt[] = [
@@ -119,6 +121,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv1",
     customer: { name: "Nguyễn Bảo", initials: "NB" },
     sport: "badminton",
+    courtId: "vc2",
     court: "Sân 2",
     day: { en: "Today", vi: "Hôm nay" },
     time: "19:00 – 20:00",
@@ -133,6 +136,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv2",
     customer: { name: "Trịnh Long", initials: "TL" },
     sport: "pickleball",
+    courtId: "vc6",
     court: "Sân 6",
     day: { en: "Today", vi: "Hôm nay" },
     time: "20:00 – 21:00",
@@ -147,6 +151,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv3",
     customer: { name: "Trần Huy", initials: "TH" },
     sport: "badminton",
+    courtId: "vc3",
     court: "Sân 3",
     day: { en: "Today", vi: "Hôm nay" },
     time: "19:00 – 20:30",
@@ -161,6 +166,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv4",
     customer: { name: "Lê Lan", initials: "LL" },
     sport: "pickleball",
+    courtId: "vc5",
     court: "Sân 5",
     day: { en: "Today", vi: "Hôm nay" },
     time: "17:45 – 18:45",
@@ -175,6 +181,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv5",
     customer: { name: "Phạm Quân", initials: "PQ" },
     sport: "badminton",
+    courtId: "vc1",
     court: "Sân 1",
     day: { en: "Today", vi: "Hôm nay" },
     time: "18:00 – 19:30",
@@ -189,6 +196,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv6",
     customer: { name: "Đỗ Anh", initials: "ĐA" },
     sport: "pickleball",
+    courtId: "vc6",
     court: "Sân 6",
     day: { en: "Tomorrow", vi: "Ngày mai" },
     time: "07:00 – 08:00",
@@ -203,6 +211,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv7",
     customer: { name: "Vũ Hà", initials: "VH" },
     sport: "badminton",
+    courtId: "vc2",
     court: "Sân 2",
     day: { en: "Tomorrow", vi: "Ngày mai" },
     time: "19:00 – 20:00",
@@ -217,6 +226,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv8",
     customer: { name: "Bùi Khang", initials: "BK" },
     sport: "badminton",
+    courtId: "vc1",
     court: "Sân 1",
     day: { en: "Mon, 16 Jun", vi: "Th 2, 16/6" },
     time: "20:00 – 21:00",
@@ -231,6 +241,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv9",
     customer: { name: "Ngô Sơn", initials: "NS" },
     sport: "pickleball",
+    courtId: "vc5",
     court: "Sân 5",
     day: { en: "Sun, 15 Jun", vi: "CN, 15/6" },
     time: "18:00 – 19:00",
@@ -245,6 +256,7 @@ export const RESERVATIONS: Reservation[] = [
     id: "rv10",
     customer: { name: "Đặng Thu", initials: "ĐT" },
     sport: "badminton",
+    courtId: "vc3",
     court: "Sân 3",
     day: { en: "Sun, 15 Jun", vi: "CN, 15/6" },
     time: "09:00 – 10:00",
@@ -628,6 +640,8 @@ export const VENUE_2: Venue = {
   reviews: 532,
   manager: { name: "Phạm Vy", initials: "PV" },
   now: "18:00",
+  lat: 21.0122,
+  lng: 105.8267,
 }
 
 export const VENUE_2_COURTS: VenueCourt[] = [
@@ -673,6 +687,8 @@ export const VENUE_3: Venue = {
   reviews: 318,
   manager: { name: "Hoàng Minh", initials: "HM" },
   now: "18:00",
+  lat: 21.0703,
+  lng: 105.8235,
 }
 
 export const VENUE_3_COURTS: VenueCourt[] = [

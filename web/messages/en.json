@@ -132,7 +132,8 @@
     "venueTag": "Venue",
     "operatorRole": "Operations",
     "searchVenue": "Search bookings, players…",
-    "venues": "Your venues"
+    "venues": "Your venues",
+    "addVenue": "Add venue"
   },
   "WorkspaceSettings": {
     "title": "Workspace settings",
@@ -172,6 +173,7 @@
     "notifications": "Notifications"
   },
   "ActiveRoom": {
+    "openChatError": "Couldn't open the chat. Please try again.",
     "pill": "In a match room",
     "location": "Location",
     "participants": "Participants ({count})",
@@ -367,6 +369,7 @@
     "toPayment": "Continue to payment",
     "pay": {
       "amountDue": "Amount due",
+      "holdCountdown": "Court held for {time} — pay to keep it",
       "holdFeePercent": "Holding fee (5%)",
       "fullNote": "Pay in full to confirm your booking.",
       "courtFee": "court fee",
@@ -406,8 +409,10 @@
     "roomTitle": "{sport} at {court}",
     "toast": {
       "booked": "Court booked",
+      "pending": "Request sent — waiting for operator approval",
       "cancelled": "Booking cancelled",
-      "conflict": "That slot was just taken — choose another time."
+      "conflict": "That slot was just taken — choose another time.",
+      "holdExpired": "Your court hold expired and was released"
     },
     "startTime": "Start time",
     "duration": "Duration",
@@ -440,7 +445,9 @@
       "declined": "Request declined",
       "full": "Room is full",
       "overlapTitle": "Time conflict",
-      "overlapBody": "You're already in \"{title}\" at that time"
+      "overlapBody": "You're already in \"{title}\" at that time",
+      "requestExpired": "Join request expired — the host never answered",
+      "inviteExpired": "Invite expired — they never answered"
     }
   },
   "Shared": {
@@ -518,15 +525,7 @@
     "prev": "Previous",
     "next": "Next",
     "more": "+{count} more",
-    "weekdaysShort": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ],
+    "weekdaysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     "monthsShort": [
       "Jan",
       "Feb",
@@ -559,6 +558,9 @@
   "Bookings": {
     "metaTitle": "Bookings",
     "metaDescription": "Your upcoming and past court bookings.",
+    "pendingNote": "Waiting for the operator to approve.",
+    "declinedNote": "The operator declined: {reason}",
+    "refundedNote": "Refunded (simulated).",
     "tabs": {
       "upcoming": "Upcoming",
       "past": "Past",
@@ -1074,57 +1076,20 @@
   "Chat": {
     "metaTitle": "Chat",
     "metaDescription": "Coordinate your next match with players and venues.",
-    "messages": "Messages",
-    "searchPlaceholder": "Search chats…",
     "members": "{count, plural, one {# member} other {# members}}",
     "online": "Online",
     "offline": "Offline",
-    "call": "Call",
-    "videoCall": "Video call",
-    "inputPlaceholder": "Write a message…",
-    "messageLabel": "Message",
-    "send": "Send",
-    "now": "now",
-    "chats": {
-      "ch1": {
-        "last": "Huy: See you at Court 3 at 6:30 👊",
-        "time": "12m"
-      },
-      "ch2": {
-        "last": "Bring an extra grip if you have one",
-        "time": "1h"
-      },
-      "ch3": {
-        "last": "Confirmed for tonight ✅",
-        "time": "3h"
-      },
-      "ch4": {
-        "last": "Rematch this weekend? 🏓",
-        "time": "Yesterday"
-      }
-    },
-    "thread": {
-      "m1": {
-        "text": "Court 3 is booked for tonight 🔥"
-      },
-      "m2": {
-        "text": "Confirmed for tonight ✅"
-      },
-      "m3": {
-        "text": "Perfect. I'll warm up the serves 😅"
-      },
-      "m4": {
-        "text": "See you at Court 3 at 6:30 👊"
-      }
-    },
-    "teamWelcome": "Welcome 👋 See you at {venue}.",
-    "teamCreated": "You created this room."
+    "loading": "Connecting to chat…",
+    "unavailable": "Chat is unavailable right now."
   },
   "Notifications": {
     "title": "Notifications",
     "markAllRead": "Mark all read",
     "empty": "No notifications yet",
     "newTeamChat": "New team chat — {title}",
+    "holdExpired": "Court hold expired and was released — {title}",
+    "requestExpired": "Join request expired — {name} never answered",
+    "inviteExpired": "Invite expired — {name} never answered",
     "justNow": "Just now",
     "items": {
       "n1": {
@@ -1163,6 +1128,52 @@
     "manage": {
       "label": "Venues",
       "caption": "Add, edit and switch your venues"
+    }
+  },
+  "VenueSetup": {
+    "metaTitle": "Set up your venue · SportMatch AI",
+    "metaDescription": "Create your venue and its courts to start taking bookings from players.",
+    "title": "Set up your venue",
+    "subtitle": "A few steps to get your venue ready to take bookings.",
+    "steps": {
+      "venue": "Venue",
+      "courts": "Courts",
+      "review": "Review"
+    },
+    "form": {
+      "name": "Venue name",
+      "namePlaceholder": "e.g. Cầu Giấy Sports Hall",
+      "district": "District",
+      "city": "City",
+      "sports": "Sports",
+      "openFrom": "Opens",
+      "openTo": "Closes",
+      "manager": "Manager",
+      "managerPlaceholder": "Manager name"
+    },
+    "courtForm": {
+      "name": "Court name",
+      "namePlaceholder": "e.g. Court 1",
+      "sport": "Sport",
+      "surface": "Surface",
+      "surfacePlaceholder": "e.g. Sprung timber",
+      "price": "Price per hour (VND)"
+    },
+    "addCourt": "Add court",
+    "removeCourt": "Remove court",
+    "noCourtsYet": "No courts yet. Add at least one to continue.",
+    "perHour": "/hr",
+    "review": {
+      "courts": "{count} courts",
+      "note": "You can edit the venue and courts anytime after creating."
+    },
+    "back": "Back",
+    "next": "Continue",
+    "finish": "Finish",
+    "creating": "Creating…",
+    "error": "Couldn't create the venue",
+    "toast": {
+      "done": "Created {name}. Welcome aboard!"
     }
   },
   "VenueManage": {
@@ -1359,6 +1370,14 @@
     "subtitle": "Approve incoming requests, track today's holds and review past bookings.",
     "listTitle": "Bookings",
     "empty": "No reservations match this filter.",
+    "decline": {
+      "title": "Decline booking",
+      "description": "Let {name} know why this booking was declined. They'll see the reason and get a (simulated) refund.",
+      "reasonLabel": "Reason for declining",
+      "reasonPlaceholder": "e.g. That slot is booked for court maintenance.",
+      "cancel": "Cancel",
+      "confirm": "Decline"
+    },
     "summary": {
       "pending": "Awaiting approval",
       "pendingHint": "Requests needing a decision",

@@ -42,7 +42,7 @@ pnpm lint        # eslint
 pnpm typecheck   # tsc --noEmit
 ```
 
-`pnpm format` at the repo root runs prettier across both apps.
+`pnpm format` runs prettier — run it inside `api/` or `web/`; each app owns its own Prettier config.
 
 ## Adding shadcn/ui components
 

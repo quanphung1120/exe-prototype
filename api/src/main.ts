@@ -1,6 +1,6 @@
 import "reflect-metadata"
 
-import { RequestMethod } from "@nestjs/common"
+import { RequestMethod, ValidationPipe } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { NestFactory } from "@nestjs/core"
 import type { NestExpressApplication } from "@nestjs/platform-express"
@@ -18,6 +18,21 @@ async function bootstrap() {
 
   app.useBodyParser("json", { limit: JSON_BODY_LIMIT })
   app.useBodyParser("urlencoded", { limit: JSON_BODY_LIMIT, extended: true })
+
+  // Validate every request param/query/body that a handler types as a DTO class
+  // via `class-validator`. `whitelist` strips unknown keys (matching zod's
+  // object stripping); `transform` builds real DTO instances and coerces path/
+  // query strings to the declared types. Handler args typed as a plain
+  // interface/type (e.g. the raw PlaySession PUT body) have metatype `Object`,
+  // so the pipe skips them — their bodies pass through untouched. Validation
+  // failures throw BadRequestException, which the AllExceptionsFilter renders as
+  // the same `{ error }` shape as every other failure.
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    })
+  )
 
   // Listen for SIGTERM/SIGINT (container stop, Ctrl-C) and run each module's
   // onModuleDestroy — including closing the Mongoose connection — instead of

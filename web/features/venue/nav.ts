@@ -1,8 +1,12 @@
-import { BarChart3, CalendarRange, LayoutDashboard, Store, Users } from "lucide-react"
+import { BarChart3, CalendarRange, LayoutDashboard, Users } from "lucide-react"
 
 import type { NavItem } from "@/features/dashboard/nav"
 
-export type VenueSectionKey = "command" | "schedule" | "analytics" | "customers" | "manage"
+export type VenueSectionKey =
+  | "command"
+  | "schedule"
+  | "analytics"
+  | "customers"
 
 /**
  * Prefix shared by every venue route. Used only for *detecting* the venue
@@ -52,13 +56,6 @@ export function venueNav(venueId: string): NavItem<VenueSectionKey>[] {
       label: "Customers",
       icon: Users,
       caption: "Manage players and customer relationships",
-    },
-    {
-      key: "manage",
-      href: `${base}/manage`,
-      label: "Venues",
-      icon: Store,
-      caption: "Add, edit and switch your venues",
     },
   ]
 }

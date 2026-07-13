@@ -1,60 +1,51 @@
-import { Controller, Get, Query } from "@nestjs/common"
-import * as z from "zod"
+import { Body, Controller, Get, Post } from "@nestjs/common"
 
-import { ZodValidationPipe } from "../../common/zod-validation.pipe.js"
+import { UserId } from "../../common/user-id.decorator.js"
+import { VenueSetupDto } from "./venues.dto.js"
 import { VenuesService } from "./venues.service.js"
 
-const venueQuery = z.object({ venue: z.string().min(1).optional() })
-const bundleQuery = z.object({ venue: z.string().min(1) })
-
-// Venue-workspace (operator) read endpoints, mounted at /api/venue. `?venue=`
-// selects which venue's bundle to read (defaults to the first, except `/bundle`
-// which throws NotFound → 404 on an unknown id — no silent fallback).
+// Venue-workspace (operator) endpoints, mounted at /api/venue. Each account owns
+// exactly one venue, so every read resolves the caller's own venue from their
+// Clerk id — an account with no venue yet gets 404 (the web routes them to setup).
 @Controller("venue")
 export class VenueController {
   constructor(private readonly venues: VenuesService) {}
 
+  /** Provision the account's single venue (guided setup wizard). */
+  @Post("setup")
+  setup(@UserId() userId: string, @Body() body: VenueSetupDto) {
+    return this.venues.provisionVenue(userId, body)
+  }
+
   @Get("bundle")
-  bundle(
-    @Query(new ZodValidationPipe(bundleQuery)) query: z.infer<typeof bundleQuery>
-  ) {
-    return this.venues.venueBundle(query.venue)
+  bundle(@UserId() userId: string) {
+    return this.venues.myBundle(userId)
   }
 
   @Get()
-  async summary(
-    @Query(new ZodValidationPipe(venueQuery)) query: z.infer<typeof venueQuery>
-  ) {
-    const b = await this.venues.activeBundle(query.venue)
+  async summary(@UserId() userId: string) {
+    const b = await this.venues.myBundle(userId)
     return { venue: b.info, stats: b.stats }
   }
 
   @Get("courts")
-  async courts(
-    @Query(new ZodValidationPipe(venueQuery)) query: z.infer<typeof venueQuery>
-  ) {
-    return (await this.venues.activeBundle(query.venue)).courts
+  async courts(@UserId() userId: string) {
+    return (await this.venues.myBundle(userId)).courts
   }
 
   @Get("reservations")
-  async reservations(
-    @Query(new ZodValidationPipe(venueQuery)) query: z.infer<typeof venueQuery>
-  ) {
-    return (await this.venues.activeBundle(query.venue)).reservations
+  async reservations(@UserId() userId: string) {
+    return (await this.venues.myBundle(userId)).reservations
   }
 
   @Get("customers")
-  async customers(
-    @Query(new ZodValidationPipe(venueQuery)) query: z.infer<typeof venueQuery>
-  ) {
-    return (await this.venues.activeBundle(query.venue)).customers
+  async customers(@UserId() userId: string) {
+    return (await this.venues.myBundle(userId)).customers
   }
 
   @Get("analytics")
-  async analytics(
-    @Query(new ZodValidationPipe(venueQuery)) query: z.infer<typeof venueQuery>
-  ) {
-    const b = await this.venues.activeBundle(query.venue)
+  async analytics(@UserId() userId: string) {
+    const b = await this.venues.myBundle(userId)
     return {
       stats: b.stats,
       revenueSeries: b.revenueSeries,
@@ -65,9 +56,7 @@ export class VenueController {
   }
 
   @Get("insights")
-  async insights(
-    @Query(new ZodValidationPipe(venueQuery)) query: z.infer<typeof venueQuery>
-  ) {
-    return (await this.venues.activeBundle(query.venue)).insights
+  async insights(@UserId() userId: string) {
+    return (await this.venues.myBundle(userId)).insights
   }
 }

@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from "@nestjs/common"
@@ -8,6 +10,7 @@ import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
 import {
+  computeVenueStats,
   VENUE_DAYS,
   diffMinutes,
   initialsOf,
@@ -15,6 +18,9 @@ import {
   rangesOverlap,
   slotRange,
   toMinutes,
+  venueCourtToCourt,
+  type Court,
+  type NotificationItem,
   type Reservation,
   type ReservationStatus,
   type SportKey,
@@ -30,7 +36,24 @@ import {
   type VenueRecord,
 } from "../../data/venue.js"
 import { isDuplicateKeyError, once } from "../../common/mongo-util.js"
+import { ProfileService } from "../players/profile.service.js"
+import { SessionsService } from "../sessions/sessions.service.js"
 import { Venue, type VenueDocument } from "./venue.schema.js"
+
+/**
+ * The session cross-write surface Venues depends on. Typing the injected param
+ * as this interface (not the concrete SessionsService) keeps the ESM Sessions↔
+ * Venues import cycle from crashing at load: `emitDecoratorMetadata` would
+ * otherwise bake SessionsService into `design:paramtypes` and evaluate it before
+ * it initializes. The `@Inject(forwardRef(...))` token drives the real injection.
+ */
+interface SessionSyncPort {
+  applyReservationStatus(
+    userId: string,
+    sessionId: string,
+    patch: { status: ReservationStatus; reason?: string }
+  ): Promise<void>
+}
 
 // ── Inputs ─────────────────────────────────────────────────────────────────
 
@@ -44,6 +67,26 @@ export interface VenueInput {
   openFrom: string
   openTo: string
   managerName: string
+  /** Clerk account provisioning this venue (setup wizard) — enforces one-per-account. */
+  ownerId?: string
+}
+
+/** A setup-wizard payload: the venue profile plus its initial courts. */
+export interface VenueSetupInput extends VenueInput {
+  courts: CourtInput[]
+}
+
+/** An app booking cross-writing into the owning venue as a pending reservation. */
+export interface AppReservationInput {
+  courtId: string
+  dayKey: string
+  start: string
+  durationMin: number
+  userId: string
+  sessionId: string
+  customerName: string
+  /** Set on re-writes so the same booking updates its reservation in place. */
+  reservationId?: string
 }
 
 export interface CourtInput {
@@ -193,7 +236,14 @@ function assertWithinHours(
 @Injectable()
 export class VenuesService {
   constructor(
-    @InjectModel(Venue.name) private readonly venueModel: Model<VenueDocument>
+    @InjectModel(Venue.name) private readonly venueModel: Model<VenueDocument>,
+    // Cross-surface sync: an operator decision updates the linked player session
+    // and pushes a notification. forwardRef breaks the Sessions ↔ Venues cycle;
+    // the param is typed as the SessionSyncPort interface (not SessionsService)
+    // so no class leaks into the eager decorator metadata (see SessionSyncPort).
+    @Inject(forwardRef(() => SessionsService))
+    private readonly sessions: SessionSyncPort,
+    private readonly profiles: ProfileService
   ) {}
 
   // Memoize the one-time seed so concurrent first-requests don't each insert the
@@ -249,7 +299,7 @@ export class VenuesService {
     const rec = doc
       ? { info: doc.info, ops: doc.ops }
       : await this.firstRecord()
-    return { info: rec.info, ...rec.ops }
+    return this.withComputedStats({ info: rec.info, ...rec.ops })
   }
 
   /**
@@ -260,7 +310,24 @@ export class VenuesService {
     await this.ensureSeeded()
     const doc = await this.findDoc(id).lean<VenueDocument>()
     if (!doc) throw new NotFoundException("Venue not found")
-    return { info: doc.info, ...doc.ops }
+    return this.withComputedStats({ info: doc.info, ...doc.ops })
+  }
+
+  /**
+   * Override the four hybrid KPIs (revenue/utilization/no-show/new-customers)
+   * with values computed from the venue's real reservations before serving,
+   * leaving every other stat/series at its seeded value (see computeVenueStats).
+   */
+  private withComputedStats(bundle: VenueSeed): VenueSeed {
+    return {
+      ...bundle,
+      stats: computeVenueStats(
+        bundle.info,
+        bundle.courts,
+        bundle.reservations,
+        bundle.stats
+      ),
+    }
   }
 
   async getVenue(id: string): Promise<VenueInfo> {
@@ -268,6 +335,66 @@ export class VenuesService {
     const doc = await this.findDoc(id).lean<VenueDocument>()
     if (!doc) throw new NotFoundException("Venue not found")
     return doc.info
+  }
+
+  // ── Owner-scoped reads (one venue per account) ───────────────────────────────
+
+  /** The venueId this account owns, or null when it hasn't provisioned one yet. */
+  async myVenueId(userId: string): Promise<string | null> {
+    await this.ensureSeeded()
+    const doc = await this.venueModel
+      .findOne({ ownerId: userId })
+      .select("venueId")
+      .lean<VenueDocument>()
+    return doc?.venueId ?? null
+  }
+
+  /** The caller's own venue profile; throws NotFound → the web shows setup. */
+  async myVenueInfo(userId: string): Promise<VenueInfo> {
+    const id = await this.myVenueId(userId)
+    if (!id) throw new NotFoundException("No venue for this account")
+    return this.getVenue(id)
+  }
+
+  /** The caller's own operator bundle; throws NotFound → the web shows setup. */
+  async myBundle(userId: string): Promise<VenueSeed> {
+    const id = await this.myVenueId(userId)
+    if (!id) throw new NotFoundException("No venue for this account")
+    return this.venueBundle(id)
+  }
+
+  /** The venueId whose court catalog holds `courtId` (for the booking cross-write). */
+  async findVenueByCourtId(courtId: string): Promise<string | null> {
+    await this.ensureSeeded()
+    const doc = await this.venueModel
+      .findOne({ "ops.courts.id": courtId })
+      .select("venueId")
+      .lean<VenueDocument>()
+    return doc?.venueId ?? null
+  }
+
+  // ── Unified court catalog (every venue's courts as discovery courts) ──────────
+
+  /**
+   * The shared discovery catalog: every venue's `VenueCourt`s projected to the
+   * `Court` shape the player finder/map read. One source of truth — retiring the
+   * separate hardcoded catalog — so a booked court (`vc*`) resolves straight back
+   * to its owning venue for the reservation cross-write.
+   */
+  async catalogCourts(sport?: SportKey): Promise<Court[]> {
+    await this.ensureSeeded()
+    const records = await this.loadRecords()
+    const courts = records.flatMap((rec) =>
+      rec.ops.courts.map((court) => venueCourtToCourt(rec.info, court))
+    )
+    return sport ? courts.filter((c) => c.sports.includes(sport)) : courts
+  }
+
+  /** One catalog court by its `vc*` id; throws NotFound (→ 404) when unknown. */
+  async catalogCourt(id: string): Promise<Court> {
+    const found = (await this.catalogCourts()).find((c) => c.id === id)
+    if (!found) throw new NotFoundException("Court not found")
+    return found
   }
 
   // ── Venue mutations ──────────────────────────────────────────────────────────
@@ -300,6 +427,7 @@ export class VenuesService {
       try {
         await this.venueModel.create({
           venueId: info.id,
+          ownerId: input.ownerId,
           info,
           ops: emptyOps([]),
         })
@@ -353,6 +481,27 @@ export class VenuesService {
     await this.venueModel.deleteOne({ venueId: id })
   }
 
+  /**
+   * Provision the account's single venue from the setup wizard: create the venue
+   * (owned by `userId`, enforced one-per-account), add each court, and seed the
+   * account's player profile so it has a bookable identity from day one.
+   */
+  async provisionVenue(
+    userId: string,
+    input: VenueSetupInput
+  ): Promise<VenueSeed> {
+    await this.ensureSeeded()
+    if (await this.myVenueId(userId)) {
+      throw new ConflictException("This account already has a venue")
+    }
+    const info = await this.createVenue({ ...input, ownerId: userId })
+    for (const court of input.courts) {
+      await this.addCourt(info.id, court)
+    }
+    await this.profiles.getProfile(userId)
+    return this.venueBundle(info.id)
+  }
+
   // ── Court mutations (scoped to a venue) ──────────────────────────────────────
 
   async addCourt(venueId: string, input: CourtInput): Promise<VenueCourt> {
@@ -360,20 +509,22 @@ export class VenuesService {
     return withVersionRetry(async () => {
       const doc = await this.findDoc(venueId)
       if (!doc) throw new NotFoundException("Venue not found")
+      // Court ids are namespaced by venue (`${venueId}c<n>`, matching the seed's
+      // v2c*/v3c* convention) so they're GLOBALLY unique — the unified discovery
+      // catalog keys on this id, and a plain `vc<n>` would collide across venues
+      // (e.g. two venues' "court 1"), resolving a booking to the wrong venue.
       // Persisted high-water counter, seeded from the current max, so a court id
       // is never reused after a deletion (which could re-link an orphaned
       // reservation to a different, newly-added court).
+      const prefix = `${venueId}c`
       const seq =
         Math.max(
           doc.courtSeq ?? 0,
-          maxSeq(
-            doc.ops.courts.map((c) => c.id),
-            "vc"
-          )
+          maxSeq(doc.ops.courts.map((c) => c.id), prefix)
         ) + 1
       doc.courtSeq = seq
       const court: VenueCourt = {
-        id: `vc${seq}`,
+        id: `${prefix}${seq}`,
         name: input.name,
         sport: input.sport,
         surface: input.surface,
@@ -500,27 +651,198 @@ export class VenuesService {
   }
 
   /**
-   * Set a reservation's status (approve/decline, check-in, cancel). One fn backs
-   * every status transition; the caller maps its intent to a concrete status.
+   * Create (or, on a re-write, update in place) the venue reservation that mirrors
+   * a player's app booking — the single shared record the operator then approves,
+   * declines or checks in. Keyed by `reservationId` for idempotency: the web
+   * re-PUTs the whole session on every edit, so a set id updates the existing row
+   * (without downgrading an operator's status decision) rather than duplicating.
+   * Also links the booker into the venue CRM. Runs inside the version-retry so a
+   * concurrent walk-in can't slip past the overlap guard and double-book.
    */
-  async updateReservationStatus(
+  async createOrSyncAppReservation(
     venueId: string,
-    reservationId: string,
-    status: ReservationStatus
+    input: AppReservationInput
   ): Promise<Reservation> {
     await this.ensureSeeded()
     return withVersionRetry(async () => {
       const doc = await this.findDoc(venueId)
-      const reservation = doc?.ops.reservations.find(
-        (r) => r.id === reservationId
-      )
-      if (!doc || !reservation)
-        throw new NotFoundException("Reservation not found")
-      reservation.status = status
+      if (!doc) throw new NotFoundException("Venue not found")
+      const court = doc.ops.courts.find((c) => c.id === input.courtId)
+      if (!court) throw new NotFoundException("Court not found")
+
+      assertWithinHours(doc.info, input.start, input.durationMin)
+
+      const existing = input.reservationId
+        ? doc.ops.reservations.find((r) => r.id === input.reservationId)
+        : undefined
+
+      if (
+        overlapsReservation(
+          doc.ops.reservations,
+          input.courtId,
+          input.dayKey,
+          input.start,
+          input.durationMin,
+          existing?.id
+        )
+      ) {
+        throw new ConflictException(
+          "Selected time overlaps an existing reservation"
+        )
+      }
+
+      const day = VENUE_DAYS.find((d) => d.key === input.dayKey)?.label ?? {
+        en: input.dayKey,
+        vi: input.dayKey,
+      }
+      const price = priceFor(court.pricePerHour, input.durationMin)
+      const party = court.sport === "pickleball" ? 4 : 2
+
+      let reservation: Reservation
+      if (existing) {
+        // Re-write of the same booking: refresh slot/court but keep the
+        // operator's status decision (don't reset an approved booking to pending).
+        existing.sport = court.sport
+        existing.courtId = court.id
+        existing.court = court.name
+        existing.dayKey = input.dayKey
+        existing.day = day
+        existing.start = input.start
+        existing.durationMin = input.durationMin
+        existing.time = slotRange(input.start, input.durationMin)
+        existing.party = party
+        existing.price = price
+        reservation = existing
+      } else {
+        const seq =
+          Math.max(
+            doc.reservationSeq ?? 0,
+            maxSeq(
+              doc.ops.reservations.map((r) => r.id),
+              "rv"
+            )
+          ) + 1
+        doc.reservationSeq = seq
+        reservation = {
+          id: `rv${seq}`,
+          customer: {
+            name: input.customerName.trim(),
+            initials: initialsOf(input.customerName),
+          },
+          userId: input.userId,
+          sessionId: input.sessionId,
+          sport: court.sport,
+          courtId: court.id,
+          court: court.name,
+          dayKey: input.dayKey,
+          day,
+          start: input.start,
+          durationMin: input.durationMin,
+          time: slotRange(input.start, input.durationMin),
+          party,
+          source: "app",
+          status: "pending",
+          price,
+          noShowRisk: 10,
+          isRegular: false,
+        }
+        doc.ops.reservations.push(reservation)
+      }
+
+      this.upsertAppCustomer(doc, input.userId, input.customerName, court.sport)
       doc.markModified("ops")
       await doc.save()
       return reservation
     })
+  }
+
+  /** Add the app booker to the venue CRM once (linked by account), if new. */
+  private upsertAppCustomer(
+    doc: VenueDocument,
+    userId: string,
+    name: string,
+    sport: SportKey
+  ): void {
+    if (doc.ops.customers.some((c) => c.id === userId || c.userId === userId))
+      return
+    const customer: VenueCustomer = {
+      id: userId,
+      userId,
+      name: name.trim(),
+      initials: initialsOf(name),
+      favoriteSport: sport,
+      visits: 0,
+      lastVisit: { en: "Today", vi: "Hôm nay" },
+      ltv: 0,
+      noShowRate: 0,
+      tier: "new",
+      trend: 0,
+    }
+    doc.ops.customers.push(customer)
+  }
+
+  /**
+   * Set a reservation's status (approve/decline, check-in, cancel). One fn backs
+   * every status transition; the caller maps its intent to a concrete status.
+   * For app bookings it also reconciles the linked player session and, on
+   * approve/decline, notifies the player (a decline stores the reason).
+   */
+  async updateReservationStatus(
+    venueId: string,
+    reservationId: string,
+    status: ReservationStatus,
+    reason?: string
+  ): Promise<Reservation> {
+    await this.ensureSeeded()
+    const reservation = await withVersionRetry(async () => {
+      const doc = await this.findDoc(venueId)
+      const r = doc?.ops.reservations.find((item) => item.id === reservationId)
+      if (!doc || !r) throw new NotFoundException("Reservation not found")
+      r.status = status
+      if (status === "cancelled" && reason) r.declineReason = reason
+      doc.markModified("ops")
+      await doc.save()
+      return r
+    })
+
+    // Cross-surface reconciliation: an app booking carries the linked player;
+    // walk-ins have no session/user and skip cleanly.
+    if (reservation.userId && reservation.sessionId) {
+      await this.sessions.applyReservationStatus(
+        reservation.userId,
+        reservation.sessionId,
+        { status, reason }
+      )
+      const notify = this.decisionNotification(reservationId, status, reason)
+      if (notify) await this.profiles.addNotification(reservation.userId, notify)
+    }
+    return reservation
+  }
+
+  /** The player notification for an operator decision, or null when silent. */
+  private decisionNotification(
+    reservationId: string,
+    status: ReservationStatus,
+    reason?: string
+  ): NotificationItem | null {
+    const base = { time: "Vừa xong", read: false, href: "/dashboard/bookings" }
+    if (status === "cancelled" && reason) {
+      return {
+        id: `booking-declined-${reservationId}`,
+        kind: "booking",
+        text: `Chủ sân đã từ chối đặt sân: ${reason}. Đã hoàn tiền (mô phỏng).`,
+        ...base,
+      }
+    }
+    if (status === "confirmed") {
+      return {
+        id: `booking-approved-${reservationId}`,
+        kind: "booking",
+        text: "Chủ sân đã duyệt đặt sân của bạn.",
+        ...base,
+      }
+    }
+    return null
   }
 
   /**

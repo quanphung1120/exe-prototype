@@ -58,6 +58,13 @@ const MAX_CAPACITY = 8
 const MAX_HOSTED_ROOMS = 3
 // How long a host (faked) takes to review + approve the user's join request.
 const APPROVE_MS = 1600
+// Once a court+slot is picked (still forming, not yet paid), the slot is held
+// this long before it's released back for others to book.
+const HOLD_MS = 20 * 60 * 1000
+// A join request the host hasn't answered auto-expires after this long.
+const REQUEST_EXPIRY_MS = 2 * 60 * 60 * 1000
+// An invite a player hasn't responded to auto-expires after this long.
+const INVITE_EXPIRY_MS = 6 * 60 * 60 * 1000
 
 /** Fill mode chosen at the "do you have a team yet?" gate. */
 export type FillMode = "court" | "invite" | "find"
@@ -94,6 +101,13 @@ export interface PartnerSearch {
   roomId: string | null
 }
 
+/** A court hold or join-request/invite that auto-expired — for notifications. */
+export interface ExpiredEvent {
+  id: string
+  kind: "hold" | "request" | "invite"
+  title: string
+}
+
 /** Constraints the Quick Join popover applies to the auto-pick. */
 export interface QuickJoinFilters {
   sport: SportKey | "all"
@@ -116,6 +130,8 @@ interface SessionContextValue {
   userName: string
   setUserName: (name: string) => void
   search: PartnerSearch | null
+  /** Court holds / join-requests / invites that auto-expired (for notifications). */
+  expiredEvents: ExpiredEvent[]
   // ── Derived projections (legacy shapes) ──
   rooms: MatchRoom[]
   joinedRooms: MatchRoom[]
@@ -340,6 +356,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     () => authUser.name || USER.name
   )
   const [search, setSearch] = React.useState<PartnerSearch | null>(null)
+  const [expiredEvents, setExpiredEvents] = React.useState<ExpiredEvent[]>([])
   const [managerOpen, setManagerOpen] = React.useState(false)
   const [quickJoinOpen, setQuickJoinOpen] = React.useState(false)
   const [createRoomOpen, setCreateRoomOpen] = React.useState(false)
@@ -355,6 +372,40 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [paymentResult, setPaymentResult] =
     React.useState<PaymentResult | null>(null)
   const [payAttempts, setPayAttempts] = React.useState(0)
+
+  // Cross-surface flow-back: the provider seeds its `sessions` once, so an
+  // operator's approve/decline (persisted to the same DB) wouldn't otherwise
+  // appear here. When a fresh seed arrives (the Bookings view calls
+  // `router.refresh()` on mount), adopt the server's terminal status/hold/
+  // decline/refund for each booked/cancelled session — but never clobber an
+  // in-flight `forming` lobby or an active court hold.
+  const seedRef = React.useRef(SEED_SESSIONS)
+  React.useEffect(() => {
+    if (SEED_SESSIONS === seedRef.current) return
+    seedRef.current = SEED_SESSIONS
+    const byId = new Map(SEED_SESSIONS.map((s) => [s.id, s]))
+    setSessions((prev) =>
+      prev.map((local) => {
+        const server = byId.get(local.id)
+        if (!server) return local
+        if (local.status === "forming" || local.holdExpiresAt) return local
+        if (
+          server.status === local.status &&
+          server.hold === local.hold &&
+          server.cancelReason === local.cancelReason &&
+          server.refunded === local.refunded
+        )
+          return local
+        return {
+          ...local,
+          status: server.status,
+          hold: server.hold,
+          cancelReason: server.cancelReason,
+          refunded: server.refunded,
+        }
+      })
+    )
+  }, [SEED_SESSIONS])
 
   // A per-mount base keeps generated ids unique across reloads: the counter
   // resets to 0 on every mount, so without a base a new session could reuse an
@@ -436,6 +487,94 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       if (clock.current) clearInterval(clock.current)
     }
   }, [])
+
+  /**
+   * Release every expired court hold and drop every stale join
+   * request/invite. `conflictFor`/`courtHolds` already ignore an expired hold
+   * on read, so this sweep only exists to clean up the visible roster/court
+   * fields and fire the toast + {@link expiredEvents} notification — it's not
+   * load-bearing for blocking correctness.
+   */
+  const sweepExpirations = React.useCallback(() => {
+    const now = Date.now()
+    const releasedHolds: PlaySession[] = []
+    const droppedRsvps: { initials: string; kind: "request" | "invite" }[] = []
+    setSessions((prev) =>
+      prev.map((s) => {
+        let next = s
+        if (
+          next.status === "forming" &&
+          next.holdExpiresAt != null &&
+          next.holdExpiresAt <= now
+        ) {
+          next = {
+            ...next,
+            courtId: null,
+            courtLabel: null,
+            slot: null,
+            holdExpiresAt: undefined,
+          }
+          releasedHolds.push(next)
+        }
+        const stale = next.roster.filter(
+          (p) =>
+            (p.rsvp === "requested" || p.rsvp === "pending") &&
+            p.rsvpAt != null &&
+            now - p.rsvpAt >
+              (p.rsvp === "requested" ? REQUEST_EXPIRY_MS : INVITE_EXPIRY_MS)
+        )
+        if (stale.length) {
+          stale.forEach((p) =>
+            droppedRsvps.push({
+              initials: p.initials,
+              kind: p.rsvp === "requested" ? "request" : "invite",
+            })
+          )
+          next = {
+            ...next,
+            roster: next.roster.filter(
+              (p) => !stale.some((d) => d.initials === p.initials)
+            ),
+          }
+        }
+        return next
+      })
+    )
+    releasedHolds.forEach((s) => {
+      persist(s)
+      toast(tb("toast.holdExpired"), { description: s.venue })
+      setExpiredEvents((prev) => [
+        ...prev,
+        { id: `hx-${s.id}-${now}`, kind: "hold", title: s.title },
+      ])
+    })
+    droppedRsvps.forEach(({ initials, kind }) => {
+      const name = playerByInitials(initials).name
+      toast(
+        kind === "request"
+          ? ts("toast.requestExpired")
+          : ts("toast.inviteExpired"),
+        { description: name }
+      )
+      setExpiredEvents((prev) => [
+        ...prev,
+        { id: `rx-${initials}-${now}-${prev.length}`, kind, title: name },
+      ])
+    })
+  }, [tb, ts, playerByInitials])
+
+  // Passive sweep: independent of the search `clock` above (which only runs
+  // during an active Quick Match) — this runs for the provider's whole
+  // lifetime so an abandoned hold or unanswered request/invite still expires
+  // even when no other timer is active.
+  React.useEffect(() => {
+    const first = setTimeout(sweepExpirations, 0)
+    const id = setInterval(sweepExpirations, 30_000)
+    return () => {
+      clearTimeout(first)
+      clearInterval(id)
+    }
+  }, [sweepExpirations])
 
   // ── Derived projections ──
   const rooms = React.useMemo(
@@ -670,6 +809,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                   name: userName,
                   initials: USER.initials,
                   rsvp: "requested",
+                  rsvpAt: Date.now(),
                 },
               ],
             }
@@ -795,6 +935,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                       name: p.name,
                       initials: p.initials,
                       rsvp: "requested",
+                      rsvpAt: Date.now(),
                     },
                   ],
                 }
@@ -958,6 +1099,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             name: playerByInitials(initials).name,
             initials,
             rsvp: "pending",
+            rsvpAt: Date.now(),
           })
         ),
       ],
@@ -1052,6 +1194,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                   name: playerByInitials(initials).name,
                   initials,
                   rsvp: "pending",
+                  rsvpAt: Date.now(),
                 },
               ],
             }
@@ -1121,6 +1264,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                       name: p.name,
                       initials: p.initials,
                       rsvp: "pending",
+                      rsvpAt: Date.now(),
                     })
                   ),
                 ],
@@ -1404,6 +1548,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                     name: playerByInitials(init).name,
                     initials: init,
                     rsvp: "pending",
+                    rsvpAt: Date.now(),
                   })
                 ),
               ],
@@ -1427,7 +1572,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // Return to wherever the wizard was opened from.
     router.back()
   }
-  const next = () => setStep((s) => Math.min(steps.length - 1, s + 1))
+  const next = () => {
+    // Leaving the slot step locks in a real, timed court hold — before that,
+    // nothing but local draft state is at stake.
+    if (steps[step] === "slot") startCourtHold()
+    setStep((s) => Math.min(steps.length - 1, s + 1))
+  }
   const back = () => setStep((s) => Math.max(0, s - 1))
 
   const setCourt = (cid: string) => {
@@ -1496,6 +1646,82 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     ? courtDayGaps(sessions, court.id, draft.dayKey, linkedId ?? undefined)
     : []
 
+  /**
+   * Reserve `court` for the draft's day/slot the moment it's picked — before
+   * payment. Times out after HOLD_MS ({@link courtHolds}/{@link conflictFor}
+   * treat it as an active hold until then) so an abandoned or slow checkout
+   * doesn't lock the slot forever. Creates a fresh solo `forming` hold if this
+   * booking isn't tied to an existing room, else stamps the linked room's
+   * hold — either way `linkedId` ends up pointing at the held session, so
+   * {@link confirmBooking} finalizes that same record on payment success.
+   */
+  const startCourtHold = () => {
+    if (!court || !draft.slot || draftConflict) return
+    const dayLabel =
+      BOOKING_DAYS.find((d) => d.key === draft.dayKey)?.label ?? "Today"
+    const courtLabel = courtNumberFor(court.id)
+    const holdExpiresAt = Date.now() + HOLD_MS
+    const existing = linkedId ? sessions.find((s) => s.id === linkedId) : null
+    if (existing) {
+      const held: PlaySession = {
+        ...existing,
+        courtId: court.id,
+        courtLabel,
+        dayKey: draft.dayKey,
+        dayLabel,
+        slot: draft.slot,
+        durationMin: draft.durationMin,
+        venue: court.name,
+        district: court.district,
+        distanceKm: court.distanceKm,
+        pricePerHour: court.pricePerHour,
+        holdExpiresAt,
+      }
+      setSessions((prev) =>
+        prev.map((s) => (s.id === existing.id ? held : s))
+      )
+      persist(held)
+      return
+    }
+    const sport = court.sports[0]
+    const id = newId("hold")
+    const host: SessionPlayer = {
+      name: userName,
+      initials: USER.initials,
+      rsvp: "host",
+    }
+    const next: PlaySession = {
+      id,
+      title: tb("roomTitle", {
+        sport: tc(`sports.${sport}`),
+        court: court.name,
+      }),
+      sport,
+      format: draft.format,
+      courtId: court.id,
+      dayKey: draft.dayKey,
+      dayLabel,
+      slot: draft.slot,
+      durationMin: draft.durationMin,
+      courtLabel,
+      host: { name: userName, initials: USER.initials },
+      capacity: capacityFor(draft.format),
+      roster: [host],
+      level: userLevelForSport(sport),
+      status: "forming",
+      listed: false,
+      fillIntent: "court",
+      venue: court.name,
+      district: court.district,
+      distanceKm: court.distanceKm,
+      pricePerHour: court.pricePerHour,
+      holdExpiresAt,
+    }
+    setSessions((prev) => [next, ...prev])
+    persist(next)
+    setLinkedId(id)
+  }
+
   const confirmBooking = () => {
     if (!court || !draft.slot) return
     const q = {
@@ -1517,11 +1743,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const courtLabel = courtNumberFor(court.id)
 
     if (linked) {
-      // Transition an existing forming room into a booked one.
+      // Transition an existing forming room into a booked one. It arrives
+      // `pending` — the venue operator approves it (or declines with a reason),
+      // which flows back to this session via the seed reconcile.
       const booked: PlaySession = {
         ...linked,
         status: "booked",
-        hold: "confirmed",
+        hold: "pending",
+        holdExpiresAt: undefined,
         courtId: court.id,
         courtLabel,
         dayKey: draft.dayKey,
@@ -1537,7 +1766,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         prev.map((s) => (s.id === linked.id ? booked : s))
       )
       persist(booked)
-      toast.success(tb("toast.booked"), {
+      toast.success(tb("toast.pending"), {
         description: `${court.name} · ${dayLabel} · ${time}`,
       })
       setOpen(false)
@@ -1573,7 +1802,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       roster: [host],
       level: userLevelForSport(sport),
       status: "booked",
-      hold: "confirmed",
+      hold: "pending",
       listed: false,
       fillIntent: "court",
       venue: court.name,
@@ -1583,7 +1812,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     setSessions((prev) => [next, ...prev])
     persist(next)
-    toast.success(tb("toast.booked"), {
+    toast.success(tb("toast.pending"), {
       description: `${court.name} · ${dayLabel} · ${time}`,
     })
     setOpen(false)
@@ -1680,6 +1909,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     userName,
     setUserName,
     search,
+    expiredEvents,
     rooms,
     joinedRooms,
     requestedIds,

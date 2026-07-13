@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
+import { toast } from "sonner"
 import {
   CalendarCheck,
   CalendarPlus,
@@ -59,7 +60,7 @@ import {
 import { useData } from "@/features/dashboard/data-provider"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { useSession } from "@/features/play/session"
-import { roomChatId, useChat } from "@/features/chat/chat-store"
+import { ensureRoomChannel } from "@/features/chat/stream-actions"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
 import { useRouter } from "@/i18n/navigation"
 import { initialsOf } from "@/lib/shared"
@@ -168,7 +169,6 @@ function RoomDetail({
     approveRequest,
     declineRequest,
   } = useSession()
-  const { setActiveChatId } = useChat()
   const { players: MATCH_SUGGESTIONS, user: USER } = useData()
   const router = useRouter()
 
@@ -211,10 +211,21 @@ function RoomDetail({
     setProfileOpen(true)
   }
 
-  const openChat = () => {
-    setActiveChatId(roomChatId(room.id))
-    router.push("/dashboard/chat")
-    onClose()
+  const openChat = async () => {
+    // Lazily get-or-create the room's Stream channel with the other members
+    // (the current user is added by the api), then deep-link into it. The user
+    // themselves is already a member via their Clerk id, so drop their initials.
+    try {
+      await ensureRoomChannel({
+        roomId: room.id,
+        name: title,
+        memberInitials: room.players.filter((i) => i !== USER.initials),
+      })
+      router.push(`/dashboard/chat?channel=room-${room.id}`)
+      onClose()
+    } catch {
+      toast.error(t("openChatError"))
+    }
   }
 
   const leave = () => {
@@ -482,7 +493,7 @@ function RoomDetail({
             <Button
               variant="outline"
               className="flex-1 rounded-full"
-              onClick={openChat}
+              onClick={() => void openChat()}
             >
               <MessageSquare />
               {t("openChat")}

@@ -68,6 +68,7 @@ import {
 } from "@/features/booking/calendar-ui"
 import { useBooking } from "@/features/booking/booking"
 import { SportTag } from "@/features/dashboard/shared"
+import { useRouter } from "@/i18n/navigation"
 
 const DAY_MIN = 24 * 60
 
@@ -106,6 +107,14 @@ export function BookingsView() {
   const tcal = useTranslations("Calendar")
   const { bookings } = useBooking()
   const now = useNow()
+  const router = useRouter()
+
+  // Pull the freshest seed on entry so an operator's approve/decline made
+  // elsewhere in this session (same account, venue workspace) reconciles into
+  // the player's bookings — see SessionProvider's reconcile-from-seed effect.
+  React.useEffect(() => {
+    router.refresh()
+  }, [router])
 
   const [view, setView] = React.useState<CalendarView>("week")
   const [cursor, setCursor] = React.useState<string>(TODAY_ISO)
@@ -530,6 +539,23 @@ function CalendarEvent({
                 {booking.venue}
               </span>
             </div>
+
+            {booking.status === "pending" ? (
+              <p className="rounded-2xl bg-chart-4/10 px-3 py-2 text-xs text-chart-4">
+                {t("pendingNote")}
+              </p>
+            ) : null}
+
+            {cancelled && booking.declineReason ? (
+              <div className="flex flex-col gap-1 rounded-2xl bg-destructive/8 px-3 py-2 text-xs text-destructive/80">
+                <span>{t("declinedNote", { reason: booking.declineReason })}</span>
+                {booking.refunded ? (
+                  <span className="text-muted-foreground">
+                    {t("refundedNote")}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
 
             {booking.withPlayers.length ? (
               <div className="flex items-center justify-between gap-2">

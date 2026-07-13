@@ -14,6 +14,7 @@ import { HealthController } from "./features/health/health.controller.js"
 import { PlayersModule } from "./features/players/players.module.js"
 import { SeedModule } from "./features/seed/seed.module.js"
 import { SessionsModule } from "./features/sessions/sessions.module.js"
+import { StreamModule } from "./features/stream/stream.module.js"
 import { VenuesModule } from "./features/venues/venues.module.js"
 
 @Module({
@@ -46,6 +47,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     SessionsModule,
     AssessmentModule,
     VenuesModule,
+    StreamModule,
     SeedModule,
   ],
   controllers: [HealthController],

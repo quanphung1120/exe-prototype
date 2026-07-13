@@ -147,6 +147,10 @@ export interface Booking {
   /** Linked match room, when the booking created or belongs to one. */
   roomId?: string
   pricePerHour: number
+  /** Operator's decline reason (projected from the session), shown when cancelled. */
+  declineReason?: string
+  /** Simulated pre-paid refund marker (projected from the session). */
+  refunded?: boolean
   result?: "W" | "L"
   score?: string
 }
@@ -165,6 +169,8 @@ export interface SessionPlayer {
   name: string
   initials: string
   rsvp: Rsvp
+  /** Epoch ms when the current `requested`/`pending` rsvp was set (expiry). */
+  rsvpAt?: number
 }
 
 export type SessionStatus = "forming" | "booked" | "completed" | "cancelled"
@@ -201,6 +207,20 @@ export interface PlaySession {
   status: SessionStatus
   /** Court-hold sub-state once booked (drives the legacy Booking status). */
   hold?: "confirmed" | "pending"
+  /**
+   * Epoch ms deadline for an unpaid court hold: once a court+slot is picked
+   * (still `forming`), the slot is reserved until this time — see
+   * {@link courtHolds}/{@link conflictFor}. Cleared once booked or released.
+   */
+  holdExpiresAt?: number
+  /** Owning venue of the held court — set when a booking cross-writes a reservation. */
+  venueId?: string
+  /** Linked venue Reservation id (idempotency key for the cross-write). */
+  reservationId?: string
+  /** Operator's decline reason, surfaced to the player once cancelled. */
+  cancelReason?: string
+  /** Simulated pre-paid refund marker, set when an app booking is declined. */
+  refunded?: boolean
   /** Visible as an open lobby ("room") in Match Maker. */
   listed: boolean
   fillIntent: "court" | "invite" | "find"
@@ -222,29 +242,6 @@ export interface ConflictQuery {
   durationMin: number
   /** Session being (re)booked — excluded from the check. */
   ignoreId?: string
-}
-
-// ── Chat ─────────────────────────────────────────────────────────────────────
-
-export interface Chat {
-  id: string
-  name: string
-  initials: string
-  last: string
-  time: string
-  unread: number
-  online: boolean
-  group: boolean
-  /** Member count for group chats (defaults to 4 when omitted). */
-  members?: number
-}
-
-export interface Message {
-  id: string
-  mine: boolean
-  author: string
-  text: string
-  time: string
 }
 
 // ── Streak & stats ───────────────────────────────────────────────────────────
@@ -321,8 +318,10 @@ export interface LocalizedList {
 // ── Venue: the venue itself ──────────────────────────────────────────────────
 
 export interface Venue {
-  /** Stable id (the operator may run several venues). */
+  /** Stable id. Each account owns at most one venue (see `ownerId`). */
   id: string
+  /** Clerk account that owns this venue (absent on ownerless demo seeds). */
+  ownerId?: string
   name: string
   initials: string
   /** Optional profile photo URL (operator-set; the UI falls back to initials). */
@@ -340,6 +339,9 @@ export interface Venue {
   manager: { name: string; initials: string }
   /** A fixed "current time" so the live views read coherently (no real clock). */
   now: string
+  /** Geographic position for the Find Courts map (WGS84); courts inherit it. */
+  lat?: number
+  lng?: number
 }
 
 // ── Venue: physical courts ───────────────────────────────────────────────────
@@ -432,6 +434,10 @@ export type ReservationStatus =
 export interface Reservation {
   id: string
   customer: { name: string; initials: string; phone?: string }
+  /** Clerk account of the app booker (absent for walk-ins). */
+  userId?: string
+  /** Linked player PlaySession id (absent for walk-ins). */
+  sessionId?: string
   sport: SportKey
   courtId?: string
   court: string
@@ -447,6 +453,8 @@ export interface Reservation {
   /** AI-estimated no-show probability, 0–100. */
   noShowRisk: number
   isRegular: boolean
+  /** Operator's reason when this app reservation is declined (status "cancelled"). */
+  declineReason?: string
 }
 
 export type RiskTier = "low" | "medium" | "high"
@@ -456,7 +464,10 @@ export type RiskTier = "low" | "medium" | "high"
 export type CustomerTier = "vip" | "regular" | "new" | "at-risk"
 
 export interface VenueCustomer {
+  /** Phone number for walk-ins; the Clerk userId for linked app bookers. */
   id: string
+  /** Set when this CRM row is a linked app booker (walk-ins keep a phone id). */
+  userId?: string
   name: string
   initials: string
   favoriteSport: SportKey
@@ -593,8 +604,6 @@ export interface Seed {
   bookings: Booking[]
   /** Derived seed (built from rooms + bookings) so the web hydrates it directly. */
   sessions: PlaySession[]
-  chats: Chat[]
-  thread: Message[]
   streak: Streak
   stats: Stats
   activity: ActivityItem[]

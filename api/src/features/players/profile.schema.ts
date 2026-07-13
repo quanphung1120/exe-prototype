@@ -4,9 +4,7 @@ import { Schema as MongooseSchema, type HydratedDocument } from "mongoose"
 import type {
   ActivityItem,
   Booking,
-  Chat,
   MatchRoom,
-  Message,
   NotificationItem,
   Stats,
   Streak,
@@ -28,8 +26,6 @@ export class Profile {
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) stats: Stats
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) rooms: MatchRoom[]
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) bookings: Booking[]
-  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) chats: Chat[]
-  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) thread: Message[]
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })
   activity: ActivityItem[]
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })
@@ -44,8 +40,6 @@ export interface ProfileData {
   stats: Stats
   rooms: MatchRoom[]
   bookings: Booking[]
-  chats: Chat[]
-  thread: Message[]
   activity: ActivityItem[]
   notifications: NotificationItem[]
 }
@@ -61,8 +55,6 @@ export function toProfileData(doc: Profile): ProfileData {
     stats: doc.stats,
     rooms: doc.rooms,
     bookings: doc.bookings,
-    chats: doc.chats,
-    thread: doc.thread,
     activity: doc.activity,
     notifications: doc.notifications,
   }

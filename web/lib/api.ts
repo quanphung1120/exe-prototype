@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server"
 import { notFound } from "next/navigation"
 import { createFetch } from "@better-fetch/fetch"
 
-import type { PlayerAssessment, Seed, Venue, VenueSeed } from "@/lib/shared"
+import type { PlayerAssessment, Seed, VenueSeed } from "@/lib/shared"
 
 // Where the Hono API lives. Server-side fetch only (no CORS concerns); override
 // with API_URL in deployment. Single source of truth — server actions import it
@@ -64,6 +64,34 @@ export async function fetchSeed(): Promise<Seed> {
   }
 }
 
+/** Stream Chat credentials handed to the web client (app key + signed user token). */
+export interface StreamCredentials {
+  apiKey: string
+  token: string
+}
+
+/**
+ * Fetch the signed-in user's Stream Chat credentials from the API (which also
+ * seeds their demo channels on first call). The Stream *app key* is returned in
+ * the response body — it never lives in a `NEXT_PUBLIC_*` var, so nothing Stream
+ * is inlined at build time. Returns `null` on any failure (Stream down or
+ * unconfigured) so the dashboard still renders — the chat page degrades to an
+ * "unavailable" state rather than hard-failing the whole layout.
+ */
+export async function fetchStreamCredentials(user: {
+  name: string
+  image?: string | null
+}): Promise<StreamCredentials | null> {
+  try {
+    return await apiFetch<StreamCredentials>("/api/stream/token", {
+      method: "POST",
+      body: { name: user.name, image: user.image ?? undefined },
+    })
+  } catch {
+    return null
+  }
+}
+
 /**
  * Fetch the signed-in player's persisted skills assessment (null until taken).
  * Used by the standalone `/assessment` wizard route, which lives outside the
@@ -78,35 +106,39 @@ export async function fetchAssessment(): Promise<PlayerAssessment | null> {
   }
 }
 
-/** Fetch the operator's venue profiles (for the bare-venue redirect). */
-export async function fetchVenues(): Promise<Venue[]> {
-  try {
-    return await apiFetch<Venue[]>("/api/venues")
-  } catch {
-    throw new Error(`Failed to load venues. Is the API running?`)
+/**
+ * Fetch the caller's own venue bundle, or null when they haven't provisioned one
+ * yet (404). Used by the bare-venue redirect and the setup-page gate to decide
+ * between the workspace and the setup wizard.
+ */
+export async function fetchMyVenue(): Promise<VenueSeed | null> {
+  const { data, error } = await apiFetchSafe<VenueSeed>("/api/venue/bundle")
+  if (error?.status === 404) return null
+  if (error) {
+    throw new Error(
+      `Failed to load venue data (${error.status}). Is the API running?`
+    )
   }
+  return data
 }
 
 /**
- * Fetch venue-operator data for a specific venue. Called in the venue sub-layout
- * with the URL's [venueId] param. Returns the full VenueSeed needed to populate
- * the venue workspace.
+ * Fetch the caller's own venue-operator bundle for the venue workspace. Each
+ * account owns exactly one venue, resolved server-side from the Clerk id — the
+ * `[venueId]` in the URL is not sent. An account with no venue gets 404 → the
+ * not-found page (the dashboard layout redirects new accounts to setup first).
  */
-export async function fetchVenueBundle(venueId: string): Promise<VenueSeed> {
+export async function fetchVenueBundle(): Promise<VenueSeed> {
   // One aggregate request — the API assembles the whole VenueSeed server-side
   // (mirroring /api/seed), so a partial failure can't silently render a venue
   // with empty courts/reservations/analytics.
-  const { data, error } = await apiFetchSafe<VenueSeed>("/api/venue/bundle", {
-    query: { venue: venueId },
-  })
+  const { data, error } = await apiFetchSafe<VenueSeed>("/api/venue/bundle")
 
-  // Unknown/stale/typo'd id — render the not-found page rather than another
-  // venue's data under the wrong URL.
   if (error?.status === 404) notFound()
 
   if (error) {
     throw new Error(
-      `Failed to load venue data for ${venueId} (${error.status}). Is the API running?`
+      `Failed to load venue data (${error.status}). Is the API running?`
     )
   }
 

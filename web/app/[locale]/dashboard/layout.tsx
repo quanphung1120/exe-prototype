@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation"
-import { fetchSeed } from "@/lib/api"
+import { fetchSeed, fetchStreamCredentials } from "@/lib/api"
 import { getServerSession } from "@/lib/auth-server"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { AppSidebar } from "@/features/dashboard/app-sidebar"
 import { AuthUserProvider } from "@/features/dashboard/auth-user"
-import { ChatProvider } from "@/features/chat/chat-store"
+import { StreamChatProvider } from "@/features/chat/stream-provider"
 import { DataProvider } from "@/features/dashboard/data-provider"
 import { NotificationsProvider } from "@/features/dashboard/notifications"
 import { PlayerAssessmentGate } from "@/features/assessment/player-assessment-gate"
@@ -36,7 +36,13 @@ export default async function DashboardLayout({
     redirect("/" + locale + "/sign-in")
   }
 
-  const seed = await fetchSeed()
+  // Fetch the seed and the Stream credentials in parallel. The credentials call
+  // seeds the user's demo channels on first hit and returns null if Stream is
+  // down/unconfigured — the dashboard still renders, chat just degrades.
+  const [seed, streamCreds] = await Promise.all([
+    fetchSeed(),
+    fetchStreamCredentials(session.user),
+  ])
 
   return (
     <TooltipProvider>
@@ -44,7 +50,12 @@ export default async function DashboardLayout({
         <DataProvider seed={seed}>
           <SessionProvider>
             <NotificationsProvider>
-              <ChatProvider>
+              <StreamChatProvider
+                creds={streamCreds}
+                userId={session.user.id}
+                userName={session.user.name}
+                userImage={session.user.image}
+              >
                 <SportFilterProvider>
                   <PlayerAssessmentGate serverAssessment={seed.assessment}>
                     <SidebarProvider className="font-geist">
@@ -59,7 +70,7 @@ export default async function DashboardLayout({
                     <PlayerChrome />
                   </PlayerAssessmentGate>
                 </SportFilterProvider>
-              </ChatProvider>
+              </StreamChatProvider>
             </NotificationsProvider>
             <Toaster />
           </SessionProvider>

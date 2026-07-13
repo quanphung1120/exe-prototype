@@ -2,9 +2,9 @@ import { defineConfig, globalIgnores } from "eslint/config"
 import js from "@eslint/js"
 import tseslint from "typescript-eslint"
 
-// Flat ESLint config for the NestJS API. Prettier owns formatting (root
-// .prettierrc + `pnpm format`), so no stylistic rules live here — this is
-// correctness/lint only.
+// Flat ESLint config for the NestJS API. Prettier owns formatting (this
+// package's .prettierrc + `pnpm format`), so no stylistic rules live here —
+// this is correctness/lint only.
 //
 // `tsconfigRootDir` is pinned to this package so typescript-eslint's parser
 // anchors to api's tsconfig instead of ambiguously auto-detecting between

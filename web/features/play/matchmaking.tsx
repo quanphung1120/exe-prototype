@@ -9,6 +9,7 @@ import { useData } from "@/features/dashboard/data-provider"
 import { useSession } from "@/features/play/session"
 
 export type {
+  ExpiredEvent,
   PartnerSearch,
   QuickJoinFilters,
 } from "@/features/play/session"
@@ -40,6 +41,7 @@ export function useMatchmaking() {
     userName: s.userName,
     setUserName: s.setUserName,
     search: s.search,
+    expiredEvents: s.expiredEvents,
     isSuitable: s.isSuitable,
     hasTimeConflict: s.hasTimeConflict,
     joinRoom: s.joinRoom,

@@ -6,10 +6,8 @@
 import type {
   ActivityItem,
   Booking,
-  Chat,
   Court,
   MatchRoom,
-  Message,
   NotificationItem,
   Player,
   Stats,
@@ -459,80 +457,6 @@ export const BOOKINGS: Booking[] = [
     withPlayers: [{ name: "Vũ Hà", initials: "VH", status: "going" }],
     result: "L",
     score: "4–6, 6–7",
-  },
-]
-
-export const CHATS: Chat[] = [
-  {
-    id: "ch1",
-    name: "Badminton Crew",
-    initials: "BC",
-    last: "Huy: See you at Court 3 at 6:30 👊",
-    time: "12m",
-    unread: 2,
-    online: true,
-    group: true,
-  },
-  {
-    id: "ch2",
-    name: "Trần Huy",
-    initials: "TH",
-    last: "Bring an extra grip if you have one",
-    time: "1h",
-    unread: 0,
-    online: true,
-    group: false,
-  },
-  {
-    id: "ch3",
-    name: "Lê Lan",
-    initials: "LL",
-    last: "Confirmed for tonight ✅",
-    time: "3h",
-    unread: 0,
-    online: false,
-    group: false,
-  },
-  {
-    id: "ch4",
-    name: "Phạm Quân",
-    initials: "PQ",
-    last: "Rematch this weekend? 🏓",
-    time: "Yesterday",
-    unread: 0,
-    online: false,
-    group: false,
-  },
-]
-
-export const THREAD: Message[] = [
-  {
-    id: "m1",
-    mine: false,
-    author: "Trần Huy",
-    text: "Court 3 is booked for tonight 🔥",
-    time: "17:42",
-  },
-  {
-    id: "m2",
-    mine: false,
-    author: "Lê Lan",
-    text: "Confirmed for tonight ✅",
-    time: "17:45",
-  },
-  {
-    id: "m3",
-    mine: true,
-    author: "Minh",
-    text: "Perfect. I'll warm up the serves 😅",
-    time: "17:48",
-  },
-  {
-    id: "m4",
-    mine: false,
-    author: "Trần Huy",
-    text: "See you at Court 3 at 6:30 👊",
-    time: "17:51",
   },
 ]
 

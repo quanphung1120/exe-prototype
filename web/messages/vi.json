@@ -132,7 +132,8 @@
     "venueTag": "Địa điểm",
     "operatorRole": "Vận hành",
     "searchVenue": "Tìm lượt đặt, khách…",
-    "venues": "Địa điểm của bạn"
+    "venues": "Địa điểm của bạn",
+    "addVenue": "Thêm địa điểm"
   },
   "WorkspaceSettings": {
     "title": "Cài đặt không gian",
@@ -172,6 +173,7 @@
     "notifications": "Thông báo"
   },
   "ActiveRoom": {
+    "openChatError": "Không thể mở cuộc trò chuyện. Vui lòng thử lại.",
     "pill": "Đang trong phòng đấu",
     "location": "Địa điểm",
     "participants": "Thành viên ({count})",
@@ -367,6 +369,7 @@
     "toPayment": "Tiếp tục thanh toán",
     "pay": {
       "amountDue": "Số tiền cần trả",
+      "holdCountdown": "Sân đang được giữ trong {time} — thanh toán để giữ sân",
       "holdFeePercent": "Phí giữ chỗ (5%)",
       "fullNote": "Thanh toán toàn bộ để xác nhận đặt sân.",
       "courtFee": "phí sân",
@@ -406,8 +409,10 @@
     "roomTitle": "{sport} tại {court}",
     "toast": {
       "booked": "Đã đặt sân",
+      "pending": "Đã gửi yêu cầu — chờ chủ sân duyệt",
       "cancelled": "Đã hủy đặt sân",
-      "conflict": "Khung giờ này vừa có người đặt — hãy chọn giờ khác."
+      "conflict": "Khung giờ này vừa có người đặt — hãy chọn giờ khác.",
+      "holdExpired": "Thời gian giữ sân đã hết và sân đã được thả"
     },
     "startTime": "Giờ bắt đầu",
     "duration": "Thời lượng",
@@ -440,7 +445,9 @@
       "declined": "Đã từ chối yêu cầu",
       "full": "Phòng đã đầy",
       "overlapTitle": "Trùng giờ",
-      "overlapBody": "Quý khách đã tham gia \"{title}\" vào khung giờ đó"
+      "overlapBody": "Quý khách đã tham gia \"{title}\" vào khung giờ đó",
+      "requestExpired": "Yêu cầu tham gia đã hết hạn — chủ phòng chưa phản hồi",
+      "inviteExpired": "Lời mời đã hết hạn — chưa có phản hồi"
     }
   },
   "Shared": {
@@ -518,15 +525,7 @@
     "prev": "Trước",
     "next": "Sau",
     "more": "+{count} nữa",
-    "weekdaysShort": [
-      "T2",
-      "T3",
-      "T4",
-      "T5",
-      "T6",
-      "T7",
-      "CN"
-    ],
+    "weekdaysShort": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
     "monthsShort": [
       "Th1",
       "Th2",
@@ -559,6 +558,9 @@
   "Bookings": {
     "metaTitle": "Lịch đặt",
     "metaDescription": "Các trận sắp tới và đã qua của bạn.",
+    "pendingNote": "Đang chờ chủ sân duyệt.",
+    "declinedNote": "Chủ sân đã từ chối: {reason}",
+    "refundedNote": "Đã hoàn tiền (mô phỏng).",
     "tabs": {
       "upcoming": "Sắp tới",
       "past": "Đã qua",
@@ -1074,57 +1076,20 @@
   "Chat": {
     "metaTitle": "Trò chuyện",
     "metaDescription": "Sắp xếp trận đấu tiếp theo với người chơi và sân.",
-    "messages": "Tin nhắn",
-    "searchPlaceholder": "Tìm cuộc trò chuyện…",
     "members": "{count, plural, other {# thành viên}}",
     "online": "Trực tuyến",
     "offline": "Ngoại tuyến",
-    "call": "Gọi",
-    "videoCall": "Gọi video",
-    "inputPlaceholder": "Nhập tin nhắn…",
-    "messageLabel": "Tin nhắn",
-    "send": "Gửi",
-    "now": "vừa xong",
-    "chats": {
-      "ch1": {
-        "last": "Huy: Hẹn gặp ở Sân 3 lúc 6:30 👊",
-        "time": "12 phút"
-      },
-      "ch2": {
-        "last": "Mang thêm một cuốn cán nếu có nhé",
-        "time": "1 giờ"
-      },
-      "ch3": {
-        "last": "Đã xác nhận tối nay ✅",
-        "time": "3 giờ"
-      },
-      "ch4": {
-        "last": "Tái đấu cuối tuần này nhé? 🏓",
-        "time": "Hôm qua"
-      }
-    },
-    "thread": {
-      "m1": {
-        "text": "Đã đặt Sân 3 cho tối nay 🔥"
-      },
-      "m2": {
-        "text": "Đã xác nhận tối nay ✅"
-      },
-      "m3": {
-        "text": "Tuyệt. Mình sẽ khởi động cú giao 😅"
-      },
-      "m4": {
-        "text": "Hẹn gặp ở Sân 3 lúc 6:30 👊"
-      }
-    },
-    "teamWelcome": "Chào mừng 👋 Hẹn gặp tại {venue}.",
-    "teamCreated": "Bạn đã tạo phòng này."
+    "loading": "Đang kết nối trò chuyện…",
+    "unavailable": "Trò chuyện hiện không khả dụng."
   },
   "Notifications": {
     "title": "Thông báo",
     "markAllRead": "Đánh dấu đã đọc",
     "empty": "Chưa có thông báo",
     "newTeamChat": "Chat nhóm mới — {title}",
+    "holdExpired": "Đã hết hạn giữ sân — {title}",
+    "requestExpired": "Yêu cầu tham gia hết hạn — {name} chưa phản hồi",
+    "inviteExpired": "Lời mời hết hạn — {name} chưa phản hồi",
     "justNow": "Vừa xong",
     "items": {
       "n1": {
@@ -1163,6 +1128,52 @@
     "manage": {
       "label": "Địa điểm",
       "caption": "Thêm, sửa và chuyển đổi địa điểm"
+    }
+  },
+  "VenueSetup": {
+    "metaTitle": "Thiết lập sân · SportMatch AI",
+    "metaDescription": "Tạo địa điểm và các sân của bạn để bắt đầu nhận đặt sân từ người chơi.",
+    "title": "Thiết lập sân của bạn",
+    "subtitle": "Vài bước để địa điểm của Quý khách sẵn sàng nhận đặt sân.",
+    "steps": {
+      "venue": "Địa điểm",
+      "courts": "Sân",
+      "review": "Xác nhận"
+    },
+    "form": {
+      "name": "Tên địa điểm",
+      "namePlaceholder": "VD: Nhà thi đấu Cầu Giấy",
+      "district": "Quận / Huyện",
+      "city": "Thành phố",
+      "sports": "Môn thể thao",
+      "openFrom": "Mở cửa",
+      "openTo": "Đóng cửa",
+      "manager": "Người quản lý",
+      "managerPlaceholder": "Tên người quản lý"
+    },
+    "courtForm": {
+      "name": "Tên sân",
+      "namePlaceholder": "VD: Sân 1",
+      "sport": "Môn",
+      "surface": "Mặt sân",
+      "surfacePlaceholder": "VD: Sàn gỗ lò xo",
+      "price": "Giá mỗi giờ (VND)"
+    },
+    "addCourt": "Thêm sân",
+    "removeCourt": "Xóa sân",
+    "noCourtsYet": "Chưa có sân nào. Thêm ít nhất một sân để tiếp tục.",
+    "perHour": "/giờ",
+    "review": {
+      "courts": "{count} sân",
+      "note": "Sau khi tạo, Quý khách có thể chỉnh sửa địa điểm và sân bất cứ lúc nào."
+    },
+    "back": "Quay lại",
+    "next": "Tiếp tục",
+    "finish": "Hoàn tất",
+    "creating": "Đang tạo…",
+    "error": "Không thể tạo địa điểm",
+    "toast": {
+      "done": "Đã tạo {name}. Chào mừng Quý khách!"
     }
   },
   "VenueManage": {
@@ -1359,6 +1370,14 @@
     "subtitle": "Duyệt yêu cầu đến, theo dõi lượt giữ chỗ hôm nay và rà soát lịch sử đặt sân.",
     "listTitle": "Lượt đặt",
     "empty": "Không có lượt đặt nào khớp bộ lọc này.",
+    "decline": {
+      "title": "Từ chối lượt đặt",
+      "description": "Cho {name} biết vì sao lượt đặt bị từ chối. Người chơi sẽ nhận được lý do và tiền được hoàn (mô phỏng).",
+      "reasonLabel": "Lý do từ chối",
+      "reasonPlaceholder": "VD: Sân đã có lịch bảo trì khung giờ này.",
+      "cancel": "Hủy",
+      "confirm": "Từ chối"
+    },
     "summary": {
       "pending": "Chờ duyệt",
       "pendingHint": "Yêu cầu cần quyết định",

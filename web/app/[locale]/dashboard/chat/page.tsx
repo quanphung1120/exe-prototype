@@ -18,10 +18,13 @@ export async function generateMetadata({
 
 export default async function ChatPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>
+  searchParams: Promise<{ channel?: string }>
 }) {
   const { locale } = await params
+  const { channel } = await searchParams
   setRequestLocale(locale)
-  return <ChatView />
+  return <ChatView initialChannelId={channel} />
 }

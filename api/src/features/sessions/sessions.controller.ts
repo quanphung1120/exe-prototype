@@ -7,21 +7,19 @@ import {
   Param,
   Put,
 } from "@nestjs/common"
-import * as z from "zod"
 
 import type { PlaySession as PlaySessionData } from "../../shared/index.js"
 
 import { UserId } from "../../common/user-id.decorator.js"
-import { ZodValidationPipe } from "../../common/zod-validation.pipe.js"
+import { IdParamDto } from "./sessions.dto.js"
 import { SessionsService } from "./sessions.service.js"
-
-const idParam = z.object({ id: z.string().min(1) })
 
 // A user's persisted PlaySessions (the durable mirror of their client-side
 // booking/matchmaking activity). The full session shape is owned by the web
-// client, so the PUT body is read directly rather than through a schema that
+// client, so the PUT body is read directly rather than through a DTO that
 // would strip unknown keys — the route asserts the path id, the handler checks
-// the body id matches.
+// the body id matches. (`@Body() body: PlaySessionData` has metatype `Object`,
+// so the global ValidationPipe leaves it untouched.)
 @Controller("sessions")
 export class SessionsController {
   constructor(private readonly sessions: SessionsService) {}
@@ -34,7 +32,7 @@ export class SessionsController {
   @Put(":id")
   put(
     @UserId() userId: string,
-    @Param(new ZodValidationPipe(idParam)) param: z.infer<typeof idParam>,
+    @Param() param: IdParamDto,
     @Body() body: PlaySessionData
   ) {
     if (!body || typeof body !== "object" || body.id !== param.id) {
@@ -44,10 +42,7 @@ export class SessionsController {
   }
 
   @Delete(":id")
-  async remove(
-    @UserId() userId: string,
-    @Param(new ZodValidationPipe(idParam)) param: z.infer<typeof idParam>
-  ) {
+  async remove(@UserId() userId: string, @Param() param: IdParamDto) {
     await this.sessions.deleteSession(userId, param.id)
     return { ok: true }
   }

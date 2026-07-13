@@ -7,6 +7,9 @@ allowBuilds:
   esbuild: true
   '@openrouter/sdk': false
   '@clerk/shared': false
+  stream-chat: false
+  stream-chat-react: false
 
 minimumReleaseAgeExclude:
   - '@clerk/shared@4.25.1'
+  - prettier@3.9.5

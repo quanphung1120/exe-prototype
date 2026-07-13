@@ -2,15 +2,15 @@ import { Injectable } from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
+import type { NotificationItem } from "../../shared/index.js"
+
 import {
   ACTIVITY,
   BOOKINGS,
-  CHATS,
   NOTIFICATIONS,
   ROOMS,
   STATS,
   STREAK,
-  THREAD,
   USER,
 } from "../../data/player.js"
 import {
@@ -39,8 +39,6 @@ export class ProfileService {
       stats: STATS,
       rooms: ROOMS,
       bookings: BOOKINGS,
-      chats: CHATS,
-      thread: THREAD,
       activity: ACTIVITY,
       notifications: NOTIFICATIONS,
     }
@@ -67,5 +65,22 @@ export class ProfileService {
   /** The raw fixture pre-data, for contexts without a signed-in user (defensive). */
   defaultProfile(): ProfileData {
     return this.seedData()
+  }
+
+  /**
+   * Prepend a notification to the user's feed (newest first), seeding the profile
+   * first if needed and de-duping by id so a repeated operator decision doesn't
+   * stack. Used by the cross-surface reconciliation (approve/decline flow-back).
+   */
+  async addNotification(userId: string, item: NotificationItem): Promise<void> {
+    await this.getProfile(userId)
+    await this.profileModel.updateOne(
+      { userId },
+      { $pull: { notifications: { id: item.id } } }
+    )
+    await this.profileModel.updateOne(
+      { userId },
+      { $push: { notifications: { $each: [item], $position: 0 } } }
+    )
   }
 }

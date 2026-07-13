@@ -189,6 +189,7 @@ export function BookView() {
     court,
     courtId,
     roomId,
+    sessions,
     steps,
     step,
     draft,
@@ -217,6 +218,34 @@ export function BookView() {
   const [courtQuery, setCourtQuery] = React.useState("")
 
   const stepName = steps[step]
+
+  // Live countdown on the confirm/pay steps for the court hold started when
+  // the slot step was left (see startCourtHold in session.tsx) — ticks only
+  // while it's actually shown, not for the whole wizard's lifetime.
+  const [holdNow, setHoldNow] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    if (stepName !== "confirm" && stepName !== "pay") return
+    const tick = () => setHoldNow(Date.now())
+    const first = setTimeout(tick, 0)
+    const id = setInterval(tick, 1000)
+    return () => {
+      clearTimeout(first)
+      clearInterval(id)
+    }
+  }, [stepName])
+  const holdExpiresAt = roomId
+    ? sessions.find((s) => s.id === roomId)?.holdExpiresAt
+    : undefined
+  const holdRemainingMs =
+    holdExpiresAt != null && holdNow != null
+      ? Math.max(0, holdExpiresAt - holdNow)
+      : null
+  const holdCountdown =
+    holdRemainingMs != null
+      ? `${Math.floor(holdRemainingMs / 60000)}:${String(
+          Math.floor((holdRemainingMs % 60000) / 1000)
+        ).padStart(2, "0")}`
+      : null
 
   // Free-form booking: a start + end time (any minute), priced pro-rata.
   const total = court ? priceFor(court.pricePerHour, draft.durationMin) : 0
@@ -521,6 +550,13 @@ export function BookView() {
               <span className="tabular-nums">{formatVndFull(total)}</span>
             </div>
 
+            {holdCountdown ? (
+              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Clock className="size-4 shrink-0" />
+                {t("pay.holdCountdown", { time: holdCountdown })}
+              </p>
+            ) : null}
+
             {conflict ? (
               <p className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
                 <TriangleAlert className="size-4 shrink-0" />
@@ -555,6 +591,13 @@ export function BookView() {
               <span>{t("pay.amountDue")}</span>
               <span className="tabular-nums">{formatVndFull(total)}</span>
             </div>
+
+            {holdCountdown ? (
+              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Clock className="size-4 shrink-0" />
+                {t("pay.holdCountdown", { time: holdCountdown })}
+              </p>
+            ) : null}
 
             <div className="h-px bg-border" />
 

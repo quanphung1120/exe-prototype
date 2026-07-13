@@ -24,7 +24,8 @@ import {
 } from "@/features/dashboard/data"
 import { useData } from "@/features/dashboard/data-provider"
 import { useMatchmaking } from "@/features/play/matchmaking"
-import { roomChatId, useChat } from "@/features/chat/chat-store"
+import { useAuthUser } from "@/features/dashboard/auth-user"
+import { demoChannelId, roomChannelId } from "@/features/chat/channel-ids"
 import { useRouter } from "@/i18n/navigation"
 
 interface NotificationsContextValue {
@@ -59,10 +60,28 @@ export function NotificationsProvider({
 }) {
   const t = useTranslations("Notifications")
   const tm = useTranslations("MatchMaker")
-  const { joinedRooms } = useMatchmaking()
+  const { joinedRooms, expiredEvents } = useMatchmaking()
   const { notifications } = useData()
   const [items, setItems] = React.useState<NotificationItem[]>(notifications)
   const seenRef = React.useRef<Set<string>>(new Set())
+  const seenExpiredRef = React.useRef<Set<string>>(new Set())
+  // Server-pushed notifications (e.g. an operator's approve/decline of a
+  // booking) arrive via a refreshed seed. Merge any not already shown, deduped
+  // by their stable id, so a cross-surface decision surfaces without a reload.
+  const seenSeedRef = React.useRef<Set<string>>(
+    new Set(notifications.map((n) => n.id))
+  )
+  React.useEffect(() => {
+    const fresh = notifications.filter((n) => !seenSeedRef.current.has(n.id))
+    if (fresh.length) {
+      setItems((prev) => {
+        const existing = new Set(prev.map((p) => p.id))
+        const add = fresh.filter((n) => !existing.has(n.id))
+        return add.length ? [...add, ...prev] : prev
+      })
+    }
+    seenSeedRef.current = new Set(notifications.map((n) => n.id))
+  }, [notifications])
 
   React.useEffect(() => {
     const additions = joinedRooms.filter((r) => !seenRef.current.has(r.id))
@@ -79,7 +98,7 @@ export function NotificationsProvider({
             time: t("justNow"),
             read: false,
             href: "/dashboard/chat",
-            chatId: roomChatId(room.id),
+            chatId: roomChannelId(room.id),
           }
         }),
         ...prev,
@@ -87,6 +106,32 @@ export function NotificationsProvider({
     }
     seenRef.current = new Set(joinedRooms.map((r) => r.id))
   }, [joinedRooms, t, tm])
+
+  React.useEffect(() => {
+    const additions = expiredEvents.filter(
+      (e) => !seenExpiredRef.current.has(e.id)
+    )
+    if (additions.length) {
+      setItems((prev) => [
+        ...additions.map(
+          (e): NotificationItem => ({
+            id: e.id,
+            kind: e.kind === "hold" ? "booking" : "match",
+            text:
+              e.kind === "hold"
+                ? t("holdExpired", { title: e.title })
+                : e.kind === "request"
+                  ? t("requestExpired", { name: e.title })
+                  : t("inviteExpired", { name: e.title }),
+            time: t("justNow"),
+            read: false,
+          })
+        ),
+        ...prev,
+      ])
+    }
+    seenExpiredRef.current = new Set(expiredEvents.map((e) => e.id))
+  }, [expiredEvents, t])
 
   const markRead = (id: string) =>
     setItems((prev) =>
@@ -126,14 +171,23 @@ const kindIcon: Record<
 export function NotificationsButton() {
   const t = useTranslations("Notifications")
   const { items, unreadCount, markRead, markAllRead } = useNotifications()
-  const { setActiveChatId } = useChat()
+  const user = useAuthUser()
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
 
   const onItemClick = (item: NotificationItem) => {
     markRead(item.id)
-    if (item.chatId) setActiveChatId(item.chatId)
-    if (item.href) router.push(item.href)
+    if (item.chatId) {
+      // Team-chat notifications already carry a full `room-<id>` channel id; the
+      // seeded demo notifications carry a bare chat id (`ch1`) that needs the
+      // per-user `demo-…` prefix. Deep-link into whichever channel.
+      const channel = item.chatId.startsWith("room-")
+        ? item.chatId
+        : demoChannelId(item.chatId, user.id)
+      router.push(`/dashboard/chat?channel=${channel}`)
+    } else if (item.href) {
+      router.push(item.href)
+    }
     setOpen(false)
   }
 

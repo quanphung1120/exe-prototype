@@ -5,6 +5,7 @@ import {
   Check,
   ChevronsUpDown,
   LogOut,
+  Plus,
   Search,
   UserCog,
   UserRound,
@@ -43,6 +44,7 @@ import { cn } from "@/lib/utils"
 import { useAuthUser } from "@/features/dashboard/auth-user"
 import { useData } from "@/features/dashboard/data-provider"
 import { useMatchmaking } from "@/features/play/matchmaking"
+import { useStreamUnreadCount } from "@/features/chat/stream-provider"
 import { ProfileDialog } from "@/features/dashboard/profile-dialog"
 import { venueBase } from "@/features/venue/nav"
 import { navContext } from "@/features/dashboard/workspace"
@@ -56,6 +58,8 @@ export function AppSidebar() {
   const { isMobile, setOpenMobile } = useSidebar()
   const { userName } = useMatchmaking()
   const { user: USER, venues: VENUES } = useData()
+  // Live unread total from Stream (0 when chat is degraded); drives the chat badge.
+  const unreadCount = useStreamUnreadCount()
 
   // The signed-in user, fetched server-side (no session-load flash). This
   // sidebar only renders inside the guarded dashboard, so a user is guaranteed.
@@ -67,13 +71,15 @@ export function AppSidebar() {
   const isVenue = workspace === "venue"
 
   // The active venue is derived from the URL's [venueId] (per-venue workspace).
-  // In the player workspace there's no active venue, so fall back to the first
-  // venue as the representative for the "switch to venue" tile/icon.
+  // In the player workspace there's no active venue, so fall back to the
+  // account's venue (if any) as the representative for the switcher tile/icon.
+  // A brand-new account owns no venue until it runs the setup wizard, so this
+  // can be undefined — every read below guards for that.
   const activeVenueId = venueId
   const VENUE = (venueId && VENUES.find((v) => v.id === venueId)) || VENUES[0]
 
   // The name shown for the current operator/player identity.
-  const displayName = isVenue ? VENUE.manager.name : userName
+  const displayName = isVenue && VENUE ? VENUE.manager.name : userName
 
   // One translator, namespace chosen by the active workspace.
   const tNav = useTranslations(ns)
@@ -85,11 +91,11 @@ export function AppSidebar() {
   // while the session is loading or absent.
   const accountName = sUser.name || displayName
   const accountSubtitle =
-    sUser.email || (isVenue ? t("operatorRole") : USER.handle)
+    sUser.email || (isVenue && VENUE ? t("operatorRole") : USER.handle)
   const accountImage = sUser.image || undefined
   const accountInitials = sUser.name
     ? initialsOf(sUser.name)
-    : isVenue
+    : isVenue && VENUE
       ? VENUE.manager.initials
       : USER.initials
 
@@ -107,22 +113,16 @@ export function AppSidebar() {
     handleNavigate()
   }
 
-  // Switch to the venue workspace — land on the active venue, or the first one.
+  // Switch to the venue workspace — the account's single venue.
   const switchToVenue = () => {
     const targetId = activeVenueId ?? VENUES[0]?.id
     if (targetId) router.push(venueBase(targetId))
     handleNavigate()
   }
 
-  // Navigate to another venue, preserving the current section when possible.
-  const chooseVenue = (id: string) => {
-    if (id !== activeVenueId) {
-      const section =
-        activeVenueId && pathname.startsWith(venueBase(activeVenueId))
-          ? pathname.slice(venueBase(activeVenueId).length)
-          : ""
-      router.push(`${venueBase(id)}${section}`)
-    }
+  // No venue provisioned yet — the switcher's only way into the setup wizard.
+  const switchToAddVenue = () => {
+    router.push("/setup")
     handleNavigate()
   }
 
@@ -145,7 +145,7 @@ export function AppSidebar() {
                           "bg-secondary text-xs font-bold text-secondary-foreground"
                       )}
                     >
-                      {isVenue ? (
+                      {isVenue && VENUE ? (
                         VENUE.initials
                       ) : (
                         <LogoMark className="size-9! text-primary" />
@@ -153,9 +153,9 @@ export function AppSidebar() {
                     </div>
                     <div className="grid flex-1 text-left leading-tight">
                       <span className="truncate font-heading text-sm font-bold tracking-tight">
-                        {isVenue ? VENUE.name : "SportMatch AI"}
+                        {isVenue && VENUE ? VENUE.name : "SportMatch AI"}
                       </span>
-                      {isVenue ? (
+                      {isVenue && VENUE ? (
                         <span className="truncate text-xs text-sidebar-foreground/60">
                           {`${t("venueTag")} · ${VENUE.district}`}
                         </span>
@@ -178,38 +178,29 @@ export function AppSidebar() {
                     <span className="flex-1">{t("playerWorkspace")}</span>
                     {!isVenue ? <Check className="size-4 text-brand" /> : null}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={switchToVenue}>
-                    <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
-                      {VENUE.initials}
-                    </div>
-                    <span className="flex-1 truncate">
-                      {`${VENUE.name} · ${t("venueTag")}`}
-                    </span>
-                    {isVenue ? <Check className="size-4 text-brand" /> : null}
-                  </DropdownMenuItem>
+                  {VENUE ? (
+                    <DropdownMenuItem onClick={switchToVenue}>
+                      <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
+                        {VENUE.initials}
+                      </div>
+                      <span className="flex-1 truncate">
+                        {`${VENUE.name} · ${t("venueTag")}`}
+                      </span>
+                      {isVenue ? (
+                        <Check className="size-4 text-brand" />
+                      ) : null}
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={switchToAddVenue}>
+                      <div className="flex size-7 items-center justify-center rounded-lg border border-dashed border-sidebar-border text-secondary-foreground">
+                        <Plus className="size-4" />
+                      </div>
+                      <span className="flex-1 truncate">
+                        {t("addVenue")}
+                      </span>
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuGroup>
-                {isVenue ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuLabel>{t("venues")}</DropdownMenuLabel>
-                      {VENUES.map((v) => (
-                        <DropdownMenuItem
-                          key={v.id}
-                          onClick={() => chooseVenue(v.id)}
-                        >
-                          <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
-                            {v.initials}
-                          </div>
-                          <span className="flex-1 truncate">{v.name}</span>
-                          {v.id === activeVenueId ? (
-                            <Check className="size-4 text-brand" />
-                          ) : null}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuGroup>
-                  </>
-                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>
@@ -231,40 +222,52 @@ export function AppSidebar() {
           <SidebarMenu>
             {items
               .filter((item) => !item.hidden)
-              .map((item) => (
-                <SidebarMenuItem key={item.key}>
-                  <SidebarMenuButton
-                    isActive={item.key === active.key}
-                    tooltip={tNav(`${item.key}.label`)}
-                    render={<Link href={item.href} onClick={handleNavigate} />}
-                  >
-                    <item.icon />
-                    <span>{tNav(`${item.key}.label`)}</span>
-                  </SidebarMenuButton>
-                  {item.badge ? (
-                    <SidebarMenuBadge
-                      title={
-                        item.badge === "AI"
-                          ? `${tNav(`${item.key}.label`)} AI`
-                          : `${tNav(`${item.key}.label`)} unread count ${item.badge}`
+              .map((item) => {
+                // The chat badge is a live Stream unread count (hidden at 0),
+                // not a static value — other items keep their configured badge.
+                const badge =
+                  item.key === "chat"
+                    ? unreadCount > 0
+                      ? String(unreadCount)
+                      : undefined
+                    : item.badge
+                return (
+                  <SidebarMenuItem key={item.key}>
+                    <SidebarMenuButton
+                      isActive={item.key === active.key}
+                      tooltip={tNav(`${item.key}.label`)}
+                      render={
+                        <Link href={item.href} onClick={handleNavigate} />
                       }
-                      aria-label={
-                        item.badge === "AI"
-                          ? `${tNav(`${item.key}.label`)} AI badge`
-                          : `${tNav(`${item.key}.label`)} with ${item.badge} unread items`
-                      }
-                      className={cn(
-                        "h-5 min-w-5 rounded-full px-1.5 text-[11px] font-semibold shadow-sm ring-1 ring-brand/20",
-                        item.badge === "AI"
-                          ? "bg-brand/12 text-brand"
-                          : "bg-brand text-brand-foreground"
-                      )}
                     >
-                      {item.badge}
-                    </SidebarMenuBadge>
-                  ) : null}
-                </SidebarMenuItem>
-              ))}
+                      <item.icon />
+                      <span>{tNav(`${item.key}.label`)}</span>
+                    </SidebarMenuButton>
+                    {badge ? (
+                      <SidebarMenuBadge
+                        title={
+                          badge === "AI"
+                            ? `${tNav(`${item.key}.label`)} AI`
+                            : `${tNav(`${item.key}.label`)} unread count ${badge}`
+                        }
+                        aria-label={
+                          badge === "AI"
+                            ? `${tNav(`${item.key}.label`)} AI badge`
+                            : `${tNav(`${item.key}.label`)} with ${badge} unread items`
+                        }
+                        className={cn(
+                          "h-5 min-w-5 rounded-full px-1.5 text-[11px] font-semibold shadow-sm ring-1 ring-brand/20",
+                          badge === "AI"
+                            ? "bg-brand/12 text-brand"
+                            : "bg-brand text-brand-foreground"
+                        )}
+                      >
+                        {badge}
+                      </SidebarMenuBadge>
+                    ) : null}
+                  </SidebarMenuItem>
+                )
+              })}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

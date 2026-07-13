@@ -13,6 +13,7 @@ import {
   SCHEDULE_HOURS,
   SLOT_TIMES,
   SPORTS,
+  VENUE_DAYS,
 } from "./config.js"
 import type {
   Booking,
@@ -28,6 +29,7 @@ import type {
   MatchRoom,
   Player,
   PlaySession,
+  Reservation,
   RoomLevel,
   RosterEntry,
   Rsvp,
@@ -40,6 +42,7 @@ import type {
   User,
   Venue,
   VenueCourt,
+  VenueStats,
 } from "./types.js"
 
 // ── Identity ─────────────────────────────────────────────────────────────────
@@ -269,15 +272,28 @@ export function dayKeyForRoom(room: { day: string }): string {
 export const capacityFor = (format: "Singles" | "Doubles") =>
   format === "Singles" ? 2 : 4
 
-/** Booked sessions that actually hold a court (the only ones that block). */
-function courtHolds(sessions: PlaySession[], ignoreId?: string): PlaySession[] {
+/**
+ * Sessions that actually hold a court and block others: `booked` sessions,
+ * plus `forming` sessions with an active (unexpired) court hold — see
+ * {@link PlaySession.holdExpiresAt}. A `forming` session with a court/slot but
+ * no `holdExpiresAt` (e.g. a legacy invite room) doesn't block — only an
+ * explicit, timed hold does.
+ */
+function courtHolds(
+  sessions: PlaySession[],
+  ignoreId?: string,
+  now: number = Date.now()
+): PlaySession[] {
   return sessions.filter(
     (s) =>
-      s.status === "booked" &&
       s.id !== ignoreId &&
       s.courtId != null &&
       s.slot != null &&
-      BOOKING_DAYS.some((d) => d.key === s.dayKey)
+      BOOKING_DAYS.some((d) => d.key === s.dayKey) &&
+      (s.status === "booked" ||
+        (s.status === "forming" &&
+          s.holdExpiresAt != null &&
+          s.holdExpiresAt > now))
   )
 }
 
@@ -291,7 +307,8 @@ export function conflictFor(
   courts: Court[],
   user: User,
   sessions: PlaySession[],
-  q: ConflictQuery
+  q: ConflictQuery,
+  now: number = Date.now()
 ): Conflict {
   if (q.courtId == null || q.slot == null) return null
   if (!BOOKING_DAYS.some((d) => d.key === q.dayKey)) return null
@@ -302,7 +319,7 @@ export function conflictFor(
   )
   if (houseTaken.some((s) => rangesOverlap(q.slot!, dur, s.time, 60)))
     return "court-taken"
-  const holds = courtHolds(sessions, q.ignoreId)
+  const holds = courtHolds(sessions, q.ignoreId, now)
   // (b) another held court at the same venue/day overlapping this range
   if (
     holds.some(
@@ -337,16 +354,23 @@ export function isSlotTaken(
   dayKey: string,
   slot: string,
   durationMin = 60,
-  ignoreId?: string
+  ignoreId?: string,
+  now: number = Date.now()
 ): boolean {
   return (
-    conflictFor(courts, user, sessions, {
-      courtId,
-      dayKey,
-      slot,
-      durationMin,
-      ignoreId,
-    }) !== null
+    conflictFor(
+      courts,
+      user,
+      sessions,
+      {
+        courtId,
+        dayKey,
+        slot,
+        durationMin,
+        ignoreId,
+      },
+      now
+    ) !== null
   )
 }
 
@@ -370,7 +394,8 @@ export function courtDayBusy(
   sessions: PlaySession[],
   courtId: string,
   dayKey: string,
-  ignoreId?: string
+  ignoreId?: string,
+  now: number = Date.now()
 ): CourtBand[] {
   if (!BOOKING_DAYS.some((d) => d.key === dayKey)) return []
   const raw: { start: number; end: number }[] = []
@@ -380,7 +405,7 @@ export function courtDayBusy(
       raw.push({ start, end: start + 60 })
     }
   }
-  for (const s of courtHolds(sessions, ignoreId)) {
+  for (const s of courtHolds(sessions, ignoreId, now)) {
     if (s.courtId === courtId && s.dayKey === dayKey && s.slot) {
       const start = toMinutes(s.slot)
       raw.push({ start, end: start + s.durationMin })
@@ -405,14 +430,22 @@ export function courtDayGaps(
   sessions: PlaySession[],
   courtId: string,
   dayKey: string,
-  ignoreId?: string
+  ignoreId?: string,
+  now: number = Date.now()
 ): CourtBand[] {
   if (!BOOKING_DAYS.some((d) => d.key === dayKey)) return []
   const openStart = toMinutes(COURT_OPEN_FROM)
   const openEnd = toMinutes(COURT_OPEN_TO)
   const gaps: CourtBand[] = []
   let cursor = openStart
-  for (const b of courtDayBusy(courts, sessions, courtId, dayKey, ignoreId)) {
+  for (const b of courtDayBusy(
+    courts,
+    sessions,
+    courtId,
+    dayKey,
+    ignoreId,
+    now
+  )) {
     const s = toMinutes(b.start)
     if (s > cursor)
       gaps.push({ start: addMinutes("00:00", cursor), durationMin: s - cursor })
@@ -501,6 +534,8 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
     withPlayers: rosterToBookingPlayers(s.roster),
     roomId: s.listed ? s.id : undefined,
     pricePerHour: s.pricePerHour,
+    declineReason: s.cancelReason,
+    refunded: s.refunded,
     result: s.result,
     score: s.score,
   }
@@ -810,4 +845,114 @@ export function utilizationHeatmap(seed: string): number[][] {
       return Math.min(100, v)
     })
   )
+}
+
+// ── Unified court catalog (venue courts → discovery courts) ───────────────────
+
+/** Default map centre (Hà Nội) for venues seeded without coordinates. */
+const HANOI_CENTRE = { lat: 21.0278, lng: 105.8342 }
+
+/**
+ * Project one operator {@link VenueCourt} to a discovery {@link Court} so the
+ * player-side finder/map and the venue operator read ONE court catalog: the id
+ * stays `vc*` (so a booking's `courtId` resolves back to the owning venue), the
+ * name pairs the venue and court, and the map/finder-only fields are derived
+ * deterministically from the venue + court (no Date/random, so SSR agrees).
+ */
+export function venueCourtToCourt(venue: Venue, court: VenueCourt): Court {
+  const h = hashStr(`${venue.id}:${court.id}`)
+  // ±0.005° so a venue's courts don't stack on one exact marker.
+  const jitter = (n: number) => ((n % 200) - 100) / 20000
+  const freePct = Math.max(0, Math.min(100, 100 - court.utilToday))
+  return {
+    id: court.id,
+    name: `${venue.name} · ${court.name}`,
+    district: venue.district,
+    city: venue.city,
+    sports: [court.sport],
+    surface: court.surface,
+    pricePerHour: court.pricePerHour,
+    distanceKm: Math.round((1 + (h % 90) / 10) * 10) / 10,
+    rating: venue.rating,
+    openSlots: Math.round((freePct / 100) * SLOT_TIMES.length),
+    nextSlot: SLOT_TIMES[h % SLOT_TIMES.length],
+    freePct,
+    lat: (venue.lat ?? HANOI_CENTRE.lat) + jitter(h),
+    lng: (venue.lng ?? HANOI_CENTRE.lng) + jitter(h >>> 7),
+  }
+}
+
+// ── Venue: analytics computed from real reservations (hybrid) ─────────────────
+
+/** Canonical BOOKING/VENUE day key for a reservation (mirrors the venue store). */
+function reservationDay(reservation: Reservation): string {
+  if (reservation.dayKey) return reservation.dayKey
+  return (
+    VENUE_DAYS.find((day) => day.label.en === reservation.day.en)?.key ?? "past"
+  )
+}
+
+function reservationMinutes(reservation: Reservation): number {
+  if (reservation.durationMin) return reservation.durationMin
+  const [start, end] = reservation.time.match(/(\d{2}:\d{2})/g) ?? []
+  if (!start || !end) return 60
+  return Math.max(15, diffMinutes(start, end))
+}
+
+/**
+ * Recompute the four KPIs that now have a real source of truth from the venue's
+ * reservation records — revenue (today's confirmed/completed), utilization
+ * (booked court-minutes ÷ open court-minutes), no-show rate and new customers —
+ * leaving every other stat (occupancy, deltas, …) at its seeded value. Pure so
+ * the operator bundle can override `stats` before serving.
+ */
+export function computeVenueStats(
+  info: Venue,
+  courts: VenueCourt[],
+  reservations: Reservation[],
+  base: VenueStats
+): VenueStats {
+  const CONFIRMED = new Set(["confirmed", "completed", "checked-in"])
+  const today = reservations.filter((r) => reservationDay(r) === "today")
+
+  const revenueToday = today
+    .filter((r) => r.status === "confirmed" || r.status === "completed")
+    .reduce((sum, r) => sum + r.price, 0)
+
+  const openMinutes = Math.max(
+    1,
+    (toMinutes(info.openTo) - toMinutes(info.openFrom)) *
+      Math.max(1, courts.length)
+  )
+  const bookedMinutes = today
+    .filter((r) => CONFIRMED.has(r.status))
+    .reduce((sum, r) => sum + reservationMinutes(r), 0)
+  const utilization = Math.min(100, Math.round((bookedMinutes / openMinutes) * 100))
+
+  const counted = reservations.filter(
+    (r) =>
+      r.status === "no-show" ||
+      r.status === "completed" ||
+      r.status === "checked-in"
+  )
+  const noShows = counted.filter((r) => r.status === "no-show").length
+  const noShowRate = counted.length
+    ? Math.round((noShows / counted.length) * 100)
+    : 0
+
+  // New app bookers (distinct userId) + new walk-ins (distinct phone).
+  const newIds = new Set<string>()
+  for (const r of reservations) {
+    if (r.status === "cancelled" || r.status === "no-show") continue
+    const key = r.userId ?? r.customer.phone
+    if (key) newIds.add(key)
+  }
+
+  return {
+    ...base,
+    revenueToday,
+    utilization,
+    noShowRate,
+    newCustomers: newIds.size,
+  }
 }

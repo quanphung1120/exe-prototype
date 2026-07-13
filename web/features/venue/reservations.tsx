@@ -38,6 +38,16 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { SportTag } from "@/features/dashboard/shared"
 import {
   MicroLabel,
@@ -284,6 +294,12 @@ export function VenueReservationsView({
   const [decisions, setDecisions] = React.useState<Record<string, Decision>>({})
   const [, startTransition] = React.useTransition()
   const [sorting, setSorting] = React.useState<SortingState>([])
+  // A decline requires a reason (it flows back to the player's cancelled
+  // booking), captured in this dialog before the action fires.
+  const [declineTarget, setDeclineTarget] = React.useState<Reservation | null>(
+    null
+  )
+  const [declineReason, setDeclineReason] = React.useState("")
 
   // ── Summary counts (against the source data, not the filtered slice) ──
   const pendingCount = RESERVATIONS.filter((r) => r.status === "pending").length
@@ -299,15 +315,23 @@ export function VenueReservationsView({
   )
 
   const decide = React.useCallback(
-    (r: Reservation, decision: Decision) => {
+    (r: Reservation, decision: Decision, reason?: string) => {
       const name = r.customer.name
       // Optimistically mark the row, then persist. Roll the overlay back if the
       // server rejects it.
       setDecisions((prev) => ({ ...prev, [r.id]: decision }))
       startTransition(async () => {
         try {
-          const updated = await decideReservation(venueId, r.id, decision)
-          updateReservation(r.id, { status: updated.status })
+          const updated = await decideReservation(
+            venueId,
+            r.id,
+            decision,
+            reason
+          )
+          updateReservation(r.id, {
+            status: updated.status,
+            declineReason: updated.declineReason,
+          })
           if (decision === "approved") {
             toast.success(t("toast.approved", { name }))
           } else {
@@ -328,7 +352,28 @@ export function VenueReservationsView({
     [t, venueId, updateReservation]
   )
 
-  const columns = useReservationColumns(t, locale, decisions, decide)
+  // Approve fires immediately; decline first collects a required reason.
+  const handleDecide = React.useCallback(
+    (r: Reservation, decision: Decision) => {
+      if (decision === "declined") {
+        setDeclineReason("")
+        setDeclineTarget(r)
+      } else {
+        decide(r, "approved")
+      }
+    },
+    [decide]
+  )
+
+  const confirmDecline = () => {
+    const target = declineTarget
+    const reason = declineReason.trim()
+    if (!target || !reason) return
+    setDeclineTarget(null)
+    decide(target, "declined", reason)
+  }
+
+  const columns = useReservationColumns(t, locale, decisions, handleDecide)
 
   const table = useReactTable({
     data,
@@ -472,6 +517,58 @@ export function VenueReservationsView({
           </TableBody>
         </Table>
       </VenuePanel>
+
+      {/* Decline reason — required before the decline is sent to the player. */}
+      <Dialog
+        open={declineTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setDeclineTarget(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("decline.title")}</DialogTitle>
+            <DialogDescription>
+              {t("decline.description", {
+                name: declineTarget?.customer.name ?? "",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <Field className="my-2">
+            <FieldLabel htmlFor="decline-reason">
+              {t("decline.reasonLabel")}
+            </FieldLabel>
+            <Textarea
+              id="decline-reason"
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder={t("decline.reasonPlaceholder")}
+              rows={3}
+              maxLength={200}
+              autoFocus
+            />
+          </Field>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full"
+              onClick={() => setDeclineTarget(null)}
+            >
+              {t("decline.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="rounded-full"
+              disabled={declineReason.trim().length === 0}
+              onClick={confirmDecline}
+            >
+              {t("decline.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

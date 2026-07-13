@@ -25,13 +25,13 @@ export class SeedService {
   ) {}
 
   /**
-   * The complete seed payload (player + venue). `activeVenueId` selects which
-   * venue's operator bundle the `venue` key carries (defaults to the first).
-   * `userId` drives the personal half: their profile pre-data plus their
-   * persisted PlaySessions layered over the demo sessions derived from that
-   * profile's rooms/bookings.
+   * The complete seed payload (player + venue). Each account owns exactly one
+   * venue: `venues` is `[theirVenue]` (or `[]` when unprovisioned — the web gates
+   * on this to route new accounts into setup) and `venue` carries that venue's
+   * bundle. `userId` also drives the personal half: their profile pre-data plus
+   * their persisted PlaySessions layered over the demo sessions.
    */
-  async buildSeed(activeVenueId?: string, userId?: string): Promise<Seed> {
+  async buildSeed(userId?: string): Promise<Seed> {
     const [courts, players, profile, userSessions, assessment] =
       await Promise.all([
         this.courts.listCourts(),
@@ -63,16 +63,14 @@ export class SeedService {
       ...demoSessions.filter((s) => !ownIds.has(s.id)),
     ]
 
-    // `listVenues()` already loads every venue profile, so resolve the active id
-    // from that in-memory list (falling back to the first venue) instead of a
-    // separate DB round-trip; `activeBundle` still fetches the one bundle's ops.
-    const [venues, venue] = await Promise.all([
-      this.venues.listVenues(),
-      this.venues.activeBundle(activeVenueId),
-    ])
-    const resolvedVenueId =
-      (activeVenueId && venues.find((v) => v.id === activeVenueId)?.id) ||
-      venues[0]?.id
+    // One venue per account: the caller's own venue, or none yet. When they have
+    // none, `venues` is empty (the web redirects to setup) and `venue` carries a
+    // structural fallback bundle that is never rendered before that redirect.
+    const myVenueId = userId ? await this.venues.myVenueId(userId) : null
+    const venue = myVenueId
+      ? await this.venues.venueBundle(myVenueId)
+      : await this.venues.activeBundle()
+    const venues = myVenueId ? [venue.info] : []
 
     return {
       user: profile.user,
@@ -81,14 +79,12 @@ export class SeedService {
       rooms: profile.rooms,
       bookings: profile.bookings,
       sessions,
-      chats: profile.chats,
-      thread: profile.thread,
       streak: profile.streak,
       stats: profile.stats,
       activity: profile.activity,
       notifications: profile.notifications,
       venues,
-      activeVenueId: resolvedVenueId,
+      activeVenueId: myVenueId ?? "",
       venue,
       assessment,
     }
