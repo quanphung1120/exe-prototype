@@ -1,17 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
 
 import {
-  BOOKING_DAYS,
   COURT_OPEN_FROM,
   COURT_OPEN_TO,
   activeRoster,
+  addDaysIso,
   capacityFor,
   durationOf,
   levelMatches,
+  locStr,
   priceFor,
   rangesOverlap,
   sessionToRoom,
@@ -261,13 +262,15 @@ export function useSession() {
   return ctx
 }
 
-const EMPTY_DRAFT: BookingDraft = {
-  dayKey: "today",
-  slot: null,
-  durationMin: 60,
-  format: "Doubles",
-  fillMode: "court",
-  invitees: [],
+function emptyDraft(todayIso: string): BookingDraft {
+  return {
+    dayKey: todayIso,
+    slot: null,
+    durationMin: 60,
+    format: "Doubles",
+    fillMode: "court",
+    invitees: [],
+  }
 }
 
 /**
@@ -300,6 +303,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const tc = useTranslations("Common")
   const ts = useTranslations("Session")
   const router = useRouter()
+  const locale = useLocale()
 
   // Records + record-bound helpers, served by the API via the DataProvider.
   const {
@@ -307,6 +311,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     players: MATCH_SUGGESTIONS,
     user: USER,
     sessions: SEED_SESSIONS,
+    todayIso,
+    dayLabelFor,
     playerByInitials,
     courtByVenue,
     courtNumberFor,
@@ -367,7 +373,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [linkedId, setLinkedId] = React.useState<string | null>(null)
   const [courtless, setCourtless] = React.useState(false)
   const [step, setStep] = React.useState(0)
-  const [draft, setDraft] = React.useState<BookingDraft>(EMPTY_DRAFT)
+  const [draft, setDraft] = React.useState<BookingDraft>(() =>
+    emptyDraft(todayIso)
+  )
   const [paying, setPaying] = React.useState(false)
   const [paymentResult, setPaymentResult] =
     React.useState<PaymentResult | null>(null)
@@ -725,9 +733,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     if (f.maxDistanceKm !== null && room.distanceKm > f.maxDistanceKm)
       return false
-    const day = room.day.toLowerCase()
-    if (f.day === "today" && day !== "today") return false
-    if (f.day === "today-tomorrow" && day !== "today" && day !== "tomorrow")
+    const dayKey = room.dayKey
+    if (f.day === "today" && dayKey !== todayIso) return false
+    if (
+      f.day === "today-tomorrow" &&
+      dayKey !== todayIso &&
+      dayKey !== addDaysIso(todayIso, 1)
+    )
       return false
     if (f.format !== "any" && room.format !== f.format) return false
     if (f.level === "any") return true
@@ -1000,7 +1012,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       sport: room.sport,
       format: room.format,
       courtId: room.courtId ?? c?.id ?? null,
-      dayKey: room.dayKey ?? "today",
+      dayKey: room.dayKey ?? todayIso,
       dayLabel: room.day,
       slot: room.time ? room.time.split(" – ")[0] : null,
       durationMin: room.durationMin ?? durationOf(room.time),
@@ -1311,7 +1323,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       sport: opts.sport,
       format: opts.format,
       courtId: c.id,
-      dayKey: "today",
+      dayKey: todayIso,
       dayLabel: tc("when.today"),
       slot: c.nextSlot,
       durationMin: 60,
@@ -1457,7 +1469,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setPaymentResult(null)
     setPayAttempts(0)
     setDraft({
-      dayKey: linked ? linked.dayKey : "today",
+      dayKey: linked ? linked.dayKey : todayIso,
       // Carry the room's proposed start so the wizard pre-fills it (and surfaces
       // any conflict on that exact slot) instead of silently blanking it.
       slot: linked ? linked.slot : null,
@@ -1657,8 +1669,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    */
   const startCourtHold = () => {
     if (!court || !draft.slot || draftConflict) return
-    const dayLabel =
-      BOOKING_DAYS.find((d) => d.key === draft.dayKey)?.label ?? "Today"
+    const dayLabel = locStr(dayLabelFor(draft.dayKey), locale)
     const courtLabel = courtNumberFor(court.id)
     const holdExpiresAt = Date.now() + HOLD_MS
     const existing = linkedId ? sessions.find((s) => s.id === linkedId) : null
@@ -1735,8 +1746,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       toast.error(tb("toast.conflict"))
       return
     }
-    const dayLabel =
-      BOOKING_DAYS.find((d) => d.key === draft.dayKey)?.label ?? "Today"
+    const dayLabel = locStr(dayLabelFor(draft.dayKey), locale)
     const time = slotRange(draft.slot, draft.durationMin)
     const linked = linkedId ? sessions.find((s) => s.id === linkedId) : null
     const sport = linked?.sport ?? court.sports[0]

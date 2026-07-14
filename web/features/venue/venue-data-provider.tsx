@@ -4,7 +4,6 @@ import * as React from "react"
 
 import {
   SCHEDULE_HOURS,
-  VENUE_DAYS,
   courtById as courtByIdFn,
   courtDayEvents as courtDayEventsFn,
   type ChannelMixPoint,
@@ -21,6 +20,8 @@ import {
   type VenueSeed,
   type VenueStats,
 } from "@/lib/shared"
+
+import { useData } from "@/features/dashboard/data-provider"
 
 /**
  * Venue-scoped records and helpers. Read from the per-venue layout and bound
@@ -80,10 +81,7 @@ function toMinutes(hhmm: string): number {
 }
 
 function reservationDayKey(reservation: Reservation): string {
-  if (reservation.dayKey) return reservation.dayKey
-  return (
-    VENUE_DAYS.find((day) => day.label.en === reservation.day.en)?.key ?? "past"
-  )
+  return reservation.dayKey ?? ""
 }
 
 function reservationStart(reservation: Reservation): string | null {
@@ -191,11 +189,13 @@ export function VenueDataProvider({
     }
   }, [])
 
+  const { todayIso } = useData()
+
   const value = React.useMemo<VenueDataContextValue>(() => {
     const venue = seed.info
     const courts = seed.courts
     const courtDayEvents = (courtId: string, dayKey: string) => {
-      const base = courtDayEventsFn(venue, courts, courtId, dayKey)
+      const base = courtDayEventsFn(venue, courts, courtId, dayKey, todayIso)
       const overlays = reservations
         .filter((reservation) => {
           if (!ACTIVE_SCHEDULE_STATUSES.has(reservation.status)) return false
@@ -220,7 +220,7 @@ export function VenueDataProvider({
             sport: reservation.sport,
             party: reservation.party,
             past:
-              dayKey === "today" &&
+              dayKey === todayIso &&
               toMinutes(start) + durationMin <= toMinutes(venue.now),
           }
           return event
@@ -252,7 +252,7 @@ export function VenueDataProvider({
         const event = events.find((item) =>
           overlaps(hour, 60, item.start, item.durationMin)
         )
-        const past = dayKey === "today" && index < nowIdx
+        const past = dayKey === todayIso && index < nowIdx
         if (!event) {
           return { courtId, hour, kind: "free", sport, past }
         }
@@ -301,6 +301,7 @@ export function VenueDataProvider({
     customers,
     seed,
     venueId,
+    todayIso,
   ])
 
   return (

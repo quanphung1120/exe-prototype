@@ -133,7 +133,8 @@
     "operatorRole": "Vận hành",
     "searchVenue": "Tìm lượt đặt, khách…",
     "venues": "Địa điểm của bạn",
-    "addVenue": "Thêm địa điểm"
+    "addVenue": "Thêm địa điểm",
+    "becomePlayer": "Trở thành người chơi"
   },
   "WorkspaceSettings": {
     "title": "Cài đặt không gian",
@@ -321,13 +322,6 @@
     "chosen": "Đã chọn",
     "distance": "{km} km",
     "anyDay": "Ngày",
-    "days": {
-      "today": "Hôm nay",
-      "tomorrow": "Ngày mai",
-      "sat": "T.7",
-      "sun": "CN",
-      "mon": "T.2"
-    },
     "slotsFor": "Khung giờ trống",
     "taken": "Đã đặt",
     "format": "Hình thức",
@@ -478,41 +472,6 @@
       "locating": "Đang định vị…",
       "on": "Gần bạn",
       "off": "Bật vị trí"
-    },
-    "courts": {
-      "c1": {
-        "surface": "Kính · toàn cảnh"
-      },
-      "c2": {
-        "surface": "Cứng · Plexicushion"
-      },
-      "c3": {
-        "surface": "Acrylic đệm êm"
-      },
-      "c4": {
-        "surface": "Đất nện · ngoài trời"
-      },
-      "c5": {
-        "surface": "Sàn gỗ đàn hồi"
-      },
-      "c6": {
-        "surface": "Kính thi đấu"
-      },
-      "c7": {
-        "surface": "Sàn gỗ đàn hồi · Trong nhà"
-      },
-      "c8": {
-        "surface": "Thảm PVC · Trong nhà"
-      },
-      "c9": {
-        "surface": "Sàn gỗ đàn hồi · Trong nhà"
-      },
-      "c10": {
-        "surface": "Sàn vinyl đệm êm · Trong nhà"
-      },
-      "c11": {
-        "surface": "Thảm PVC · Trong nhà"
-      }
     }
   },
   "Calendar": {
@@ -1357,6 +1316,14 @@
       "cancel": "Hủy đặt sân",
       "reopen": "Mở lại sân"
     },
+    "cancelDialog": {
+      "title": "Hủy đặt sân",
+      "description": "Nhập lý do hủy lượt đặt của {name}. Khách sẽ được hoàn tiền theo chính sách và nhận thông báo kèm lý do này.",
+      "reasonLabel": "Lý do hủy",
+      "reasonPlaceholder": "Ví dụ: sân gặp sự cố kỹ thuật",
+      "cancel": "Đóng",
+      "confirm": "Xác nhận hủy"
+    },
     "workspaceSubtitle": "Lưới trực tiếp và yêu cầu mới",
     "tabs": {
       "calendar": "Lịch",
@@ -1370,13 +1337,14 @@
     "subtitle": "Duyệt yêu cầu đến, theo dõi lượt giữ chỗ hôm nay và rà soát lịch sử đặt sân.",
     "listTitle": "Lượt đặt",
     "empty": "Không có lượt đặt nào khớp bộ lọc này.",
-    "decline": {
-      "title": "Từ chối lượt đặt",
-      "description": "Cho {name} biết vì sao lượt đặt bị từ chối. Người chơi sẽ nhận được lý do và tiền được hoàn (mô phỏng).",
+    "decline": "Từ chối",
+    "declineDialog": {
+      "title": "Từ chối đặt sân",
+      "description": "Nhập lý do từ chối yêu cầu của {name}. Khách sẽ được hoàn 100% tiền và nhận thông báo kèm lý do này.",
       "reasonLabel": "Lý do từ chối",
-      "reasonPlaceholder": "VD: Sân đã có lịch bảo trì khung giờ này.",
-      "cancel": "Hủy",
-      "confirm": "Từ chối"
+      "reasonPlaceholder": "Ví dụ: sân đang bảo trì trong khung giờ này",
+      "cancel": "Huỷ",
+      "confirm": "Xác nhận từ chối"
     },
     "summary": {
       "pending": "Chờ duyệt",
@@ -1415,7 +1383,6 @@
       "no-show": "Vắng mặt"
     },
     "approve": "Duyệt",
-    "decline": "Từ chối",
     "decidedApproved": "Đã duyệt · đã báo khách",
     "decidedDeclined": "Đã từ chối · đã mở lại khung giờ",
     "toast": {
@@ -1694,7 +1661,8 @@
     "complete": {
       "title": "Hoàn tất!",
       "subtitle": "Đây là hồ sơ trình độ của bạn. Bạn có thể làm lại đánh giá bất cứ lúc nào trong phần cài đặt.",
-      "cta": "Vào trang chính"
+      "cta": "Vào trang chính",
+      "ctaSetup": "Thiết lập địa điểm của bạn"
     },
     "sportsSelect": {
       "title": "Môn thể thao bạn muốn tham gia",
@@ -1892,5 +1860,20 @@
     "viewProfile": "Xem hồ sơ",
     "reviewsLabel": "Đánh giá",
     "ratingsCount": "{count} đánh giá"
+  },
+  "Onboarding": {
+    "metaTitle": "Chọn vai trò của Quý khách",
+    "metaDescription": "Cho chúng tôi biết Quý khách chơi thể thao, vận hành địa điểm, hay cả hai.",
+    "title": "Chào mừng! Quý khách đến đây để làm gì?",
+    "subtitle": "Chọn một hoặc cả hai — Quý khách luôn có thể thêm vai trò còn lại sau.",
+    "player": {
+      "title": "Tôi chơi thể thao",
+      "description": "Tìm sân, ghép trận với người chơi khác và đặt lịch chơi."
+    },
+    "venue": {
+      "title": "Tôi vận hành địa điểm",
+      "description": "Đăng sân của bạn và quản lý lượt đặt."
+    },
+    "continue": "Tiếp tục"
   }
 }

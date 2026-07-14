@@ -1,7 +1,13 @@
 import { Injectable } from "@nestjs/common"
 
-import { buildSeedSessions, type Seed } from "../../shared/index.js"
+import {
+  buildSeedSessions,
+  isoDateOf,
+  vnNowIso,
+  type Seed,
+} from "../../shared/index.js"
 
+import { resolveAccountType } from "../account/account.service.js"
 import { AssessmentService } from "../assessment/assessment.service.js"
 import { CourtsService } from "../courts/courts.service.js"
 import { PlayerService } from "../players/player.service.js"
@@ -32,6 +38,8 @@ export class SeedService {
    * their persisted PlaySessions layered over the demo sessions.
    */
   async buildSeed(userId?: string): Promise<Seed> {
+    const serverNow = vnNowIso()
+    const todayIso = isoDateOf(serverNow)
     const [courts, players, profile, userSessions, assessment] =
       await Promise.all([
         this.courts.listCourts(),
@@ -55,7 +63,8 @@ export class SeedService {
       profile.bookings,
       courts,
       profile.user,
-      players
+      players,
+      todayIso
     )
     const ownIds = new Set(userSessions.map((s) => s.id))
     const sessions = [
@@ -72,7 +81,14 @@ export class SeedService {
       : await this.venues.activeBundle()
     const venues = myVenueId ? [venue.info] : []
 
+    const accountType = resolveAccountType(
+      profile.accountType,
+      assessment !== null,
+      myVenueId !== null
+    )
+
     return {
+      serverNow,
       user: profile.user,
       players,
       courts,
@@ -87,6 +103,7 @@ export class SeedService {
       activeVenueId: myVenueId ?? "",
       venue,
       assessment,
+      accountType,
     }
   }
 }

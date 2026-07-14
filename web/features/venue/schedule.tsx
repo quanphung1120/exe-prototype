@@ -35,13 +35,13 @@ import {
 } from "@/components/ui/popover"
 import {
   slotKindAccent,
-  VENUE_DAYS,
   type Reservation,
   type ScheduleEvent,
   type SlotKind,
   type VenueCourt,
 } from "@/features/venue/data"
 import { addMinutes, sportAccent } from "@/features/dashboard/data"
+import { useData } from "@/features/dashboard/data-provider"
 import {
   addDays,
   addMonths,
@@ -51,8 +51,6 @@ import {
   mondayIndex,
   monthOf,
   sameMonth,
-  seedForDate,
-  TODAY_ISO,
   weekDays,
   yearOf,
   type CalendarView,
@@ -70,6 +68,7 @@ import { useVenueData } from "@/features/venue/venue-data-provider"
 import {
   MicroLabel,
   Meter,
+  ReasonDialog,
   VenuePanel,
 } from "@/features/venue/shared"
 import { useVenue } from "@/features/venue/venue-provider"
@@ -103,6 +102,7 @@ export function VenueScheduleView({
   const tc = useTranslations("Common")
   const tcal = useTranslations("Calendar")
   const { stats } = useVenue()
+  const { todayIso } = useData()
   const {
     venueId,
     venue: VENUE,
@@ -124,7 +124,7 @@ export function VenueScheduleView({
 
   const now = useNow()
   const [view, setView] = React.useState<CalendarView>("day")
-  const [cursor, setCursor] = React.useState<string>(TODAY_ISO)
+  const [cursor, setCursor] = React.useState<string>(todayIso)
   const [weekCourtId, setWeekCourtId] = React.useState<string>(
     VENUE_COURTS[0]?.id ?? ""
   )
@@ -143,26 +143,35 @@ export function VenueScheduleView({
     durationMin: number
   } | null>(null)
   const [, startCancel] = React.useTransition()
-
-  // Cancel a reservation-backed event straight from its popover (no dialog):
-  // persist via the server action, then optimistically flip it to cancelled so
-  // the block drops out of the schedule immediately.
-  const cancelEvent = React.useCallback(
-    (event: ScheduleEvent) => {
-      startCancel(async () => {
-        try {
-          await cancelReservation(venueId, event.id)
-          updateReservation(event.id, { status: "cancelled" })
-          toast(t("toast.cancelledEvent"), { description: event.customer })
-        } catch (error) {
-          toast.error(
-            error instanceof Error ? error.message : "Failed to cancel booking"
-          )
-        }
-      })
-    },
-    [venueId, updateReservation, t]
+  // The API requires a reason for any cancellation, so Cancel opens this
+  // dialog to collect one instead of firing straight from the popover.
+  const [cancelTarget, setCancelTarget] = React.useState<ScheduleEvent | null>(
+    null
   )
+  const [cancelReason, setCancelReason] = React.useState("")
+
+  const requestCancel = React.useCallback((event: ScheduleEvent) => {
+    setCancelReason("")
+    setCancelTarget(event)
+  }, [])
+
+  const confirmCancel = React.useCallback(() => {
+    const event = cancelTarget
+    const reason = cancelReason.trim()
+    if (!event || reason.length < 3) return
+    setCancelTarget(null)
+    startCancel(async () => {
+      try {
+        await cancelReservation(venueId, event.id, reason)
+        updateReservation(event.id, { status: "cancelled" })
+        toast(t("toast.cancelledEvent"), { description: event.customer })
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to cancel booking"
+        )
+      }
+    })
+  }, [cancelTarget, cancelReason, venueId, updateReservation, t])
 
   const monthsShort = tcal.raw("monthsShort") as string[]
   const months = tcal.raw("months") as string[]
@@ -219,7 +228,7 @@ export function VenueScheduleView({
 
   /** Place one court's events + free gaps on a date into a timeline column. */
   const courtContent = (court: VenueCourt, dateIso: string) => {
-    const events = courtDayEvents(court.id, seedForDate(dateIso))
+    const events = courtDayEvents(court.id, dateIso)
     const gaps = court.state === "maintenance" ? [] : gapsOf(events)
     return (
       <>
@@ -229,7 +238,7 @@ export function VenueScheduleView({
             key={`${court.id}-${dateIso}-${g.start}`}
             courtId={court.id}
             courtName={court.name}
-            dayKey={seedForDate(dateIso)}
+            dayKey={dateIso}
             start={g.start}
             durationMin={g.durationMin}
             t={t}
@@ -245,12 +254,12 @@ export function VenueScheduleView({
             locale={locale}
             t={t}
             tc={tc}
-            onCancel={cancelEvent}
+            onCancel={requestCancel}
             onReschedule={() =>
               setRescheduleDialog({
                 reservationId: ev.id,
                 courtName: court.name,
-                dayKey: seedForDate(dateIso),
+                dayKey: dateIso,
                 start: ev.start,
                 durationMin: ev.durationMin,
               })
@@ -267,7 +276,7 @@ export function VenueScheduleView({
 
   const columns: TimelineColumn[] = (() => {
     if (view === "day") {
-      const today = isToday(cursor)
+      const today = isToday(cursor, todayIso)
       return VENUE_COURTS.map((court) => ({
         key: court.id,
         today,
@@ -299,14 +308,14 @@ export function VenueScheduleView({
     if (view === "week" && weekCourt) {
       return weekDays(cursor).map((iso) => ({
         key: iso,
-        today: isToday(iso),
+        today: isToday(iso, todayIso),
         weekend: isWeekend(iso),
         header: (
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 truncate text-sm font-semibold",
-                isToday(iso) && "text-brand"
+                isToday(iso, todayIso) && "text-brand"
               )}
             >
               <span className="text-muted-foreground">
@@ -315,7 +324,7 @@ export function VenueScheduleView({
               <span
                 className={cn(
                   "tabular-nums",
-                  isToday(iso) &&
+                  isToday(iso, todayIso) &&
                     "grid size-6 place-items-center rounded-full bg-brand text-brand-foreground"
                 )}
               >
@@ -332,7 +341,7 @@ export function VenueScheduleView({
 
   // Day summary (occupancy / booked / free) for the cursor date.
   const summary = React.useMemo(() => {
-    const grid = venueScheduleFor(seedForDate(cursor))
+    const grid = venueScheduleFor(cursor)
     let bookable = 0
     let filled = 0
     let free = 0
@@ -355,7 +364,7 @@ export function VenueScheduleView({
   /** Venue occupancy % on a date (drives the month heat). */
   const occupancyOn = React.useCallback(
     (iso: string) => {
-      const grid = venueScheduleFor(seedForDate(iso))
+      const grid = venueScheduleFor(iso)
       let bookable = 0
       let filled = 0
       for (const row of grid)
@@ -387,10 +396,10 @@ export function VenueScheduleView({
 
   const showsToday =
     view === "month"
-      ? sameMonth(cursor, TODAY_ISO)
+      ? sameMonth(cursor, todayIso)
       : view === "week"
-        ? weekDays(cursor).includes(TODAY_ISO)
-        : isToday(cursor)
+        ? weekDays(cursor).includes(todayIso)
+        : isToday(cursor, todayIso)
 
   const step = (dir: -1 | 1) =>
     setCursor((c) =>
@@ -406,7 +415,7 @@ export function VenueScheduleView({
     setView("day")
   }
 
-  const activeDay = isToday(cursor)
+  const activeDay = isToday(cursor, todayIso)
 
   return (
     <div className="flex flex-col gap-5">
@@ -472,7 +481,7 @@ export function VenueScheduleView({
           onView={setView}
           onPrev={() => step(-1)}
           onNext={() => step(1)}
-          onToday={() => setCursor(TODAY_ISO)}
+          onToday={() => setCursor(todayIso)}
           live={showsToday && now ? t("grid.liveAt", { time: now }) : null}
         />
 
@@ -510,6 +519,7 @@ export function VenueScheduleView({
         {view === "month" ? (
           <MonthGrid
             cursor={cursor}
+            todayIso={todayIso}
             onPickDay={openDay}
             renderDay={(iso, inMonth) =>
               inMonth ? (
@@ -588,6 +598,24 @@ export function VenueScheduleView({
           })
         }
         t={t}
+      />
+
+      <ReasonDialog
+        open={cancelTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setCancelTarget(null)
+        }}
+        title={t("cancelDialog.title")}
+        description={t("cancelDialog.description", {
+          name: cancelTarget?.customer ?? "",
+        })}
+        reasonLabel={t("cancelDialog.reasonLabel")}
+        reasonPlaceholder={t("cancelDialog.reasonPlaceholder")}
+        cancelLabel={t("cancelDialog.cancel")}
+        confirmLabel={t("cancelDialog.confirm")}
+        reason={cancelReason}
+        onReasonChange={setCancelReason}
+        onConfirm={confirmCancel}
       />
     </div>
   )
@@ -953,7 +981,8 @@ function RescheduleDialog({
           submit: "Reschedule",
           saving: "Saving...",
         }
-  const [dayKey, setDayKey] = React.useState("today")
+  const { bookingDays } = useData()
+  const [dayKey, setDayKey] = React.useState("")
   const [start, setStart] = React.useState("06:00")
   const [durationMin, setDurationMin] = React.useState("60")
   const [isPending, startTransition] = React.useTransition()
@@ -1016,7 +1045,7 @@ function RescheduleDialog({
                 value={dayKey}
                 onChange={(event) => setDayKey(event.target.value)}
               >
-                {VENUE_DAYS.map((day) => (
+                {bookingDays.map((day) => (
                   <option key={day.key} value={day.key}>
                     {locale === "vi" ? day.label.vi : day.label.en}
                   </option>

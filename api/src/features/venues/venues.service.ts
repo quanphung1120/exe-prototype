@@ -10,15 +10,20 @@ import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
 import {
+  addMinutes,
+  canTransitionReservation,
+  combineDateTime,
   computeVenueStats,
-  VENUE_DAYS,
+  dayLabelFor,
   diffMinutes,
   initialsOf,
+  isoDateOf,
   priceFor,
   rangesOverlap,
   slotRange,
   toMinutes,
   venueCourtToCourt,
+  vnNowIso,
   type Court,
   type NotificationItem,
   type Reservation,
@@ -159,10 +164,7 @@ function maxSeq(ids: string[], prefix: string): number {
 const TIME_RANGE_RE = /(\d{2}:\d{2})/g
 
 function reservationDayKey(reservation: Reservation): string {
-  if (reservation.dayKey) return reservation.dayKey
-  return (
-    VENUE_DAYS.find((day) => day.label.en === reservation.day.en)?.key ?? "past"
-  )
+  return reservation.dayKey ?? ""
 }
 
 function reservationStart(reservation: Reservation): string | null {
@@ -325,7 +327,8 @@ export class VenuesService {
         bundle.info,
         bundle.courts,
         bundle.reservations,
-        bundle.stats
+        bundle.stats,
+        isoDateOf(vnNowIso())
       ),
     }
   }
@@ -401,6 +404,9 @@ export class VenuesService {
 
   async createVenue(input: VenueInput): Promise<VenueInfo> {
     await this.ensureSeeded()
+    if (toMinutes(input.openFrom) >= toMinutes(input.openTo)) {
+      throw new BadRequestException("openFrom must be before openTo")
+    }
     // Two concurrent creates can compute the same `v<n>` id; the unique index
     // rejects the loser. Recompute and retry a few times rather than 500.
     for (let attempt = 1; ; attempt++) {
@@ -465,6 +471,9 @@ export class VenuesService {
           initials: initialsOf(patch.managerName),
         }
       }
+      if (toMinutes(next.openFrom) >= toMinutes(next.openTo)) {
+        throw new BadRequestException("openFrom must be before openTo")
+      }
       doc.markModified("info")
       await doc.save()
       return doc.info
@@ -509,6 +518,20 @@ export class VenuesService {
     return withVersionRetry(async () => {
       const doc = await this.findDoc(venueId)
       if (!doc) throw new NotFoundException("Venue not found")
+      if (!doc.info.sports.includes(input.sport)) {
+        throw new BadRequestException(
+          `Venue does not offer sport "${input.sport}"`
+        )
+      }
+      if (
+        doc.ops.courts.some(
+          (c) => c.name.trim().toLowerCase() === input.name.trim().toLowerCase()
+        )
+      ) {
+        throw new ConflictException(
+          `Court name "${input.name}" already exists in this venue`
+        )
+      }
       // Court ids are namespaced by venue (`${venueId}c<n>`, matching the seed's
       // v2c*/v3c* convention) so they're GLOBALLY unique — the unified discovery
       // catalog keys on this id, and a plain `vc<n>` would collide across venues
@@ -549,8 +572,28 @@ export class VenuesService {
       const doc = await this.findDoc(venueId)
       const court = doc?.ops.courts.find((c) => c.id === courtId)
       if (!doc || !court) throw new NotFoundException("Court not found")
-      if (patch.name !== undefined) court.name = patch.name
-      if (patch.sport !== undefined) court.sport = patch.sport
+      if (patch.name !== undefined) {
+        if (
+          doc.ops.courts.some(
+            (c) =>
+              c.id !== courtId &&
+              c.name.trim().toLowerCase() === patch.name!.trim().toLowerCase()
+          )
+        ) {
+          throw new ConflictException(
+            `Court name "${patch.name}" already exists in this venue`
+          )
+        }
+        court.name = patch.name
+      }
+      if (patch.sport !== undefined) {
+        if (!doc.info.sports.includes(patch.sport)) {
+          throw new BadRequestException(
+            `Venue does not offer sport "${patch.sport}"`
+          )
+        }
+        court.sport = patch.sport
+      }
       if (patch.surface !== undefined) court.surface = patch.surface
       if (patch.pricePerHour !== undefined)
         court.pricePerHour = patch.pricePerHour
@@ -608,8 +651,13 @@ export class VenuesService {
         )
       }
 
-      const day = VENUE_DAYS.find((item) => item.key === input.dayKey)
-        ?.label ?? { en: input.dayKey, vi: input.dayKey }
+      const todayIso = isoDateOf(vnNowIso())
+      const day = dayLabelFor(input.dayKey, todayIso)
+      const startAt = combineDateTime(input.dayKey, input.start)
+      const endAt = combineDateTime(
+        input.dayKey,
+        addMinutes(input.start, input.durationMin)
+      )
       // Persisted high-water counter (see addCourt) so a reservation id is never
       // reused after a deletion.
       const seq =
@@ -635,6 +683,8 @@ export class VenuesService {
         day,
         start: input.start,
         durationMin: input.durationMin,
+        startAt,
+        endAt,
         time: slotRange(input.start, input.durationMin),
         party: court.sport === "pickleball" ? 4 : 2,
         source: "walk-in",
@@ -691,10 +741,13 @@ export class VenuesService {
         )
       }
 
-      const day = VENUE_DAYS.find((d) => d.key === input.dayKey)?.label ?? {
-        en: input.dayKey,
-        vi: input.dayKey,
-      }
+      const todayIso = isoDateOf(vnNowIso())
+      const day = dayLabelFor(input.dayKey, todayIso)
+      const startAt = combineDateTime(input.dayKey, input.start)
+      const endAt = combineDateTime(
+        input.dayKey,
+        addMinutes(input.start, input.durationMin)
+      )
       const price = priceFor(court.pricePerHour, input.durationMin)
       const party = court.sport === "pickleball" ? 4 : 2
 
@@ -709,6 +762,8 @@ export class VenuesService {
         existing.day = day
         existing.start = input.start
         existing.durationMin = input.durationMin
+        existing.startAt = startAt
+        existing.endAt = endAt
         existing.time = slotRange(input.start, input.durationMin)
         existing.party = party
         existing.price = price
@@ -738,6 +793,8 @@ export class VenuesService {
           day,
           start: input.start,
           durationMin: input.durationMin,
+          startAt,
+          endAt,
           time: slotRange(input.start, input.durationMin),
           party,
           source: "app",
@@ -794,10 +851,21 @@ export class VenuesService {
     reason?: string
   ): Promise<Reservation> {
     await this.ensureSeeded()
+    // Tracks the pre-transition status so the caller can tell a no-op PUT
+    // (same status, e.g. a retried request) from a real transition and skip
+    // reconciliation/notification for the former.
+    let prevStatus: ReservationStatus | null = null
     const reservation = await withVersionRetry(async () => {
       const doc = await this.findDoc(venueId)
       const r = doc?.ops.reservations.find((item) => item.id === reservationId)
       if (!doc || !r) throw new NotFoundException("Reservation not found")
+      if (r.status === status) return r
+      if (!canTransitionReservation(r.status, status)) {
+        throw new ConflictException(
+          `Không thể chuyển đặt sân từ "${r.status}" sang "${status}"`
+        )
+      }
+      prevStatus = r.status
       r.status = status
       if (status === "cancelled" && reason) r.declineReason = reason
       doc.markModified("ops")
@@ -807,13 +875,18 @@ export class VenuesService {
 
     // Cross-surface reconciliation: an app booking carries the linked player;
     // walk-ins have no session/user and skip cleanly.
-    if (reservation.userId && reservation.sessionId) {
+    if (prevStatus && reservation.userId && reservation.sessionId) {
       await this.sessions.applyReservationStatus(
         reservation.userId,
         reservation.sessionId,
         { status, reason }
       )
-      const notify = this.decisionNotification(reservationId, status, reason)
+      const notify = this.decisionNotification(
+        reservationId,
+        prevStatus,
+        status,
+        reason
+      )
       if (notify) await this.profiles.addNotification(reservation.userId, notify)
     }
     return reservation
@@ -822,15 +895,24 @@ export class VenuesService {
   /** The player notification for an operator decision, or null when silent. */
   private decisionNotification(
     reservationId: string,
+    prevStatus: ReservationStatus,
     status: ReservationStatus,
     reason?: string
   ): NotificationItem | null {
     const base = { time: "Vừa xong", read: false, href: "/dashboard/bookings" }
-    if (status === "cancelled" && reason) {
+    if (status === "cancelled" && prevStatus === "pending" && reason) {
       return {
         id: `booking-declined-${reservationId}`,
         kind: "booking",
         text: `Chủ sân đã từ chối đặt sân: ${reason}. Đã hoàn tiền (mô phỏng).`,
+        ...base,
+      }
+    }
+    if (status === "cancelled" && reason) {
+      return {
+        id: `booking-cancelled-${reservationId}`,
+        kind: "booking",
+        text: `Chủ sân đã huỷ đặt sân đã duyệt của bạn: ${reason}. Đã hoàn tiền (mô phỏng).`,
         ...base,
       }
     }
@@ -839,6 +921,14 @@ export class VenuesService {
         id: `booking-approved-${reservationId}`,
         kind: "booking",
         text: "Chủ sân đã duyệt đặt sân của bạn.",
+        ...base,
+      }
+    }
+    if (status === "no-show") {
+      return {
+        id: `booking-no-show-${reservationId}`,
+        kind: "booking",
+        text: "Bạn đã được đánh dấu vắng mặt (no-show) cho lượt đặt sân này.",
         ...base,
       }
     }
@@ -881,12 +971,16 @@ export class VenuesService {
         )
       }
 
-      const day = VENUE_DAYS.find((item) => item.key === input.dayKey)
-        ?.label ?? { en: input.dayKey, vi: input.dayKey }
+      const todayIso = isoDateOf(vnNowIso())
       reservation.dayKey = input.dayKey
-      reservation.day = day
+      reservation.day = dayLabelFor(input.dayKey, todayIso)
       reservation.start = input.start
       reservation.durationMin = input.durationMin
+      reservation.startAt = combineDateTime(input.dayKey, input.start)
+      reservation.endAt = combineDateTime(
+        input.dayKey,
+        addMinutes(input.start, input.durationMin)
+      )
       reservation.time = slotRange(input.start, input.durationMin)
       // Duration changed, so re-price against the court's rate when we can
       // resolve it (legacy seed reservations may carry no courtId — keep price).

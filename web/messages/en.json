@@ -133,7 +133,8 @@
     "operatorRole": "Operations",
     "searchVenue": "Search bookings, players…",
     "venues": "Your venues",
-    "addVenue": "Add venue"
+    "addVenue": "Add venue",
+    "becomePlayer": "Become a player"
   },
   "WorkspaceSettings": {
     "title": "Workspace settings",
@@ -321,13 +322,6 @@
     "chosen": "Chosen",
     "distance": "{km} km",
     "anyDay": "Day",
-    "days": {
-      "today": "Today",
-      "tomorrow": "Tomorrow",
-      "sat": "Sat",
-      "sun": "Sun",
-      "mon": "Mon"
-    },
     "slotsFor": "Open slots",
     "taken": "Taken",
     "format": "Format",
@@ -478,41 +472,6 @@
       "locating": "Locating…",
       "on": "Near you",
       "off": "Enable location"
-    },
-    "courts": {
-      "c1": {
-        "surface": "Glass · panoramic"
-      },
-      "c2": {
-        "surface": "Hard · Plexicushion"
-      },
-      "c3": {
-        "surface": "Cushioned acrylic"
-      },
-      "c4": {
-        "surface": "Clay · outdoor"
-      },
-      "c5": {
-        "surface": "Sprung timber"
-      },
-      "c6": {
-        "surface": "Tournament glass"
-      },
-      "c7": {
-        "surface": "Sprung timber · indoor"
-      },
-      "c8": {
-        "surface": "PVC mat · indoor"
-      },
-      "c9": {
-        "surface": "Sprung timber · indoor"
-      },
-      "c10": {
-        "surface": "Cushioned vinyl · indoor"
-      },
-      "c11": {
-        "surface": "PVC mat · indoor"
-      }
     }
   },
   "Calendar": {
@@ -1357,6 +1316,14 @@
       "cancel": "Cancel booking",
       "reopen": "Reopen court"
     },
+    "cancelDialog": {
+      "title": "Cancel booking",
+      "description": "Give a reason for cancelling {name}'s booking. The player gets refunded per policy and a notification with this reason.",
+      "reasonLabel": "Cancellation reason",
+      "reasonPlaceholder": "e.g. court has a technical issue",
+      "cancel": "Close",
+      "confirm": "Confirm cancellation"
+    },
     "workspaceSubtitle": "Live grid and incoming requests",
     "tabs": {
       "calendar": "Calendar",
@@ -1370,13 +1337,14 @@
     "subtitle": "Approve incoming requests, track today's holds and review past bookings.",
     "listTitle": "Bookings",
     "empty": "No reservations match this filter.",
-    "decline": {
+    "decline": "Decline",
+    "declineDialog": {
       "title": "Decline booking",
-      "description": "Let {name} know why this booking was declined. They'll see the reason and get a (simulated) refund.",
-      "reasonLabel": "Reason for declining",
-      "reasonPlaceholder": "e.g. That slot is booked for court maintenance.",
+      "description": "Give a reason for declining {name}'s request. The player gets a full refund and a notification with this reason.",
+      "reasonLabel": "Decline reason",
+      "reasonPlaceholder": "e.g. court under maintenance during this slot",
       "cancel": "Cancel",
-      "confirm": "Decline"
+      "confirm": "Confirm decline"
     },
     "summary": {
       "pending": "Awaiting approval",
@@ -1415,7 +1383,6 @@
       "no-show": "No-show"
     },
     "approve": "Approve",
-    "decline": "Decline",
     "decidedApproved": "Approved · customer notified",
     "decidedDeclined": "Declined · slot released",
     "toast": {
@@ -1694,7 +1661,8 @@
     "complete": {
       "title": "You're all set!",
       "subtitle": "Here's your skill profile. You can redo this assessment anytime from settings.",
-      "cta": "Enter dashboard"
+      "cta": "Enter dashboard",
+      "ctaSetup": "Set up your venue"
     },
     "sportsSelect": {
       "title": "Sports you want to play",
@@ -1892,5 +1860,20 @@
     "viewProfile": "View Profile",
     "reviewsLabel": "Reviews",
     "ratingsCount": "{count} ratings"
+  },
+  "Onboarding": {
+    "metaTitle": "Choose your role",
+    "metaDescription": "Tell us whether you play, run a venue, or both.",
+    "title": "Welcome! What brings you here?",
+    "subtitle": "Pick one or both — you can always add the other role later.",
+    "player": {
+      "title": "I play",
+      "description": "Find courts, match with players, and book sessions."
+    },
+    "venue": {
+      "title": "I run a venue",
+      "description": "List your courts and manage bookings."
+    },
+    "continue": "Continue"
   }
 }

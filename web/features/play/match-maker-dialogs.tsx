@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import * as z from "zod"
 import { Check, Minus, Plus, Search, TriangleAlert, Zap } from "lucide-react"
@@ -39,10 +39,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  BOOKING_DAYS,
   LEVELS,
   SPORTS,
   diffMinutes,
+  locStr,
   type RoomLevel,
   type SportKey,
 } from "@/features/dashboard/data"
@@ -283,7 +283,16 @@ function CreateRoomDialog() {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
   const tb = useTranslations("Booking")
-  const { courts: COURTS, user: USER, conflictFor, courtDayGaps } = useData()
+  const locale = useLocale()
+  const {
+    courts: COURTS,
+    user: USER,
+    conflictFor,
+    courtDayGaps,
+    todayIso,
+    bookingDays,
+    dayLabelFor,
+  } = useData()
   const {
     userLevelForSport,
     addRoom,
@@ -311,7 +320,7 @@ function CreateRoomDialog() {
       format: z.enum(["Singles", "Doubles"]),
       maxPlayers: z.number().int().min(2).max(8),
       courtId: z.string().min(1, t("validation.court")),
-      day: z.enum(["today", "tomorrow", "sat", "sun", "mon"]),
+      day: z.string().min(1),
       startTime: z.string().min(1, t("validation.time")),
       endTime: z.string().min(1, t("validation.time")),
       level: z.enum(["beginner", "intermediate", "advanced", "any"]),
@@ -347,7 +356,7 @@ function CreateRoomDialog() {
       format: "Doubles" as "Singles" | "Doubles",
       maxPlayers: 4,
       courtId: "c1",
-      day: "today" as "today" | "tomorrow" | "sat" | "sun" | "mon",
+      day: todayIso,
       startTime: "18:30",
       endTime: "19:30",
       level: userLevelForSport("badminton") as RoomLevel,
@@ -367,8 +376,7 @@ function CreateRoomDialog() {
       }
       const court = COURTS.find((c) => c.id === value.courtId) ?? COURTS[0]
       const capacity = value.maxPlayers
-      const dayLabel =
-        BOOKING_DAYS.find((d) => d.key === value.day)?.label ?? value.day
+      const dayLabel = locStr(dayLabelFor(value.day), locale)
       addRoom({
         id: `r-new-${idRef.current++}`,
         host: { name: USER.name, initials: USER.initials },
@@ -586,14 +594,9 @@ function CreateRoomDialog() {
                   <FilterChips
                     label=""
                     value={field.state.value}
-                    options={BOOKING_DAYS.map((d) => ({
-                      value: d.key as
-                        | "today"
-                        | "tomorrow"
-                        | "sat"
-                        | "sun"
-                        | "mon",
-                      label: tb(`days.${d.key}`),
+                    options={bookingDays.map((d) => ({
+                      value: d.key,
+                      label: locStr(d.label, locale),
                     }))}
                     onChange={(v) => field.handleChange(v)}
                   />

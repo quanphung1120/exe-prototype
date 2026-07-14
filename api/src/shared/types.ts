@@ -103,7 +103,7 @@ export interface MatchRoom {
   district: string
   distanceKm: number
   day: string
-  /** Canonical BOOKING_DAYS key for `day` (set on create; derived otherwise). */
+  /** ISO date ("YYYY-MM-DD") for `day` (set on create; derived otherwise). */
   dayKey?: string
   time: string
   /** Level the room is for (or "any"). A stated preference, not a hard gate. */
@@ -139,7 +139,7 @@ export interface Booking {
   venue: string
   court: string
   day: string
-  /** BOOKING_DAYS key for new bookings; absent on legacy seed records. */
+  /** ISO date ("YYYY-MM-DD") for new bookings; absent on legacy seed records. */
   dayKey?: string
   time: string
   status: BookingStatus
@@ -189,14 +189,18 @@ export interface PlaySession {
   format: "Singles" | "Doubles"
   /** Stable court reference (replaces fragile venue-name lookups). */
   courtId: string | null
-  /** Canonical BOOKING_DAYS key, or "past" for history (never blocks). */
+  /** ISO date ("YYYY-MM-DD"), Asia/Ho_Chi_Minh. A date before "today" is history and never blocks. */
   dayKey: string
-  /** Display label for the day (kept verbatim for "past"/seed history). */
+  /** Display label for the day (kept verbatim for seed history). */
   dayLabel: string
   /** "HH:MM" start — proposed while forming, held once booked. */
   slot: string | null
   /** Session length in minutes. Free-form (e.g. 65); defaults to 60. */
   durationMin: number
+  /** ISO datetime (+07:00) for `dayKey`/`slot` once booked — combineDateTime(dayKey, slot). */
+  startAt?: string
+  /** ISO datetime (+07:00), startAt + durationMin. */
+  endAt?: string
   /** Cosmetic "Court N", set when a court is booked. */
   courtLabel: string | null
   host: { name: string; initials: string }
@@ -441,11 +445,16 @@ export interface Reservation {
   sport: SportKey
   courtId?: string
   court: string
+  /** ISO date ("YYYY-MM-DD"), Asia/Ho_Chi_Minh — the source of truth for the day. */
   dayKey?: string
   day: Localized
   start?: string
   durationMin?: number
   time: string
+  /** ISO datetime (+07:00) — combineDateTime(dayKey, start). */
+  startAt?: string
+  /** ISO datetime (+07:00), startAt + durationMin. */
+  endAt?: string
   party: number
   source: BookingSource
   status: ReservationStatus
@@ -551,6 +560,12 @@ export interface VenueInsight {
   }
 }
 
+// ── Account type ──────────────────────────────────────────────────────────────
+
+/** What an account is: a player, a venue operator, or both. */
+export const ACCOUNT_TYPES = ["player", "venue", "both"] as const
+export type AccountType = (typeof ACCOUNT_TYPES)[number]
+
 // ── Player skills assessment ─────────────────────────────────────────────────
 
 /** The sports a player can self-assess (the app's racquet sports). */
@@ -597,6 +612,8 @@ export interface VenueSeed {
 
 /** The full hardcoded dataset the API serves and the web `DataProvider` holds. */
 export interface Seed {
+  /** Server "now" (ISO datetime, +07:00, Asia/Ho_Chi_Minh) — the render anchor for day math (repo bans `Date.now()` in render). */
+  serverNow: string
   user: User
   players: Player[]
   courts: Court[]
@@ -616,4 +633,6 @@ export interface Seed {
   venue: VenueSeed
   /** The signed-in player's persisted skills assessment (null until they take it). */
   assessment: PlayerAssessment | null
+  /** Effective account type (stored choice ∪ inferred facts); null until chosen. */
+  accountType: AccountType | null
 }

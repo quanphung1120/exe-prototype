@@ -345,12 +345,14 @@ export function Timeline({
  */
 export function MonthGrid({
   cursor,
+  todayIso,
   renderDay,
   onPickDay,
   emptyLabel,
   hasContent = true,
 }: {
   cursor: string
+  todayIso: string
   renderDay: (iso: string, inMonth: boolean) => React.ReactNode
   onPickDay: (iso: string) => void
   emptyLabel?: string | null
@@ -392,7 +394,7 @@ export function MonthGrid({
               <span
                 className={cn(
                   "ml-auto inline-flex size-6 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
-                  isToday(iso)
+                  isToday(iso, todayIso)
                     ? "bg-brand text-brand-foreground"
                     : "text-muted-foreground"
                 )}

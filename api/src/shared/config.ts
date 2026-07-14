@@ -62,14 +62,12 @@ export const SLOT_TIMES = ["17:00", "18:00", "19:00", "20:00", "21:00"]
 export const COURT_OPEN_FROM = "06:00"
 export const COURT_OPEN_TO = "23:00"
 
-/** The booking date strip: a fixed 5-day window (static so SSR stays in sync). */
-export const BOOKING_DAYS: { key: string; label: string }[] = [
-  { key: "today", label: "Today" },
-  { key: "tomorrow", label: "Tomorrow" },
-  { key: "sat", label: "Sat" },
-  { key: "sun", label: "Sun" },
-  { key: "mon", label: "Mon" },
-]
+/**
+ * The bookable day-strip window is now a real sliding 7-day range anchored on
+ * the server's "now" — see `bookingDays`/`venueDays` in `helpers.ts` (they need
+ * the runtime anchor, so they live with the other datetime helpers rather than
+ * as a static constant here).
+ */
 
 /** Preset start times offered when hosting a room. */
 export const ROOM_TIME_SLOTS = [
@@ -165,15 +163,6 @@ export const SCHEDULE_HOURS = [
   "19:00",
   "20:00",
   "21:00",
-]
-
-/** The day strip for the schedule/reservations (static so SSR stays in sync). */
-export const VENUE_DAYS: { key: string; label: Localized }[] = [
-  { key: "today", label: { en: "Today", vi: "Hôm nay" } },
-  { key: "tomorrow", label: { en: "Tomorrow", vi: "Ngày mai" } },
-  { key: "sat", label: { en: "Sat", vi: "Th 7" } },
-  { key: "sun", label: { en: "Sun", vi: "CN" } },
-  { key: "mon", label: { en: "Mon", vi: "Th 2" } },
 ]
 
 /** Hours shown in the utilization heatmap (condensed to the active window). */

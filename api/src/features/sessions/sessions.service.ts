@@ -9,7 +9,8 @@ import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
 import {
-  BOOKING_DAYS,
+  isoDateOf,
+  vnNowIso,
   type PlaySession as PlaySessionData,
   type ReservationStatus,
   type SessionStatus,
@@ -108,7 +109,7 @@ export class SessionsService {
   ): Promise<PlaySessionData> {
     if (session.status !== "booked" || !session.courtId || !session.slot)
       return session
-    if (!BOOKING_DAYS.some((d) => d.key === session.dayKey)) return session
+    if (session.dayKey < isoDateOf(vnNowIso())) return session
     try {
       const venueId = await this.venues.findVenueByCourtId(session.courtId)
       if (!venueId) return session

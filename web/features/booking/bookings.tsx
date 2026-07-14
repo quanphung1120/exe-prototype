@@ -10,7 +10,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import {
@@ -35,24 +35,23 @@ import {
 import {
   addMinutes,
   durationOf,
+  locStr,
   sportAccent,
   type Booking,
   type BookingStatus,
 } from "@/features/dashboard/data"
+import { useData } from "@/features/dashboard/data-provider"
 import {
   addDays,
   addMonths,
-  dateForDayKey,
-  dayKeyForDate,
   dayOfMonth,
+  isPastDay,
   isToday,
   isWeekend,
   mondayIndex,
   monthMatrix,
   monthOf,
-  parseLabelDate,
   sameMonth,
-  TODAY_ISO,
   weekDays,
   yearOf,
   type CalendarView,
@@ -85,14 +84,10 @@ const bookingAccent: Record<BookingStatus, string> = {
 /** Start ("HH:MM") of a stored "HH:MM – HH:MM" time range. */
 const startOf = (time: string) => time.split(" – ")[0] ?? time
 
-/** Resolve a booking to a real calendar date (bookable key, else its label). */
-const bookingDateISO = (b: Booking): string | null =>
-  dateForDayKey(b.dayKey) ?? parseLabelDate(b.day)
-
 /** A visible day of the Day/Week timeline. */
 interface Col {
   iso: string
-  /** Bookable day key (today/tomorrow/…) or null — gates the tap-to-book gaps. */
+  /** The date itself, or null when in the past — gates the tap-to-book gaps. */
   dayKey: string | null
   short: string
   num: number
@@ -106,6 +101,7 @@ export function BookingsView() {
   const t = useTranslations("Bookings")
   const tcal = useTranslations("Calendar")
   const { bookings } = useBooking()
+  const { todayIso } = useData()
   const now = useNow()
   const router = useRouter()
 
@@ -117,7 +113,7 @@ export function BookingsView() {
   }, [router])
 
   const [view, setView] = React.useState<CalendarView>("week")
-  const [cursor, setCursor] = React.useState<string>(TODAY_ISO)
+  const [cursor, setCursor] = React.useState<string>(todayIso)
 
   const weekdaysShort = tcal.raw("weekdaysShort") as string[]
   const monthsShort = tcal.raw("monthsShort") as string[]
@@ -130,15 +126,15 @@ export function BookingsView() {
       const num = dayOfMonth(iso)
       return {
         iso,
-        dayKey: dayKeyForDate(iso),
+        dayKey: isPastDay(iso, todayIso) ? null : iso,
         short: wd,
         num,
         full: `${wd}, ${num} ${monthsShort[monthOf(iso)]}`,
-        today: isToday(iso),
+        today: isToday(iso, todayIso),
         weekend: isWeekend(iso),
       }
     },
-    [weekdaysShort, monthsShort]
+    [weekdaysShort, monthsShort, todayIso]
   )
 
   // Every booking that resolves to a real date, bucketed by ISO day — the grid
@@ -146,7 +142,7 @@ export function BookingsView() {
   const eventsByDate = React.useMemo(() => {
     const map: Record<string, Booking[]> = {}
     for (const b of bookings) {
-      const iso = bookingDateISO(b)
+      const iso = b.dayKey
       if (iso) (map[iso] ||= []).push(b)
     }
     for (const iso of Object.keys(map))
@@ -154,14 +150,14 @@ export function BookingsView() {
     return map
   }, [bookings])
 
-  // History list below the grid: bookings with no place in the bookable window.
+  // History list below the grid: bookings dated before today.
   const past = React.useMemo(
-    () => bookings.filter((b) => !dateForDayKey(b.dayKey)),
-    [bookings]
+    () => bookings.filter((b) => (b.dayKey ?? "") < todayIso),
+    [bookings, todayIso]
   )
   const inWeekStats = React.useMemo(
-    () => bookings.filter((b) => dateForDayKey(b.dayKey)),
-    [bookings]
+    () => bookings.filter((b) => (b.dayKey ?? "") >= todayIso),
+    [bookings, todayIso]
   )
 
   const stats = {
@@ -193,10 +189,10 @@ export function BookingsView() {
 
   const showsToday =
     view === "month"
-      ? sameMonth(cursor, TODAY_ISO)
+      ? sameMonth(cursor, todayIso)
       : view === "week"
-        ? weekDays(cursor).includes(TODAY_ISO)
-        : isToday(cursor)
+        ? weekDays(cursor).includes(todayIso)
+        : isToday(cursor, todayIso)
 
   const step = (dir: -1 | 1) =>
     setCursor((c) =>
@@ -306,13 +302,14 @@ export function BookingsView() {
           onView={setView}
           onPrev={() => step(-1)}
           onNext={() => step(1)}
-          onToday={() => setCursor(TODAY_ISO)}
+          onToday={() => setCursor(todayIso)}
           live={showsToday && now ? t("calendar.liveAt", { time: now }) : null}
         />
 
         {view === "month" ? (
           <MonthGrid
             cursor={cursor}
+            todayIso={todayIso}
             onPickDay={openDay}
             hasContent={monthHasEvents}
             emptyLabel={t("calendar.emptyMonth")}
@@ -744,12 +741,13 @@ function BookingCard({ booking }: { booking: Booking }) {
   const t = useTranslations("Bookings")
   const tc = useTranslations("Common")
   const { rebookFrom } = useBooking()
+  const { dayLabelFor } = useData()
+  const locale = useLocale()
   const done = booking.status === "completed"
 
-  const tb = useTranslations("Booking")
   const whenKey = WHEN_KEY[booking.day]
   const dayLabel = booking.dayKey
-    ? tb(`days.${booking.dayKey}`)
+    ? locStr(dayLabelFor(booking.dayKey), locale)
     : whenKey
       ? tc(`when.${whenKey}`)
       : t(`records.${booking.id}.day`)

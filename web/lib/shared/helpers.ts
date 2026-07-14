@@ -4,7 +4,6 @@
 // these to the fetched data in its `DataProvider`.
 
 import {
-  BOOKING_DAYS,
   COURT_OPEN_FROM,
   COURT_OPEN_TO,
   HEATMAP_DAYS,
@@ -13,7 +12,6 @@ import {
   SCHEDULE_HOURS,
   SLOT_TIMES,
   SPORTS,
-  VENUE_DAYS,
 } from "./config"
 import type {
   Booking,
@@ -30,6 +28,7 @@ import type {
   Player,
   PlaySession,
   Reservation,
+  ReservationStatus,
   RoomLevel,
   RosterEntry,
   Rsvp,
@@ -190,6 +189,110 @@ function hashStr(s: string): number {
   return h >>> 0
 }
 
+// ── Real dates (Asia/Ho_Chi_Minh, fixed +07:00, no DST) ─────────────────────
+//
+// `dayKey` is a real ISO date ("YYYY-MM-DD") everywhere — for a session/
+// reservation/room/booking, a date before "today" is history and never blocks
+// (no more "past" string sentinel). These helpers are the only place real
+// calendar dates are computed; everything else stays on "HH:MM" arithmetic.
+
+const VN_OFFSET_MS = 7 * 60 * 60 * 1000
+const pad2 = (n: number) => String(n).padStart(2, "0")
+
+/** A UTC `Date` for an ISO day (midnight) — internal; callers stay on strings. */
+function asUtcDate(iso: string): Date {
+  const [y, m, d] = iso.split("-").map(Number)
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1))
+}
+
+/**
+ * Server "now" as an ISO datetime with a fixed `+07:00` offset. Only ever
+ * called server-side (`seed.service.ts`) — the web renders off the resulting
+ * `Seed.serverNow` anchor, never `Date.now()` directly (repo rule).
+ */
+export function vnNowIso(): string {
+  return vnIsoOf(Date.now())
+}
+
+/** ISO datetime (+07:00) for an arbitrary epoch-ms instant — internal. */
+function vnIsoOf(epochMs: number): string {
+  const vn = new Date(epochMs + VN_OFFSET_MS)
+  const time = `${pad2(vn.getUTCHours())}:${pad2(vn.getUTCMinutes())}:${pad2(vn.getUTCSeconds())}`
+  return `${vn.getUTCFullYear()}-${pad2(vn.getUTCMonth() + 1)}-${pad2(vn.getUTCDate())}T${time}+07:00`
+}
+
+/** "YYYY-MM-DD" (Asia/Ho_Chi_Minh) for an arbitrary epoch-ms instant. */
+const vnDateOf = (epochMs: number) => isoDateOf(vnIsoOf(epochMs))
+
+/** The "YYYY-MM-DD" date part of an ISO datetime (or an already-bare date). */
+export const isoDateOf = (iso: string) => iso.slice(0, 10)
+
+/** The "HH:MM" time part of an ISO datetime (from the "T" separator). */
+export function isoToHHMM(iso: string): string {
+  const t = iso.split("T")[1]
+  return t ? t.slice(0, 5) : "00:00"
+}
+
+/** Add (or subtract) whole days to an ISO date ("YYYY-MM-DD"). */
+export function addDaysIso(dateIso: string, n: number): string {
+  const dt = asUtcDate(dateIso)
+  dt.setUTCDate(dt.getUTCDate() + n)
+  return dt.toISOString().slice(0, 10)
+}
+
+/** JS weekday of an ISO date, 0 = Sunday … 6 = Saturday. */
+function weekdayOf(dateIso: string): number {
+  return asUtcDate(dateIso).getUTCDay()
+}
+
+/** The first ISO date strictly after `fromIso` whose weekday is `dow` (0–6). */
+export function nextWeekdayIso(fromIso: string, dow: number): string {
+  for (let i = 1; i <= 7; i++) {
+    const d = addDaysIso(fromIso, i)
+    if (weekdayOf(d) === dow) return d
+  }
+  return fromIso
+}
+
+/** Combine a "YYYY-MM-DD" date + "HH:MM" time into an ISO datetime (+07:00). */
+export function combineDateTime(dateIso: string, hhmm: string): string {
+  return `${dateIso}T${hhmm}:00+07:00`
+}
+
+/** Mon-first weekday short label (reuses the heatmap's localized weekday names). */
+function weekdayLabel(dateIso: string): Localized {
+  const mondayIndex = (weekdayOf(dateIso) + 6) % 7
+  return HEATMAP_DAYS[mondayIndex]
+}
+
+/**
+ * Display label for a real date relative to "today": "Hôm nay"/"Ngày mai" for
+ * the next two days, else a "{weekday}, {dd}/{mm}" fallback (also used for
+ * history — a date safely in the past never collides with "today"/"tomorrow").
+ */
+export function dayLabelFor(dateIso: string, todayIso: string): Localized {
+  if (dateIso === todayIso) return { en: "Today", vi: "Hôm nay" }
+  if (dateIso === addDaysIso(todayIso, 1))
+    return { en: "Tomorrow", vi: "Ngày mai" }
+  const wd = weekdayLabel(dateIso)
+  const [, m, d] = dateIso.split("-")
+  return { en: `${wd.en}, ${d}/${m}`, vi: `${wd.vi}, ${d}/${m}` }
+}
+
+/** A sliding N-day bookable window anchored on `todayIso` (default 7 days). */
+export function bookingDays(
+  todayIso: string,
+  days = 7
+): { key: string; label: Localized }[] {
+  return Array.from({ length: days }, (_, i) => {
+    const key = addDaysIso(todayIso, i)
+    return { key, label: dayLabelFor(key, todayIso) }
+  })
+}
+
+/** Same sliding window, named for the venue schedule/reservations day strip. */
+export const venueDays = bookingDays
+
 // ── Roster ───────────────────────────────────────────────────────────────────
 
 /** Everyone a room's `players` initials can refer to: the user + suggestions. */
@@ -255,15 +358,15 @@ export function courtNumberFor(courts: Court[], courtId: string): string {
   return `Court ${i >= 0 ? i + 1 : 1}`
 }
 
-/** Map a stored day word/label to a BOOKING_DAYS key (seed-build use). */
-export function dayKeyForRoom(room: { day: string }): string {
+/** Map a stored day word/label to a real ISO date off `todayIso` (seed-build use). */
+export function dayKeyForRoom(room: { day: string }, todayIso: string): string {
   const d = room.day.toLowerCase()
-  if (d.startsWith("tomorrow")) return "tomorrow"
-  if (d.startsWith("sat")) return "sat"
-  if (d.startsWith("sun")) return "sun"
-  if (d.startsWith("mon")) return "mon"
-  if (d.startsWith("today")) return "today"
-  return "past"
+  if (d.startsWith("tomorrow")) return addDaysIso(todayIso, 1)
+  if (d.startsWith("sat")) return nextWeekdayIso(todayIso, 6)
+  if (d.startsWith("sun")) return nextWeekdayIso(todayIso, 0)
+  if (d.startsWith("mon")) return nextWeekdayIso(todayIso, 1)
+  if (d.startsWith("today")) return todayIso
+  return addDaysIso(todayIso, -14)
 }
 
 // ── Conflict detection ───────────────────────────────────────────────────────
@@ -284,12 +387,13 @@ function courtHolds(
   ignoreId?: string,
   now: number = Date.now()
 ): PlaySession[] {
+  const todayIso = vnDateOf(now)
   return sessions.filter(
     (s) =>
       s.id !== ignoreId &&
       s.courtId != null &&
       s.slot != null &&
-      BOOKING_DAYS.some((d) => d.key === s.dayKey) &&
+      s.dayKey >= todayIso &&
       (s.status === "booked" ||
         (s.status === "forming" &&
           s.holdExpiresAt != null &&
@@ -311,7 +415,7 @@ export function conflictFor(
   now: number = Date.now()
 ): Conflict {
   if (q.courtId == null || q.slot == null) return null
-  if (!BOOKING_DAYS.some((d) => d.key === q.dayKey)) return null
+  if (q.dayKey < vnDateOf(now)) return null
   const dur = q.durationMin || 60
   // (a) house availability — any taken hour overlapping the requested range
   const houseTaken = courtSlots(courts, q.courtId, q.dayKey).filter(
@@ -397,7 +501,7 @@ export function courtDayBusy(
   ignoreId?: string,
   now: number = Date.now()
 ): CourtBand[] {
-  if (!BOOKING_DAYS.some((d) => d.key === dayKey)) return []
+  if (dayKey < vnDateOf(now)) return []
   const raw: { start: number; end: number }[] = []
   for (const s of courtSlots(courts, courtId, dayKey)) {
     if (s.taken) {
@@ -433,7 +537,7 @@ export function courtDayGaps(
   ignoreId?: string,
   now: number = Date.now()
 ): CourtBand[] {
-  if (!BOOKING_DAYS.some((d) => d.key === dayKey)) return []
+  if (dayKey < vnDateOf(now)) return []
   const openStart = toMinutes(COURT_OPEN_FROM)
   const openEnd = toMinutes(COURT_OPEN_TO)
   const gaps: CourtBand[] = []
@@ -528,7 +632,7 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
     venue: s.venue,
     court: s.courtLabel ?? (s.courtId ? courtNumberFor(courts, s.courtId) : ""),
     day: s.dayLabel,
-    dayKey: BOOKING_DAYS.some((d) => d.key === s.dayKey) ? s.dayKey : undefined,
+    dayKey: s.dayKey,
     time: s.slot ? slotRange(s.slot, s.durationMin) : "",
     status: bookingStatusOf(s),
     withPlayers: rosterToBookingPlayers(s.roster),
@@ -543,19 +647,20 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
 
 // ── Seed builder (build the initial sessions from ROOMS + BOOKINGS) ───────────
 
-/** Explicit day keys for seed bookings (b4/b5 are in the past). */
-const SEED_BOOKING_DAYKEY: Record<string, string> = {
-  b1: "today",
-  b2: "tomorrow",
-  b3: "sat",
-  b4: "past",
-  b5: "past",
+/** Explicit real-date offsets for seed bookings, anchored on `todayIso` (b4/b5 land in the past). */
+const SEED_BOOKING_DAYKEY: Record<string, (todayIso: string) => string> = {
+  b1: (t) => t,
+  b2: (t) => addDaysIso(t, 1),
+  b3: (t) => nextWeekdayIso(t, 6),
+  b4: (t) => addDaysIso(t, -3),
+  b5: (t) => addDaysIso(t, -7),
 }
 
 function bookingToSession(
   courts: Court[],
   user: User,
-  b: Booking
+  b: Booking,
+  todayIso: string
 ): PlaySession {
   const court = courtByVenue(courts, b.venue)
   const status: SessionStatus =
@@ -580,7 +685,7 @@ function bookingToSession(
     sport: b.sport,
     format: b.format,
     courtId: court?.id ?? null,
-    dayKey: SEED_BOOKING_DAYKEY[b.id] ?? "today",
+    dayKey: (SEED_BOOKING_DAYKEY[b.id] ?? ((t: string) => t))(todayIso),
     dayLabel: b.day,
     slot: startOf(b.time),
     durationMin: durationOf(b.time),
@@ -605,7 +710,8 @@ function bookingToSession(
 function roomToSession(
   courts: Court[],
   roster: RosterEntry[],
-  r: MatchRoom
+  r: MatchRoom,
+  todayIso: string
 ): PlaySession {
   const court = courtByVenue(courts, r.venue)
   return {
@@ -614,19 +720,19 @@ function roomToSession(
     sport: r.sport,
     format: r.format,
     courtId: court?.id ?? null,
-    dayKey: dayKeyForRoom(r),
+    dayKey: dayKeyForRoom(r, todayIso),
     dayLabel: r.day,
     slot: startOf(r.time),
     durationMin: durationOf(r.time),
     courtLabel: null,
     host: r.host,
     capacity: r.capacity,
-    roster: r.players.map((init) => {
+    roster: r.players.map((init): SessionPlayer => {
       const p = playerByInitials(roster, init)
       return {
         name: p.name,
         initials: init,
-        rsvp: (init === r.host.initials ? "host" : "going"),
+        rsvp: init === r.host.initials ? "host" : "going",
       }
     }),
     level: r.level,
@@ -646,12 +752,13 @@ export function buildSeedSessions(
   bookings: Booking[],
   courts: Court[],
   user: User,
-  players: Player[]
+  players: Player[],
+  todayIso: string
 ): PlaySession[] {
   const roster = buildRoster(user, players)
   return [
-    ...rooms.map((r) => roomToSession(courts, roster, r)),
-    ...bookings.map((b) => bookingToSession(courts, user, b)),
+    ...rooms.map((r) => roomToSession(courts, roster, r, todayIso)),
+    ...bookings.map((b) => bookingToSession(courts, user, b, todayIso)),
   ]
 }
 
@@ -716,14 +823,15 @@ export function courtDayEvents(
   venue: Venue,
   courts: VenueCourt[],
   courtId: string,
-  dayKey: string
+  dayKey: string,
+  todayIso: string
 ): ScheduleEvent[] {
   const court = courtById(courts, courtId)
   const sport: SportKey = court?.sport ?? "badminton"
   const open = minutesOf(venue.openFrom)
   const close = minutesOf(venue.openTo)
   const now = minutesOf(venue.now)
-  const isToday = dayKey === "today"
+  const isToday = dayKey === todayIso
 
   if (court?.state === "maintenance") {
     return [
@@ -779,9 +887,10 @@ export function courtDayEvents(
 export function venueEventsFor(
   venue: Venue,
   courts: VenueCourt[],
-  dayKey: string
+  dayKey: string,
+  todayIso: string
 ): ScheduleEvent[][] {
-  return courts.map((c) => courtDayEvents(venue, courts, c.id, dayKey))
+  return courts.map((c) => courtDayEvents(venue, courts, c.id, dayKey, todayIso))
 }
 
 /**
@@ -793,14 +902,15 @@ export function courtDaySlots(
   venue: Venue,
   courts: VenueCourt[],
   courtId: string,
-  dayKey: string
+  dayKey: string,
+  todayIso: string
 ): ScheduleSlot[] {
   const court = courtById(courts, courtId)
   const sport: SportKey = court?.sport ?? "badminton"
-  const events = courtDayEvents(venue, courts, courtId, dayKey)
+  const events = courtDayEvents(venue, courts, courtId, dayKey, todayIso)
   const nowIdx = hourIndex(venue.now)
   return SCHEDULE_HOURS.map((hour, i) => {
-    const past = dayKey === "today" && i < nowIdx
+    const past = dayKey === todayIso && i < nowIdx
     const ev = events.find((e) =>
       eventsOverlap(minutesOf(hour), 60, minutesOf(e.start), e.durationMin)
     )
@@ -821,9 +931,10 @@ export function courtDaySlots(
 export function venueScheduleFor(
   venue: Venue,
   courts: VenueCourt[],
-  dayKey: string
+  dayKey: string,
+  todayIso: string
 ): ScheduleSlot[][] {
-  return courts.map((c) => courtDaySlots(venue, courts, c.id, dayKey))
+  return courts.map((c) => courtDaySlots(venue, courts, c.id, dayKey, todayIso))
 }
 
 // ── Venue: derived analytics ─────────────────────────────────────────────────
@@ -882,14 +993,39 @@ export function venueCourtToCourt(venue: Venue, court: VenueCourt): Court {
   }
 }
 
+// ── Reservation state machine ──────────────────────────────────────────────
+
+/**
+ * Legal reservation status transitions. `completed`/`cancelled`/`no-show` are
+ * terminal (no outgoing edges) — enforced server-side in
+ * `venues.service.ts#updateReservationStatus` and mirrored client-side to hide
+ * actions that would be rejected.
+ */
+export const RESERVATION_TRANSITIONS: Record<
+  ReservationStatus,
+  ReservationStatus[]
+> = {
+  pending: ["confirmed", "cancelled"],
+  confirmed: ["checked-in", "cancelled", "no-show"],
+  "checked-in": ["completed", "cancelled"],
+  completed: [],
+  cancelled: [],
+  "no-show": [],
+}
+
+/** A same-status transition is always allowed (idempotent no-op). */
+export function canTransitionReservation(
+  from: ReservationStatus,
+  to: ReservationStatus
+): boolean {
+  return from === to || RESERVATION_TRANSITIONS[from].includes(to)
+}
+
 // ── Venue: analytics computed from real reservations (hybrid) ─────────────────
 
-/** Canonical BOOKING/VENUE day key for a reservation (mirrors the venue store). */
+/** A reservation's ISO date; empty string (never "today") when legacy data lacks one. */
 function reservationDay(reservation: Reservation): string {
-  if (reservation.dayKey) return reservation.dayKey
-  return (
-    VENUE_DAYS.find((day) => day.label.en === reservation.day.en)?.key ?? "past"
-  )
+  return reservation.dayKey ?? ""
 }
 
 function reservationMinutes(reservation: Reservation): number {
@@ -910,10 +1046,11 @@ export function computeVenueStats(
   info: Venue,
   courts: VenueCourt[],
   reservations: Reservation[],
-  base: VenueStats
+  base: VenueStats,
+  todayIso: string
 ): VenueStats {
   const CONFIRMED = new Set(["confirmed", "completed", "checked-in"])
-  const today = reservations.filter((r) => reservationDay(r) === "today")
+  const today = reservations.filter((r) => reservationDay(r) === todayIso)
 
   const revenueToday = today
     .filter((r) => r.status === "confirmed" || r.status === "completed")

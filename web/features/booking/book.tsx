@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import {
   ArrowLeft,
   Check,
@@ -36,6 +36,7 @@ import {
   formatDuration,
   formatVnd,
   formatVndFull,
+  locStr,
   priceFor,
   slotRange,
   type Court,
@@ -43,15 +44,13 @@ import {
 import {
   addDays,
   addMonths,
-  dateForDayKey,
-  dayKeyForDate,
   dayOfMonth,
+  isPastDay,
   isToday,
   isWeekend,
   mondayIndex,
   monthOf,
   sameMonth,
-  TODAY_ISO,
   weekDays,
   yearOf,
   type CalendarView,
@@ -182,6 +181,7 @@ function Label({ children }: { children: React.ReactNode }) {
 export function BookView() {
   const t = useTranslations("Booking")
   const tc = useTranslations("Common")
+  const locale = useLocale()
   const {
     open,
     closeBooking,
@@ -207,7 +207,7 @@ export function BookView() {
     acknowledgePaymentSuccess,
     dismissPaymentResult,
   } = useBooking()
-  const { courts: COURTS } = useData()
+  const { courts: COURTS, dayLabelFor } = useData()
 
   // Cold load / direct navigation: nothing armed the wizard, so default to a
   // fresh, courtless booking instead of rendering a stale draft.
@@ -527,7 +527,7 @@ export function BookView() {
               {[
                 {
                   label: t("when"),
-                  value: `${t(`days.${draft.dayKey}`)} · ${slotRange(draft.slot, draft.durationMin)}`,
+                  value: `${locStr(dayLabelFor(draft.dayKey), locale)} · ${slotRange(draft.slot, draft.durationMin)}`,
                 },
                 { label: t("durationLabel"), value: formatDuration(draft.durationMin) },
                 ...(roomId
@@ -754,31 +754,28 @@ function CourtCalendar({
 }) {
   const t = useTranslations("Booking")
   const tcal = useTranslations("Calendar")
-  const { courtDayBusy, courtDayGaps } = useData()
+  const { courtDayBusy, courtDayGaps, todayIso } = useData()
   const { sessions, roomId } = useBooking()
   const now = useNow()
 
   const [view, setView] = React.useState<CalendarView>("day")
-  const [cursor, setCursor] = React.useState<string>(
-    dateForDayKey(dayKey) ?? TODAY_ISO
-  )
+  const [cursor, setCursor] = React.useState<string>(dayKey || todayIso)
 
   const weekdaysShort = tcal.raw("weekdaysShort") as string[]
   const monthsShort = tcal.raw("monthsShort") as string[]
   const months = tcal.raw("months") as string[]
 
-  const selDate = dateForDayKey(dayKey)
+  const selDate = dayKey || null
   const gapsOn = (dk: string) =>
     courtId ? courtDayGaps(sessions, courtId, dk, roomId ?? undefined) : []
 
   /** One day's free gaps, booked blocks and (if it's the draft day) selection. */
   const dayContent = (iso: string): React.ReactNode => {
-    const dk = dayKeyForDate(iso)
-    const busy =
-      dk && courtId
-        ? courtDayBusy(sessions, courtId, dk, roomId ?? undefined)
-        : []
-    const gaps = dk ? gapsOn(dk) : []
+    const dk = iso
+    const busy = courtId
+      ? courtDayBusy(sessions, courtId, dk, roomId ?? undefined)
+      : []
+    const gaps = gapsOn(dk)
     return (
       <>
         {dk
@@ -856,15 +853,15 @@ function CourtCalendar({
 
   /** Header for one day column: weekday + date + open-slot count. */
   const dayHeader = (iso: string): React.ReactNode => {
-    const dk = dayKeyForDate(iso)
-    const free = dk ? gapsOn(dk).length : 0
+    const free = gapsOn(iso).length
+    const past = isPastDay(iso, todayIso)
     return (
       <div className="flex items-center justify-between gap-1.5">
         <span
           className={cn(
             "inline-flex items-center gap-1.5 truncate text-sm font-semibold",
-            isToday(iso) && "text-brand",
-            !dk && "text-muted-foreground/60"
+            isToday(iso, todayIso) && "text-brand",
+            past && "text-muted-foreground/60"
           )}
         >
           <span className="text-muted-foreground">
@@ -873,7 +870,7 @@ function CourtCalendar({
           <span
             className={cn(
               "tabular-nums",
-              isToday(iso) &&
+              isToday(iso, todayIso) &&
                 "grid size-6 place-items-center rounded-full bg-brand text-brand-foreground"
             )}
           >
@@ -893,7 +890,7 @@ function CourtCalendar({
     view === "day" ? [cursor] : view === "week" ? weekDays(cursor) : []
   const columns: TimelineColumn[] = days.map((iso) => ({
     key: iso,
-    today: isToday(iso),
+    today: isToday(iso, todayIso),
     weekend: isWeekend(iso),
     header: dayHeader(iso),
     content: dayContent(iso),
@@ -934,19 +931,19 @@ function CourtCalendar({
         onView={setView}
         onPrev={() => step(-1)}
         onNext={() => step(1)}
-        onToday={() => setCursor(TODAY_ISO)}
+        onToday={() => setCursor(todayIso)}
       />
 
       {view === "month" ? (
         <MonthGrid
           cursor={cursor}
+          todayIso={todayIso}
           onPickDay={(iso) => {
             setCursor(iso)
             setView("day")
           }}
           renderDay={(iso, inMonth) => {
-            const dk = inMonth ? dayKeyForDate(iso) : null
-            const free = dk ? gapsOn(dk).length : 0
+            const free = inMonth ? gapsOn(iso).length : 0
             return free ? (
               <span className="mt-auto inline-flex items-center gap-1 rounded-md bg-brand/12 px-1.5 py-0.5 text-[10px] font-medium text-brand">
                 <span className="size-1.5 rounded-full bg-brand" aria-hidden />

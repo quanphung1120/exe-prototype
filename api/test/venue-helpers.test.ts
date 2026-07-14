@@ -1,7 +1,13 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
+import "reflect-metadata"
+
+import { plainToInstance } from "class-transformer"
+import { validateSync } from "class-validator"
+
 import {
+  canTransitionReservation,
   computeVenueStats,
   venueCourtToCourt,
 } from "../src/shared/helpers.js"
@@ -11,6 +17,7 @@ import type {
   VenueCourt,
   VenueStats,
 } from "../src/shared/index.js"
+import { ReservationStatusDto } from "../src/features/venues/venues.dto.js"
 
 /**
  * Pure-helper tests for the cross-surface backbone (VienTD-Review #08): the
@@ -60,7 +67,7 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
     sport: "badminton",
     courtId: "v9c1",
     court: "Sân 1",
-    dayKey: "today",
+    dayKey: TODAY_ISO,
     day: { en: "Today", vi: "Hôm nay" },
     start: "18:00",
     durationMin: 60,
@@ -75,6 +82,9 @@ function makeReservation(overrides: Partial<Reservation> = {}): Reservation {
   }
 }
 
+const TODAY_ISO = "2026-07-13"
+const TOMORROW_ISO = "2026-07-14"
+
 const BASE_STATS: VenueStats = {
   occupancy: 55,
   occupancyDelta: 3,
@@ -88,6 +98,60 @@ const BASE_STATS: VenueStats = {
   newCustomersDelta: 4,
   utilization: 99,
 }
+
+// ── canTransitionReservation ────────────────────────────────────────────────
+
+void test("canTransitionReservation allows the documented forward edges", () => {
+  assert.ok(canTransitionReservation("pending", "confirmed"))
+  assert.ok(canTransitionReservation("pending", "cancelled"))
+  assert.ok(canTransitionReservation("confirmed", "checked-in"))
+  assert.ok(canTransitionReservation("confirmed", "cancelled"))
+  assert.ok(canTransitionReservation("confirmed", "no-show"))
+  assert.ok(canTransitionReservation("checked-in", "completed"))
+  assert.ok(canTransitionReservation("checked-in", "cancelled"))
+})
+
+void test("canTransitionReservation rejects skipping or reversing states", () => {
+  assert.equal(canTransitionReservation("pending", "checked-in"), false)
+  assert.equal(canTransitionReservation("pending", "completed"), false)
+  assert.equal(canTransitionReservation("confirmed", "pending"), false)
+  assert.equal(canTransitionReservation("completed", "confirmed"), false)
+})
+
+void test("canTransitionReservation treats terminal statuses as having no outgoing edges", () => {
+  assert.equal(canTransitionReservation("completed", "cancelled"), false)
+  assert.equal(canTransitionReservation("cancelled", "confirmed"), false)
+  assert.equal(canTransitionReservation("no-show", "completed"), false)
+})
+
+void test("canTransitionReservation allows a same-status PUT as an idempotent no-op", () => {
+  assert.ok(canTransitionReservation("pending", "pending"))
+  assert.ok(canTransitionReservation("completed", "completed"))
+  assert.ok(canTransitionReservation("cancelled", "cancelled"))
+})
+
+// ── ReservationStatusDto ─────────────────────────────────────────────────────
+
+/** Mirror the global ValidationPipe: valid iff class-validator finds no errors. */
+function statusDtoValid(input: unknown): boolean {
+  const dto = plainToInstance(ReservationStatusDto, input)
+  return validateSync(dto).length === 0
+}
+
+void test("ReservationStatusDto requires a reason (>=3 chars) when cancelling", () => {
+  assert.equal(statusDtoValid({ status: "cancelled" }), false)
+  assert.equal(statusDtoValid({ status: "cancelled", reason: "no" }), false)
+  assert.equal(
+    statusDtoValid({ status: "cancelled", reason: "Sân bảo trì" }),
+    true
+  )
+})
+
+void test("ReservationStatusDto does not require a reason for other statuses", () => {
+  assert.equal(statusDtoValid({ status: "confirmed" }), true)
+  assert.equal(statusDtoValid({ status: "checked-in" }), true)
+  assert.equal(statusDtoValid({ status: "no-show" }), true)
+})
 
 // ── venueCourtToCourt ─────────────────────────────────────────────────────────
 
@@ -130,9 +194,9 @@ void test("computeVenueStats sums only today's confirmed/completed revenue", () 
     makeReservation({ id: "b", status: "completed", price: 200000 }),
     makeReservation({ id: "c", status: "pending", price: 999999 }), // excluded
     makeReservation({ id: "d", status: "cancelled", price: 999999 }), // excluded
-    makeReservation({ id: "e", status: "confirmed", price: 999999, dayKey: "tomorrow" }), // not today
+    makeReservation({ id: "e", status: "confirmed", price: 999999, dayKey: TOMORROW_ISO }), // not today
   ]
-  const stats = computeVenueStats(makeVenue(), courts, reservations, BASE_STATS)
+  const stats = computeVenueStats(makeVenue(), courts, reservations, BASE_STATS, TODAY_ISO)
   assert.equal(stats.revenueToday, 380000)
   // untouched seed KPIs pass through
   assert.equal(stats.occupancy, 55)
@@ -147,7 +211,7 @@ void test("computeVenueStats utilization = booked minutes ÷ open court-minutes"
     makeReservation({ id: "b", status: "checked-in", durationMin: 120 }),
     makeReservation({ id: "c", status: "pending", durationMin: 480 }), // not counted
   ]
-  const stats = computeVenueStats(venue, courts, reservations, BASE_STATS)
+  const stats = computeVenueStats(venue, courts, reservations, BASE_STATS, TODAY_ISO)
   // (60 + 120) / 1920 = 9.375% → 9
   assert.equal(stats.utilization, 9)
 })
@@ -160,7 +224,7 @@ void test("computeVenueStats no-show rate over completed/checked-in/no-show only
     makeReservation({ id: "d", status: "pending" }), // ignored
     makeReservation({ id: "e", status: "confirmed" }), // ignored
   ]
-  const stats = computeVenueStats(makeVenue(), [makeCourt()], reservations, BASE_STATS)
+  const stats = computeVenueStats(makeVenue(), [makeCourt()], reservations, BASE_STATS, TODAY_ISO)
   // 1 no-show / 3 counted = 33%
   assert.equal(stats.noShowRate, 33)
 })
@@ -170,7 +234,8 @@ void test("computeVenueStats no-show rate is 0 with no countable history", () =>
     makeVenue(),
     [makeCourt()],
     [makeReservation({ status: "pending" })],
-    BASE_STATS
+    BASE_STATS,
+    TODAY_ISO
   )
   assert.equal(stats.noShowRate, 0)
 })
@@ -185,7 +250,7 @@ void test("computeVenueStats counts distinct app users + walk-in phones, minus c
     makeReservation({ id: "f", userId: "u3", status: "cancelled", customer: { name: "D", initials: "D" } }), // excluded
     makeReservation({ id: "g", userId: "u4", status: "no-show", customer: { name: "E", initials: "E" } }), // excluded
   ]
-  const stats = computeVenueStats(makeVenue(), [makeCourt()], reservations, BASE_STATS)
+  const stats = computeVenueStats(makeVenue(), [makeCourt()], reservations, BASE_STATS, TODAY_ISO)
   // distinct kept keys: u1, phone 0911, u2 → 3
   assert.equal(stats.newCustomers, 3)
 })
