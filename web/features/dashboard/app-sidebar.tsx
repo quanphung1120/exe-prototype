@@ -7,6 +7,7 @@ import {
   LogOut,
   Plus,
   Search,
+  Settings,
   UserCog,
   UserRound,
 } from "lucide-react"
@@ -204,21 +205,33 @@ export function AppSidebar() {
                       <span className="flex-1 truncate">
                         {`${VENUE.name} · ${t("venueTag")}`}
                       </span>
-                      {isVenue ? (
-                        <Check className="size-4 text-brand" />
-                      ) : null}
+                      {isVenue ? <Check className="size-4 text-brand" /> : null}
                     </DropdownMenuItem>
                   ) : (
                     <DropdownMenuItem onClick={switchToAddVenue}>
                       <div className="flex size-7 items-center justify-center rounded-lg border border-dashed border-sidebar-border text-secondary-foreground">
                         <Plus className="size-4" />
                       </div>
-                      <span className="flex-1 truncate">
-                        {t("addVenue")}
-                      </span>
+                      <span className="flex-1 truncate">{t("addVenue")}</span>
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuGroup>
+                {isVenue && VENUE ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          router.push(`${venueBase(VENUE.id)}/manage`)
+                          handleNavigate()
+                        }}
+                      >
+                        <Settings className="size-4" />
+                        <span className="flex-1">{t("manageVenue")}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

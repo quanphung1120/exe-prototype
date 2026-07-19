@@ -469,6 +469,10 @@ export interface ScheduleEvent {
   party?: number
   /** True once the event has fully passed (today only). */
   past?: boolean
+  /** Set on `kind === "blocked"` events overlaid from a real `CourtBlock`. */
+  blockReason?: CourtBlockReason
+  /** Operator note on the underlying `CourtBlock`, if any. */
+  blockNote?: string
 }
 
 // ── Venue: reservations ──────────────────────────────────────────────────────

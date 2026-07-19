@@ -134,7 +134,8 @@
     "searchVenue": "Tìm lượt đặt, khách…",
     "venues": "Địa điểm của bạn",
     "addVenue": "Thêm địa điểm",
-    "becomePlayer": "Trở thành người chơi"
+    "becomePlayer": "Trở thành người chơi",
+    "manageVenue": "Quản lý địa điểm"
   },
   "WorkspaceSettings": {
     "title": "Cài đặt không gian",
@@ -1208,6 +1209,31 @@
       "courtCreated": "Đã thêm {name}",
       "courtUpdated": "Đã cập nhật {name}",
       "courtDeleted": "Đã xóa {name}"
+    },
+    "manageTitle": "Quản lý địa điểm",
+    "manageSubtitle": "Thông tin địa điểm và các thao tác quan trọng.",
+    "archive": "Lưu trữ",
+    "dangerZone": {
+      "title": "Vùng nguy hiểm",
+      "archiveLabel": "Lưu trữ địa điểm này",
+      "archiveDescription": "Ẩn địa điểm khỏi hoạt động mới. Lượt đặt sân hiện có vẫn được giữ nguyên và có thể khôi phục bất cứ lúc nào."
+    },
+    "archiveVenue": {
+      "title": "Lưu trữ địa điểm này?",
+      "description": "{name} sẽ ngừng nhận đặt sân mới. Bạn có thể khôi phục lại bất cứ lúc nào từ màn hình này.",
+      "confirm": "Xác nhận lưu trữ",
+      "pending": "Đang lưu trữ...",
+      "done": "Đã lưu trữ {name}",
+      "viewReservations": "Xem lượt đặt sân"
+    },
+    "restoreVenue": {
+      "button": "Khôi phục",
+      "pending": "Đang khôi phục...",
+      "done": "Đã khôi phục {name}"
+    },
+    "archivedBanner": {
+      "title": "Địa điểm này đang được lưu trữ",
+      "description": "Địa điểm không nhận đặt sân mới cho đến khi được khôi phục. Địa điểm vẫn chiếm vị trí duy nhất của tài khoản — hãy khôi phục thay vì tạo mới."
     }
   },
   "VenuePricing": {
@@ -1303,19 +1329,33 @@
     },
     "toast": {
       "walkInTitle": "Đã thêm khách vãng lai",
+      "walkInConflict": "Khung giờ đang giữ bởi đặt sân qua app — từ chối (kèm lý do, tự hoàn tiền) trước.",
       "blockTitle": "Đã khóa sân",
       "suggestTitle": "Đang tìm người chơi để lấp khung này",
       "messaged": "Đã gửi tin nhắn",
       "rescheduled": "Bắt đầu đổi giờ",
       "cancelledEvent": "Đã hủy đặt sân",
-      "reopened": "Đã mở lại sân"
+      "reopened": "Đã mở lại khung giờ"
     },
     "event": {
       "maintenance": "Bảo trì",
       "message": "Nhắn khách",
       "reschedule": "Đổi giờ",
       "cancel": "Hủy đặt sân",
-      "reopen": "Mở lại sân"
+      "reopen": "Mở lại khung giờ"
+    },
+    "blockDialog": {
+      "title": "Khóa khung giờ",
+      "description": "Chọn lý do khóa khung giờ này — khách sẽ không thể đặt cho đến khi mở lại.",
+      "reasonLabel": "Lý do",
+      "noteLabel": "Ghi chú (không bắt buộc)",
+      "notePlaceholder": "Ví dụ: thay lưới, sự kiện nội bộ…"
+    },
+    "blockReasons": {
+      "maintenance": "Bảo trì",
+      "internal": "Nội bộ",
+      "vip": "Khách VIP",
+      "break": "Giờ nghỉ"
     },
     "cancelDialog": {
       "title": "Hủy đặt sân",
