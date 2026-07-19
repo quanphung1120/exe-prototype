@@ -48,9 +48,9 @@ import {
 import { useVenueData } from "@/features/venue/venue-data-provider"
 import { decideReservation } from "@/features/venue/venue-actions"
 import {
+  BOOKING_TRANSITIONS,
   formatVnd,
   locStr,
-  RESERVATION_TRANSITIONS,
   reservationStatusAccent,
   type BookingSource,
   type Reservation,
@@ -589,10 +589,10 @@ function ReservationActions({
 
   // Approve/decline is the pending-only decision surface: both target
   // statuses ("confirmed"/"cancelled") must be legal transitions off the
-  // reservation's current status (see RESERVATION_TRANSITIONS in
+  // reservation's current status (see BOOKING_TRANSITIONS in
   // shared/helpers.ts) — today that only holds for "pending" — so the row
   // never offers an action the API would reject.
-  const legalTargets = RESERVATION_TRANSITIONS[r.status]
+  const legalTargets = BOOKING_TRANSITIONS[r.status]
   const isPendingDecision =
     legalTargets.includes("confirmed") && legalTargets.includes("cancelled")
   if (isPendingDecision) {

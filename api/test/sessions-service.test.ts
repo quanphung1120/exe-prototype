@@ -8,7 +8,7 @@ import { getModelToken } from "@nestjs/mongoose"
 
 import { SessionsService } from "../src/features/sessions/sessions.service.js"
 import { PlaySession } from "../src/features/sessions/session.schema.js"
-import { VenuesService } from "../src/features/venues/venues.service.js"
+import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import type { PlaySession as PlaySessionData } from "../src/shared/index.js"
 
 /**
@@ -17,8 +17,16 @@ import type { PlaySession as PlaySessionData } from "../src/shared/index.js"
  * court-hold/expiry feature) need no schema migration: whatever the client
  * sends round-trips untouched. These tests pin that behavior against a mocked
  * Mongoose model via @nestjs/testing, independent of a real database.
+ *
+ * Phase 2 moved the booking↔session cross-write from a two-way
+ * SessionsService↔VenuesService `forwardRef` to a one-way dependency on
+ * `BookingsService` (the canonical `bookings` collection); a linked session's
+ * status/hold/refund is now *derived* at read time (`listUserSessions`) rather
+ * than pushed by the venue side.
  */
-function makeSession(overrides: Partial<PlaySessionData> = {}): PlaySessionData {
+function makeSession(
+  overrides: Partial<PlaySessionData> = {}
+): PlaySessionData {
   return {
     id: "s-1",
     title: "Test session",
@@ -45,19 +53,25 @@ function makeSession(overrides: Partial<PlaySessionData> = {}): PlaySessionData 
   }
 }
 
+/** A fake Mongoose `.find(...).sort(...).lean()` chain resolving to `docs`. */
+function findChain(docs: unknown[]) {
+  return { sort: () => ({ lean: () => Promise.resolve(docs) }) }
+}
+
 async function makeService(
   modelMock: Record<string, (...args: unknown[]) => unknown>,
-  venuesMock: Record<string, (...args: unknown[]) => unknown> = {
-    // The booking→reservation cross-write resolves no owning venue by default,
-    // so upsertSession's sync no-ops and the persistence tests stay isolated.
-    findVenueByCourtId: () => Promise.resolve(null),
+  bookingsMock: Record<string, (...args: unknown[]) => unknown> = {
+    // The booking cross-write resolves no owning venue by default, so
+    // upsertSession's sync no-ops and the persistence tests stay isolated.
+    createOrSyncAppBooking: () => Promise.resolve(null),
+    statusFor: () => Promise.resolve(new Map()),
   }
 ) {
   const moduleRef = await Test.createTestingModule({
     providers: [
       SessionsService,
       { provide: getModelToken(PlaySession.name), useValue: modelMock },
-      { provide: VenuesService, useValue: venuesMock },
+      { provide: BookingsService, useValue: bookingsMock },
     ],
   }).compile()
   return moduleRef.get(SessionsService)
@@ -82,7 +96,8 @@ void test("upsertSession round-trips a new holdExpiresAt field untouched", async
   assert.equal(result.holdExpiresAt, holdExpiresAt)
   assert.deepEqual(savedFilter, { userId: "user-1", sessionId: "s-1" })
   assert.equal(
-    (savedUpdate as { $set: { data: PlaySessionData } }).$set.data.holdExpiresAt,
+    (savedUpdate as { $set: { data: PlaySessionData } }).$set.data
+      .holdExpiresAt,
     holdExpiresAt
   )
 })
@@ -122,12 +137,11 @@ void test("upsertSession clears holdExpiresAt when a session transitions to book
   assert.equal(result.holdExpiresAt, undefined)
 })
 
-// ── Cross-surface: booking → reservation write-back ───────────────────────────
+// ── Cross-surface: booking → session write-back ────────────────────────────
 
-void test("upsertSession mirrors a booked vc* court into a venue reservation and writes the linkage back", async () => {
+void test("upsertSession mirrors a booked vc* court into a booking and writes the linkage back", async () => {
   const updates: unknown[] = []
-  let syncedVenueId: string | undefined
-  let syncedInput: { reservationId?: string; sessionId?: string } | undefined
+  let syncedInput: { sessionId?: string; bookingId?: string } | undefined
   const service = await makeService(
     {
       updateOne: (filter: unknown, update: unknown) => {
@@ -136,12 +150,12 @@ void test("upsertSession mirrors a booked vc* court into a venue reservation and
       },
     },
     {
-      findVenueByCourtId: (courtId: unknown) =>
-        Promise.resolve(courtId === "v9c1" ? "v9" : null),
-      createOrSyncAppReservation: (venueId: unknown, input: unknown) => {
-        syncedVenueId = venueId as string
+      createOrSyncAppBooking: (input: unknown) => {
         syncedInput = input as typeof syncedInput
-        return Promise.resolve({ id: "rv-42" })
+        return Promise.resolve({
+          reservation: { id: "rv-42" },
+          venueId: "v9",
+        })
       },
     }
   )
@@ -156,7 +170,6 @@ void test("upsertSession mirrors a booked vc* court into a venue reservation and
 
   const result = await service.upsertSession("user-1", session)
 
-  assert.equal(syncedVenueId, "v9")
   assert.equal(syncedInput?.sessionId, "s-1")
   // Linkage persisted back onto the session so the next PUT updates in place.
   assert.equal(result.venueId, "v9")
@@ -166,22 +179,24 @@ void test("upsertSession mirrors a booked vc* court into a venue reservation and
 })
 
 void test("upsertSession passes an existing reservationId through for idempotent re-PUTs", async () => {
-  let syncedInput: { reservationId?: string } | undefined
+  let syncedInput: { bookingId?: string } | undefined
   const service = await makeService(
     {
       updateOne: () => Promise.resolve({ acknowledged: true }),
     },
     {
-      findVenueByCourtId: () => Promise.resolve("v9"),
-      createOrSyncAppReservation: (_venueId: unknown, input: unknown) => {
+      createOrSyncAppBooking: (input: unknown) => {
         syncedInput = input as typeof syncedInput
-        return Promise.resolve({ id: "rv-42" })
+        return Promise.resolve({
+          reservation: { id: "rv-42" },
+          venueId: "v9",
+        })
       },
     }
   )
 
   // A re-PUT of an already-linked session must carry its reservationId so the
-  // venue updates that reservation in place rather than piling up duplicates.
+  // booking updates in place rather than piling up duplicates.
   const session = makeSession({
     status: "booked",
     hold: "pending",
@@ -192,70 +207,109 @@ void test("upsertSession passes an existing reservationId through for idempotent
 
   const result = await service.upsertSession("user-1", session)
 
-  assert.equal(syncedInput?.reservationId, "rv-42")
+  assert.equal(syncedInput?.bookingId, "rv-42")
   assert.equal(result.reservationId, "rv-42")
 })
 
-// ── Cross-surface: reservation decision → player session ──────────────────────
+// ── Cross-surface: linked booking status → derived session view ────────────
 
-void test("applyReservationStatus confirms the session on operator approval", async () => {
-  let saved = false
-  const data = makeSession({ status: "booked", hold: "pending" })
-  const service = await makeService({
-    findOne: () =>
-      Promise.resolve({
-        data,
-        markModified: () => {},
-        save: () => {
-          saved = true
-          return Promise.resolve()
-        },
-      }),
+void test("listUserSessions derives the session status/hold from the linked booking", async () => {
+  const data = makeSession({
+    status: "booked",
+    hold: "pending",
+    reservationId: "rv-1",
   })
+  const service = await makeService(
+    { find: () => findChain([{ data }]) },
+    {
+      statusFor: () =>
+        Promise.resolve(
+          new Map([
+            [
+              "rv-1",
+              { venueId: "v9", status: "confirmed", paymentStatus: "paid" },
+            ],
+          ])
+        ),
+    }
+  )
 
-  await service.applyReservationStatus("user-1", "s-1", { status: "confirmed" })
+  const [session] = await service.listUserSessions("user-1")
 
-  assert.equal(data.status, "booked")
-  assert.equal(data.hold, "confirmed")
-  assert.equal(saved, true)
+  assert.equal(session.status, "booked")
+  assert.equal(session.hold, "confirmed")
 })
 
-void test("applyReservationStatus cancels + refunds + records reason on decline", async () => {
-  const data = makeSession({ status: "booked", hold: "pending" })
-  const service = await makeService({
-    findOne: () =>
-      Promise.resolve({ data, markModified: () => {}, save: () => Promise.resolve() }),
+void test("listUserSessions marks cancelled + refunded from a declined booking", async () => {
+  const data = makeSession({
+    status: "booked",
+    hold: "pending",
+    reservationId: "rv-1",
   })
+  const service = await makeService(
+    { find: () => findChain([{ data }]) },
+    {
+      statusFor: () =>
+        Promise.resolve(
+          new Map([
+            [
+              "rv-1",
+              {
+                venueId: "v9",
+                status: "cancelled",
+                paymentStatus: "refunded",
+                declineReason: "Sân đang bảo trì",
+              },
+            ],
+          ])
+        ),
+    }
+  )
 
-  await service.applyReservationStatus("user-1", "s-1", {
-    status: "cancelled",
-    reason: "Sân đang bảo trì",
-  })
+  const [session] = await service.listUserSessions("user-1")
 
-  assert.equal(data.status, "cancelled")
-  assert.equal(data.hold, undefined)
-  assert.equal(data.cancelReason, "Sân đang bảo trì")
-  assert.equal(data.refunded, true)
+  assert.equal(session.status, "cancelled")
+  assert.equal(session.hold, undefined)
+  assert.equal(session.cancelReason, "Sân đang bảo trì")
+  assert.equal(session.refunded, true)
 })
 
-void test("applyReservationStatus marks a no-show without a refund", async () => {
-  const data = makeSession({ status: "booked", hold: "confirmed" })
-  const service = await makeService({
-    findOne: () =>
-      Promise.resolve({ data, markModified: () => {}, save: () => Promise.resolve() }),
+void test("listUserSessions marks a no-show booking without implying a refund", async () => {
+  const data = makeSession({
+    status: "booked",
+    hold: "confirmed",
+    reservationId: "rv-1",
   })
+  const service = await makeService(
+    { find: () => findChain([{ data }]) },
+    {
+      statusFor: () =>
+        Promise.resolve(
+          new Map([
+            [
+              "rv-1",
+              { venueId: "v9", status: "no-show", paymentStatus: "paid" },
+            ],
+          ])
+        ),
+    }
+  )
 
-  await service.applyReservationStatus("user-1", "s-1", { status: "no-show" })
+  const [session] = await service.listUserSessions("user-1")
 
-  assert.equal(data.status, "cancelled")
-  assert.equal(data.refunded, undefined)
-  assert.ok(data.cancelReason?.includes("no-show"))
+  assert.equal(session.status, "cancelled")
+  assert.equal(session.refunded, undefined)
+  assert.ok(session.cancelReason?.includes("no-show"))
 })
 
-void test("applyReservationStatus no-ops when the session is gone", async () => {
-  const service = await makeService({
-    findOne: () => Promise.resolve(null),
-  })
-  await service.applyReservationStatus("user-1", "missing", { status: "confirmed" })
-  // No throw = pass; a walk-in reservation with no linked session is fine.
+void test("listUserSessions leaves a session with no linked booking untouched", async () => {
+  const data = makeSession({ status: "forming" })
+  const service = await makeService(
+    { find: () => findChain([{ data }]) },
+    { statusFor: () => Promise.resolve(new Map()) }
+  )
+
+  const [session] = await service.listUserSessions("user-1")
+
+  assert.deepEqual(session, data)
 })

@@ -1,0 +1,293 @@
+import assert from "node:assert/strict"
+import { test } from "node:test"
+
+import "reflect-metadata"
+
+import { BadRequestException, ConflictException } from "@nestjs/common"
+
+import { isTransactionsUnsupported } from "../src/common/mongo-util.js"
+import {
+  assertWithinHours,
+  bookingsOverlap,
+  bookingSlotFields,
+  buildBookingRecord,
+  reservationFromBooking,
+  type BookingSlot,
+} from "../src/features/bookings/booking.helpers.js"
+import type { Venue, VenueCourt } from "../src/shared/index.js"
+
+/**
+ * Pure-helper tests for the Phase 2 bookings feature: the overlap guard's
+ * pure predicate, the BookingRecord → operator Reservation projection, and the
+ * transactions-unsupported detector the transaction/lock-doc overlap guard
+ * falls back on.
+ */
+
+const TODAY_ISO = "2026-07-20"
+
+function makeVenue(overrides: Partial<Venue> = {}): Venue {
+  return {
+    id: "v9",
+    name: "QA Arena",
+    initials: "QA",
+    district: "Cầu Giấy",
+    city: "Hà Nội",
+    sports: ["badminton", "pickleball"],
+    openFrom: "06:00",
+    openTo: "22:00",
+    rating: 4.6,
+    reviews: 128,
+    manager: { name: "Quan", initials: "Q" },
+    now: "14:00",
+    ...overrides,
+  }
+}
+
+function makeCourt(overrides: Partial<VenueCourt> = {}): VenueCourt {
+  return {
+    id: "v9c1",
+    name: "Sân 1",
+    sport: "badminton",
+    surface: "Thảm",
+    state: "available",
+    utilToday: 40,
+    pricePerHour: 180000,
+    ...overrides,
+  }
+}
+
+function makeSlot(overrides: Partial<BookingSlot> = {}): BookingSlot {
+  return {
+    bookingId: "b1",
+    courtId: "v9c1",
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+    status: "confirmed",
+    ...overrides,
+  }
+}
+
+// ── bookingsOverlap ──────────────────────────────────────────────────────────
+
+void test("bookingsOverlap blocks an overlapping slot on the same court+day", () => {
+  const existing = [makeSlot({ start: "18:00", durationMin: 60 })]
+  assert.ok(bookingsOverlap(existing, "v9c1", TODAY_ISO, "18:30", 60))
+})
+
+void test("bookingsOverlap allows a back-to-back (non-overlapping) slot", () => {
+  const existing = [makeSlot({ start: "18:00", durationMin: 60 })]
+  assert.equal(bookingsOverlap(existing, "v9c1", TODAY_ISO, "19:00", 60), false)
+})
+
+void test("bookingsOverlap ignores a different court or a different day", () => {
+  const existing = [
+    makeSlot({ courtId: "v9c2", start: "18:00", durationMin: 60 }),
+    makeSlot({ dateKey: "2026-07-21", start: "18:00", durationMin: 60 }),
+  ]
+  assert.equal(bookingsOverlap(existing, "v9c1", TODAY_ISO, "18:00", 60), false)
+})
+
+void test("bookingsOverlap frees the slot for cancelled/no-show/expired bookings", () => {
+  const existing = [
+    makeSlot({ start: "18:00", durationMin: 60, status: "cancelled" }),
+    makeSlot({ start: "18:00", durationMin: 60, status: "no-show" }),
+    makeSlot({ start: "18:00", durationMin: 60, status: "expired" }),
+  ]
+  assert.equal(bookingsOverlap(existing, "v9c1", TODAY_ISO, "18:00", 60), false)
+})
+
+void test("bookingsOverlap still blocks on a completed booking (parity with pre-Phase-2 behavior)", () => {
+  const existing = [
+    makeSlot({ start: "18:00", durationMin: 60, status: "completed" }),
+  ]
+  assert.ok(bookingsOverlap(existing, "v9c1", TODAY_ISO, "18:00", 60))
+})
+
+void test("bookingsOverlap excludes the booking being moved/re-written", () => {
+  const existing = [
+    makeSlot({ bookingId: "self", start: "18:00", durationMin: 60 }),
+  ]
+  assert.equal(
+    bookingsOverlap(existing, "v9c1", TODAY_ISO, "18:00", 60, "self"),
+    false
+  )
+})
+
+// ── assertWithinHours ────────────────────────────────────────────────────────
+
+void test("assertWithinHours rejects a duration not on a 15-minute step", () => {
+  assert.throws(
+    () => assertWithinHours(makeVenue(), "18:00", 40),
+    BadRequestException
+  )
+})
+
+void test("assertWithinHours rejects a slot spilling past closing", () => {
+  assert.throws(
+    () => assertWithinHours(makeVenue({ openTo: "22:00" }), "21:30", 60),
+    BadRequestException
+  )
+})
+
+void test("assertWithinHours accepts a slot inside opening hours", () => {
+  assert.doesNotThrow(() => assertWithinHours(makeVenue(), "18:00", 90))
+})
+
+// ── buildBookingRecord / bookingSlotFields ────────────────────────────────────
+
+void test("buildBookingRecord derives startAt/endAt/price and seeds statusHistory", () => {
+  const record = buildBookingRecord({
+    venueId: "v9",
+    court: makeCourt({ pricePerHour: 180000 }),
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 90,
+    source: "app",
+    status: "pending",
+    paymentStatus: "paid",
+    customer: { name: "Khách", initials: "K" },
+    userId: "user-1",
+    sessionId: "s-1",
+  })
+  assert.equal(record.venueId, "v9")
+  assert.equal(record.courtId, "v9c1")
+  assert.equal(record.startAt, `${TODAY_ISO}T18:00:00+07:00`)
+  assert.equal(record.endAt, `${TODAY_ISO}T19:30:00+07:00`)
+  assert.equal(record.price, 270000) // 180000 * 1.5h
+  assert.equal(record.statusHistory.length, 1)
+  assert.equal(record.statusHistory[0]?.status, "pending")
+})
+
+void test("buildBookingRecord mints a distinct bookingId per call", () => {
+  const a = buildBookingRecord({
+    venueId: "v9",
+    court: makeCourt(),
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+    source: "walk-in",
+    status: "confirmed",
+    paymentStatus: "none",
+    customer: { name: "A", initials: "A" },
+  })
+  const b = buildBookingRecord({
+    venueId: "v9",
+    court: makeCourt(),
+    dateKey: TODAY_ISO,
+    start: "19:00",
+    durationMin: 60,
+    source: "walk-in",
+    status: "confirmed",
+    paymentStatus: "none",
+    customer: { name: "B", initials: "B" },
+  })
+  assert.notEqual(a.bookingId, b.bookingId)
+})
+
+void test("bookingSlotFields re-derives court/time/price for a reschedule or re-write", () => {
+  const fields = bookingSlotFields(
+    makeCourt({ pricePerHour: 200000 }),
+    TODAY_ISO,
+    "20:00",
+    30
+  )
+  assert.equal(fields.start, "20:00")
+  assert.equal(fields.durationMin, 30)
+  assert.equal(fields.price, 100000)
+  assert.equal(fields.startAt, `${TODAY_ISO}T20:00:00+07:00`)
+  assert.equal(fields.endAt, `${TODAY_ISO}T20:30:00+07:00`)
+})
+
+// ── reservationFromBooking ────────────────────────────────────────────────────
+
+void test("reservationFromBooking preserves the operator Reservation shape (id, court, time)", () => {
+  const record = buildBookingRecord({
+    venueId: "v9",
+    court: makeCourt({
+      name: "Sân 3",
+      sport: "pickleball",
+      pricePerHour: 240000,
+    }),
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+    source: "app",
+    status: "pending",
+    paymentStatus: "paid",
+    customer: { name: "Khách", initials: "K" },
+    userId: "user-1",
+    sessionId: "s-1",
+  })
+  const reservation = reservationFromBooking(record, TODAY_ISO)
+  assert.equal(reservation.id, record.bookingId)
+  assert.equal(reservation.court, "Sân 3")
+  assert.equal(reservation.sport, "pickleball")
+  assert.equal(reservation.time, "18:00 – 19:00")
+  assert.equal(reservation.party, 4) // pickleball
+  assert.equal(reservation.status, "pending")
+  assert.equal(reservation.noShowRisk, 10) // app source
+})
+
+void test("reservationFromBooking collapses the payment-gate states onto ReservationStatus", () => {
+  const base = buildBookingRecord({
+    venueId: "v9",
+    court: makeCourt(),
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+    source: "app",
+    status: "awaiting_payment",
+    paymentStatus: "awaiting",
+    customer: { name: "Khách", initials: "K" },
+  })
+  assert.equal(reservationFromBooking(base, TODAY_ISO).status, "pending")
+  assert.equal(
+    reservationFromBooking({ ...base, status: "expired" }, TODAY_ISO).status,
+    "cancelled"
+  )
+})
+
+void test("reservationFromBooking gives walk-ins a lower noShowRisk than app bookings", () => {
+  const record = buildBookingRecord({
+    venueId: "v9",
+    court: makeCourt(),
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+    source: "walk-in",
+    status: "confirmed",
+    paymentStatus: "none",
+    customer: { name: "Khách", initials: "K" },
+  })
+  assert.equal(reservationFromBooking(record, TODAY_ISO).noShowRisk, 5)
+})
+
+// ── isTransactionsUnsupported ──────────────────────────────────────────────────
+
+void test("isTransactionsUnsupported recognizes the IllegalOperation code (20)", () => {
+  const err = Object.assign(
+    new Error(
+      "Transaction numbers are only allowed on a replica set member or mongos"
+    ),
+    {
+      code: 20,
+    }
+  )
+  assert.ok(isTransactionsUnsupported(err))
+})
+
+void test("isTransactionsUnsupported recognizes the message pattern without a code", () => {
+  const err = new Error("Transactions are not supported by this deployment")
+  assert.ok(isTransactionsUnsupported(err))
+})
+
+void test("isTransactionsUnsupported rejects unrelated errors, including our own domain exceptions", () => {
+  assert.equal(
+    isTransactionsUnsupported(new ConflictException("overlap")),
+    false
+  )
+  assert.equal(isTransactionsUnsupported(new Error("network timeout")), false)
+  assert.equal(isTransactionsUnsupported("not an Error"), false)
+  assert.equal(isTransactionsUnsupported(undefined), false)
+})

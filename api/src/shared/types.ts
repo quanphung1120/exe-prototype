@@ -219,7 +219,7 @@ export interface PlaySession {
   holdExpiresAt?: number
   /** Owning venue of the held court — set when a booking cross-writes a reservation. */
   venueId?: string
-  /** Linked venue Reservation id (idempotency key for the cross-write). */
+  /** Linked BookingRecord id (idempotency key for the cross-write; also the id a Reservation projects). */
   reservationId?: string
   /** Operator's decline reason, surfaced to the player once cancelled. */
   cancelReason?: string
@@ -467,6 +467,103 @@ export interface Reservation {
 }
 
 export type RiskTier = "low" | "medium" | "high"
+
+// ── Bookings: the canonical entity (booking ≡ reservation, one record) ────────
+
+/**
+ * Lifecycle of a {@link BookingRecord}. `awaiting_payment`/`expired` are the
+ * payment-gate states a future phase (SePay checkout) will drive; today's write
+ * paths (app cross-write, walk-in) skip straight to `pending`/`confirmed` since
+ * no real payment gate exists yet — the states exist now so the schema and the
+ * transition table don't need to change shape when that phase lands.
+ */
+export type BookingRecordStatus =
+  | "awaiting_payment"
+  | "pending"
+  | "confirmed"
+  | "checked-in"
+  | "completed"
+  | "expired"
+  | "cancelled"
+  | "no-show"
+
+/**
+ * Pre-paid settlement state of a {@link BookingRecord}. `none` is walk-ins (cash
+ * at the venue, never gated on payment); the rest describe an app booking's
+ * SePay checkout lifecycle (a future phase).
+ */
+export type PaymentStatus =
+  "awaiting" | "paid" | "refunded" | "partial_refund" | "none"
+
+export interface BookingCustomer {
+  name: string
+  initials: string
+  phone?: string
+}
+
+/** A manually-queued refund (SePay has no refund API — see payment-gateway decision). */
+export interface BookingRefund {
+  /** Percent of the price refunded (100/50/0 per the cancellation policy). */
+  pct: number
+  amount: number
+  /** ISO datetime the refund was recorded. */
+  at: string
+  /** Manual transfer reference, once an operator completes it. */
+  ref?: string
+}
+
+export interface BookingStatusEvent {
+  status: BookingRecordStatus
+  /** ISO datetime (+07:00). */
+  at: string
+  reason?: string
+}
+
+/**
+ * The canonical booking — the single record a court hold, a player's app
+ * booking and a venue's operator-facing reservation all converge on (one court-
+ * time slot, one row). `api/src/features/bookings/` owns the collection; the
+ * venue operator's `Reservation[]` (see {@link Reservation}) is a read-time
+ * projection of these, and a player's `PlaySession` derives its booking-facing
+ * status/hold/refund fields from whichever record its `reservationId` points at.
+ */
+export interface BookingRecord {
+  bookingId: string
+  venueId: string
+  courtId: string
+  /** Denormalized so a Reservation projection never needs a courts join. */
+  courtName: string
+  sport: SportKey
+  source: BookingSource
+  /** Clerk account of the app booker (absent for walk-ins). */
+  userId?: string
+  /** Linked player PlaySession id (absent for walk-ins). */
+  sessionId?: string
+  customer: BookingCustomer
+  /** ISO datetime (+07:00) — combineDateTime(dateKey, start). */
+  startAt: string
+  /** ISO datetime (+07:00), startAt + durationMin. */
+  endAt: string
+  /** ISO date ("YYYY-MM-DD"), Asia/Ho_Chi_Minh — the source of truth for the day. */
+  dateKey: string
+  start: string
+  durationMin: number
+  price: number
+  status: BookingRecordStatus
+  paymentStatus: PaymentStatus
+  /** Epoch-free ISO deadline for an unpaid court hold (awaiting_payment → expired). */
+  holdExpiresAt?: string
+  /** ISO deadline for the venue's 30-minute approval SLA (pending → auto-confirmed). */
+  confirmDeadlineAt?: string
+  /** ISO datetime the venue checked the customer in. */
+  checkedInAt?: string
+  /** Operator's reason when declined (status "cancelled" from "pending"). */
+  declineReason?: string
+  /** Player's or operator's reason for a post-confirm cancellation. */
+  cancelReason?: string
+  refund?: BookingRefund
+  statusHistory: BookingStatusEvent[]
+}
 
 // ── Venue: customers (CRM) ───────────────────────────────────────────────────
 

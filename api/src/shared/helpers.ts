@@ -16,6 +16,7 @@ import {
 import type {
   Booking,
   BookingPlayer,
+  BookingRecordStatus,
   BookingStatus,
   Conflict,
   ConflictQuery,
@@ -28,7 +29,6 @@ import type {
   Player,
   PlaySession,
   Reservation,
-  ReservationStatus,
   RoomLevel,
   RosterEntry,
   Rsvp,
@@ -890,7 +890,9 @@ export function venueEventsFor(
   dayKey: string,
   todayIso: string
 ): ScheduleEvent[][] {
-  return courts.map((c) => courtDayEvents(venue, courts, c.id, dayKey, todayIso))
+  return courts.map((c) =>
+    courtDayEvents(venue, courts, c.id, dayKey, todayIso)
+  )
 }
 
 /**
@@ -993,32 +995,35 @@ export function venueCourtToCourt(venue: Venue, court: VenueCourt): Court {
   }
 }
 
-// ── Reservation state machine ──────────────────────────────────────────────
+// ── Booking state machine ────────────────────────────────────────────────────
 
 /**
- * Legal reservation status transitions. `completed`/`cancelled`/`no-show` are
- * terminal (no outgoing edges) — enforced server-side in
- * `venues.service.ts#updateReservationStatus` and mirrored client-side to hide
- * actions that would be rejected.
+ * Legal {@link BookingRecordStatus} transitions — one table drives both the API
+ * guard (`bookings.service.ts#updateStatus`) and web button states (reservation
+ * actions, hold/status badges). `completed`/`cancelled`/`no-show`/`expired` are
+ * terminal (no outgoing edges). Replaces the Phase-0 `RESERVATION_TRANSITIONS`
+ * table now that reservations are a projection of `BookingRecord`s.
  */
-export const RESERVATION_TRANSITIONS: Record<
-  ReservationStatus,
-  ReservationStatus[]
+export const BOOKING_TRANSITIONS: Record<
+  BookingRecordStatus,
+  BookingRecordStatus[]
 > = {
+  awaiting_payment: ["pending", "expired", "cancelled"],
   pending: ["confirmed", "cancelled"],
   confirmed: ["checked-in", "cancelled", "no-show"],
   "checked-in": ["completed", "cancelled"],
   completed: [],
+  expired: [],
   cancelled: [],
   "no-show": [],
 }
 
 /** A same-status transition is always allowed (idempotent no-op). */
-export function canTransitionReservation(
-  from: ReservationStatus,
-  to: ReservationStatus
+export function canTransitionBooking(
+  from: BookingRecordStatus,
+  to: BookingRecordStatus
 ): boolean {
-  return from === to || RESERVATION_TRANSITIONS[from].includes(to)
+  return from === to || BOOKING_TRANSITIONS[from].includes(to)
 }
 
 // ── Venue: analytics computed from real reservations (hybrid) ─────────────────
@@ -1064,7 +1069,10 @@ export function computeVenueStats(
   const bookedMinutes = today
     .filter((r) => CONFIRMED.has(r.status))
     .reduce((sum, r) => sum + reservationMinutes(r), 0)
-  const utilization = Math.min(100, Math.round((bookedMinutes / openMinutes) * 100))
+  const utilization = Math.min(
+    100,
+    Math.round((bookedMinutes / openMinutes) * 100)
+  )
 
   const counted = reservations.filter(
     (r) =>

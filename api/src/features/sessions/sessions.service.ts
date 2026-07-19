@@ -1,6 +1,5 @@
 import {
   ConflictException,
-  forwardRef,
   Inject,
   Injectable,
   NotFoundException,
@@ -11,42 +10,26 @@ import type { Model } from "mongoose"
 import {
   isoDateOf,
   vnNowIso,
+  type BookingRecordStatus,
   type PlaySession as PlaySessionData,
-  type ReservationStatus,
   type SessionStatus,
 } from "../../shared/index.js"
 
-import type { Reservation } from "../../shared/index.js"
-
 import {
-  VenuesService,
-  type AppReservationInput,
-} from "../venues/venues.service.js"
+  BookingsService,
+  type BookingStatusInfo,
+} from "../bookings/bookings.service.js"
 import { PlaySession, type PlaySessionDocument } from "./session.schema.js"
 
 const ORDER = { createdAt: 1, _id: 1 } as const
 
-/**
- * The venue cross-write surface Sessions depends on. Typing the injected param
- * as this interface (not the concrete VenuesService) keeps `emitDecoratorMetadata`
- * from baking the class into `design:paramtypes` — which, under the ESM Sessions↔
- * Venues import cycle, would be evaluated before VenuesService initializes and
- * throw. The `@Inject(forwardRef(...))` token still drives the real injection.
- */
-interface VenueSyncPort {
-  findVenueByCourtId(courtId: string): Promise<string | null>
-  createOrSyncAppReservation(
-    venueId: string,
-    input: AppReservationInput
-  ): Promise<Reservation>
-}
-
-/** Map a venue ReservationStatus onto the player's session status + hold. */
-function mapReservationStatus(status: ReservationStatus): {
+/** Map a linked booking's status onto the player's session status + hold. */
+function mapBookingStatus(status: BookingRecordStatus): {
   status: SessionStatus
   hold?: "confirmed" | "pending"
 } {
   switch (status) {
+    case "awaiting_payment":
     case "pending":
       return { status: "booked", hold: "pending" }
     case "confirmed":
@@ -54,6 +37,7 @@ function mapReservationStatus(status: ReservationStatus): {
       return { status: "booked", hold: "confirmed" }
     case "completed":
       return { status: "completed", hold: "confirmed" }
+    case "expired":
     case "cancelled":
     case "no-show":
       return { status: "cancelled" }
@@ -63,23 +47,62 @@ function mapReservationStatus(status: ReservationStatus): {
 // MongoDB-backed service for players' persisted PlaySessions — the durable,
 // per-user mirror of the sessions a signed-in user creates or changes. Reads feed
 // the seed merge (SeedService); writes are driven by the web's session actions.
+//
+// A booked session's status/hold/refund is *derived* at read time from its
+// linked BookingRecord (see `listUserSessions`/`withBookingStatus`) rather than
+// pushed onto the session doc by the venue side — the operator decision only
+// ever touches the booking. That, plus depending on BookingsService instead of
+// VenuesService for the create-side cross-write, is what dissolves the old
+// Sessions↔Venues forwardRef cycle.
 @Injectable()
 export class SessionsService {
   constructor(
     @InjectModel(PlaySession.name)
     private readonly sessionModel: Model<PlaySessionDocument>,
-    // Cross-surface: a booked session mirrors into the owning venue's reservation.
-    // forwardRef breaks the Sessions ↔ Venues cycle; the param is typed as the
-    // VenueSyncPort interface (not VenuesService) so no class leaks into the
-    // eagerly-evaluated decorator metadata (see VenueSyncPort).
-    @Inject(forwardRef(() => VenuesService))
-    private readonly venues: VenueSyncPort
+    // Explicit token (not just the TS type) since esbuild-based runners like
+    // tsx don't emit the design:paramtypes metadata Nest's implicit
+    // constructor-injection would otherwise rely on — see
+    // test/sessions-service.test.ts.
+    @Inject(BookingsService) private readonly bookings: BookingsService
   ) {}
 
   /** Every PlaySession this user has persisted, oldest first. */
   async listUserSessions(userId: string): Promise<PlaySessionData[]> {
     const docs = await this.sessionModel.find({ userId }).sort(ORDER).lean()
-    return docs.map((d) => d.data)
+    const linkedIds = docs
+      .map((d) => d.data.reservationId)
+      .filter((id): id is string => Boolean(id))
+    const statuses = await this.bookings.statusFor(linkedIds)
+    return docs.map((d) => this.withBookingStatus(d.data, statuses))
+  }
+
+  /**
+   * Overlay a session with its linked booking's current status/hold/refund, if
+   * it has one. No-ops for sessions with no linked booking (forming, or a
+   * legacy record predating the bookings collection) — they keep whatever the
+   * client last wrote.
+   */
+  private withBookingStatus(
+    session: PlaySessionData,
+    statuses: Map<string, BookingStatusInfo>
+  ): PlaySessionData {
+    const info = session.reservationId
+      ? statuses.get(session.reservationId)
+      : undefined
+    if (!info) return session
+    const mapped = mapBookingStatus(info.status)
+    const next: PlaySessionData = { ...session, status: mapped.status }
+    if (mapped.hold) next.hold = mapped.hold
+    else delete next.hold
+    if (info.status === "cancelled") {
+      next.cancelReason = info.declineReason ?? info.cancelReason
+      next.refunded =
+        info.paymentStatus === "refunded" ||
+        info.paymentStatus === "partial_refund"
+    } else if (info.status === "no-show") {
+      next.cancelReason = "Không đến (no-show)"
+    }
+    return next
   }
 
   /** Insert or replace one of the user's sessions (keyed by the client id). */
@@ -92,18 +115,18 @@ export class SessionsService {
       { $set: { data: session } },
       { upsert: true }
     )
-    // Mirror a booked session on a real venue court into a pending reservation,
-    // persisting the linkage back so the next PUT updates it in place.
-    return this.syncReservation(userId, session)
+    // Mirror a booked session on a real venue court into a booking, persisting
+    // the linkage back so the next PUT updates it in place.
+    return this.syncBooking(userId, session)
   }
 
   /**
-   * Cross-write a booked session into the owning venue as a pending reservation
-   * (the single shared record). No-ops for sessions that aren't a real dated
-   * booking on a venue court. A double-book surfaces as a ConflictException the
-   * player sees; other venue errors are swallowed so the session write still holds.
+   * Cross-write a booked session into its owning venue as a booking (the single
+   * shared record). No-ops for sessions that aren't a real dated booking on a
+   * venue court. A double-book surfaces as a ConflictException the player sees;
+   * other errors are swallowed so the session write still holds.
    */
-  private async syncReservation(
+  private async syncBooking(
     userId: string,
     session: PlaySessionData
   ): Promise<PlaySessionData> {
@@ -111,9 +134,7 @@ export class SessionsService {
       return session
     if (session.dayKey < isoDateOf(vnNowIso())) return session
     try {
-      const venueId = await this.venues.findVenueByCourtId(session.courtId)
-      if (!venueId) return session
-      const reservation = await this.venues.createOrSyncAppReservation(venueId, {
+      const synced = await this.bookings.createOrSyncAppBooking({
         courtId: session.courtId,
         dayKey: session.dayKey,
         start: session.slot,
@@ -121,14 +142,15 @@ export class SessionsService {
         userId,
         sessionId: session.id,
         customerName: session.host.name,
-        reservationId: session.reservationId,
+        bookingId: session.reservationId,
       })
+      if (!synced) return session
       if (
-        session.venueId !== venueId ||
-        session.reservationId !== reservation.id
+        session.venueId !== synced.venueId ||
+        session.reservationId !== synced.reservation.id
       ) {
-        session.venueId = venueId
-        session.reservationId = reservation.id
+        session.venueId = synced.venueId
+        session.reservationId = synced.reservation.id
         await this.sessionModel.updateOne(
           { userId, sessionId: session.id },
           { $set: { data: session } }
@@ -139,33 +161,6 @@ export class SessionsService {
       if (err instanceof ConflictException) throw err
       return session
     }
-  }
-
-  /**
-   * Apply an operator's reservation decision back onto the linked player session:
-   * map the venue status to the session status/hold and, on a decline, record the
-   * reason + a simulated refund. No-ops when the session no longer exists.
-   */
-  async applyReservationStatus(
-    userId: string,
-    sessionId: string,
-    patch: { status: ReservationStatus; reason?: string }
-  ): Promise<void> {
-    const doc = await this.sessionModel.findOne({ userId, sessionId })
-    if (!doc) return
-    const data = doc.data
-    const mapped = mapReservationStatus(patch.status)
-    data.status = mapped.status
-    if (mapped.hold) data.hold = mapped.hold
-    else delete data.hold
-    if (patch.status === "cancelled" && patch.reason) {
-      data.cancelReason = patch.reason
-      data.refunded = true
-    } else if (patch.status === "no-show") {
-      data.cancelReason = "Không đến (no-show)"
-    }
-    doc.markModified("data")
-    await doc.save()
   }
 
   /** Drop one of the user's sessions; throws NotFound when nothing matched. */

@@ -22,10 +22,11 @@ export class Venue {
   @Prop({ type: String }) ownerId?: string
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) info: VenueInfo
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) ops: VenueOps
-  // Monotonic high-water id counters (courts/reservations). Persisted so ids are
-  // never reused after a deletion; seeded lazily from the current max.
+  // Monotonic high-water court-id counter. Persisted so ids are never reused
+  // after a deletion; seeded lazily from the current max. (Reservation ids
+  // used to have an equivalent counter here — bookings are now their own
+  // `bookings` collection keyed by a Mongo ObjectId, see BookingsService.)
   @Prop({ type: Number }) courtSeq?: number
-  @Prop({ type: Number }) reservationSeq?: number
 }
 
 export type VenueDocument = HydratedDocument<Venue>

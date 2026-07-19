@@ -29,3 +29,47 @@ export function once(task: () => Promise<void>): () => Promise<void> {
       throw err
     }))
 }
+
+/** True when `err` is a Mongoose `VersionError` from a document's `optimisticConcurrency`. */
+function isVersionConflict(err: unknown): boolean {
+  return err instanceof Error && err.name === "VersionError"
+}
+
+/**
+ * Run a find→mutate→save mutation, retrying on a Mongoose `VersionError`. Docs
+ * with `optimisticConcurrency` (venues, bookings) version every save, so two
+ * concurrent writers who each loaded the same snapshot would otherwise have the
+ * later save silently clobber the earlier one; re-running here reloads the
+ * fresh doc and re-applies the change, so concurrent writes compose instead of
+ * losing one.
+ */
+export async function withVersionRetry<T>(
+  mutate: () => Promise<T>,
+  tries = 4
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await mutate()
+    } catch (err) {
+      if (!isVersionConflict(err) || attempt >= tries) throw err
+    }
+  }
+}
+
+/**
+ * True when a MongoDB error means the deployment doesn't support multi-document
+ * transactions — a standalone `mongod`, not a replica set or `mongos`. Atlas
+ * clusters (including the free M0 tier) are always replica sets, so this is a
+ * defensive fallback for local/self-hosted MongoDB, not the expected path in
+ * production. See `bookings.service.ts`'s per-court lock-doc fallback.
+ */
+export function isTransactionsUnsupported(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  // IllegalOperation: "Transaction numbers are only allowed on a replica set
+  // member or mongos".
+  if ((err as { code?: number }).code === 20) return true
+  return (
+    /transaction/i.test(err.message) &&
+    /not support|replica set|mongos/i.test(err.message)
+  )
+}

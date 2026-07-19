@@ -10,6 +10,7 @@ import { ClerkAuthGuard } from "./common/clerk-auth.guard.js"
 import { validateEnv } from "./env.validation.js"
 import { AccountModule } from "./features/account/account.module.js"
 import { AssessmentModule } from "./features/assessment/assessment.module.js"
+import { BookingsModule } from "./features/bookings/bookings.module.js"
 import { CourtsModule } from "./features/courts/courts.module.js"
 import { HealthController } from "./features/health/health.controller.js"
 import { PlayersModule } from "./features/players/players.module.js"
@@ -43,6 +44,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     }),
     // Backs the /health/ready readiness probe (MongooseHealthIndicator).
     TerminusModule,
+    BookingsModule,
     CourtsModule,
     PlayersModule,
     SessionsModule,
