@@ -5,11 +5,7 @@ import "reflect-metadata"
 
 import { VenuesService } from "../src/features/venues/venues.service.js"
 import { roomChannelId } from "../src/features/stream/stream.service.js"
-import type {
-  BookingRecordStatus,
-  Reservation,
-  ReservationStatus,
-} from "../src/shared/index.js"
+import type { BookingRecordStatus, Reservation } from "../src/shared/index.js"
 
 /**
  * `updateReservationStatus` is the one place an operator's approve/decline/
@@ -75,12 +71,7 @@ function makeService(
     countDocuments: () => Promise.resolve(1), // already seeded
   }
   const bookingsMock = {
-    updateStatus: (
-      _venueId: string,
-      _bookingId: string,
-      _status: ReservationStatus,
-      _reason?: string
-    ) => Promise.resolve({ reservation, prevStatus, userId }),
+    updateStatus: () => Promise.resolve({ reservation, prevStatus, userId }),
   }
   const profilesMock = { addNotification: () => Promise.resolve() }
   const streamMock = { freezeChannelById }
