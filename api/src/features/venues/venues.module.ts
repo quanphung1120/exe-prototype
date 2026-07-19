@@ -3,6 +3,7 @@ import { MongooseModule } from "@nestjs/mongoose"
 
 import { PlayersModule } from "../players/players.module.js"
 import { SessionsModule } from "../sessions/sessions.module.js"
+import { StreamModule } from "../stream/stream.module.js"
 import { Venue, VenueSchema } from "./venue.schema.js"
 import { VenueController } from "./venue.controller.js"
 import { VenuesController } from "./venues.controller.js"
@@ -15,6 +16,8 @@ import { VenuesService } from "./venues.service.js"
     // decision → session). PlayersModule gives the decline-notification service.
     forwardRef(() => SessionsModule),
     PlayersModule,
+    // StreamModule: cancel/decline freezes the room's chat (best-effort hook).
+    StreamModule,
   ],
   controllers: [VenuesController, VenueController],
   providers: [VenuesService],

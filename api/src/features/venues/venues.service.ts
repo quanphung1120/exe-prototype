@@ -4,6 +4,7 @@ import {
   forwardRef,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
@@ -43,6 +44,7 @@ import {
 import { isDuplicateKeyError, once } from "../../common/mongo-util.js"
 import { ProfileService } from "../players/profile.service.js"
 import { SessionsService } from "../sessions/sessions.service.js"
+import { roomChannelId, StreamService } from "../stream/stream.service.js"
 import { Venue, type VenueDocument } from "./venue.schema.js"
 
 /**
@@ -237,6 +239,8 @@ function assertWithinHours(
 // persists across restarts.
 @Injectable()
 export class VenuesService {
+  private readonly logger = new Logger(VenuesService.name)
+
   constructor(
     @InjectModel(Venue.name) private readonly venueModel: Model<VenueDocument>,
     // Cross-surface sync: an operator decision updates the linked player session
@@ -245,7 +249,8 @@ export class VenuesService {
     // so no class leaks into the eager decorator metadata (see SessionSyncPort).
     @Inject(forwardRef(() => SessionsService))
     private readonly sessions: SessionSyncPort,
-    private readonly profiles: ProfileService
+    private readonly profiles: ProfileService,
+    private readonly stream: StreamService
   ) {}
 
   // Memoize the one-time seed so concurrent first-requests don't each insert the
@@ -888,6 +893,21 @@ export class VenuesService {
         reason
       )
       if (notify) await this.profiles.addNotification(reservation.userId, notify)
+      // Operator decline/cancel freezes the room's chat (quyết định #13) — keeps
+      // history, blocks new sends. Best-effort: a chat failure (channel never
+      // opened, Stream outage) must never fail the booking decision itself.
+      if (status === "cancelled") {
+        try {
+          await this.stream.freezeChannelById(
+            roomChannelId(reservation.sessionId)
+          )
+        } catch (err) {
+          this.logger.warn(
+            `Failed to freeze room chat for session ${reservation.sessionId}`,
+            err instanceof Error ? err.stack : String(err)
+          )
+        }
+      }
     }
     return reservation
   }

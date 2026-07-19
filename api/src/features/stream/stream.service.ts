@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger } from "@nestjs/common"
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 import type { StreamChat } from "stream-chat"
@@ -27,6 +33,9 @@ export const demoPlayerStreamId = (initials: string) =>
 /** Per-user channel id for a seeded demo chat (never shared between users). */
 export const demoChannelId = (chatId: string, userId: string) =>
   `demo-${chatId}-${userId}`
+
+/** Channel id for a room's real chat — mirrors the web's `roomChannelId`. */
+export const roomChannelId = (roomId: string) => `room-${roomId}`
 
 // The three mock players whose demo channels every new user is seeded with.
 // Their ids/names mirror the first entries of MATCH_SUGGESTIONS (p1/p2/p3).
@@ -201,5 +210,104 @@ export class StreamService {
     })
     await channel.create()
     return { id: input.id }
+  }
+
+  // ── Real room-chat lifecycle (quyết định #13) ──────────────────────────
+  // Distinct from `ensureRoomChannel` above: no mock seeding, only real
+  // members ever added, and every mutation is authorized against the
+  // channel's `created_by` (the host) — the only room model we have until
+  // Phase 9 lands a server-side room with real membership.
+
+  /**
+   * Create a room's chat with only the host as a member — never mocks. Safe
+   * to call once per room, right when it's created (not lazily on first
+   * open). `channel.create()` is idempotent on an existing id and Stream
+   * merges `members` into it, so a later `ensureRoomChannel` call (still used
+   * elsewhere until Phase 9 removes mock seeding) can still add its mock
+   * roster on top without clobbering this call's data.
+   */
+  async createRoomChannel(
+    userId: string,
+    input: { id: string; name: string }
+  ): Promise<{ id: string }> {
+    await this.client.upsertUsers([{ id: userId }])
+    const channel = this.client.channel("messaging", input.id, {
+      name: input.name,
+      created_by_id: userId,
+      members: [userId],
+    })
+    await channel.create()
+    return { id: input.id }
+  }
+
+  /** The Stream-recorded creator (host) of a room channel, or null. */
+  private async channelOwner(channelId: string): Promise<string | null> {
+    const channel = this.client.channel("messaging", channelId)
+    try {
+      const state = await channel.query({
+        state: false,
+        watch: false,
+        presence: false,
+      })
+      return state.channel.created_by?.id ?? state.channel.created_by_id ?? null
+    } catch (err) {
+      const status =
+        (err as { status?: number; StatusCode?: number })?.status ??
+        (err as { status?: number; StatusCode?: number })?.StatusCode
+      if (status === 404) throw new NotFoundException("Phòng chat không tồn tại")
+      throw err
+    }
+  }
+
+  /** Throws unless `userId` is the room's host (its channel `created_by`). */
+  private async assertHost(userId: string, channelId: string): Promise<void> {
+    const createdBy = await this.channelOwner(channelId)
+    if (createdBy !== userId) {
+      throw new ForbiddenException(
+        "Chỉ chủ phòng mới có quyền thực hiện thao tác này"
+      )
+    }
+  }
+
+  /** Host adds a real (non-mock) member to a room's chat — e.g. on approve. */
+  async addRoomMember(
+    userId: string,
+    channelId: string,
+    memberId: string
+  ): Promise<void> {
+    await this.assertHost(userId, channelId)
+    await this.client.upsertUsers([{ id: memberId }])
+    await this.client.channel("messaging", channelId).addMembers([memberId])
+  }
+
+  /**
+   * Remove a member from a room's chat — kick/decline (host-only) or a
+   * member leaving on their own (always allowed to remove themselves).
+   */
+  async removeRoomMember(
+    userId: string,
+    channelId: string,
+    memberId: string
+  ): Promise<void> {
+    if (memberId !== userId) await this.assertHost(userId, channelId)
+    await this.client.channel("messaging", channelId).removeMembers([memberId])
+  }
+
+  /** Host freezes their room's chat (cancel) — keeps history, blocks sends. */
+  async freezeRoomChannel(userId: string, channelId: string): Promise<void> {
+    await this.assertHost(userId, channelId)
+    await this.freezeChannelById(channelId)
+  }
+
+  /**
+   * System-initiated freeze with no caller to authorize — used by the venue
+   * cancel/decline hook, which freezes on the operator's decision rather than
+   * the host's. Best-effort from the caller's side: never let a chat failure
+   * block a booking decision.
+   */
+  async freezeChannelById(channelId: string): Promise<void> {
+    await this.client
+      .channel("messaging", channelId)
+      .updatePartial({ set: { frozen: true } })
   }
 }
