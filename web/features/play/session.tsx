@@ -13,10 +13,8 @@ import {
   durationOf,
   levelMatches,
   locStr,
-  priceFor,
   rangesOverlap,
   sessionToRoom,
-  slotRange,
   type Booking,
   type Conflict,
   type Court,
@@ -43,16 +41,13 @@ import {
   cancelBookingRecord,
   createBookingHold,
 } from "@/features/play/booking-actions"
+import { startPaymentCheckout } from "@/features/play/payment-actions"
 
 /** The dedicated booking-wizard route the Play / book actions navigate to. */
 const BOOK_PATH = "/dashboard/book"
-/** Where a finished or abandoned booking lands when there's no history. */
-const BOOKINGS_PATH = "/dashboard/bookings"
 
 // How long the faked partner search runs before it finds someone.
 const SEARCH_MS = 1800
-// How long the faked payment "processes" before the court is booked.
-const PAY_MS = 1700
 // Largest room a host can grow to.
 const MAX_CAPACITY = 8
 // Most open rooms one player may host at once. Speculative rooms (Quick Match
@@ -83,17 +78,6 @@ interface BookingDraft {
   fillMode: FillMode
   invitees: string[]
 }
-
-type PaymentResult =
-  | {
-      status: "success"
-      amount: number
-    }
-  | {
-      status: "failed"
-      amount: number
-      reason: "declined" | "conflict"
-    }
 
 /** The faked Quick Match search shown in the floating dock. */
 export interface PartnerSearch {
@@ -238,14 +222,19 @@ interface SessionContextValue {
   setFormat: (format: "Singles" | "Doubles") => void
   setFillMode: (mode: FillMode) => void
   toggleInvite: (initials: string) => void
-  /** Faked payment is processing (drives the Pay button + spinner). */
+  /** Creating the booking hold and/or opening the SePay checkout (drives the Pay button + spinner). */
   paying: boolean
-  paymentResult: PaymentResult | null
-  /** Run the faked payment, then finalize the booking on success. */
+  /** Set when starting checkout fails (a 409 conflict, or SePay unreachable) — cleared on retry. */
+  checkoutError: string | null
+  clearCheckoutError: () => void
+  /**
+   * Reserve the court (if not already held) and redirect to SePay's real
+   * checkout — a hidden-form POST, so this actually navigates the browser
+   * away. Payment confirmation happens out-of-band (SePay's IPN); the player
+   * lands back on `/dashboard/bookings/[bookingId]`, which polls
+   * `GET /api/payments/by-booking/:id` for the result.
+   */
   pay: () => void
-  acknowledgePaymentSuccess: () => void
-  dismissPaymentResult: () => void
-  confirmBooking: () => void
   cancelBooking: (id: string) => void
   // ── Conflict (decision 2) ──
   slotBlocked: (slot: string) => boolean
@@ -299,6 +288,32 @@ function hash(s: string): number {
     h = Math.imul(h, 16777619)
   }
   return h >>> 0
+}
+
+/**
+ * Build the HMAC-signed SePay checkout form (`PaymentsService#checkout`'s
+ * `fields`) and submit it as a real, hidden `<form>` POST to `checkoutUrl` —
+ * this is a genuine full-page navigation away from the app to SePay's
+ * hosted checkout, not a fetch, so nothing runs after this call.
+ */
+function submitSepayCheckoutForm(
+  fields: Record<string, string | number | undefined>,
+  checkoutUrl: string
+): void {
+  const form = document.createElement("form")
+  form.method = "POST"
+  form.action = checkoutUrl
+  form.style.display = "none"
+  for (const [name, value] of Object.entries(fields)) {
+    if (value === undefined) continue
+    const input = document.createElement("input")
+    input.type = "hidden"
+    input.name = name
+    input.value = String(value)
+    form.appendChild(input)
+  }
+  document.body.appendChild(form)
+  form.submit()
 }
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -356,8 +371,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     null
   )
-  const [fallbackUserLevel, setFallbackUserLevel] =
-    React.useState<Level>(USER.level)
+  const [fallbackUserLevel, setFallbackUserLevel] = React.useState<Level>(
+    USER.level
+  )
   const [assessmentLevels, setAssessmentLevels] = React.useState<
     Record<AssessmentSport, Level>
   >(() => levelsBySport(null, USER.level))
@@ -381,9 +397,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     emptyDraft(todayIso)
   )
   const [paying, setPaying] = React.useState(false)
-  const [paymentResult, setPaymentResult] =
-    React.useState<PaymentResult | null>(null)
-  const [payAttempts, setPayAttempts] = React.useState(0)
+  const [checkoutError, setCheckoutError] = React.useState<string | null>(null)
 
   // Cross-surface flow-back: the provider seeds its `sessions` once, so an
   // operator's approve/decline (persisted to the same DB) wouldn't otherwise
@@ -444,7 +458,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Awaited variant of {@link persist}, used by the terminal booking writes
-   * (`confirmBooking`/`cancelBooking`) that already awaited the real
+   * (`reserveHold`/`cancelBooking`) that already awaited the real
    * server-side booking mutation and want the session's linkage
    * (venueId/reservationId) durably saved before moving on — still swallows
    * its own error (a failed *persist* shouldn't undo an already-succeeded
@@ -806,9 +820,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             ? {
                 ...x,
                 roster: x.roster.map((p) =>
-                  p.initials === USER.initials
-                    ? { ...p, rsvp: "going" }
-                    : p
+                  p.initials === USER.initials ? { ...p, rsvp: "going" } : p
                 ),
               }
             : x
@@ -1040,7 +1052,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       roster: room.players.map((init) => ({
         name: playerByInitials(init).name,
         initials: init,
-        rsvp: (init === room.host.initials ? "host" : "going"),
+        rsvp: init === room.host.initials ? "host" : "going",
       })),
       level: room.level,
       status: "forming",
@@ -1124,14 +1136,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       ...next,
       roster: [
         ...next.roster,
-        ...invitees.map(
-          (initials): SessionPlayer => ({
-            name: playerByInitials(initials).name,
-            initials,
-            rsvp: "pending",
-            rsvpAt: Date.now(),
-          })
-        ),
+        ...invitees.map((initials): SessionPlayer => ({
+          name: playerByInitials(initials).name,
+          initials,
+          rsvp: "pending",
+          rsvpAt: Date.now(),
+        })),
       ],
     }
     setSessions((prev) => [full, ...prev])
@@ -1186,7 +1196,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                       p.initials === init
                         ? {
                             ...p,
-                            rsvp: (declined ? "declined" : "going"),
+                            rsvp: declined ? "declined" : "going",
                           }
                         : p
                     ),
@@ -1289,14 +1299,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                 ...x,
                 roster: [
                   ...x.roster,
-                  ...partners.map(
-                    (p): SessionPlayer => ({
-                      name: p.name,
-                      initials: p.initials,
-                      rsvp: "pending",
-                      rsvpAt: Date.now(),
-                    })
-                  ),
+                  ...partners.map((p): SessionPlayer => ({
+                    name: p.name,
+                    initials: p.initials,
+                    rsvp: "pending",
+                    rsvpAt: Date.now(),
+                  })),
                 ],
               }
             : x
@@ -1484,8 +1492,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setCourtless(cid === null)
     setStep(0)
     setPaying(false)
-    setPaymentResult(null)
-    setPayAttempts(0)
+    setCheckoutError(null)
     setDraft({
       dayKey: linked ? linked.dayKey : todayIso,
       // Carry the room's proposed start so the wizard pre-fills it (and surfaces
@@ -1552,7 +1559,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // Atomically grow capacity + add players in one setState so the stale-closure
   // guard in invitePlayer (which reads the pre-update sessions) is bypassed.
   // Returns the count actually added (may be < initials.length when at cap 8).
-  const addPlayersToSession = (sessionId: string, initials: string[]): number => {
+  const addPlayersToSession = (
+    sessionId: string,
+    initials: string[]
+  ): number => {
     const s = sessions.find((x) => x.id === sessionId)
     if (!s) return 0
     const fresh = initials.filter(
@@ -1573,14 +1583,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
               capacity: newCapacity,
               roster: [
                 ...x.roster,
-                ...toAdd.map(
-                  (init): SessionPlayer => ({
-                    name: playerByInitials(init).name,
-                    initials: init,
-                    rsvp: "pending",
-                    rsvpAt: Date.now(),
-                  })
-                ),
+                ...toAdd.map((init): SessionPlayer => ({
+                  name: playerByInitials(init).name,
+                  initials: init,
+                  rsvp: "pending",
+                  rsvpAt: Date.now(),
+                })),
               ],
             }
       )
@@ -1590,14 +1598,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   const closeBooking = () => {
-    // Abandon any in-flight faked payment so a stale timer can't fire.
-    const handle = timers.current.get("pay:new:run")
-    if (handle) {
-      clearTimeout(handle)
-      timers.current.delete("pay:new:run")
-    }
     setPaying(false)
-    setPaymentResult(null)
+    setCheckoutError(null)
     setOpen(false)
     // Return to wherever the wizard was opened from.
     router.back()
@@ -1683,7 +1685,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    * doesn't lock the slot forever. Creates a fresh solo `forming` hold if this
    * booking isn't tied to an existing room, else stamps the linked room's
    * hold — either way `linkedId` ends up pointing at the held session, so
-   * {@link confirmBooking} finalizes that same record on payment success.
+   * {@link reserveHold} finalizes that same record when checkout starts.
    */
   const startCourtHold = () => {
     if (!court || !draft.slot || draftConflict) return
@@ -1706,9 +1708,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         pricePerHour: court.pricePerHour,
         holdExpiresAt,
       }
-      setSessions((prev) =>
-        prev.map((s) => (s.id === existing.id ? held : s))
-      )
+      setSessions((prev) => prev.map((s) => (s.id === existing.id ? held : s)))
       persist(held)
       return
     }
@@ -1752,14 +1752,25 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   /**
-   * Finalize the booking on payment success. `conflictFor` above is only a
-   * client-side UX pre-check (catches the common case instantly, no round
-   * trip); `createBookingHold` (`POST /api/bookings`) is the actual
-   * server-validated reservation — a race the pre-check missed surfaces from
-   * there as a 409, handled with the exact same conflict toast.
+   * Ensure a real, server-validated `awaiting_payment` hold exists for the
+   * current draft — `createBookingHold` (`POST /api/bookings`) is the
+   * server-side reservation; `conflictFor` above is only a client-side UX
+   * pre-check (catches the common case instantly, no round trip). Reuses the
+   * linked session's `reservationId` on a retry (e.g. a first checkout
+   * attempt that failed after the hold had already been created) instead of
+   * creating a second, overlapping hold. The server derives the exact same
+   * `booked`/`hold:"pending"` session view for both `awaiting_payment` and
+   * `pending` bookings (see the API's `mapBookingStatus`), so setting that
+   * locally here — before the SePay redirect, before payment is actually
+   * confirmed — doesn't drift once the real payment/venue-approval land.
+   * Returns the bookingId `pay()` starts a SePay checkout for, or null on
+   * failure (already toasted).
    */
-  const confirmBooking = async () => {
-    if (!court || !draft.slot) return
+  const reserveHold = async (): Promise<string | null> => {
+    if (!court || !draft.slot) return null
+    const linked = linkedId ? sessions.find((s) => s.id === linkedId) : null
+    if (linked?.reservationId) return linked.reservationId
+
     const q = {
       courtId: court.id,
       dayKey: draft.dayKey,
@@ -1769,11 +1780,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     if (conflictFor(sessions, q)) {
       toast.error(tb("toast.conflict"))
-      return
+      return null
     }
     const dayLabel = locStr(dayLabelFor(draft.dayKey), locale)
-    const time = slotRange(draft.slot, draft.durationMin)
-    const linked = linkedId ? sessions.find((s) => s.id === linkedId) : null
     const sport = linked?.sport ?? court.sports[0]
     const courtLabel = courtNumberFor(court.id)
     // Resolved up front (not after the server call) so a brand-new booking's
@@ -1795,15 +1804,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // guards against — any other failure degrades to the same message
       // rather than leaving the player stuck with no feedback.
       toast.error(tb("toast.conflict"))
-      return
+      return null
     }
     const summary = result.data
 
     if (linked) {
-      // Transition an existing forming room into a booked one. It arrives
-      // `pending` — the venue operator approves it (or declines with a reason),
-      // which flows back to this session via the seed reconcile.
-      const booked: PlaySession = {
+      // Transition an existing forming room into a held booking. It arrives
+      // `awaiting_payment` — the SePay checkout that follows, then the
+      // venue's approval, both flow back to this session via the seed
+      // reconcile.
+      const held: PlaySession = {
         ...linked,
         status: "booked",
         hold: "pending",
@@ -1821,15 +1831,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         venueId: summary.venueId,
         reservationId: summary.bookingId,
       }
-      setSessions((prev) => prev.map((s) => (s.id === linked.id ? booked : s)))
-      await persistNow(booked)
-      toast.success(tb("toast.pending"), {
-        description: `${court.name} · ${dayLabel} · ${time}`,
-      })
-      setOpen(false)
-      setManagerOpen(true)
-      router.push(BOOKINGS_PATH)
-      return
+      setSessions((prev) => prev.map((s) => (s.id === linked.id ? held : s)))
+      await persistNow(held)
+      return summary.bookingId
     }
 
     // New session, court-first — always a solo court hold. The host grows it
@@ -1869,75 +1873,54 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       reservationId: summary.bookingId,
     }
     setSessions((prev) => [next, ...prev])
+    // A retry after this branch (e.g. checkout failed) needs to find the same
+    // held session again via `linkedId` — see the `linked?.reservationId`
+    // early-return above.
+    setLinkedId(roomId)
     await persistNow(next)
-    toast.success(tb("toast.pending"), {
-      description: `${court.name} · ${dayLabel} · ${time}`,
-    })
-    setOpen(false)
-    router.push(BOOKINGS_PATH)
+    return summary.bookingId
   }
 
+  const clearCheckoutError = () => setCheckoutError(null)
+
   /**
-   * Faked card/QR payment: spin for a beat, then either fail (simulated
-   * card decline — no real payment gateway yet, that's a future phase) or
-   * show success. Success only queues the result dialog; the court is
-   * actually reserved once the player acknowledges it — see
-   * {@link acknowledgePaymentSuccess} / {@link confirmBooking}, which awaits
-   * the real, server-validated `POST /api/bookings` hold.
+   * Reserve the court (creating the DB hold on the first call; reusing it on
+   * a retry), then hand off to SePay's real checkout — `startPaymentCheckout`
+   * (`POST /api/payments/checkout`) returns an HMAC-signed set of form fields
+   * the SDK expects POSTed to `checkoutUrl`, so a hidden `<form>` is built and
+   * submitted here, navigating the browser away from the app entirely.
+   * Payment confirmation happens out-of-band (SePay's IPN → the API's
+   * `BookingsService#confirmPayment`); this function never sees a "success" —
+   * the player lands back on `/dashboard/bookings/[bookingId]`
+   * (`payment-return.tsx`), which polls for the result.
    */
   const pay = () => {
     if (!court || !draft.slot || paying) return
-    const amount = Math.round(priceFor(court.pricePerHour, draft.durationMin) * 0.05)
-    // Never charge for a slot that was taken in the meantime.
     if (draftConflict) {
-      setPaymentResult({
-        status: "failed",
-        amount,
-        reason: "conflict",
-      })
+      toast.error(tb("toast.conflict"))
       return
     }
+    setCheckoutError(null)
     setPaying(true)
-    const key = "pay:new:run"
-    const currentAttempt = payAttempts
-    setPayAttempts((prev) => prev + 1)
-    const handle = setTimeout(() => {
-      timers.current.delete(key)
-      setPaying(false)
-      const shouldFail =
-        currentAttempt === 0 &&
-        hash(
-          `${court.id}:${draft.dayKey}:${draft.slot}:${draft.durationMin}:${linkedId ?? "new"}`
-        ) %
-          5 ===
-        0
-      setPaymentResult(
-        shouldFail
-          ? {
-              status: "failed",
-              amount,
-              reason: "declined",
-            }
-          : {
-              status: "success",
-              amount,
-            }
-      )
-    }, PAY_MS)
-    timers.current.set(key, handle)
-  }
-
-  const dismissPaymentResult = () => {
-    setPaymentResult(null)
-  }
-
-  const acknowledgePaymentSuccess = () => {
-    if (paymentResult?.status !== "success") return
-    setPaymentResult(null)
-    // confirmBooking now awaits the real server-side hold (createBookingHold)
-    // — fire-and-forget here too; it handles/toasts its own failure (a 409
-    // conflict a race slipped past the pre-check) without the caller's help.
-    void confirmBooking()
+    void (async () => {
+      try {
+        const bookingId = await reserveHold()
+        if (!bookingId) return // reserveHold already toasted the failure
+        const result = await startPaymentCheckout(bookingId)
+        if (!result.ok) {
+          console.error("Failed to start SePay checkout", result.message)
+          setCheckoutError(tb("pay.checkoutFailed"))
+          return
+        }
+        submitSepayCheckoutForm(result.data.fields, result.data.checkoutUrl)
+        // The line above navigates the browser away — nothing left to do.
+      } catch (err) {
+        console.error("Payment checkout failed", err)
+        setCheckoutError(tb("pay.checkoutFailed"))
+      } finally {
+        setPaying(false)
+      }
+    })()
   }
 
   /**
@@ -2073,17 +2056,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setFillMode,
     toggleInvite,
     paying,
-    paymentResult,
+    checkoutError,
+    clearCheckoutError,
     pay,
-    acknowledgePaymentSuccess,
-    dismissPaymentResult,
-    // Both now await a real server action internally (createBookingHold /
-    // cancelBookingRecord) — wrapped here so the exposed signature stays the
-    // void-returning event-handler shape the rest of the UI expects; each
-    // handles/toasts its own failure, so there's nothing for the caller to await.
-    confirmBooking: () => {
-      void confirmBooking()
-    },
+    // Awaits a real server action internally (cancelBookingRecord) — wrapped
+    // here so the exposed signature stays the void-returning event-handler
+    // shape the rest of the UI expects; it handles/toasts its own failure,
+    // so there's nothing for the caller to await.
     cancelBooking: (id: string) => {
       void cancelBooking(id)
     },

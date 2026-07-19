@@ -19,6 +19,7 @@ import {
   type BookingSource,
   type NotificationItem,
   type PaymentStatus,
+  type RefundQueueItem,
   type Reservation,
   type ReservationStatus,
   type Venue as VenueInfo,
@@ -321,6 +322,33 @@ export function reservationFromBooking(
     noShowRisk: booking.source === "walk-in" ? 5 : 10,
     isRegular: false,
     declineReason: booking.declineReason,
+  }
+}
+
+/** The minimal shape {@link refundQueueItemFromBooking} reads off a booking. */
+export type RefundQueueLean = Pick<
+  BookingRecord,
+  "bookingId" | "customer" | "courtName" | "dateKey" | "start" | "durationMin" | "refund"
+>
+
+/**
+ * Project one refunded `BookingRecord` to the operator's manual-refund
+ * worklist row (VienTD-Review Phase 4: SePay has no refund API, so every
+ * refund is computed here and settled by hand). Callers filter to
+ * `refund.status === "manual"` first — `refund` is asserted non-null since a
+ * row only reaches this projection once a refund has actually been recorded.
+ */
+export function refundQueueItemFromBooking(
+  booking: RefundQueueLean,
+  todayIso: string
+): RefundQueueItem {
+  return {
+    bookingId: booking.bookingId,
+    customer: booking.customer,
+    court: booking.courtName,
+    day: dayLabelFor(booking.dateKey, todayIso),
+    time: slotRange(booking.start, booking.durationMin),
+    refund: booking.refund!,
   }
 }
 

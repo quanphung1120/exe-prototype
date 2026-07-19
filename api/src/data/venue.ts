@@ -759,6 +759,7 @@ export function emptyOps(courts: VenueCourt[] = []): VenueOps {
     stats: { ...EMPTY_STATS },
     courts,
     reservations: [],
+    refundQueue: [],
     customers: [],
     revenueSeries: EMPTY_REVENUE_SERIES.map((p) => ({ ...p })),
     sportMix: sports.map((sport) => ({ sport, bookings: 0, pct: 0 })),
@@ -776,6 +777,10 @@ export const INITIAL_VENUES: VenueRecord[] = [
       stats: VENUE_STATS,
       courts: VENUE_COURTS,
       reservations: RESERVATIONS,
+      // Seed venue docs carry no manual refunds — real ones only ever
+      // appear via `composeBundle`'s live `listRefundQueue` projection,
+      // same as `reservations` above (see the comment on `composeBundle`).
+      refundQueue: [],
       customers: VENUE_CUSTOMERS,
       revenueSeries: REVENUE_SERIES,
       sportMix: SPORT_MIX,

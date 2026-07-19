@@ -573,6 +573,22 @@ export interface BookingRecord {
   statusHistory: BookingStatusEvent[]
 }
 
+/**
+ * One booking still owing a manual refund — SePay has no refund API (see
+ * {@link BookingRefund}), so every computed refund lands here for a venue
+ * operator to settle by hand (bank transfer) instead of automatically.
+ * Distinct from {@link Reservation} (frozen to the pre-existing venue UI
+ * contract) since no other reservation view needs `refund`.
+ */
+export interface RefundQueueItem {
+  bookingId: string
+  customer: BookingCustomer
+  court: string
+  day: Localized
+  time: string
+  refund: BookingRefund
+}
+
 // ── Venue: customers (CRM) ───────────────────────────────────────────────────
 
 export type CustomerTier = "vip" | "regular" | "new" | "at-risk"
@@ -707,6 +723,8 @@ export interface VenueSeed {
   stats: VenueStats
   courts: VenueCourt[]
   reservations: Reservation[]
+  /** Bookings still owing a manual refund — the operator's settle-by-hand worklist. */
+  refundQueue: RefundQueueItem[]
   customers: VenueCustomer[]
   revenueSeries: RevenuePoint[]
   sportMix: SportMixPoint[]

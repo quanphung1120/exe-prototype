@@ -10,7 +10,6 @@ import {
   Lock,
   MapPin,
   Plus,
-  QrCode,
   Search,
   ShieldCheck,
   Star,
@@ -19,14 +18,6 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import {
   COURT_OPEN_FROM,
@@ -72,70 +63,6 @@ import { CourtImage } from "@/features/dashboard/shared"
 const CARD =
   "rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 sm:p-6 dark:ring-foreground/10"
 
-/**
- * A deterministic, decorative QR-like glyph — NOT a scannable code. Modules are
- * derived from a string seed (no Date/random) so SSR and client renders agree.
- */
-function FakeQr({ seed }: { seed: string }) {
-  const N = 21
-  const inFinder = (x: number, y: number) => {
-    const box = (bx: number, by: number) =>
-      x >= bx && x <= bx + 6 && y >= by && y <= by + 6
-    return box(0, 0) || box(N - 7, 0) || box(0, N - 7)
-  }
-  let h = 2166136261 >>> 0
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i)
-    h = Math.imul(h, 16777619) >>> 0
-  }
-  const cells: { x: number; y: number }[] = []
-  for (let y = 0; y < N; y++) {
-    for (let x = 0; x < N; x++) {
-      if (inFinder(x, y)) continue
-      h ^= (x + 1) * 374761393 + (y + 1) * 668265263
-      h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0
-      if (h % 100 < 48) cells.push({ x, y })
-    }
-  }
-  const finder = (bx: number, by: number) => (
-    <g key={`f-${bx}-${by}`}>
-      <rect x={bx} y={by} width={7} height={7} rx={1.4} fill="currentColor" />
-      <rect x={bx + 1} y={by + 1} width={5} height={5} rx={1} fill="white" />
-      <rect
-        x={bx + 2}
-        y={by + 2}
-        width={3}
-        height={3}
-        rx={0.6}
-        fill="currentColor"
-      />
-    </g>
-  )
-  return (
-    <svg
-      viewBox="0 0 21 21"
-      className="size-40 text-neutral-900"
-      role="img"
-      aria-hidden
-      shapeRendering="crispEdges"
-    >
-      {cells.map((c) => (
-        <rect
-          key={`${c.x}-${c.y}`}
-          x={c.x}
-          y={c.y}
-          width={1}
-          height={1}
-          fill="currentColor"
-        />
-      ))}
-      {finder(0, 0)}
-      {finder(N - 7, 0)}
-      {finder(0, N - 7)}
-    </svg>
-  )
-}
-
 /** Segmented single-select chips (same pattern as the Quick Join filters). */
 function Segmented<T extends string>({
   value,
@@ -175,8 +102,8 @@ function Label({ children }: { children: React.ReactNode }) {
 /**
  * The court-booking wizard, rendered as a full dashboard page (it used to live
  * in a small dialog, which left no room for the day calendar — especially on
- * phones). The flow, steps and faked payment are unchanged; only the chrome
- * around them is now a page with a sticky action bar and a roomy calendar.
+ * phones). The flow/steps are unchanged; the pay step now hands off to a real
+ * SePay checkout instead of a faked QR (see `pay` in `session.tsx`).
  */
 export function BookView() {
   const t = useTranslations("Booking")
@@ -202,10 +129,9 @@ export function BookView() {
     setDuration,
     pickSlot,
     paying,
-    paymentResult,
+    checkoutError,
+    clearCheckoutError,
     pay,
-    acknowledgePaymentSuccess,
-    dismissPaymentResult,
   } = useBooking()
   const { courts: COURTS, dayLabelFor } = useData()
 
@@ -521,7 +447,7 @@ export function BookView() {
 
             {/* Booking details */}
             <div className="flex flex-col gap-3.5">
-              <p className="font-heading text-lg font-semibold leading-tight">
+              <p className="font-heading text-lg leading-tight font-semibold">
                 {t("summary")}
               </p>
               {[
@@ -529,13 +455,24 @@ export function BookView() {
                   label: t("when"),
                   value: `${locStr(dayLabelFor(draft.dayKey), locale)} · ${slotRange(draft.slot, draft.durationMin)}`,
                 },
-                { label: t("durationLabel"), value: formatDuration(draft.durationMin) },
+                {
+                  label: t("durationLabel"),
+                  value: formatDuration(draft.durationMin),
+                },
                 ...(roomId
-                  ? [{ label: t("format"), value: tc(`format.${draft.format.toLowerCase()}`) }]
+                  ? [
+                      {
+                        label: t("format"),
+                        value: tc(`format.${draft.format.toLowerCase()}`),
+                      },
+                    ]
                   : []),
                 { label: t("players"), value: playersLine },
               ].map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between gap-3 text-base">
+                <div
+                  key={label}
+                  className="flex items-center justify-between gap-3 text-base"
+                >
                   <span className="text-muted-foreground">{label}</span>
                   <span className="text-right font-medium">{value}</span>
                 </div>
@@ -568,7 +505,7 @@ export function BookView() {
           </div>
         ) : null}
 
-        {/* PAY — bank transfer via QR only */}
+        {/* PAY — real SePay checkout (a redirect); no card/QR entry in-app */}
         {stepName === "pay" && court && draft.slot ? (
           <div className={cn(CARD, "flex flex-col gap-6")}>
             {/* Court name + location */}
@@ -601,97 +538,41 @@ export function BookView() {
 
             <div className="h-px bg-border" />
 
-            {/* QR */}
-            <div className="flex flex-col items-center gap-4">
-              <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
-                <FakeQr seed={`${court.id}:${draft.dayKey}:${draft.slot}`} />
+            {/* SePay hosts the actual checkout (VietQR/card) — this button
+                submits a hidden, HMAC-signed form there (see session.tsx#pay). */}
+            <div className="flex flex-col items-center gap-3 py-2 text-center">
+              <div className="grid size-14 place-items-center rounded-full bg-brand/10 text-brand">
+                <ShieldCheck className="size-6" />
               </div>
-              <div className="text-center">
-                <p className="text-base font-medium">{t("pay.qrAccount")}</p>
-                <p className="font-mono text-sm text-muted-foreground tabular-nums">
-                  {formatVndFull(total)}
-                </p>
-              </div>
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <QrCode className="size-4 shrink-0" />
-                {t("pay.qrHint")}
+              <p className="max-w-sm text-sm text-muted-foreground">
+                {t("pay.redirectNotice")}
               </p>
             </div>
 
-            <p className="inline-flex items-center justify-center gap-1.5 border-t border-border pt-2 text-sm text-muted-foreground">
-              <ShieldCheck className="size-4 shrink-0" />
-              {t("pay.secure")}
+            {checkoutError ? (
+              <div className="flex items-center gap-2.5 rounded-2xl bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+                <TriangleAlert className="size-4 shrink-0" />
+                <span>{checkoutError}</span>
+              </div>
+            ) : null}
+
+            <p className="border-t border-border pt-3 text-center text-xs text-muted-foreground">
+              {t("pay.refundPolicy")}
             </p>
           </div>
         ) : null}
       </div>
 
       {/* Action bar — sticky on phones so the primary action stays reachable. */}
-      <Dialog
-        open={paymentResult !== null}
-        onOpenChange={(open) => {
-          if (!open) dismissPaymentResult()
-        }}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {paymentResult?.status === "success"
-                ? t("pay.result.successTitle")
-                : t("pay.result.failedTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              {paymentResult?.status === "success"
-                ? t("pay.result.successBody", {
-                    amount: formatVndFull(paymentResult.amount),
-                  })
-                : t(
-                    paymentResult?.reason === "conflict"
-                      ? "pay.result.failedConflict"
-                      : "pay.result.failedBody",
-                    { amount: formatVndFull(paymentResult?.amount ?? 0) }
-                  )}
-            </DialogDescription>
-          </DialogHeader>
-          <div
-            className={cn(
-              "flex items-center gap-3 rounded-3xl px-4 py-3 text-sm",
-              paymentResult?.status === "success"
-                ? "bg-brand/10 text-brand"
-                : "bg-destructive/10 text-destructive"
-            )}
-          >
-            {paymentResult?.status === "success" ? (
-              <Check className="size-5 shrink-0" />
-            ) : (
-              <TriangleAlert className="size-5 shrink-0" />
-            )}
-            <span>
-              {paymentResult?.status === "success"
-                ? t("pay.result.successHint")
-                : t("pay.result.failedHint")}
-            </span>
-          </div>
-          <DialogFooter>
-            {paymentResult?.status === "success" ? (
-              <Button className="rounded-full" onClick={acknowledgePaymentSuccess}>
-                {t("pay.result.successCta")}
-              </Button>
-            ) : (
-              <Button className="rounded-full" onClick={dismissPaymentResult}>
-                {t("pay.result.failedCta")}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between gap-2 border-t border-border bg-background/90 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
         {step > 0 ? (
           <Button
             variant="outline"
             className="rounded-full"
-            onClick={back}
+            onClick={() => {
+              if (stepName === "pay") clearCheckoutError()
+              back()
+            }}
             disabled={paying}
           >
             {t("back")}
@@ -700,7 +581,11 @@ export function BookView() {
           <span />
         )}
         {stepName === "pay" ? (
-          <Button className="h-11 rounded-full px-5 text-base" disabled={!canPay} onClick={pay}>
+          <Button
+            className="h-11 rounded-full px-5 text-base"
+            disabled={!canPay}
+            onClick={pay}
+          >
             {paying ? (
               <>
                 <Loader2 className="animate-spin" />
@@ -722,7 +607,11 @@ export function BookView() {
             {t("toPayment")}
           </Button>
         ) : (
-          <Button className="h-11 rounded-full px-5 text-base" disabled={!canNext} onClick={next}>
+          <Button
+            className="h-11 rounded-full px-5 text-base"
+            disabled={!canNext}
+            onClick={next}
+          >
             {t("next")}
           </Button>
         )}
@@ -1043,4 +932,3 @@ function CourtPickCard({
     </div>
   )
 }
-

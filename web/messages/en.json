@@ -376,9 +376,7 @@
       "expiry": "Expiry",
       "cvc": "CVC",
       "cardName": "Name on card",
-      "qrAccount": "SPORTMATCH AI JSC",
       "qrOnly": "We accept bank transfer via QR only.",
-      "qrHint": "Scan with your banking app to pay",
       "ewalletHint": "You'll be redirected to {wallet} to approve the payment.",
       "wallets": {
         "momo": "MoMo",
@@ -386,19 +384,11 @@
       },
       "collectHint": "You'll collect {amount}/player from your team afterward",
       "payNow": "Pay {amount}",
-      "processing": "Processing…",
-      "secure": "Demo payment — no card is charged",
-      "result": {
-        "successTitle": "Payment successful",
-        "successBody": "We received {amount}. Confirm to finish the booking and lock the court.",
-        "successHint": "Your slot is ready to be confirmed.",
-        "successCta": "Finish booking",
-        "failedTitle": "Payment failed",
-        "failedBody": "The payment for {amount} did not go through. Please try again.",
-        "failedConflict": "That time slot was taken while you were paying. Pick another slot and try again.",
-        "failedHint": "No booking was created.",
-        "failedCta": "Try again"
-      }
+      "processing": "Redirecting to checkout…",
+      "redirectNotice": "You'll be redirected to SePay's checkout (VietQR or card) to complete payment.",
+      "refundPolicy": "If a booking is cancelled or declined, any refund is sent by manual bank transfer within 24–48 business hours — we never refund instantly.",
+      "checkoutFailed": "Couldn't open checkout — please try again.",
+      "secure": "Payment is secured by SePay."
     },
     "roomTitle": "{sport} at {court}",
     "toast": {
@@ -567,6 +557,21 @@
         "day": "Fri, 13 Jun"
       }
     }
+  },
+  "PaymentReturn": {
+    "metaTitle": "Confirming payment",
+    "waitingTitle": "Confirming your payment…",
+    "waitingBody": "Hang tight — we're confirming the transaction with SePay.",
+    "paidTitle": "Payment successful",
+    "paidBody": "We received {amount}. Your court is now waiting on the venue's approval.",
+    "paidBodyGeneric": "Payment received. Your court is now waiting on the venue's approval.",
+    "cancelledTitle": "Transaction not completed",
+    "cancelledBody": "The payment was cancelled or didn't complete. Your court stays held until the hold expires — you can retry payment from My Bookings.",
+    "timeoutTitle": "Still waiting for confirmation",
+    "timeoutBody": "Confirming is taking longer than expected. Please check back in My Bookings in a few minutes.",
+    "errorTitle": "Couldn't check status",
+    "errorBody": "Something went wrong checking your payment. Please check back in My Bookings.",
+    "viewBookings": "View my bookings"
   },
   "Landing": {
     "hero": {
@@ -1346,6 +1351,11 @@
       "reasonPlaceholder": "e.g. court under maintenance during this slot",
       "cancel": "Cancel",
       "confirm": "Confirm decline"
+    },
+    "refundQueue": {
+      "title": "Manual refund queue",
+      "hint": "SePay has no automatic refund — please wire the refund by hand for these within 24–48 business hours.",
+      "pct": "{pct}% refund"
     },
     "summary": {
       "pending": "Awaiting approval",

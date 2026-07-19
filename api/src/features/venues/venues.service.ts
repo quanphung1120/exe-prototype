@@ -176,8 +176,11 @@ export class VenuesService {
    * is stale/legacy and never read here (see BookingsService#listForVenue).
    */
   private async composeBundle(rec: VenueRecord): Promise<VenueSeed> {
-    const reservations = await this.bookings.listForVenue(rec.info.id)
-    return { info: rec.info, ...rec.ops, reservations }
+    const [reservations, refundQueue] = await Promise.all([
+      this.bookings.listForVenue(rec.info.id),
+      this.bookings.listRefundQueue(rec.info.id),
+    ])
+    return { info: rec.info, ...rec.ops, reservations, refundQueue }
   }
 
   /** The active venue's full operator bundle (the seed's `venue` payload). */

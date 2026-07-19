@@ -8,6 +8,7 @@ import {
   courtDayEvents as courtDayEventsFn,
   type ChannelMixPoint,
   type PeakHourPoint,
+  type RefundQueueItem,
   type Reservation,
   type RevenuePoint,
   type ScheduleEvent,
@@ -33,6 +34,8 @@ interface VenueDataContextValue {
   venueStats: VenueStats
   venueCourts: VenueCourt[]
   reservations: Reservation[]
+  /** Bookings still owing a manual refund (SePay has no refund API) — read-only. */
+  refundQueue: RefundQueueItem[]
   venueCustomers: VenueCustomer[]
   revenueSeries: RevenuePoint[]
   sportMix: SportMixPoint[]
@@ -278,6 +281,7 @@ export function VenueDataProvider({
       venueStats: seed.stats,
       venueCourts: courts,
       reservations,
+      refundQueue: seed.refundQueue,
       venueCustomers: customers,
       revenueSeries: seed.revenueSeries,
       sportMix: seed.sportMix,

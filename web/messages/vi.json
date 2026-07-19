@@ -376,9 +376,7 @@
       "expiry": "Hết hạn",
       "cvc": "CVC",
       "cardName": "Tên trên thẻ",
-      "qrAccount": "CÔNG TY CP SPORTMATCH AI",
       "qrOnly": "Chúng tôi chỉ nhận chuyển khoản qua QR.",
-      "qrHint": "Quét bằng ứng dụng ngân hàng của bạn để trả",
       "ewalletHint": "Bạn sẽ được chuyển sang {wallet} để duyệt thanh toán.",
       "wallets": {
         "momo": "MoMo",
@@ -386,19 +384,11 @@
       },
       "collectHint": "Bạn sẽ thu lại {amount}/người từ đội của mình sau đó",
       "payNow": "Trả {amount}",
-      "processing": "Đang xử lý…",
-      "secure": "Thanh toán demo — không trừ tiền thẻ",
-      "result": {
-        "successTitle": "Thanh toán thành công",
-        "successBody": "Hệ thống đã nhận {amount}. Xác nhận để hoàn tất đặt sân và giữ chỗ.",
-        "successHint": "Khung giờ của bạn đã sẵn sàng để chốt.",
-        "successCta": "Hoàn tất đặt sân",
-        "failedTitle": "Thanh toán thất bại",
-        "failedBody": "Giao dịch {amount} chưa hoàn tất. Vui lòng thử lại.",
-        "failedConflict": "Khung giờ này vừa có người khác đặt trong lúc bạn thanh toán. Hãy chọn giờ khác rồi thử lại.",
-        "failedHint": "Chưa có booking nào được tạo.",
-        "failedCta": "Thử lại"
-      }
+      "processing": "Đang chuyển đến trang thanh toán…",
+      "redirectNotice": "Quý khách sẽ được chuyển đến trang thanh toán của SePay (VietQR hoặc thẻ) để hoàn tất giao dịch.",
+      "refundPolicy": "Nếu lượt đặt bị huỷ hoặc bị từ chối, khoản hoàn tiền (nếu có) sẽ được chuyển khoản thủ công trong vòng 24–48 giờ làm việc — chúng tôi không hoàn tiền tức thì.",
+      "checkoutFailed": "Không thể mở trang thanh toán — vui lòng thử lại.",
+      "secure": "Thanh toán được bảo mật bởi SePay."
     },
     "roomTitle": "{sport} tại {court}",
     "toast": {
@@ -567,6 +557,21 @@
         "day": "Fri, 13 Jun"
       }
     }
+  },
+  "PaymentReturn": {
+    "metaTitle": "Xác nhận thanh toán",
+    "waitingTitle": "Đang xác nhận thanh toán…",
+    "waitingBody": "Vui lòng chờ trong giây lát — chúng tôi đang xác nhận giao dịch với SePay.",
+    "paidTitle": "Thanh toán thành công",
+    "paidBody": "Đã nhận {amount}. Sân của bạn đang chờ chủ sân duyệt.",
+    "paidBodyGeneric": "Đã nhận thanh toán. Sân của bạn đang chờ chủ sân duyệt.",
+    "cancelledTitle": "Giao dịch chưa hoàn tất",
+    "cancelledBody": "Thanh toán đã bị huỷ hoặc chưa hoàn tất. Sân vẫn được giữ đến khi hết thời gian giữ chỗ — quý khách có thể thử thanh toán lại từ Đặt sân của tôi.",
+    "timeoutTitle": "Chưa nhận được xác nhận",
+    "timeoutBody": "Việc xác nhận đang mất nhiều thời gian hơn dự kiến. Vui lòng kiểm tra lại trong Đặt sân của tôi sau ít phút.",
+    "errorTitle": "Không thể kiểm tra trạng thái",
+    "errorBody": "Đã có lỗi khi kiểm tra thanh toán. Vui lòng kiểm tra lại trong Đặt sân của tôi.",
+    "viewBookings": "Xem đặt sân của tôi"
   },
   "Landing": {
     "hero": {
@@ -1346,6 +1351,11 @@
       "reasonPlaceholder": "Ví dụ: sân đang bảo trì trong khung giờ này",
       "cancel": "Huỷ",
       "confirm": "Xác nhận từ chối"
+    },
+    "refundQueue": {
+      "title": "Hàng đợi hoàn tiền thủ công",
+      "hint": "SePay không hỗ trợ hoàn tiền tự động — vui lòng chuyển khoản thủ công cho các lượt dưới đây trong vòng 24–48 giờ làm việc.",
+      "pct": "Hoàn {pct}%"
     },
     "summary": {
       "pending": "Chờ duyệt",

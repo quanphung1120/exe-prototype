@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Banknote,
   CalendarClock,
   Check,
   Clock,
@@ -53,6 +54,7 @@ import {
   locStr,
   reservationStatusAccent,
   type BookingSource,
+  type RefundQueueItem,
   type Reservation,
   type ReservationStatus,
 } from "@/features/venue/data"
@@ -276,6 +278,7 @@ export function VenueReservationsView({
   const {
     venueId,
     reservations: RESERVATIONS,
+    refundQueue: REFUND_QUEUE,
     updateReservation,
   } = useVenueData()
 
@@ -510,6 +513,13 @@ export function VenueReservationsView({
         </Table>
       </VenuePanel>
 
+      {/* Manual refund queue — SePay has no refund API, so every computed
+          refund (decline/cancellation) waits here for a bank transfer by
+          hand. Read-only: settling one still happens outside the app. */}
+      {REFUND_QUEUE.length ? (
+        <RefundQueuePanel items={REFUND_QUEUE} t={t} locale={locale} />
+      ) : null}
+
       {/* Decline reason — required before the decline is sent to the player. */}
       <ReasonDialog
         open={declineTarget !== null}
@@ -659,5 +669,65 @@ function SummaryStat({
         <p className="mt-1 truncate text-xs text-muted-foreground">{hint}</p>
       </div>
     </div>
+  )
+}
+
+// ── Manual refund queue ──────────────────────────────────────────────────────
+
+/**
+ * SePay has no refund API (decision #3/#9) — a decline or a player
+ * cancellation only *computes* the refund and stamps it `refund.status:
+ * "manual"` (see `BookingsService#applyRefund`). This surfaces every such
+ * booking as a read-only worklist so the operator can wire the money by
+ * hand; there's no "mark as settled" action yet (a future phase's `ref`
+ * field is where that would land).
+ */
+function RefundQueuePanel({
+  items,
+  t,
+  locale,
+}: {
+  items: RefundQueueItem[]
+  t: Translate
+  locale: string
+}) {
+  return (
+    <VenuePanel title={t("refundQueue.title")} icon={Banknote}>
+      <p className="-mt-1 text-sm text-muted-foreground">
+        {t("refundQueue.hint")}
+      </p>
+      <ul className="flex flex-col divide-y divide-border">
+        {items.map((item) => (
+          <li
+            key={item.bookingId}
+            className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar className="size-8 shrink-0">
+                <AvatarFallback className="text-xs">
+                  {item.customer.initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">
+                  {item.customer.name}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {item.court} · {locStr(item.day, locale)} · {item.time}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="font-mono text-sm font-semibold tabular-nums">
+                {formatVnd(item.refund.amount)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t("refundQueue.pct", { pct: item.refund.pct })}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </VenuePanel>
   )
 }

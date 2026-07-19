@@ -17,6 +17,7 @@ import {
   canTransitionBooking,
   type BookingRecordStatus,
   type PaymentStatus,
+  type RefundQueueItem,
   type Reservation,
   type SportKey,
   type VenueCourt,
@@ -40,6 +41,7 @@ import {
   buildBookingRecord,
   decisionNotification,
   refundPctFor,
+  refundQueueItemFromBooking,
   reservationFromBooking,
   userBookingsOverlap,
   type BookingSlot,
@@ -202,6 +204,21 @@ export class BookingsService {
       .lean()
     const today = isoDateOf(vnNowIso())
     return docs.map((d) => reservationFromBooking(d, today))
+  }
+
+  /**
+   * Every booking for a venue still owing a manual refund — SePay has no
+   * refund API (decision #3/#9), so `applyRefund` below only *computes* the
+   * refund and stamps `refund.status: "manual"`; this is the operator's
+   * settle-by-hand worklist derived from that field, oldest refund first.
+   */
+  async listRefundQueue(venueId: string): Promise<RefundQueueItem[]> {
+    const docs = await this.bookingModel
+      .find({ venueId, "refund.status": "manual" })
+      .sort({ "refund.at": 1 })
+      .lean()
+    const today = isoDateOf(vnNowIso())
+    return docs.map((d) => refundQueueItemFromBooking(d, today))
   }
 
   /**
