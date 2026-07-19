@@ -10,19 +10,25 @@ import {
   Footprints,
   Grid3x3,
   Smartphone,
+  Sparkles,
   TrendingUp,
   UserPlus,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 import { formatVnd, formatVndFull } from "@/features/dashboard/data"
+import { useData } from "@/features/dashboard/data-provider"
 import { useVenueData } from "@/features/venue/venue-data-provider"
 import {
+  computeUtilizationHeatmap,
   HEATMAP_DAYS,
   HEATMAP_HOURS,
+  heatmapRowLabels,
   locStr,
   utilizationHeatmap,
   type BookingSource,
+  type InsightSeverity,
 } from "@/features/venue/data"
 import {
   Meter,
@@ -31,6 +37,13 @@ import {
   VenuePanel,
   VenueStat,
 } from "@/features/venue/shared"
+
+/** Severity → dot tint, staying on the existing risk-tier palette. */
+const SEVERITY_DOT: Record<InsightSeverity, string> = {
+  info: "bg-chart-2",
+  warn: "bg-amber-500",
+  critical: "bg-destructive",
+}
 
 const CHANNEL_ICON: Record<
   BookingSource,
@@ -54,14 +67,21 @@ export function VenueAnalyticsView({
   const t = useTranslations("VenueAnalytics")
   const tc = useTranslations("Common")
   const locale = useLocale()
+  const { todayIso } = useData()
   const {
     channelMix: CHANNEL_MIX,
     peakHours: PEAK_HOURS,
+    reservations: RESERVATIONS,
     revenueSeries: REVENUE_SERIES,
     sportMix: SPORT_MIX,
     venue: VENUE,
+    venueCourts: VENUE_COURTS,
+    venueInsights: VENUE_INSIGHTS,
     venueStats: VENUE_STATS,
   } = useVenueData()
+  // A venue with a real operator gets real analytics end to end (server-side
+  // series + a real heatmap here); AI insights below stay seeded either way.
+  const isOwned = Boolean(VENUE.ownerId)
 
   // ── Revenue rollup (deterministic — no Date/random) ──
   const weeklyTotal = REVENUE_SERIES.reduce((sum, d) => sum + d.value, 0)
@@ -74,12 +94,17 @@ export function VenueAnalyticsView({
     ? (revLabels[revValues.indexOf(peakRevenue)] ?? "")
     : ""
 
-  // Per-venue heatmap; a venue with no activity yet shows a zeroed grid instead
-  // of a fabricated (or the flagship's) pattern.
+  // Per-venue heatmap. An owned venue always gets its real heatmap (computed
+  // from its own reservations — zeroed cells are an honest "no bookings yet"
+  // rather than a fabricated pattern); a demo venue with no seeded activity
+  // yet shows a zeroed grid instead of the flagship's hashed pattern.
   const hasActivity = weeklyTotal > 0
-  const heatmap = hasActivity
-    ? utilizationHeatmap(VENUE.id)
-    : HEATMAP_DAYS.map(() => HEATMAP_HOURS.map(() => 0))
+  const heatmap = isOwned
+    ? computeUtilizationHeatmap(VENUE_COURTS, RESERVATIONS, todayIso)
+    : hasActivity
+      ? utilizationHeatmap(VENUE.id)
+      : HEATMAP_DAYS.map(() => HEATMAP_HOURS.map(() => 0))
+  const heatmapDayLabels = isOwned ? heatmapRowLabels(todayIso) : HEATMAP_DAYS
 
   return (
     <div className="flex flex-col gap-5">
@@ -209,7 +234,7 @@ export function VenueAnalyticsView({
                     className="grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] items-center gap-1"
                   >
                     <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-                      {locStr(HEATMAP_DAYS[d], locale)}
+                      {locStr(heatmapDayLabels[d], locale)}
                     </span>
                     {row.map((v, h) => (
                       <HeatCell key={h} value={v} />
@@ -362,6 +387,47 @@ export function VenueAnalyticsView({
           </p>
         </VenuePanel>
       </div>
+
+      {/* AI insights — always seeded sample content, never computed from real
+          bookings (unlike the KPIs/charts above), so it always carries the
+          "Demo AI" chip regardless of whether the venue is real or a demo. */}
+      <VenuePanel
+        title={t("insights.title")}
+        icon={Sparkles}
+        action={
+          <Badge variant="secondary" className="gap-1">
+            <Sparkles className="size-3" />
+            {t("insights.demoChip")}
+          </Badge>
+        }
+      >
+        <p className="-mt-1 text-xs text-muted-foreground">
+          {t("insights.subtitle")}
+        </p>
+        <div className="flex flex-col divide-y divide-border/60">
+          {VENUE_INSIGHTS.map((insight) => (
+            <div key={insight.id} className="flex items-start gap-3 py-3">
+              <span
+                className={cn(
+                  "mt-1.5 size-2 shrink-0 rounded-full",
+                  SEVERITY_DOT[insight.severity]
+                )}
+              />
+              <div className="flex flex-1 flex-col gap-0.5">
+                <p className="text-sm font-medium">
+                  {locStr(insight.title, locale)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {locStr(insight.detail, locale)}
+                </p>
+              </div>
+              <span className="shrink-0 font-mono text-[11px] font-semibold text-brand tabular-nums">
+                {locStr(insight.impact, locale)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </VenuePanel>
     </div>
   )
 }

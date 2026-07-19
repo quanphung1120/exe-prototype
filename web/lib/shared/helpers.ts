@@ -16,7 +16,9 @@ import {
 import type {
   Booking,
   BookingPlayer,
+  BookingSource,
   BookingStatus,
+  ChannelMixPoint,
   Conflict,
   ConflictQuery,
   Court,
@@ -25,10 +27,12 @@ import type {
   Localized,
   LocalizedList,
   MatchRoom,
+  PeakHourPoint,
   Player,
   PlaySession,
   Reservation,
   ReservationStatus,
+  RevenuePoint,
   RoomLevel,
   RosterEntry,
   Rsvp,
@@ -37,6 +41,7 @@ import type {
   SessionPlayer,
   SessionStatus,
   SportKey,
+  SportMixPoint,
   TrustTier,
   User,
   Venue,
@@ -260,7 +265,7 @@ export function combineDateTime(dateIso: string, hhmm: string): string {
 }
 
 /** Mon-first weekday short label (reuses the heatmap's localized weekday names). */
-function weekdayLabel(dateIso: string): Localized {
+export function weekdayLabel(dateIso: string): Localized {
   const mondayIndex = (weekdayOf(dateIso) + 6) % 7
   return HEATMAP_DAYS[mondayIndex]
 }
@@ -818,13 +823,20 @@ export const courtById = (courts: VenueCourt[], id: string) =>
  * with gaps and off-the-hour starts, denser toward the evening peak. A
  * maintenance court is a single all-day block. Same court + day → same schedule
  * (no Date/random), so server and client renders agree.
+ *
+ * `fillerEnabled` (default true) gates only the fabricated busy blocks below —
+ * a real court's `maintenance` status still renders (it's genuine operator
+ * data, not filler). Venues with a real operator (`info.ownerId`) pass `false`
+ * so the schedule shows an honest empty grid instead of invented bookings; the
+ * caller still overlays real reservations on top regardless.
  */
 export function courtDayEvents(
   venue: Venue,
   courts: VenueCourt[],
   courtId: string,
   dayKey: string,
-  todayIso: string
+  todayIso: string,
+  fillerEnabled = true
 ): ScheduleEvent[] {
   const court = courtById(courts, courtId)
   const sport: SportKey = court?.sport ?? "badminton"
@@ -846,6 +858,8 @@ export function courtDayEvents(
       },
     ]
   }
+
+  if (!fillerEnabled) return []
 
   const events: ScheduleEvent[] = []
   let cursor = open
@@ -1092,4 +1106,139 @@ export function computeVenueStats(
     noShowRate,
     newCustomers: newIds.size,
   }
+}
+
+// ── Venue: full analytics computed from real reservations (owned venues) ────
+//
+// `computeVenueStats` above overrides just the four hybrid KPIs. The
+// functions below go further and recompute the *chart series* themselves —
+// used only for venues with a real operator (`info.ownerId`); demo venues
+// keep their curated, hardcoded series (see `VenuesService.withComputedStats`).
+
+/** A reservation's "HH:MM" start, falling back to parsing the legacy `time` range. */
+function reservationStart(reservation: Reservation): string | null {
+  if (reservation.start) return reservation.start
+  const [start] = reservation.time.match(/(\d{2}:\d{2})/g) ?? []
+  return start ?? null
+}
+
+/** A reservation that actually happened (or is still live) — excludes declines. */
+function isLiveBooking(reservation: Reservation): boolean {
+  return reservation.status !== "cancelled"
+}
+
+const BOOKING_SOURCES: BookingSource[] = ["app", "walk-in"]
+
+/** The last 7 calendar dates ending `todayIso` (oldest → today), "YYYY-MM-DD". */
+function last7DaysIso(todayIso: string): string[] {
+  return Array.from({ length: 7 }, (_, i) => addDaysIso(todayIso, i - 6))
+}
+
+/**
+ * Real weekday labels (oldest → today) for the last-7-day window ending
+ * `todayIso` — labels {@link computeUtilizationHeatmap}'s rows so a real
+ * venue's heatmap reads its actual weekdays instead of the demo's fixed
+ * Mon–Sun axis (which isn't anchored to real dates).
+ */
+export function heatmapRowLabels(todayIso: string): Localized[] {
+  return last7DaysIso(todayIso).map(weekdayLabel)
+}
+
+/** Real last-7-day revenue (oldest → today), VND, from a venue's own reservations. */
+export function computeRevenueSeries(
+  reservations: Reservation[],
+  todayIso: string
+): RevenuePoint[] {
+  return last7DaysIso(todayIso).map((dateIso) => {
+    const value = reservations
+      .filter(
+        (r) =>
+          reservationDay(r) === dateIso &&
+          (r.status === "confirmed" || r.status === "completed")
+      )
+      .reduce((sum, r) => sum + r.price, 0)
+    return { label: weekdayLabel(dateIso), value }
+  })
+}
+
+/** Real share of live bookings per sport, from a venue's own reservations. */
+export function computeSportMix(reservations: Reservation[]): SportMixPoint[] {
+  const live = reservations.filter(isLiveBooking)
+  const bySport = new Map<SportKey, number>()
+  for (const r of live) bySport.set(r.sport, (bySport.get(r.sport) ?? 0) + 1)
+  const total = live.length
+  return [...bySport.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([sport, bookings]) => ({
+      sport,
+      bookings,
+      pct: total ? Math.round((bookings / total) * 100) : 0,
+    }))
+}
+
+/** Real app-vs-walk-in split of live bookings, from a venue's own reservations. */
+export function computeChannelMix(reservations: Reservation[]): ChannelMixPoint[] {
+  const live = reservations.filter(isLiveBooking)
+  const total = live.length
+  return BOOKING_SOURCES.map((source) => {
+    const count = live.filter((r) => r.source === source).length
+    return { source, pct: total ? Math.round((count / total) * 100) : 0 }
+  })
+}
+
+/**
+ * Real busiest hours: for each hour on the schedule grid, the share of the
+ * venue's courts with a live, non-cancelled reservation overlapping it — the
+ * top 4, busiest first. From a venue's own reservations, no fabrication.
+ */
+export function computePeakHours(
+  courts: VenueCourt[],
+  reservations: Reservation[]
+): PeakHourPoint[] {
+  const live = reservations.filter(isLiveBooking)
+  const totalCourts = Math.max(1, courts.length)
+  return SCHEDULE_HOURS.map((hour) => {
+    const occupiedCourts = new Set<string>()
+    for (const r of live) {
+      const start = reservationStart(r)
+      if (!start) continue
+      if (rangesOverlap(hour, 60, start, reservationMinutes(r))) {
+        occupiedCourts.add(r.courtId ?? r.court)
+      }
+    }
+    return { hour, util: Math.round((occupiedCourts.size / totalCourts) * 100) }
+  })
+    .sort((a, b) => b.util - a.util)
+    .slice(0, 4)
+}
+
+/**
+ * Real 7-day × {@link HEATMAP_HOURS} utilization grid (oldest → today; pair
+ * with {@link heatmapRowLabels} for row labels) — share of the venue's courts
+ * with a live reservation overlapping each 2-hour column, from the venue's
+ * own reservations. Counterpart to the seeded, hash-based
+ * {@link utilizationHeatmap} used for demo venues.
+ */
+export function computeUtilizationHeatmap(
+  courts: VenueCourt[],
+  reservations: Reservation[],
+  todayIso: string
+): number[][] {
+  const live = reservations.filter(isLiveBooking)
+  const totalCourts = Math.max(1, courts.length)
+  return last7DaysIso(todayIso).map((dateIso) => {
+    const dayReservations = live.filter((r) => reservationDay(r) === dateIso)
+    return HEATMAP_HOURS.map((hh) => {
+      const hour = `${hh}:00`
+      const occupiedCourts = new Set<string>()
+      for (const r of dayReservations) {
+        const start = reservationStart(r)
+        if (!start) continue
+        if (rangesOverlap(hour, 120, start, reservationMinutes(r))) {
+          occupiedCourts.add(r.courtId ?? r.court)
+        }
+      }
+      return Math.round((occupiedCourts.size / totalCourts) * 100)
+    })
+  })
 }

@@ -13,6 +13,10 @@ import {
   addMinutes,
   canTransitionReservation,
   combineDateTime,
+  computeChannelMix,
+  computePeakHours,
+  computeRevenueSeries,
+  computeSportMix,
   computeVenueStats,
   dayLabelFor,
   diffMinutes,
@@ -319,17 +323,31 @@ export class VenuesService {
    * Override the four hybrid KPIs (revenue/utilization/no-show/new-customers)
    * with values computed from the venue's real reservations before serving,
    * leaving every other stat/series at its seeded value (see computeVenueStats).
+   *
+   * For a venue with a real operator (`info.ownerId` set) this goes further and
+   * recomputes the chart series themselves — revenue/sport-mix/channel-mix/peak
+   * hours — from that venue's own reservations, so the analytics view is
+   * honest for a real business. Demo venues (no owner) keep their curated,
+   * hardcoded series; AI insights are never computed either way — they stay
+   * seeded, and the web marks them with a fixed "Demo AI" chip.
    */
   private withComputedStats(bundle: VenueSeed): VenueSeed {
+    const todayIso = isoDateOf(vnNowIso())
+    const stats = computeVenueStats(
+      bundle.info,
+      bundle.courts,
+      bundle.reservations,
+      bundle.stats,
+      todayIso
+    )
+    if (!bundle.info.ownerId) return { ...bundle, stats }
     return {
       ...bundle,
-      stats: computeVenueStats(
-        bundle.info,
-        bundle.courts,
-        bundle.reservations,
-        bundle.stats,
-        isoDateOf(vnNowIso())
-      ),
+      stats,
+      revenueSeries: computeRevenueSeries(bundle.reservations, todayIso),
+      sportMix: computeSportMix(bundle.reservations),
+      channelMix: computeChannelMix(bundle.reservations),
+      peakHours: computePeakHours(bundle.courts, bundle.reservations),
     }
   }
 

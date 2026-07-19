@@ -1430,6 +1430,11 @@
       "title": "Khung giờ cao điểm",
       "caption": "Khung bận nhất",
       "note": "Những khung này hết chỗ trước tiên — hãy định giá và bố trí nhân sự phù hợp."
+    },
+    "insights": {
+      "title": "Gợi ý AI",
+      "demoChip": "AI minh hoạ",
+      "subtitle": "Gợi ý minh hoạ mang tính demo — chưa được tạo từ dữ liệu đặt sân thật của sân này."
     }
   },
   "VenueInsights": {
