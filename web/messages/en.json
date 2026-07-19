@@ -405,6 +405,7 @@
       "booked": "Court booked",
       "pending": "Request sent — waiting for operator approval",
       "cancelled": "Booking cancelled",
+      "cancelFailed": "Couldn't cancel this booking — please try again.",
       "conflict": "That slot was just taken — choose another time.",
       "holdExpired": "Your court hold expired and was released"
     },

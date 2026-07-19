@@ -39,6 +39,10 @@ import {
   type AssessmentSport,
 } from "@/features/assessment/player-assessment"
 import { saveSession } from "@/features/play/session-actions"
+import {
+  cancelBookingRecord,
+  createBookingHold,
+} from "@/features/play/booking-actions"
 
 /** The dedicated booking-wizard route the Play / book actions navigate to. */
 const BOOK_PATH = "/dashboard/book"
@@ -435,9 +439,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // optimistic source of truth, so a failed write only forfeits durability and
   // never blocks or reverts the UI.
   const persist = (session: PlaySession) => {
-    void saveSession(session).catch((err: unknown) => {
+    void persistNow(session)
+  }
+
+  /**
+   * Awaited variant of {@link persist}, used by the terminal booking writes
+   * (`confirmBooking`/`cancelBooking`) that already awaited the real
+   * server-side booking mutation and want the session's linkage
+   * (venueId/reservationId) durably saved before moving on — still swallows
+   * its own error (a failed *persist* shouldn't undo an already-succeeded
+   * booking mutation the player has seen confirmed).
+   */
+  const persistNow = async (session: PlaySession): Promise<void> => {
+    try {
+      await saveSession(session)
+    } catch (err: unknown) {
       console.error("Failed to persist session", err)
-    })
+    }
   }
 
   React.useEffect(() => {
@@ -1733,7 +1751,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setLinkedId(id)
   }
 
-  const confirmBooking = () => {
+  /**
+   * Finalize the booking on payment success. `conflictFor` above is only a
+   * client-side UX pre-check (catches the common case instantly, no round
+   * trip); `createBookingHold` (`POST /api/bookings`) is the actual
+   * server-validated reservation — a race the pre-check missed surfaces from
+   * there as a 409, handled with the exact same conflict toast.
+   */
+  const confirmBooking = async () => {
     if (!court || !draft.slot) return
     const q = {
       courtId: court.id,
@@ -1751,6 +1776,28 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const linked = linkedId ? sessions.find((s) => s.id === linkedId) : null
     const sport = linked?.sport ?? court.sports[0]
     const courtLabel = courtNumberFor(court.id)
+    // Resolved up front (not after the server call) so a brand-new booking's
+    // hold links to the same session id it's about to be created under.
+    const roomId = linked?.id ?? newId("bk")
+
+    const result = await createBookingHold({
+      courtId: court.id,
+      dateKey: draft.dayKey,
+      start: draft.slot,
+      durationMin: draft.durationMin,
+      sessionId: roomId,
+    })
+    if (!result.ok) {
+      if (result.status !== 409) {
+        console.error("Failed to create booking hold", result.message)
+      }
+      // A 409 here is the same race conflictFor's pre-check above already
+      // guards against — any other failure degrades to the same message
+      // rather than leaving the player stuck with no feedback.
+      toast.error(tb("toast.conflict"))
+      return
+    }
+    const summary = result.data
 
     if (linked) {
       // Transition an existing forming room into a booked one. It arrives
@@ -1771,11 +1818,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         district: court.district,
         distanceKm: court.distanceKm,
         pricePerHour: court.pricePerHour,
+        venueId: summary.venueId,
+        reservationId: summary.bookingId,
       }
-      setSessions((prev) =>
-        prev.map((s) => (s.id === linked.id ? booked : s))
-      )
-      persist(booked)
+      setSessions((prev) => prev.map((s) => (s.id === linked.id ? booked : s)))
+      await persistNow(booked)
       toast.success(tb("toast.pending"), {
         description: `${court.name} · ${dayLabel} · ${time}`,
       })
@@ -1787,14 +1834,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
     // New session, court-first — always a solo court hold. The host grows it
     // into a room (and invites players) afterward from the booking.
-    const id = newId("bk")
     const host: SessionPlayer = {
       name: userName,
       initials: USER.initials,
       rsvp: "host",
     }
     const next: PlaySession = {
-      id,
+      id: roomId,
       title: tb("roomTitle", {
         sport: tc(`sports.${sport}`),
         court: court.name,
@@ -1819,9 +1865,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       district: court.district,
       distanceKm: court.distanceKm,
       pricePerHour: court.pricePerHour,
+      venueId: summary.venueId,
+      reservationId: summary.bookingId,
     }
     setSessions((prev) => [next, ...prev])
-    persist(next)
+    await persistNow(next)
     toast.success(tb("toast.pending"), {
       description: `${court.name} · ${dayLabel} · ${time}`,
     })
@@ -1830,8 +1878,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   /**
-   * Faked card/QR payment: spin for a beat, then run the real booking
-   * finalize. The court is only held once "payment" clears.
+   * Faked card/QR payment: spin for a beat, then either fail (simulated
+   * card decline — no real payment gateway yet, that's a future phase) or
+   * show success. Success only queues the result dialog; the court is
+   * actually reserved once the player acknowledges it — see
+   * {@link acknowledgePaymentSuccess} / {@link confirmBooking}, which awaits
+   * the real, server-validated `POST /api/bookings` hold.
    */
   const pay = () => {
     if (!court || !draft.slot || paying) return
@@ -1882,12 +1934,39 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const acknowledgePaymentSuccess = () => {
     if (paymentResult?.status !== "success") return
     setPaymentResult(null)
-    confirmBooking()
+    // confirmBooking now awaits the real server-side hold (createBookingHold)
+    // — fire-and-forget here too; it handles/toasts its own failure (a 409
+    // conflict a race slipped past the pre-check) without the caller's help.
+    void confirmBooking()
   }
 
-  const cancelBooking = (id: string) => {
+  /**
+   * Cancel a booking. When it's linked to a real reservation, awaits
+   * `cancelBookingRecord` (`POST /api/bookings/:id/cancel`) first — the
+   * server computes the ≥24h/<24h/after-start refund and is the source of
+   * truth for `refunded`/`cancelReason`. A session that never made it past a
+   * client-only draft (no `reservationId`) has nothing to cancel server-side
+   * and reverts purely locally, same as before.
+   */
+  const cancelBooking = async (id: string) => {
     const s = sessions.find((x) => x.id === id)
     if (!s) return
+
+    let refunded: boolean | undefined
+    let cancelReason: string | undefined
+    if (s.reservationId) {
+      const result = await cancelBookingRecord(s.reservationId)
+      if (!result.ok) {
+        console.error("Failed to cancel booking", result.message)
+        toast.error(tb("toast.cancelFailed"))
+        return
+      }
+      refunded =
+        result.data.paymentStatus === "refunded" ||
+        result.data.paymentStatus === "partial_refund"
+      cancelReason = result.data.cancelReason
+    }
+
     if (s.listed) {
       // Keep the team's room open, drop the court hold (revert to forming).
       const reverted: PlaySession = {
@@ -1896,12 +1975,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         hold: undefined,
         courtLabel: null,
         slot: null,
+        venueId: undefined,
+        reservationId: undefined,
       }
       setSessions((prev) => prev.map((x) => (x.id === id ? reverted : x)))
       persist(reverted)
     } else {
       clearTimersFor(id)
-      const cancelled: PlaySession = { ...s, status: "cancelled" }
+      const cancelled: PlaySession = {
+        ...s,
+        status: "cancelled",
+        refunded,
+        cancelReason,
+      }
       setSessions((prev) => prev.map((x) => (x.id === id ? cancelled : x)))
       dropJoined(id)
       persist(cancelled)
@@ -1991,8 +2077,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     pay,
     acknowledgePaymentSuccess,
     dismissPaymentResult,
-    confirmBooking,
-    cancelBooking,
+    // Both now await a real server action internally (createBookingHold /
+    // cancelBookingRecord) — wrapped here so the exposed signature stays the
+    // void-returning event-handler shape the rest of the UI expects; each
+    // handles/toasts its own failure, so there's nothing for the caller to await.
+    confirmBooking: () => {
+      void confirmBooking()
+    },
+    cancelBooking: (id: string) => {
+      void cancelBooking(id)
+    },
     slotBlocked,
     draftConflict,
     courtBusy,

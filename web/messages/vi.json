@@ -405,6 +405,7 @@
       "booked": "Đã đặt sân",
       "pending": "Đã gửi yêu cầu — chờ chủ sân duyệt",
       "cancelled": "Đã hủy đặt sân",
+      "cancelFailed": "Không thể hủy lượt đặt này — vui lòng thử lại.",
       "conflict": "Khung giờ này vừa có người đặt — hãy chọn giờ khác.",
       "holdExpired": "Thời gian giữ sân đã hết và sân đã được thả"
     },
