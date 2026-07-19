@@ -289,11 +289,7 @@ export interface ActivityItem {
 // ── Notifications ────────────────────────────────────────────────────────────
 
 export type NotificationKind =
-  | "match"
-  | "chat"
-  | "booking"
-  | "rating"
-  | "streak"
+  "match" | "chat" | "booking" | "rating" | "streak"
 
 export interface NotificationItem {
   id: string
@@ -346,6 +342,15 @@ export interface Venue {
   /** Geographic position for the Find Courts map (WGS84); courts inherit it. */
   lat?: number
   lng?: number
+  /**
+   * Archived (soft-deleted) — VienTD-Review decision #11. Set by `DELETE
+   * /api/venues` in place of a hard delete, guarded on future pending/confirmed
+   * bookings; cleared via `updateVenue({ archived: false })` to restore. An
+   * archived venue still occupies the one-venue-per-account slot (see
+   * `Venue.ownerId`'s unique index) — the manage UI offers "Khôi phục", not a
+   * fresh setup, until this is cleared.
+   */
+  archived?: boolean
 }
 
 // ── Venue: physical courts ───────────────────────────────────────────────────
@@ -367,6 +372,48 @@ export interface VenueCourt {
   /** Share of today's open hours this court is booked, 0–100. */
   utilToday: number
   pricePerHour: number
+  /**
+   * Archived (soft-deleted) — VienTD-Review decision #11. Set by `DELETE
+   * /api/venues/courts/:courtId` in place of a hard delete, guarded on future
+   * pending/confirmed bookings; cleared via `updateCourt({ archived: false })`
+   * to restore. Excluded from the discovery catalog (`catalogCourts`), the
+   * walk-in picker and new court blocks; `findVenueByCourtId` deliberately does
+   * NOT filter on it, so a historical booking still resolves its venue.
+   */
+  archived?: boolean
+}
+
+// ── Venue: court blocks ──────────────────────────────────────────────────────
+
+/**
+ * Why a court is closed off to booking for a slot (VienTD-Review decision
+ * #12) — always required, never inferred.
+ */
+export const COURT_BLOCK_REASONS = [
+  "maintenance",
+  "internal",
+  "vip",
+  "break",
+] as const
+export type CourtBlockReason = (typeof COURT_BLOCK_REASONS)[number]
+
+/**
+ * A real entity (not the old per-court `maintenance` flag) reserving a
+ * court/day/time window against both app bookings and walk-ins — created via
+ * `POST /api/venues/blocks`, lifted via `DELETE /api/venues/blocks/:blockId`.
+ * Stored on the venue doc's `ops.blocks` (a `blockSeq` high-water counter
+ * mints `id`, mirroring `VenueCourt.id`'s `courtSeq`); older persisted venue
+ * docs predate this array, so every internal read defaults it with `?? []`.
+ */
+export interface CourtBlock {
+  id: string
+  courtId: string
+  /** ISO date ("YYYY-MM-DD"), Asia/Ho_Chi_Minh. */
+  dateKey: string
+  start: string
+  durationMin: number
+  reason: CourtBlockReason
+  note?: string
 }
 
 // ── Venue: headline KPIs ─────────────────────────────────────────────────────
@@ -428,12 +475,7 @@ export interface ScheduleEvent {
 
 export type BookingSource = "app" | "walk-in"
 export type ReservationStatus =
-  | "pending"
-  | "confirmed"
-  | "checked-in"
-  | "completed"
-  | "cancelled"
-  | "no-show"
+  "pending" | "confirmed" | "checked-in" | "completed" | "cancelled" | "no-show"
 
 export interface Reservation {
   id: string
@@ -700,6 +742,7 @@ export interface VenueSeed {
   courts: VenueCourt[]
   reservations: Reservation[]
   customers: VenueCustomer[]
+  blocks: CourtBlock[]
   revenueSeries: RevenuePoint[]
   sportMix: SportMixPoint[]
   channelMix: ChannelMixPoint[]

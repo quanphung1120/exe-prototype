@@ -1,13 +1,14 @@
 // Pure helpers for the bookings feature — no Mongo/Nest DI, so these are
 // unit-testable without a database (see test/booking-helpers.test.ts).
 
-import { BadRequestException } from "@nestjs/common"
+import { BadRequestException, ConflictException } from "@nestjs/common"
 import { Types } from "mongoose"
 
 import {
   addMinutes,
   combineDateTime,
   dayLabelFor,
+  overlapsBlock,
   priceFor,
   rangesOverlap,
   slotRange,
@@ -17,6 +18,7 @@ import {
   type BookingRecord,
   type BookingRecordStatus,
   type BookingSource,
+  type CourtBlock,
   type NotificationItem,
   type PaymentStatus,
   type Reservation,
@@ -48,29 +50,28 @@ export function assertWithinHours(
   }
 }
 
-// ── Court blocks (seam for Phase 6) ─────────────────────────────────────────
+// ── Court blocks (VienTD-Review decision #12) ───────────────────────────────
 
 /**
- * Seam for Phase 6 court-block enforcement (VienTD-Review decision #12): once
- * `CourtBlock` entities exist (start/end + a required reason, rejecting
- * booking/walk-in overlap), this is the single call site that will query them
- * and throw a `ConflictException` on overlap — see `bookings.service.ts#createHold`.
- * No blocks exist yet, so this is a deliberate no-op today.
+ * Reject a slot that overlaps a real `CourtBlock` (start/end + a required
+ * reason) — the single guard both the app-booking hold (`createHold`) and the
+ * walk-in path (`createWalkIn`) run before writing, so an operator-blocked
+ * window (maintenance/internal/vip/break) rejects both sources the same way.
+ * `blocks` is the venue doc's `ops.blocks ?? []` (older persisted docs predate
+ * the array) — the caller loads it, this stays a pure predicate.
  */
 export function assertNoCourtBlock(
-  venueId: string,
+  blocks: CourtBlock[],
   courtId: string,
   dateKey: string,
   start: string,
   durationMin: number
 ): void {
-  // Intentionally empty — Phase 6 fills this in. Referencing the params (as a
-  // no-op) keeps the seam's signature exact without an unused-args lint error.
-  void venueId
-  void courtId
-  void dateKey
-  void start
-  void durationMin
+  if (overlapsBlock(blocks, courtId, dateKey, start, durationMin)) {
+    throw new ConflictException(
+      "Khung giờ này đã bị khoá (bảo trì/nội bộ) — vui lòng chọn khung giờ khác"
+    )
+  }
 }
 
 // ── Overlap ──────────────────────────────────────────────────────────────────
@@ -116,6 +117,40 @@ export function bookingsOverlap(
     if (excludeId && b.bookingId === excludeId) return false
     if (b.courtId !== courtId || b.dateKey !== dateKey) return false
     if (NON_BLOCKING_STATUSES.has(b.status)) return false
+    return rangesOverlap(start, durationMin, b.start, b.durationMin)
+  })
+}
+
+/**
+ * Statuses that hold a slot against a *new court block* — narrower than
+ * `NON_BLOCKING_STATUSES`'s complement: an unpaid `awaiting_payment` hold and
+ * a historical `completed` stay booking-blocking in general, but per
+ * VienTD-Review decision #12 a block is only rejected for a *live* booking —
+ * "pending/confirmed/checked-in" — so the operator can still block out a slot
+ * whose old completed/expired booking has since wrapped up.
+ */
+const LIVE_BOOKING_STATUSES = new Set<BookingRecordStatus>([
+  "pending",
+  "confirmed",
+  "checked-in",
+])
+
+/**
+ * True when a proposed court block overlaps a *live* booking (pending,
+ * confirmed or checked-in) on that court+day — VienTD-Review decision #12:
+ * "reject block đè lên reservation confirmed" (and its pending/checked-in
+ * kin). Pure, mirroring `bookingsOverlap`'s shape/pre-filtering contract.
+ */
+export function liveBookingOverlap(
+  existing: BookingSlot[],
+  courtId: string,
+  dateKey: string,
+  start: string,
+  durationMin: number
+): boolean {
+  return existing.some((b) => {
+    if (b.courtId !== courtId || b.dateKey !== dateKey) return false
+    if (!LIVE_BOOKING_STATUSES.has(b.status)) return false
     return rangesOverlap(start, durationMin, b.start, b.durationMin)
   })
 }

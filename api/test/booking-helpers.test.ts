@@ -14,11 +14,13 @@ import {
   CreateBookingDto,
 } from "../src/features/bookings/bookings.dto.js"
 import {
+  assertNoCourtBlock,
   assertWithinHours,
   bookingsOverlap,
   bookingSlotFields,
   bookingSummaryFrom,
   buildBookingRecord,
+  liveBookingOverlap,
   refundPctFor,
   reservationFromBooking,
   userBookingsOverlap,
@@ -26,7 +28,7 @@ import {
   type UserBookingSlot,
 } from "../src/features/bookings/booking.helpers.js"
 import { addMinutesToIso } from "../src/shared/index.js"
-import type { Venue, VenueCourt } from "../src/shared/index.js"
+import type { CourtBlock, Venue, VenueCourt } from "../src/shared/index.js"
 
 /**
  * Pure-helper tests for the Phase 2 bookings feature: the overlap guard's
@@ -124,6 +126,82 @@ void test("bookingsOverlap excludes the booking being moved/re-written", () => {
     bookingsOverlap(existing, "v9c1", TODAY_ISO, "18:00", 60, "self"),
     false
   )
+})
+
+// ── assertNoCourtBlock / liveBookingOverlap (decision #12) ──────────────────
+
+function makeBlock(overrides: Partial<CourtBlock> = {}): CourtBlock {
+  return {
+    id: "v9b1",
+    courtId: "v9c1",
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+    reason: "maintenance",
+    ...overrides,
+  }
+}
+
+void test("assertNoCourtBlock throws a Conflict on an overlapping block", () => {
+  const blocks = [makeBlock({ start: "18:00", durationMin: 60 })]
+  assert.throws(
+    () => assertNoCourtBlock(blocks, "v9c1", TODAY_ISO, "18:30", 30),
+    ConflictException
+  )
+})
+
+void test("assertNoCourtBlock is silent on a different court/day or a non-overlapping time", () => {
+  const blocks = [makeBlock({ start: "18:00", durationMin: 60 })]
+  assert.doesNotThrow(() =>
+    assertNoCourtBlock(blocks, "v9c2", TODAY_ISO, "18:00", 60)
+  )
+  assert.doesNotThrow(() =>
+    assertNoCourtBlock(blocks, "v9c1", "2026-07-21", "18:00", 60)
+  )
+  assert.doesNotThrow(() =>
+    assertNoCourtBlock(blocks, "v9c1", TODAY_ISO, "19:00", 60)
+  )
+})
+
+void test("assertNoCourtBlock is silent with no blocks (older venue docs default to [])", () => {
+  assert.doesNotThrow(() =>
+    assertNoCourtBlock([], "v9c1", TODAY_ISO, "18:00", 60)
+  )
+})
+
+void test("liveBookingOverlap blocks only pending/confirmed/checked-in, not completed/cancelled/no-show/expired/awaiting_payment", () => {
+  const live: BookingSlot[] = ["pending", "confirmed", "checked-in"].map(
+    (status, i) =>
+      makeSlot({
+        bookingId: `live-${i}`,
+        status: status as BookingSlot["status"],
+      })
+  )
+  for (const slot of live) {
+    assert.ok(
+      liveBookingOverlap([slot], "v9c1", TODAY_ISO, "18:00", 60),
+      `expected ${slot.status} to block a new court block`
+    )
+  }
+  const notLive: BookingSlot[] = [
+    "completed",
+    "cancelled",
+    "no-show",
+    "expired",
+    "awaiting_payment",
+  ].map((status, i) =>
+    makeSlot({
+      bookingId: `dead-${i}`,
+      status: status as BookingSlot["status"],
+    })
+  )
+  for (const slot of notLive) {
+    assert.equal(
+      liveBookingOverlap([slot], "v9c1", TODAY_ISO, "18:00", 60),
+      false,
+      `expected ${slot.status} to NOT block a new court block`
+    )
+  }
 })
 
 // ── assertWithinHours ────────────────────────────────────────────────────────
@@ -306,7 +384,9 @@ void test("isTransactionsUnsupported rejects unrelated errors, including our own
 
 // ── userBookingsOverlap (Phase 3: self-overlap hard block, decision #8) ──────
 
-function makeUserSlot(overrides: Partial<UserBookingSlot> = {}): UserBookingSlot {
+function makeUserSlot(
+  overrides: Partial<UserBookingSlot> = {}
+): UserBookingSlot {
   return {
     bookingId: "b1",
     dateKey: TODAY_ISO,

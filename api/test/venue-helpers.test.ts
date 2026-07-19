@@ -8,16 +8,25 @@ import { validateSync } from "class-validator"
 
 import {
   canTransitionBooking,
+  computeCustomerStats,
   computeVenueStats,
+  overlapsBlock,
   venueCourtToCourt,
 } from "../src/shared/helpers.js"
 import type {
+  CourtBlock,
   Reservation,
   Venue,
   VenueCourt,
+  VenueCustomer,
   VenueStats,
 } from "../src/shared/index.js"
-import { ReservationStatusDto } from "../src/features/venues/venues.dto.js"
+import {
+  CourtBlockInputDto,
+  CourtPatchDto,
+  ReservationStatusDto,
+  VenuePatchDto,
+} from "../src/features/venues/venues.dto.js"
 
 /**
  * Pure-helper tests for the cross-surface backbone (VienTD-Review #08): the
@@ -320,4 +329,241 @@ void test("computeVenueStats counts distinct app users + walk-in phones, minus c
   )
   // distinct kept keys: u1, phone 0911, u2 → 3
   assert.equal(stats.newCustomers, 3)
+})
+
+// ── computeCustomerStats (Phase 6, decision #15/default) ────────────────────
+
+function makeCustomer(overrides: Partial<VenueCustomer> = {}): VenueCustomer {
+  return {
+    id: "0900000000",
+    name: "Khách",
+    initials: "K",
+    favoriteSport: "badminton",
+    visits: 99, // seeded values the recompute must fully replace
+    lastVisit: { en: "Never", vi: "Chưa từng" },
+    ltv: 99,
+    noShowRate: 99,
+    tier: "vip",
+    trend: 0,
+    ...overrides,
+  }
+}
+
+void test("computeCustomerStats matches a walk-in customer by phone", () => {
+  const customer = makeCustomer({ id: "0911111111" })
+  const reservations = [
+    makeReservation({
+      id: "a",
+      status: "completed",
+      price: 200000,
+      customer: { name: "K", initials: "K", phone: "0911111111" },
+      userId: undefined,
+    }),
+    makeReservation({
+      id: "b",
+      status: "completed",
+      price: 300000,
+      customer: { name: "Other", initials: "O", phone: "0922222222" },
+      userId: undefined,
+    }), // a different phone — excluded
+  ]
+  const [result] = computeCustomerStats([customer], reservations)
+  assert.equal(result?.visits, 1)
+  assert.equal(result?.ltv, 200000)
+})
+
+void test("computeCustomerStats matches a linked app customer by userId, not phone", () => {
+  const customer = makeCustomer({ id: "user-1", userId: "user-1" })
+  const reservations = [
+    makeReservation({
+      id: "a",
+      status: "completed",
+      price: 200000,
+      userId: "user-1",
+      customer: { name: "K", initials: "K" },
+    }),
+  ]
+  const [result] = computeCustomerStats([customer], reservations)
+  assert.equal(result?.visits, 1)
+})
+
+void test("computeCustomerStats counts visits/ltv only from completed bookings", () => {
+  const customer = makeCustomer({ id: "0911111111" })
+  const phone = "0911111111"
+  const reservations = [
+    makeReservation({
+      id: "a",
+      status: "completed",
+      price: 100000,
+      customer: { name: "K", initials: "K", phone },
+    }),
+    makeReservation({
+      id: "b",
+      status: "confirmed", // not a visit yet
+      price: 999999,
+      customer: { name: "K", initials: "K", phone },
+    }),
+    makeReservation({
+      id: "c",
+      status: "cancelled", // never a visit
+      price: 999999,
+      customer: { name: "K", initials: "K", phone },
+    }),
+  ]
+  const [result] = computeCustomerStats([customer], reservations)
+  assert.equal(result?.visits, 1)
+  assert.equal(result?.ltv, 100000)
+})
+
+void test("computeCustomerStats derives noShowRate over completed/checked-in/no-show only", () => {
+  const customer = makeCustomer({ id: "0911111111" })
+  const phone = "0911111111"
+  const reservations = [
+    makeReservation({
+      id: "a",
+      status: "no-show",
+      customer: { name: "K", initials: "K", phone },
+    }),
+    makeReservation({
+      id: "b",
+      status: "completed",
+      customer: { name: "K", initials: "K", phone },
+    }),
+    makeReservation({
+      id: "c",
+      status: "pending", // ignored
+      customer: { name: "K", initials: "K", phone },
+    }),
+  ]
+  const [result] = computeCustomerStats([customer], reservations)
+  // 1 no-show / 2 counted = 50%
+  assert.equal(result?.noShowRate, 50)
+})
+
+void test("computeCustomerStats tiers: at-risk (trend<=-20) beats the visit-count bands", () => {
+  const reservations: Reservation[] = []
+  const [result] = computeCustomerStats(
+    [makeCustomer({ id: "0911111111", visits: 0, trend: -34 })],
+    reservations
+  )
+  assert.equal(result?.tier, "at-risk")
+})
+
+void test("computeCustomerStats tiers: vip at >=40 visits, regular at >=10, else new", () => {
+  const phone = "0911111111"
+  const completed = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      makeReservation({
+        id: `c${i}`,
+        status: "completed",
+        customer: { name: "K", initials: "K", phone },
+      })
+    )
+  const vip = computeCustomerStats(
+    [makeCustomer({ id: phone, trend: 0 })],
+    completed(40)
+  )[0]
+  const regular = computeCustomerStats(
+    [makeCustomer({ id: phone, trend: 0 })],
+    completed(10)
+  )[0]
+  const brandNew = computeCustomerStats(
+    [makeCustomer({ id: phone, trend: 0 })],
+    completed(0)
+  )[0]
+  assert.equal(vip?.tier, "vip")
+  assert.equal(regular?.tier, "regular")
+  assert.equal(brandNew?.tier, "new")
+})
+
+void test("computeCustomerStats leaves lastVisit/trend untouched (not re-derived)", () => {
+  const customer = makeCustomer({
+    id: "0911111111",
+    trend: 7,
+    lastVisit: { en: "3 weeks ago", vi: "3 tuần trước" },
+  })
+  const [result] = computeCustomerStats([customer], [])
+  assert.equal(result?.trend, 7)
+  assert.deepEqual(result?.lastVisit, { en: "3 weeks ago", vi: "3 tuần trước" })
+})
+
+// ── overlapsBlock (Phase 6, decision #12) ────────────────────────────────────
+
+function makeBlock(overrides: Partial<CourtBlock> = {}): CourtBlock {
+  return {
+    id: "v9b1",
+    courtId: "v9c1",
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+    reason: "maintenance",
+    ...overrides,
+  }
+}
+
+void test("overlapsBlock is true for an overlapping slot on the same court+day", () => {
+  const blocks = [makeBlock()]
+  assert.ok(overlapsBlock(blocks, "v9c1", TODAY_ISO, "18:30", 30))
+})
+
+void test("overlapsBlock ignores a different court, a different day, or a non-overlapping time", () => {
+  const blocks = [makeBlock()]
+  assert.equal(overlapsBlock(blocks, "v9c2", TODAY_ISO, "18:00", 60), false)
+  assert.equal(overlapsBlock(blocks, "v9c1", TOMORROW_ISO, "18:00", 60), false)
+  assert.equal(overlapsBlock(blocks, "v9c1", TODAY_ISO, "19:00", 60), false)
+})
+
+// ── venues.dto.ts: archived + court-block validation (Phase 6) ──────────────
+
+function dtoErrors(cls: new () => object, input: unknown): number {
+  const dto = plainToInstance(cls, input)
+  return validateSync(dto).length
+}
+
+void test("VenuePatchDto/CourtPatchDto accept an optional boolean archived field", () => {
+  assert.equal(dtoErrors(VenuePatchDto, {}), 0)
+  assert.equal(dtoErrors(VenuePatchDto, { archived: true }), 0)
+  assert.equal(dtoErrors(VenuePatchDto, { archived: false }), 0)
+  assert.notEqual(dtoErrors(VenuePatchDto, { archived: "yes" }), 0)
+  assert.equal(dtoErrors(CourtPatchDto, { archived: false }), 0)
+  assert.notEqual(dtoErrors(CourtPatchDto, { archived: "yes" }), 0)
+})
+
+void test("CourtBlockInputDto requires a reason from the fixed enum", () => {
+  const base = {
+    courtId: "v9c1",
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+  }
+  assert.equal(
+    dtoErrors(CourtBlockInputDto, { ...base, reason: "maintenance" }),
+    0
+  )
+  assert.equal(dtoErrors(CourtBlockInputDto, { ...base, reason: "vip" }), 0)
+  assert.notEqual(
+    dtoErrors(CourtBlockInputDto, { ...base, reason: "lunch" }),
+    0
+  )
+  assert.notEqual(dtoErrors(CourtBlockInputDto, base), 0) // reason missing
+})
+
+void test("CourtBlockInputDto validates start (HH:MM) and durationMin bounds", () => {
+  const base = {
+    courtId: "v9c1",
+    dateKey: TODAY_ISO,
+    reason: "break",
+  }
+  assert.equal(
+    dtoErrors(CourtBlockInputDto, { ...base, start: "18:00", durationMin: 60 }),
+    0
+  )
+  assert.notEqual(
+    dtoErrors(CourtBlockInputDto, { ...base, start: "18:60", durationMin: 60 }),
+    0
+  )
+  assert.notEqual(
+    dtoErrors(CourtBlockInputDto, { ...base, start: "18:00", durationMin: 5 }),
+    0
+  )
 })

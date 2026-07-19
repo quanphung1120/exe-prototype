@@ -10,6 +10,8 @@ import {
 
 import { UserId } from "../../common/user-id.decorator.js"
 import {
+  BlockIdParamDto,
+  CourtBlockInputDto,
   CourtIdParamDto,
   CourtInputDto,
   CourtPatchDto,
@@ -42,6 +44,13 @@ export class VenuesController {
     return this.venues.updateVenue(await this.myVenueId(userId), body)
   }
 
+  /** Archive the caller's venue (decision #11) — replaces a hard delete. */
+  @Delete()
+  async archive(@UserId() userId: string) {
+    await this.venues.archiveVenue(await this.myVenueId(userId))
+    return { ok: true }
+  }
+
   // ── Courts ──
   @Post("courts")
   async addCourt(@UserId() userId: string, @Body() body: CourtInputDto) {
@@ -62,10 +71,7 @@ export class VenuesController {
   }
 
   @Delete("courts/:courtId")
-  async removeCourt(
-    @UserId() userId: string,
-    @Param() param: CourtIdParamDto
-  ) {
+  async removeCourt(@UserId() userId: string, @Param() param: CourtIdParamDto) {
     await this.venues.removeCourt(await this.myVenueId(userId), param.courtId)
     return { ok: true }
   }
@@ -107,5 +113,17 @@ export class VenuesController {
   @Post("customers")
   async addCustomer(@UserId() userId: string, @Body() body: CustomerDto) {
     return this.venues.addCustomer(await this.myVenueId(userId), body)
+  }
+
+  // ── Court blocks (decision #12) ──
+  @Post("blocks")
+  async addBlock(@UserId() userId: string, @Body() body: CourtBlockInputDto) {
+    return this.venues.addBlock(await this.myVenueId(userId), body)
+  }
+
+  @Delete("blocks/:blockId")
+  async removeBlock(@UserId() userId: string, @Param() param: BlockIdParamDto) {
+    await this.venues.removeBlock(await this.myVenueId(userId), param.blockId)
+    return { ok: true }
   }
 }
