@@ -224,6 +224,15 @@ function vnIsoOf(epochMs: number): string {
 /** "YYYY-MM-DD" (Asia/Ho_Chi_Minh) for an arbitrary epoch-ms instant. */
 const vnDateOf = (epochMs: number) => isoDateOf(vnIsoOf(epochMs))
 
+/**
+ * Add (or subtract) whole minutes to an ISO datetime (+07:00), returning the
+ * same fixed-offset format. Used to derive sweeper deadlines
+ * (`holdExpiresAt`/`confirmDeadlineAt`) from a creation timestamp.
+ */
+export function addIsoMinutes(iso: string, minutes: number): string {
+  return vnIsoOf(new Date(iso).getTime() + minutes * 60_000)
+}
+
 /** The "YYYY-MM-DD" date part of an ISO datetime (or an already-bare date). */
 export const isoDateOf = (iso: string) => iso.slice(0, 10)
 
@@ -1005,12 +1014,16 @@ export const RESERVATION_TRANSITIONS: Record<
   ReservationStatus,
   ReservationStatus[]
 > = {
+  // "pending" here means paid, awaiting venue approval; a sweeper auto-confirm
+  // (silence = consent) also lands on "confirmed" through this same edge.
+  awaiting_payment: ["pending", "expired", "cancelled"],
   pending: ["confirmed", "cancelled"],
   confirmed: ["checked-in", "cancelled", "no-show"],
   "checked-in": ["completed", "cancelled"],
   completed: [],
   cancelled: [],
   "no-show": [],
+  expired: [],
 }
 
 /** A same-status transition is always allowed (idempotent no-op). */

@@ -93,13 +93,14 @@ Cổng đã chốt: **SePay** qua SDK `sepay-pg-node` (thay PayOS — PayOS khô
 - Web `book.tsx`: thay `FakeQr` + timer `PAY_MS` + decline giả 20% bằng redirect/form sang checkout SePay thật + poll status; thêm copy chính sách refund (VN-first) vào cả hai catalog.
 - Dev/test: dùng **sandbox SePay** (env `sandbox`, mô phỏng giao dịch + VietQR không đụng tiền thật) + tunnel (ngrok/cloudflared) cho IPN — ghi vào README. Test tự động dùng `sepay.client` fake.
 
-### Phase 5 — Scheduler (quyết định #5, #7)
+### Phase 5 — Scheduler (quyết định #5, #7) - DONE
 
 - `@nestjs/schedule`, `ScheduleModule.forRoot()` trong `app.module.ts`; `bookings.sweeper.ts` `@Cron(EVERY_MINUTE)`, mỗi rule là guarded transition idempotent (filter kèm status hiện tại):
   - `awaiting_payment && holdExpiresAt ≤ now` → `expired` (+ `client.order.cancel()` bên SePay)
   - `pending && paid && confirmDeadlineAt ≤ now` → `confirmed` (im lặng = đồng ý) + notification
   - `checked-in && endAt ≤ now` → `completed`
 - No-show vẫn là action thủ công của venue (endpoint gate rule 30 phút). Expiry request/invite (2h/6h) giữ client-side (không dính tiền, room vẫn là coordination layer theo quyết định #16).
+- **Ghi chú triển khai (2026-07-20):** Phase 2–4 (collection `bookings` chuẩn, endpoint hẹp, SePay checkout/IPN thật) **chưa land** khi Phase 5 này được implement — reservation vẫn là embedded doc trong venue (`ops.reservations`, Phase 0/1). Để sweeper có ý nghĩa ngay trên model hiện tại: mở rộng `Reservation`/`ReservationStatus` (cả hai bản `shared/`) thêm `awaiting_payment`/`expired`, `paymentStatus`, `holdExpiresAt`, `confirmDeadlineAt`; `createOrSyncAppReservation` stamp `paymentStatus:"paid"` + `confirmDeadlineAt` ngay khi tạo (checkout vẫn giả lập client-side trước đó) nên rule `pending→confirmed` chạy thật trên mọi app booking. Rule `awaiting_payment→expired` + `SepayClient` (`api/src/features/payments/sepay.client.ts`, hiện là stub log-only — thay bằng SDK thật khi Phase 4 land) được implement và test đầy đủ nhưng **chưa có endpoint nào tạo reservation ở trạng thái `awaiting_payment`** (đó là việc của Phase 3's `POST /api/bookings` hold-then-checkout flow) — khi Phase 2–4 land, rewire theo collection `bookings` mới và endpoint hold thật; sweeper's `VenuesService.sweepReservations()` là nơi mang logic đó sang (hoặc factor ra `BookingsService` nếu Phase 2 tách collection). `BOOKING_CONFIRM_SLA_MINUTES` (env, default 30) làm SLA configurable cho dev. Test: `api/test/bookings-sweeper.test.ts`, `api/test/venues-service.test.ts`.
 
 ### Phase 6 — Venue ops hardening (quyết định #11, #12, #15 + default CRM)
 

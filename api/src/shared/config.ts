@@ -100,12 +100,14 @@ export const slotKindAccent: Record<SlotKind, string> = {
 
 /** Tint classes per reservation status. */
 export const reservationStatusAccent: Record<ReservationStatus, string> = {
+  awaiting_payment: "bg-chart-3/10 text-chart-3/80",
   pending: "bg-chart-3/15 text-chart-3",
   confirmed: "bg-brand/12 text-brand",
   "checked-in": "bg-lime/20 text-brand",
   completed: "bg-muted text-muted-foreground",
   cancelled: "bg-muted text-muted-foreground line-through",
   "no-show": "bg-destructive/12 text-destructive",
+  expired: "bg-muted text-muted-foreground line-through",
 }
 
 export const riskTierAccent: Record<"low" | "medium" | "high", string> = {

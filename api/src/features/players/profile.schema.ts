@@ -21,7 +21,13 @@ import type {
 // intentionally-empty arrays (e.g. no notifications).
 @Schema({ timestamps: true, minimize: false })
 export class Profile {
-  @Prop({ required: true, unique: true, index: true }) userId: string
+  // Explicit `type: String` (rather than relying on reflect-metadata to infer
+  // it from the TS annotation) since esbuild-based runners like tsx don't
+  // emit the design:type metadata @Prop() needs — see
+  // test/bookings-sweeper.test.ts / test/venues-service.test.ts, which are
+  // the first tests to import ProfileService as a real DI token (Phase 5).
+  @Prop({ required: true, unique: true, index: true, type: String })
+  userId: string
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) user: User
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) streak: Streak
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) stats: Stats

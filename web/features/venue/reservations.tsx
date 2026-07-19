@@ -67,6 +67,7 @@ const HISTORY_STATUSES: ReservationStatus[] = [
   "completed",
   "cancelled",
   "no-show",
+  "expired",
 ]
 
 const SOURCE_ICON: Record<

@@ -111,6 +111,20 @@ void test("canTransitionReservation allows the documented forward edges", () => 
   assert.ok(canTransitionReservation("checked-in", "cancelled"))
 })
 
+// Phase 5: the sweeper's two clock-driven edges (awaiting_payment→expired,
+// silently landing on pending→confirmed) ride the same transition table.
+void test("canTransitionReservation allows the sweeper's clock-driven edges", () => {
+  assert.ok(canTransitionReservation("awaiting_payment", "pending"))
+  assert.ok(canTransitionReservation("awaiting_payment", "expired"))
+  assert.ok(canTransitionReservation("awaiting_payment", "cancelled"))
+})
+
+void test("canTransitionReservation treats awaiting_payment and expired correctly at the edges", () => {
+  assert.equal(canTransitionReservation("awaiting_payment", "confirmed"), false)
+  assert.equal(canTransitionReservation("expired", "pending"), false)
+  assert.equal(canTransitionReservation("pending", "awaiting_payment"), false)
+})
+
 void test("canTransitionReservation rejects skipping or reversing states", () => {
   assert.equal(canTransitionReservation("pending", "checked-in"), false)
   assert.equal(canTransitionReservation("pending", "completed"), false)
@@ -122,6 +136,7 @@ void test("canTransitionReservation treats terminal statuses as having no outgoi
   assert.equal(canTransitionReservation("completed", "cancelled"), false)
   assert.equal(canTransitionReservation("cancelled", "confirmed"), false)
   assert.equal(canTransitionReservation("no-show", "completed"), false)
+  assert.equal(canTransitionReservation("expired", "pending"), false)
 })
 
 void test("canTransitionReservation allows a same-status PUT as an idempotent no-op", () => {

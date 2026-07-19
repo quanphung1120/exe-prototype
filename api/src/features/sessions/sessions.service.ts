@@ -47,6 +47,10 @@ function mapReservationStatus(status: ReservationStatus): {
   hold?: "confirmed" | "pending"
 } {
   switch (status) {
+    // Not yet reached via any live write path (nothing creates an
+    // `awaiting_payment` reservation yet — see Phase 3/4), but map it like
+    // "pending" defensively: the booking exists, resolution is outstanding.
+    case "awaiting_payment":
     case "pending":
       return { status: "booked", hold: "pending" }
     case "confirmed":
@@ -54,8 +58,11 @@ function mapReservationStatus(status: ReservationStatus): {
       return { status: "booked", hold: "confirmed" }
     case "completed":
       return { status: "completed", hold: "confirmed" }
+    // An unpaid hold that timed out never became a real booking — same
+    // player-facing outcome as a cancel, just no refund to simulate.
     case "cancelled":
     case "no-show":
+    case "expired":
       return { status: "cancelled" }
   }
 }
@@ -163,6 +170,10 @@ export class SessionsService {
       data.refunded = true
     } else if (patch.status === "no-show") {
       data.cancelReason = "Không đến (no-show)"
+    } else if (patch.status === "expired") {
+      // Nothing was ever captured (the QR/link timed out unpaid), so unlike a
+      // cancel there is no refund to simulate.
+      data.cancelReason = "Hết hạn giữ chỗ do chưa thanh toán"
     }
     doc.markModified("data")
     await doc.save()

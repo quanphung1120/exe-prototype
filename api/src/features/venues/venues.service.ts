@@ -6,10 +6,12 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common"
+import { ConfigService } from "@nestjs/config"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
 import {
+  addIsoMinutes,
   addMinutes,
   canTransitionReservation,
   combineDateTime,
@@ -41,6 +43,7 @@ import {
   type VenueRecord,
 } from "../../data/venue.js"
 import { isDuplicateKeyError, once } from "../../common/mongo-util.js"
+import { SepayClient, type SepayOrderClient } from "../payments/sepay.client.js"
 import { ProfileService } from "../players/profile.service.js"
 import { SessionsService } from "../sessions/sessions.service.js"
 import { Venue, type VenueDocument } from "./venue.schema.js"
@@ -123,6 +126,13 @@ export interface CustomerInput {
   favoriteSport: SportKey
 }
 
+/** Tally of guarded transitions a sweep run actually applied — for logging/tests. */
+export interface SweepResult {
+  expired: number
+  autoConfirmed: number
+  completed: number
+}
+
 // Insertion order = venue order (the first venue is the default). Sorting by
 // createdAt/_id ascending recovers seed order and keeps new venues last.
 const ORDER = { createdAt: 1, _id: 1 } as const
@@ -197,7 +207,13 @@ function overlapsReservation(
     if (excludeId && reservation.id === excludeId) return false
     if ((reservation.courtId ?? "") !== courtId) return false
     if (reservationDayKey(reservation) !== dayKey) return false
-    if (reservation.status === "cancelled" || reservation.status === "no-show")
+    // Cancelled/no-show free their slot; so does an expired unpaid hold — a
+    // sweeper-expired reservation must not keep blocking the court forever.
+    if (
+      reservation.status === "cancelled" ||
+      reservation.status === "no-show" ||
+      reservation.status === "expired"
+    )
       return false
     const rStart = reservationStart(reservation)
     if (!rStart) return false
@@ -245,8 +261,23 @@ export class VenuesService {
     // so no class leaks into the eager decorator metadata (see SessionSyncPort).
     @Inject(forwardRef(() => SessionsService))
     private readonly sessions: SessionSyncPort,
-    private readonly profiles: ProfileService
+    // Explicit @Inject (not just the type annotation): esbuild-based test
+    // runners like tsx don't reliably emit `design:paramtypes` metadata for a
+    // constructor param whose imported class is otherwise unused as a value
+    // in this file, which left this argument unresolved under
+    // `Test.createTestingModule` — see test/bookings-sweeper.test.ts.
+    @Inject(ProfileService) private readonly profiles: ProfileService,
+    @Inject(ConfigService) private readonly config: ConfigService,
+    // Typed as the narrow SepayOrderClient interface (not SepayClient) so
+    // tests can swap in a fake without a real gateway/network dependency —
+    // the @Inject token still resolves to the concrete class.
+    @Inject(SepayClient) private readonly sepay: SepayOrderClient
   ) {}
+
+  /** Decision #5's SLA window, minutes — overridable via `BOOKING_CONFIRM_SLA_MINUTES`. */
+  private confirmSlaMinutes(): number {
+    return this.config.get<number>("BOOKING_CONFIRM_SLA_MINUTES", 30)
+  }
 
   // Memoize the one-time seed so concurrent first-requests don't each insert the
   // demo venues (which would collide on the unique `venueId` index).
@@ -741,7 +772,8 @@ export class VenuesService {
         )
       }
 
-      const todayIso = isoDateOf(vnNowIso())
+      const now = vnNowIso()
+      const todayIso = isoDateOf(now)
       const day = dayLabelFor(input.dayKey, todayIso)
       const startAt = combineDateTime(input.dayKey, input.start)
       const endAt = combineDateTime(
@@ -802,6 +834,12 @@ export class VenuesService {
           price,
           noShowRisk: 10,
           isRegular: false,
+          // Checkout is (still) simulated client-side before this write, so
+          // the reservation lands paid — the confirm-SLA clock (decision #5)
+          // starts now; the sweeper silently auto-confirms past this deadline
+          // if the venue never decides.
+          paymentStatus: "paid",
+          confirmDeadlineAt: addIsoMinutes(now, this.confirmSlaMinutes()),
         }
         doc.ops.reservations.push(reservation)
       }
@@ -892,12 +930,18 @@ export class VenuesService {
     return reservation
   }
 
-  /** The player notification for an operator decision, or null when silent. */
+  /**
+   * The player notification for a reservation decision, or null when silent.
+   * `auto` distinguishes the sweeper's SLA auto-confirm (decision #5, "silence
+   * = consent") from a manual operator approval — same target status,
+   * different copy so the player understands why nobody actively approved it.
+   */
   private decisionNotification(
     reservationId: string,
     prevStatus: ReservationStatus,
     status: ReservationStatus,
-    reason?: string
+    reason?: string,
+    auto = false
   ): NotificationItem | null {
     const base = { time: "Vừa xong", read: false, href: "/dashboard/bookings" }
     if (status === "cancelled" && prevStatus === "pending" && reason) {
@@ -916,6 +960,14 @@ export class VenuesService {
         ...base,
       }
     }
+    if (status === "confirmed" && auto) {
+      return {
+        id: `booking-auto-confirmed-${reservationId}`,
+        kind: "booking",
+        text: "Đặt sân của bạn đã được tự động xác nhận do chủ sân chưa phản hồi trong thời gian quy định.",
+        ...base,
+      }
+    }
     if (status === "confirmed") {
       return {
         id: `booking-approved-${reservationId}`,
@@ -929,6 +981,14 @@ export class VenuesService {
         id: `booking-no-show-${reservationId}`,
         kind: "booking",
         text: "Bạn đã được đánh dấu vắng mặt (no-show) cho lượt đặt sân này.",
+        ...base,
+      }
+    }
+    if (status === "expired") {
+      return {
+        id: `booking-expired-${reservationId}`,
+        kind: "booking",
+        text: "Đặt sân đã hết hạn do chưa hoàn tất thanh toán trong thời gian giữ chỗ.",
         ...base,
       }
     }
@@ -1031,5 +1091,128 @@ export class VenuesService {
       await doc.save()
       return customer
     })
+  }
+
+  // ── Scheduler sweep (Phase 5) ──────────────────────────────────────────────
+
+  /**
+   * Run every guarded, idempotent reservation transition that's driven by the
+   * clock rather than a person (`bookings.sweeper.ts` calls this every
+   * minute): an unpaid hold past `holdExpiresAt` expires (and its gateway
+   * order is cancelled); a `pending` reservation whose venue hasn't decided
+   * within the confirm SLA silently auto-confirms (decision #5, "silence =
+   * consent"); a checked-in reservation past its `endAt` completes. No-show
+   * stays a manual venue action — an empty court isn't a fact the clock alone
+   * can establish.
+   *
+   * Each rule's filter includes the *current* status, so re-running the sweep
+   * (the whole point of a cron) is a no-op for anything already transitioned.
+   * One `withVersionRetry` per venue doc keeps this safe against a concurrent
+   * operator decision on the same doc: a lost race just re-reads the fresh
+   * reservation list and re-evaluates the guards on retry, so a decision that
+   * landed first is never clobbered, and side effects (gateway cancel,
+   * notification) only fire once the transition has actually persisted.
+   */
+  async sweepReservations(now: string = vnNowIso()): Promise<SweepResult> {
+    await this.ensureSeeded()
+    const result: SweepResult = { expired: 0, autoConfirmed: 0, completed: 0 }
+    const venueIds = (
+      await this.venueModel
+        .find()
+        .select("venueId")
+        .lean<{ venueId: string }[]>()
+    ).map((v) => v.venueId)
+
+    for (const venueId of venueIds) {
+      await withVersionRetry(async () => {
+        const doc = await this.findDoc(venueId)
+        if (!doc) return
+
+        // { reservation, prevStatus, newStatus } for every reservation this
+        // pass touched, applied as cross-surface side effects only once the
+        // save below actually lands. `prevStatus` is captured before the
+        // in-place mutation below it — `r.status` itself is the new status by
+        // the time this list is walked.
+        const transitions: {
+          r: Reservation
+          prevStatus: ReservationStatus
+          status: ReservationStatus
+        }[] = []
+        const cancelRefs: string[] = []
+        let expiredCount = 0
+        let autoConfirmedCount = 0
+        let completedCount = 0
+
+        for (const r of doc.ops.reservations) {
+          if (
+            r.status === "awaiting_payment" &&
+            r.holdExpiresAt &&
+            r.holdExpiresAt <= now &&
+            canTransitionReservation(r.status, "expired")
+          ) {
+            transitions.push({ r, prevStatus: r.status, status: "expired" })
+            r.status = "expired"
+            expiredCount++
+            cancelRefs.push(r.id)
+            continue
+          }
+
+          if (
+            r.status === "pending" &&
+            r.paymentStatus === "paid" &&
+            r.confirmDeadlineAt &&
+            r.confirmDeadlineAt <= now &&
+            canTransitionReservation(r.status, "confirmed")
+          ) {
+            transitions.push({ r, prevStatus: r.status, status: "confirmed" })
+            r.status = "confirmed"
+            autoConfirmedCount++
+            continue
+          }
+
+          if (
+            r.status === "checked-in" &&
+            r.endAt &&
+            r.endAt <= now &&
+            canTransitionReservation(r.status, "completed")
+          ) {
+            transitions.push({ r, prevStatus: r.status, status: "completed" })
+            r.status = "completed"
+            completedCount++
+          }
+        }
+
+        const touched = expiredCount + autoConfirmedCount + completedCount > 0
+        if (touched) {
+          doc.markModified("ops")
+          await doc.save()
+        }
+        // Side effects only after a successful save (this line only runs once
+        // `mutate` completes without throwing — a VersionError re-runs the
+        // whole closure from a fresh read, so a failed attempt never cancels
+        // a gateway order or notifies a player for a change that didn't land).
+        for (const ref of cancelRefs) await this.sepay.cancelOrder(ref)
+        for (const { r, prevStatus, status } of transitions) {
+          if (!r.userId || !r.sessionId) continue
+          await this.sessions.applyReservationStatus(r.userId, r.sessionId, {
+            status,
+          })
+          const notify = this.decisionNotification(
+            r.id,
+            prevStatus,
+            status,
+            undefined,
+            status === "confirmed" // auto — every sweeper confirm is silent consent
+          )
+          if (notify) await this.profiles.addNotification(r.userId, notify)
+        }
+
+        result.expired += expiredCount
+        result.autoConfirmed += autoConfirmedCount
+        result.completed += completedCount
+      })
+    }
+
+    return result
   }
 }

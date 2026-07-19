@@ -428,12 +428,19 @@ export interface ScheduleEvent {
 
 export type BookingSource = "app" | "walk-in"
 export type ReservationStatus =
+  /** Payment link/QR issued but not yet paid — reserved by `holdExpiresAt`. */
+  | "awaiting_payment"
   | "pending"
   | "confirmed"
   | "checked-in"
   | "completed"
   | "cancelled"
   | "no-show"
+  /** Hold expired unpaid (sweeper) — the slot is freed, distinct from a manual cancel. */
+  | "expired"
+
+/** Payment state backing a reservation (independent of `ReservationStatus`). */
+export type PaymentStatus = "awaiting" | "paid" | "refunded" | "none"
 
 export interface Reservation {
   id: string
@@ -464,6 +471,12 @@ export interface Reservation {
   isRegular: boolean
   /** Operator's reason when this app reservation is declined (status "cancelled"). */
   declineReason?: string
+  /** Payment state — walk-ins are "none"; app bookings "paid" once (simulated) checkout completes. */
+  paymentStatus?: PaymentStatus
+  /** ISO datetime — an `awaiting_payment` reservation past this auto-expires (sweeper). */
+  holdExpiresAt?: string
+  /** ISO datetime — a `pending` reservation past this silently auto-confirms (sweeper, "silence = consent"). */
+  confirmDeadlineAt?: string
 }
 
 export type RiskTier = "low" | "medium" | "high"
