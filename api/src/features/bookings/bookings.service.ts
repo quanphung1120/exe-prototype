@@ -77,19 +77,6 @@ export interface RescheduleReservationInput {
   durationMin: number
 }
 
-/** An app booking (player session) syncing into its owning venue's booking. */
-export interface AppBookingSyncInput {
-  courtId: string
-  dayKey: string
-  start: string
-  durationMin: number
-  userId: string
-  sessionId: string
-  customerName: string
-  /** Set on re-writes so the same booking updates in place. */
-  bookingId?: string
-}
-
 /** Status info a linked player session derives its view from (read-only). */
 export interface BookingStatusInfo {
   venueId: string
@@ -329,94 +316,7 @@ export class BookingsService {
     return reservationFromBooking(created, isoDateOf(vnNowIso()))
   }
 
-  // ── App booking cross-write (from a player session) ─────────────────────────
-
-  /**
-   * Create (or, on a re-write, update in place) the booking that mirrors a
-   * player's app booking — the single shared record the operator then
-   * approves, declines or checks in. Keyed by `bookingId` for idempotency: the
-   * web re-PUTs the whole session on every edit, so a set id updates the
-   * existing row (without downgrading an operator's status decision) rather
-   * than duplicating. Returns null when `courtId` doesn't resolve to a venue
-   * (not a real dated booking on a venue court).
-   */
-  async createOrSyncAppBooking(
-    input: AppBookingSyncInput
-  ): Promise<{ reservation: Reservation; venueId: string } | null> {
-    const venueId = await this.findVenueByCourtId(input.courtId)
-    if (!venueId) return null
-
-    const venueDoc = await this.loadVenueDoc(venueId)
-    const court = this.findCourt(venueDoc, input.courtId)
-    assertWithinHours(venueDoc.info, input.start, input.durationMin)
-
-    const existing = input.bookingId
-      ? await this.bookingModel
-          .findOne({ bookingId: input.bookingId, venueId })
-          .lean<{ bookingId: string }>()
-      : null
-
-    const written = await this.writeWithOverlapGuard(
-      venueId,
-      input.courtId,
-      input.dayKey,
-      input.start,
-      input.durationMin,
-      existing?.bookingId,
-      async (session) => {
-        if (existing) {
-          // Re-write of the same booking: refresh slot/court but keep the
-          // operator's status decision (don't reset an approved booking).
-          const fields = bookingSlotFields(
-            court,
-            input.dayKey,
-            input.start,
-            input.durationMin
-          )
-          const query = this.bookingModel.findOneAndUpdate(
-            { bookingId: existing.bookingId, venueId },
-            { $set: fields },
-            { new: true }
-          )
-          const updated = await (session ? query.session(session) : query)
-          if (!updated) throw new NotFoundException("Booking not found")
-          return updated
-        }
-        const record = buildBookingRecord({
-          venueId,
-          court,
-          dateKey: input.dayKey,
-          start: input.start,
-          durationMin: input.durationMin,
-          source: "app",
-          status: "pending",
-          // No real payment gate yet (a future phase wires SePay); the app
-          // flow already simulates the charge client-side before this fires.
-          paymentStatus: "paid",
-          userId: input.userId,
-          sessionId: input.sessionId,
-          customer: {
-            name: input.customerName.trim(),
-            initials: initialsOf(input.customerName),
-          },
-        })
-        const [doc] = await this.bookingModel.create([record], { session })
-        return doc
-      }
-    )
-
-    await this.upsertAppCustomer(
-      venueId,
-      input.userId,
-      input.customerName,
-      court.sport
-    )
-
-    return {
-      reservation: reservationFromBooking(written, isoDateOf(vnNowIso())),
-      venueId,
-    }
-  }
+  // ── App booking CRM sync ──────────────────────────────────────────────────
 
   /** Add the app booker to the venue CRM once (linked by account), if new. */
   private async upsertAppCustomer(
@@ -606,7 +506,9 @@ export class BookingsService {
       .find({ userId, dateKey: input.dateKey })
       .select("bookingId dateKey start durationMin status")
       .lean<UserBookingSlot[]>()
-    if (userBookingsOverlap(own, input.dateKey, input.start, input.durationMin)) {
+    if (
+      userBookingsOverlap(own, input.dateKey, input.start, input.durationMin)
+    ) {
       throw new ConflictException(
         "Bạn đã có một lượt đặt sân khác trong khung giờ này"
       )
@@ -642,6 +544,16 @@ export class BookingsService {
         const [doc] = await this.bookingModel.create([record], { session })
         return doc
       }
+    )
+
+    // Same CRM sync the pre-Phase-3 cross-write used to do inline — an app
+    // booker becomes a venue customer (visits/ltv/tier derive from completed
+    // bookings, not from this write) the first time they book that venue.
+    await this.upsertAppCustomer(
+      venueId,
+      userId,
+      profile.user.name,
+      court.sport
     )
 
     return bookingSummaryFrom(created)
@@ -749,7 +661,10 @@ export class BookingsService {
    * have passed since the booking's start time (gives a late arrival a grace
    * window before the venue can free the slot to walk-ins).
    */
-  async markNoShow(callerId: string, bookingId: string): Promise<BookingSummary> {
+  async markNoShow(
+    callerId: string,
+    bookingId: string
+  ): Promise<BookingSummary> {
     const venueId = await this.assertOwnsBookingVenue(callerId, bookingId)
     const result = await withVersionRetry(async () => {
       const doc = await this.bookingModel.findOne({ bookingId, venueId })

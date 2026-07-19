@@ -45,10 +45,8 @@ function makeQuery<T>(result: T) {
     sort: () => q,
     session: () => q,
     lean: () => Promise.resolve(result),
-    then: (
-      resolve: (v: T) => unknown,
-      reject?: (e: unknown) => unknown
-    ) => Promise.resolve(result).then(resolve, reject),
+    then: (resolve: (v: T) => unknown, reject?: (e: unknown) => unknown) =>
+      Promise.resolve(result).then(resolve, reject),
   }
   return q
 }
@@ -73,7 +71,9 @@ interface FakeBookingDoc {
 /** A mutable "live" booking doc — `findOne` (direct-await) resolves to this
  * exact object, so a mutation `setStatus` makes is visible to every caller
  * that already holds a reference (mirroring one row in a real DB). */
-function makeBookingDoc(overrides: Partial<FakeBookingDoc> = {}): FakeBookingDoc {
+function makeBookingDoc(
+  overrides: Partial<FakeBookingDoc> = {}
+): FakeBookingDoc {
   return {
     bookingId: "b1",
     venueId: "v9",
@@ -104,7 +104,10 @@ function makeVenueDoc(overrides: Record<string, unknown> = {}) {
           pricePerHour: 200_000,
         },
       ],
+      customers: [] as { id: string; userId?: string }[],
     },
+    markModified: () => {},
+    save: () => Promise.resolve(),
     ...overrides,
   }
 }
@@ -135,7 +138,10 @@ async function makeService(deps: Deps = {}) {
     create: (records: unknown[]) => {
       created.push(...records)
       return Promise.resolve(
-        records.map((r) => ({ ...(r as object), save: () => Promise.resolve() }))
+        records.map((r) => ({
+          ...(r as object),
+          save: () => Promise.resolve(),
+        }))
       )
     },
   }
@@ -197,6 +203,44 @@ void test("createHold creates an awaiting_payment booking with a 20-minute serve
   // ~20 minutes out (allow slack for test runtime).
   assert.ok(holdMs - before >= 19 * 60_000 && holdMs - before <= 21 * 60_000)
   assert.equal(created.length, 1)
+})
+
+void test("createHold adds the app booker to the venue's CRM customers once", async () => {
+  const venueDoc = makeVenueDoc()
+  const { service } = await makeService({
+    venueDoc,
+    overlapExisting: [],
+    profile: { user: { name: "Nguyễn Văn A", initials: "NA" } },
+  })
+
+  await service.createHold("user-1", {
+    courtId: "v9c1",
+    dateKey: "2026-07-21",
+    start: "18:00",
+    durationMin: 60,
+  })
+
+  assert.equal(venueDoc.ops.customers.length, 1)
+  assert.equal(venueDoc.ops.customers[0]?.id, "user-1")
+})
+
+void test("createHold does not duplicate an app booker already in the venue's CRM", async () => {
+  const venueDoc = makeVenueDoc({
+    ops: {
+      ...makeVenueDoc().ops,
+      customers: [{ id: "user-1", userId: "user-1" }],
+    },
+  })
+  const { service } = await makeService({ venueDoc, overlapExisting: [] })
+
+  await service.createHold("user-1", {
+    courtId: "v9c1",
+    dateKey: "2026-07-21",
+    start: "18:00",
+    durationMin: 60,
+  })
+
+  assert.equal(venueDoc.ops.customers.length, 1)
 })
 
 void test("createHold hard-blocks the user's own overlapping booking on another court", async () => {
@@ -262,7 +306,11 @@ void test("createHold 404s when the court doesn't resolve to a venue", async () 
 void test("cancel refunds 100% at least 24h before the booking's start", async () => {
   const startAt = new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString()
   const { service, bookingDoc } = await makeService({
-    bookingDoc: makeBookingDoc({ startAt, paymentStatus: "paid", price: 100_000 }),
+    bookingDoc: makeBookingDoc({
+      startAt,
+      paymentStatus: "paid",
+      price: 100_000,
+    }),
   })
 
   const result = await service.cancel("user-1", "b1", "Đổi lịch")
@@ -277,7 +325,11 @@ void test("cancel refunds 100% at least 24h before the booking's start", async (
 void test("cancel refunds 50% inside the 24h window", async () => {
   const startAt = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString()
   const { service } = await makeService({
-    bookingDoc: makeBookingDoc({ startAt, paymentStatus: "paid", price: 100_000 }),
+    bookingDoc: makeBookingDoc({
+      startAt,
+      paymentStatus: "paid",
+      price: 100_000,
+    }),
   })
 
   const result = await service.cancel("user-1", "b1")
@@ -290,7 +342,11 @@ void test("cancel refunds 50% inside the 24h window", async () => {
 void test("cancel refunds 0% once the booking has started, keeping paymentStatus untouched", async () => {
   const startAt = new Date(Date.now() - 60 * 60 * 1000).toISOString()
   const { service } = await makeService({
-    bookingDoc: makeBookingDoc({ startAt, paymentStatus: "paid", price: 100_000 }),
+    bookingDoc: makeBookingDoc({
+      startAt,
+      paymentStatus: "paid",
+      price: 100_000,
+    }),
   })
 
   const result = await service.cancel("user-1", "b1")
@@ -304,10 +360,7 @@ void test("cancel rejects a booking that belongs to someone else", async () => {
   const { service } = await makeService({
     bookingDoc: makeBookingDoc({ userId: "someone-else" }),
   })
-  await assert.rejects(
-    () => service.cancel("user-1", "b1"),
-    ForbiddenException
-  )
+  await assert.rejects(() => service.cancel("user-1", "b1"), ForbiddenException)
 })
 
 void test("cancel never refunds an unpaid hold (nothing was charged)", async () => {
