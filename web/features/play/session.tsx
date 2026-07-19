@@ -42,6 +42,12 @@ import {
   createBookingHold,
 } from "@/features/play/booking-actions"
 import { startPaymentCheckout } from "@/features/play/payment-actions"
+import {
+  addRoomMember,
+  createRoomChat,
+  freezeRoomChat,
+  removeRoomMember,
+} from "@/features/chat/stream-actions"
 
 /** The dedicated booking-wizard route the Play / book actions navigate to. */
 const BOOK_PATH = "/dashboard/book"
@@ -470,6 +476,56 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     } catch (err: unknown) {
       console.error("Failed to persist session", err)
     }
+  }
+
+  // ── Real room-chat lifecycle (quyết định #13) ──────────────────────────
+  // Every call here is fire-and-forget: a Stream hiccup must never block a
+  // matchmaking/booking action, so failures are swallowed (logged) rather
+  // than surfaced — the UI already reflects the session change optimistically.
+
+  /** Create the room's real chat (host-only, no mocks) right when it's made. */
+  const openRoomChat = (sessionId: string, title: string) => {
+    void createRoomChat({ roomId: sessionId, name: title }).catch(
+      (err: unknown) => {
+        console.error("Failed to create room chat", err)
+      }
+    )
+  }
+
+  /**
+   * Add a real (non-mock) member to a room's chat, e.g. once the host approves
+   * their join request. Mock players (the entire `MATCH_SUGGESTIONS` pool)
+   * aren't Stream users under this real lifecycle — `ensureRoomChannel`'s
+   * mock-seeding (still used until Phase 9) covers them when chat opens.
+   */
+  const addRealRoomMember = (sessionId: string, initials: string) => {
+    if (MATCH_SUGGESTIONS.some((p) => p.initials === initials)) return
+    void addRoomMember({ roomId: sessionId, memberId: initials }).catch(
+      (err: unknown) => {
+        console.error("Failed to add room member", err)
+      }
+    )
+  }
+
+  /**
+   * Remove a member from a room's chat — host kick/decline (by initials) or a
+   * member leaving themselves (by their real Stream/Clerk id, which never
+   * collides with a mock's 2-3 letter initials, so it always passes the guard).
+   */
+  const removeRealRoomMember = (sessionId: string, memberId: string) => {
+    if (MATCH_SUGGESTIONS.some((p) => p.initials === memberId)) return
+    void removeRoomMember({ roomId: sessionId, memberId }).catch(
+      (err: unknown) => {
+        console.error("Failed to remove room member", err)
+      }
+    )
+  }
+
+  /** Host freezes a room's chat on cancel — keeps history, blocks sends. */
+  const freezeRoomChatBestEffort = (sessionId: string) => {
+    void freezeRoomChat(sessionId).catch((err: unknown) => {
+      console.error("Failed to freeze room chat", err)
+    })
   }
 
   React.useEffect(() => {
@@ -917,6 +973,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         }
       })
     )
+    addRealRoomMember(sessionId, initials)
     toast.success(ts("toast.approved"), {
       description: playerByInitials(initials).name,
     })
@@ -931,6 +988,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           : x
       )
     )
+    removeRealRoomMember(sessionId, initials)
     toast(ts("toast.declined"), {
       description: playerByInitials(initials).name,
     })
@@ -1012,6 +1070,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         return []
       })
     )
+    // A member leaving removes themselves from the chat; the host cancelling a
+    // booked room freezes it instead (keeps history, blocks new sends).
+    if (!hosting) removeRealRoomMember(sessionId, authUser.id)
+    else if (s.status === "booked") freezeRoomChatBestEffort(sessionId)
     dropJoined(sessionId)
     const title = tm.has(`rooms.${sessionId}.title`)
       ? tm(`rooms.${sessionId}.title`)
@@ -1067,6 +1129,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setJoinedIds((prev) => new Set(prev).add(room.id))
     setActiveSessionId(room.id)
     persist(next)
+    openRoomChat(next.id, next.title)
     scheduleJoinRequests(next)
   }
 
@@ -1148,6 +1211,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setJoinedIds((prev) => new Set(prev).add(id))
     setActiveSessionId(id)
     persist(full)
+    openRoomChat(id, title)
     scheduleRsvp(id, invitees)
     return id
   }
@@ -1254,6 +1318,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           : s
       )
     )
+    removeRealRoomMember(sessionId, initials)
   }
 
   /**
@@ -1373,6 +1438,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setJoinedIds((prev) => new Set(prev).add(id))
     setActiveSessionId(id)
     setManagerOpen(true)
+    openRoomChat(id, next.title)
     scheduleJoinRequests(next)
     return id
   }
@@ -1748,6 +1814,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     setSessions((prev) => [next, ...prev])
     persist(next)
+    openRoomChat(id, next.title)
     setLinkedId(id)
   }
 
@@ -1873,6 +1940,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       reservationId: summary.bookingId,
     }
     setSessions((prev) => [next, ...prev])
+    openRoomChat(roomId, next.title)
     // A retry after this branch (e.g. checkout failed) needs to find the same
     // held session again via `linkedId` — see the `linked?.reservationId`
     // early-return above.
@@ -1974,6 +2042,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setSessions((prev) => prev.map((x) => (x.id === id ? cancelled : x)))
       dropJoined(id)
       persist(cancelled)
+      freezeRoomChatBestEffort(id)
     }
     toast(tb("toast.cancelled"), { description: s.venue })
   }

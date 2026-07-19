@@ -35,3 +35,29 @@ export class ChannelBodyDto {
   @Length(1, 4, { each: true })
   memberInitials: string[]
 }
+
+// ── Real room-chat lifecycle (quyết định #13) — no mock seeding, every
+// mutation authorized against the channel's `created_by` (the host). ──────
+
+export class CreateRoomBodyDto {
+  @Matches(/^[\w-]{1,64}$/, { message: "Invalid channel id" })
+  id: string
+
+  @IsString()
+  @Length(1, 80)
+  name: string
+}
+
+export class RoomMemberBodyDto {
+  @Matches(/^[\w-]{1,64}$/, { message: "Invalid channel id" })
+  channelId: string
+
+  @IsString()
+  @Length(1, 128)
+  memberId: string
+}
+
+export class RoomFreezeBodyDto {
+  @Matches(/^[\w-]{1,64}$/, { message: "Invalid channel id" })
+  channelId: string
+}

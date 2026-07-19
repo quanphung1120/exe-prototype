@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
@@ -39,6 +40,7 @@ import {
   type RescheduleReservationInput,
   type WalkInReservationInput,
 } from "../bookings/bookings.service.js"
+import { roomChannelId, StreamService } from "../stream/stream.service.js"
 import { Venue, type VenueDocument } from "./venue.schema.js"
 
 // ── Inputs ─────────────────────────────────────────────────────────────────
@@ -112,13 +114,18 @@ function maxSeq(ids: string[], prefix: string): number {
 // keeps this module out of the old Sessions↔Venues forwardRef cycle.
 @Injectable()
 export class VenuesService {
+  private readonly logger = new Logger(VenuesService.name)
+
   constructor(
     @InjectModel(Venue.name) private readonly venueModel: Model<VenueDocument>,
     // Explicit tokens (not just the TS type) since esbuild-based runners like
     // tsx don't emit the design:paramtypes metadata Nest's implicit
     // constructor-injection would otherwise rely on.
     @Inject(BookingsService) private readonly bookings: BookingsService,
-    @Inject(ProfileService) private readonly profiles: ProfileService
+    @Inject(ProfileService) private readonly profiles: ProfileService,
+    // Operator decline/cancel best-effort freezes the linked room's chat
+    // (quyết định #13) — see updateReservationStatus.
+    @Inject(StreamService) private readonly stream: StreamService
   ) {}
 
   // Memoize the one-time seed so concurrent first-requests don't each insert the
@@ -540,6 +547,22 @@ export class VenuesService {
         reason
       )
       if (notify) await this.profiles.addNotification(userId, notify)
+      // Operator decline/cancel freezes the room's chat (quyết định #13) — keeps
+      // history, blocks new sends. Best-effort: a chat failure (channel never
+      // opened, Stream outage) must never fail the booking decision itself.
+      // Walk-ins have no linked session and skip cleanly.
+      if (status === "cancelled" && reservation.sessionId) {
+        try {
+          await this.stream.freezeChannelById(
+            roomChannelId(reservation.sessionId)
+          )
+        } catch (err) {
+          this.logger.warn(
+            `Failed to freeze room chat for session ${reservation.sessionId}`,
+            err instanceof Error ? err.stack : String(err)
+          )
+        }
+      }
     }
     return reservation
   }
