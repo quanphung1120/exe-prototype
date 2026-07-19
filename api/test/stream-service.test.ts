@@ -6,23 +6,13 @@ import "reflect-metadata"
 import { ForbiddenException, NotFoundException } from "@nestjs/common"
 import { Test } from "@nestjs/testing"
 import { getModelToken } from "@nestjs/mongoose"
-import { plainToInstance } from "class-transformer"
-import { validateSync } from "class-validator"
 
 import {
   STREAM_CLIENT,
   StreamService,
-  demoPlayerStreamId,
   roomChannelId,
 } from "../src/features/stream/stream.service.js"
 import { StreamSeedState } from "../src/features/stream/stream-seed.schema.js"
-import { ChannelBodyDto } from "../src/features/stream/stream.dto.js"
-
-/** Mirror the global ValidationPipe: valid iff class-validator finds no errors. */
-function channelBodyValid(input: unknown): boolean {
-  const dto = plainToInstance(ChannelBodyDto, input)
-  return validateSync(dto).length === 0
-}
 
 /**
  * StreamService signs per-user tokens and seeds each user's demo Stream data on
@@ -177,35 +167,6 @@ void test("seeding runs only on the upsert that inserts (upsertedCount 1), never
   assert.equal(calls.channels.length, 4)
 })
 
-void test("ensureRoomChannel maps initials to demo ids and sets created_by_id", async () => {
-  const { client, calls } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
-
-  const result = await service.ensureRoomChannel("user-3", {
-    id: "room-x",
-    name: "Room X",
-    memberInitials: ["TH"],
-  })
-
-  assert.deepEqual(result, { id: "room-x" })
-
-  // The mock player TH is upserted alongside the current user.
-  const lastUpsert = calls.upsertUsers.at(-1)
-  assert.ok(lastUpsert?.some((u) => u.id === "user-3"))
-  assert.ok(
-    lastUpsert?.some(
-      (u) => u.id === demoPlayerStreamId("TH") && u.name === "Trần Huy"
-    )
-  )
-
-  // The channel is created by the current user with both as members.
-  const ch = calls.channels.find((c) => c.id === "room-x")
-  assert.equal(ch?.data.created_by_id, "user-3")
-  assert.deepEqual(ch?.data.members, ["user-3", "demo-player-th"])
-})
-
 // ── Real room-chat lifecycle (quyết định #13) ────────────────────────────
 
 void test("createRoomChannel creates a channel with only the host as a member", async () => {
@@ -320,18 +281,4 @@ void test("a room-chat action against a never-created channel 404s as NotFoundEx
     () => service.freezeRoomChannel("host-1", "room-never-existed"),
     NotFoundException
   )
-})
-
-void test("ChannelBodyDto rejects illegal channel-id characters", () => {
-  assert.equal(
-    channelBodyValid({ id: "room-ok_1", name: "Room", memberInitials: ["TH"] }),
-    true
-  )
-  // Spaces and punctuation aren't allowed by the /^[\w-]{1,64}$/ id pattern.
-  assert.equal(
-    channelBodyValid({ id: "bad id!", name: "Room", memberInitials: [] }),
-    false
-  )
-  // An empty id is rejected too.
-  assert.equal(channelBodyValid({ id: "", name: "Room", memberInitials: [] }), false)
 })

@@ -17,6 +17,7 @@ import { HealthController } from "./features/health/health.controller.js"
 import { NotificationsModule } from "./features/notifications/notifications.module.js"
 import { PaymentsModule } from "./features/payments/payments.module.js"
 import { PlayersModule } from "./features/players/players.module.js"
+import { RoomsModule } from "./features/rooms/rooms.module.js"
 import { SeedModule } from "./features/seed/seed.module.js"
 import { SessionsModule } from "./features/sessions/sessions.module.js"
 import { StreamModule } from "./features/stream/stream.module.js"
@@ -55,6 +56,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     CourtsModule,
     PlayersModule,
     SessionsModule,
+    RoomsModule,
     AssessmentModule,
     VenuesModule,
     AccountModule,

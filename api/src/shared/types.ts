@@ -175,6 +175,14 @@ export interface SessionPlayer {
   rsvp: Rsvp
   /** Epoch ms when the current `requested`/`pending` rsvp was set (expiry). */
   rsvpAt?: number
+  /**
+   * Clerk user id of a real cross-user roster member (Phase 9 G2 rooms) — set
+   * on entries the `/api/rooms` endpoints write (join request/approve).
+   * Absent on the host's own entry and on legacy client-only roster members
+   * (mock invitees, pre-G2 sessions), which are only ever addressed by
+   * `initials` within the owning user's own session doc.
+   */
+  userId?: string
 }
 
 export type SessionStatus = "forming" | "booked" | "completed" | "cancelled"

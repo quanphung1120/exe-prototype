@@ -2,7 +2,6 @@ import { Body, Controller, Delete, Post } from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
 import {
-  ChannelBodyDto,
   CreateRoomBodyDto,
   RoomFreezeBodyDto,
   RoomMemberBodyDto,
@@ -20,12 +19,6 @@ export class StreamController {
   @Post("token")
   token(@UserId() userId: string, @Body() body: TokenBodyDto) {
     return this.stream.issueToken(userId, body?.name, body?.image)
-  }
-
-  /** Get-or-create a match-room / team channel with the given mock members. */
-  @Post("channels")
-  channels(@UserId() userId: string, @Body() body: ChannelBodyDto) {
-    return this.stream.ensureRoomChannel(userId, body)
   }
 
   /** Create a room's real chat with only the host as a member — no mocks. */

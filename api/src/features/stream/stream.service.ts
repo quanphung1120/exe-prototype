@@ -9,7 +9,6 @@ import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 import type { StreamChat } from "stream-chat"
 
-import { MATCH_SUGGESTIONS } from "../../data/player.js"
 import {
   StreamSeedState,
   type StreamSeedStateDocument,
@@ -180,51 +179,21 @@ export class StreamService {
     }
   }
 
-  /**
-   * Get-or-create a match-room / team channel. Members are the current user plus
-   * the mock players resolved from their initials. `channel.create()` on an
-   * existing id is idempotent (returns the channel, doesn't overwrite its data),
-   * so re-opening a room chat is safe.
-   */
-  async ensureRoomChannel(
-    userId: string,
-    input: { id: string; name: string; memberInitials: string[] }
-  ): Promise<{ id: string }> {
-    const mocks = input.memberInitials.map((initials) => {
-      const fixture = MATCH_SUGGESTIONS.find((p) => p.initials === initials)
-      return {
-        id: demoPlayerStreamId(initials),
-        name: fixture?.name ?? initials,
-      }
-    })
-
-    await this.client.upsertUsers([
-      { id: userId },
-      ...mocks.map((m) => ({ id: m.id, name: m.name })),
-    ])
-
-    const channel = this.client.channel("messaging", input.id, {
-      name: input.name,
-      created_by_id: userId,
-      members: [userId, ...mocks.map((m) => m.id)],
-    })
-    await channel.create()
-    return { id: input.id }
-  }
-
-  // ── Real room-chat lifecycle (quyết định #13) ──────────────────────────
-  // Distinct from `ensureRoomChannel` above: no mock seeding, only real
-  // members ever added, and every mutation is authorized against the
-  // channel's `created_by` (the host) — the only room model we have until
-  // Phase 9 lands a server-side room with real membership.
+  // ── Real room-chat lifecycle (quyết định #13, mock seeding removed Phase 9
+  // G2) ─────────────────────────────────────────────────────────────────
+  // Only real members are ever added, and every mutation is authorized
+  // against the channel's `created_by` (the host) — the only room model we
+  // had until Phase 9 G2 landed a server-side room with real membership
+  // (`features/rooms/`). The old `ensureRoomChannel` (get-or-create a
+  // channel seeded with mock `MATCH_SUGGESTIONS` players) was removed here:
+  // decision #10 says mock liquidity must never enter a real transaction,
+  // and a real chat channel is one.
 
   /**
    * Create a room's chat with only the host as a member — never mocks. Safe
    * to call once per room, right when it's created (not lazily on first
-   * open). `channel.create()` is idempotent on an existing id and Stream
-   * merges `members` into it, so a later `ensureRoomChannel` call (still used
-   * elsewhere until Phase 9 removes mock seeding) can still add its mock
-   * roster on top without clobbering this call's data.
+   * open). `channel.create()` is idempotent on an existing id, so re-opening
+   * a room chat is safe.
    */
   async createRoomChannel(
     userId: string,
@@ -254,7 +223,8 @@ export class StreamService {
       const status =
         (err as { status?: number; StatusCode?: number })?.status ??
         (err as { status?: number; StatusCode?: number })?.StatusCode
-      if (status === 404) throw new NotFoundException("Phòng chat không tồn tại")
+      if (status === 404)
+        throw new NotFoundException("Phòng chat không tồn tại")
       throw err
     }
   }
