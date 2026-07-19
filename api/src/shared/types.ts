@@ -501,13 +501,21 @@ export interface BookingCustomer {
   phone?: string
 }
 
-/** A manually-queued refund (SePay has no refund API — see payment-gateway decision). */
+/**
+ * A refund SePay can't issue itself (no refund API — only `voidTransaction`/
+ * `cancel` for a not-yet-settled transaction/order). Recording one here queues
+ * it onto the operator's manual-refund worklist (a bank transfer done by
+ * hand); `status` is always `"manual"` today — the field exists so a future
+ * phase that adds a real payout rail doesn't need to reshape this type.
+ */
 export interface BookingRefund {
   /** Percent of the price refunded (100/50/0 per the cancellation policy). */
   pct: number
   amount: number
   /** ISO datetime the refund was recorded. */
   at: string
+  /** How the refund is settled — manual bank transfer by an operator. */
+  status: "manual"
   /** Manual transfer reference, once an operator completes it. */
   ref?: string
 }

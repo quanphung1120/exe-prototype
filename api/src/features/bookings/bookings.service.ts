@@ -60,6 +60,9 @@ export interface CreateBookingInput {
 /** Minutes an unpaid `awaiting_payment` hold keeps its slot before it lapses. */
 const HOLD_MIN = 20
 
+/** Minutes a venue has to approve/decline a paid booking before it auto-confirms (decision #5). */
+const CONFIRM_SLA_MIN = 30
+
 // ── Inputs ─────────────────────────────────────────────────────────────────
 
 export interface WalkInReservationInput {
@@ -468,6 +471,36 @@ export class BookingsService {
     return reservationFromBooking(updated, isoDateOf(vnNowIso()))
   }
 
+  // ── Payment gateway seam (`PaymentsService`, Phase 4) ───────────────────────
+
+  /**
+   * Confirm a booking's SePay payment — `awaiting_payment` → `pending` with a
+   * fresh `confirmDeadlineAt` (decision #5: 30-minute venue approval SLA,
+   * silence = approve). Called by `PaymentsService` once its own IPN
+   * idempotency (`Payment.invoiceNumber` unique + guarded `findOneAndUpdate`)
+   * has confirmed this is the *first* time the order was marked paid — but
+   * this method is itself idempotent too (a booking already past
+   * `awaiting_payment` is a no-op), so a defensive double-call from a
+   * retried/replayed IPN never re-applies the transition or clobbers a
+   * status the venue has already moved on from.
+   */
+  async confirmPayment(bookingId: string): Promise<BookingDocument | null> {
+    return withVersionRetry(async () => {
+      const doc = await this.bookingModel.findOne({ bookingId })
+      if (!doc) return null
+      if (doc.status !== "awaiting_payment") return doc
+      doc.status = "pending"
+      doc.paymentStatus = "paid"
+      doc.confirmDeadlineAt = addMinutesToIso(vnNowIso(), CONFIRM_SLA_MIN)
+      doc.statusHistory = [
+        ...(doc.statusHistory ?? []),
+        { status: "pending", at: vnNowIso() },
+      ]
+      await doc.save()
+      return doc
+    })
+  }
+
   // ── Player-facing bookings API (`BookingsController`, Phase 3) ─────────────
 
   /**
@@ -706,6 +739,10 @@ export class BookingsService {
       pct,
       amount: Math.round((doc.price * pct) / 100),
       at: vnNowIso(),
+      // SePay has no refund API (only voidTransaction/cancel for a
+      // not-yet-settled transaction/order) — every refund here is queued for
+      // an operator to send by hand, never issued automatically.
+      status: "manual",
     }
     doc.paymentStatus = pct >= 100 ? "refunded" : "partial_refund"
   }

@@ -13,6 +13,7 @@ import { AssessmentModule } from "./features/assessment/assessment.module.js"
 import { BookingsModule } from "./features/bookings/bookings.module.js"
 import { CourtsModule } from "./features/courts/courts.module.js"
 import { HealthController } from "./features/health/health.controller.js"
+import { PaymentsModule } from "./features/payments/payments.module.js"
 import { PlayersModule } from "./features/players/players.module.js"
 import { SeedModule } from "./features/seed/seed.module.js"
 import { SessionsModule } from "./features/sessions/sessions.module.js"
@@ -52,6 +53,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     VenuesModule,
     AccountModule,
     StreamModule,
+    PaymentsModule,
     SeedModule,
   ],
   controllers: [HealthController],
