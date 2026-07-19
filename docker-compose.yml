@@ -1,0 +1,45 @@
+services:
+  api:
+    build: ./api
+    env_file:
+      - ./api/.env
+    environment:
+      # Non-interactive container: let pnpm's pre-run deps check reinstall
+      # without prompting to purge node_modules (no TTY → it would abort).
+      CI: "true"
+    ports:
+      - "6969:6969"
+    volumes:
+      # Bind-mount source for hot reload; keep node_modules inside the
+      # container so the host's install (which may differ per-OS) never
+      # clobbers it. dist is NOT a separate volume: Nest's deleteOutDir
+      # rimraf's the whole outDir on each build, and rmdir-ing a directory
+      # that is itself a volume mount point fails with EBUSY. Letting dist
+      # live in the bind-mounted source (already gitignored) avoids that.
+      - ./api:/app
+      - api_node_modules:/app/node_modules
+
+  web:
+    build: ./web
+    env_file:
+      - ./web/.env.local
+    environment:
+      # Non-interactive container: let pnpm's pre-run deps check reinstall
+      # without prompting to purge node_modules (no TTY → it would abort).
+      CI: "true"
+      # Server-side calls stay inside the compose network; the browser still
+      # hits the API through the published port on localhost.
+      API_URL: http://api:6969
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    volumes:
+      - ./web:/app
+      - web_node_modules:/app/node_modules
+      - web_next:/app/.next
+
+volumes:
+  api_node_modules:
+  web_node_modules:
+  web_next:

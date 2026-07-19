@@ -1,0 +1,109 @@
+import { Injectable } from "@nestjs/common"
+
+import {
+  buildSeedSessions,
+  isoDateOf,
+  vnNowIso,
+  type Seed,
+} from "../../shared/index.js"
+
+import { resolveAccountType } from "../account/account.service.js"
+import { AssessmentService } from "../assessment/assessment.service.js"
+import { CourtsService } from "../courts/courts.service.js"
+import { PlayerService } from "../players/player.service.js"
+import { ProfileService } from "../players/profile.service.js"
+import { SessionsService } from "../sessions/sessions.service.js"
+import { VenuesService } from "../venues/venues.service.js"
+
+// Assembles the full dataset the web app hydrates in one request (`/api/seed`),
+// composing every service: shared discovery data (courts, players) + the signed-
+// in user's personal pre-data (profile, assessment) + the DB-backed venue and
+// session stores.
+@Injectable()
+export class SeedService {
+  constructor(
+    private readonly courts: CourtsService,
+    private readonly players: PlayerService,
+    private readonly profiles: ProfileService,
+    private readonly sessions: SessionsService,
+    private readonly venues: VenuesService,
+    private readonly assessment: AssessmentService
+  ) {}
+
+  /**
+   * The complete seed payload (player + venue). Each account owns exactly one
+   * venue: `venues` is `[theirVenue]` (or `[]` when unprovisioned — the web gates
+   * on this to route new accounts into setup) and `venue` carries that venue's
+   * bundle. `userId` also drives the personal half: their profile pre-data plus
+   * their persisted PlaySessions layered over the demo sessions.
+   */
+  async buildSeed(userId?: string): Promise<Seed> {
+    const serverNow = vnNowIso()
+    const todayIso = isoDateOf(serverNow)
+    const [courts, players, profile, userSessions, assessment] =
+      await Promise.all([
+        this.courts.listCourts(),
+        this.players.listPlayers(),
+        userId
+          ? this.profiles.getProfile(userId)
+          : Promise.resolve(this.profiles.defaultProfile()),
+        userId
+          ? this.sessions.listUserSessions(userId)
+          : Promise.resolve([]),
+        userId
+          ? this.assessment.getUserAssessment(userId)
+          : Promise.resolve(null),
+      ])
+
+    // The demo sessions are derived from *this user's* profile rooms/bookings, so
+    // a fresh user gets the same seed sessions the app has always shipped; their
+    // persisted sessions then override any sharing an id.
+    const demoSessions = buildSeedSessions(
+      profile.rooms,
+      profile.bookings,
+      courts,
+      profile.user,
+      players,
+      todayIso
+    )
+    const ownIds = new Set(userSessions.map((s) => s.id))
+    const sessions = [
+      ...userSessions,
+      ...demoSessions.filter((s) => !ownIds.has(s.id)),
+    ]
+
+    // One venue per account: the caller's own venue, or none yet. When they have
+    // none, `venues` is empty (the web redirects to setup) and `venue` carries a
+    // structural fallback bundle that is never rendered before that redirect.
+    const myVenueId = userId ? await this.venues.myVenueId(userId) : null
+    const venue = myVenueId
+      ? await this.venues.venueBundle(myVenueId)
+      : await this.venues.activeBundle()
+    const venues = myVenueId ? [venue.info] : []
+
+    const accountType = resolveAccountType(
+      profile.accountType,
+      assessment !== null,
+      myVenueId !== null
+    )
+
+    return {
+      serverNow,
+      user: profile.user,
+      players,
+      courts,
+      rooms: profile.rooms,
+      bookings: profile.bookings,
+      sessions,
+      streak: profile.streak,
+      stats: profile.stats,
+      activity: profile.activity,
+      notifications: profile.notifications,
+      venues,
+      activeVenueId: myVenueId ?? "",
+      venue,
+      assessment,
+      accountType,
+    }
+  }
+}

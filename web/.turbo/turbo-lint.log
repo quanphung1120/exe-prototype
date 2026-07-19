@@ -1,0 +1,41 @@
+$ eslint
+
+/home/quan/exe-prototype/apps/web/features/dashboard/player-chrome.tsx
+  23:9  warning  'onBookingPage' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/home/quan/exe-prototype/apps/web/features/venue/analytics.tsx
+  26:8  warning  'VenueInsight' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/quan/exe-prototype/apps/web/features/venue/command.tsx
+  14:3  warning  'TrendingUp' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/quan/exe-prototype/apps/web/features/venue/customers.tsx
+  289:17  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+/home/quan/exe-prototype/apps/web/features/venue/customers.tsx:289:17
+  287 |   }, [t, locale, tierLabel, headerCell, headerCellRight])
+  288 |
+> 289 |   const table = useReactTable({
+      |                 ^^^^^^^^^^^^^ TanStack Table's `useReactTable()` API returns functions that cannot be memoized safely
+  290 |     data: rows,
+  291 |     columns,
+  292 |     state: {  react-hooks/incompatible-library
+
+/home/quan/exe-prototype/apps/web/features/venue/reservations.tsx
+  333:17  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+/home/quan/exe-prototype/apps/web/features/venue/reservations.tsx:333:17
+  331 |   const columns = useReservationColumns(t, locale, decisions, decide)
+  332 |
+> 333 |   const table = useReactTable({
+      |                 ^^^^^^^^^^^^^ TanStack Table's `useReactTable()` API returns functions that cannot be memoized safely
+  334 |     data,
+  335 |     columns,
+  336 |     state: { sorting },  react-hooks/incompatible-library
+
+✖ 5 problems (0 errors, 5 warnings)
+

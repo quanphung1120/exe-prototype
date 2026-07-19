@@ -4,81 +4,83 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-SportMatch AI — a prototype for an AI-powered court-booking and player-matchmaking app for racquet sports (pickleball, cầu lông/badminton). Two surfaces:
+SportMatch AI — a prototype for an AI-powered court-booking and player-matchmaking app for racquet sports (pickleball, cầu lông/badminton). The product is **Vietnamese-first**: Vietnamese is the primary language and target market, and all user-facing copy should default to Vietnamese (localized via next-intl — `web/messages/{en,vi}.json`, `web/i18n/`; English is the secondary locale). Two surfaces in the web app:
 
-- **Landing page** (`apps/web/app/[locale]/page.tsx`) — a marketing/waitlist site. All user-facing copy is **Vietnamese** (formal register, addressing the user as "Quý khách").
-- **Dashboard** (`apps/web/app/[locale]/dashboard/`) — an interactive product demo. UI labels here are mostly English.
+- **Landing page** (`web/app/[locale]/page.tsx`) — marketing/waitlist site. Copy is Vietnamese in a formal register, addressing the user as "Quý khách".
+- **Dashboard** (`web/app/[locale]/dashboard/`) — the interactive product demo (player + venue-operator workspaces). Some UI labels are still English; new UI copy should be written in Vietnamese (or added to both message catalogs) rather than extending the English-only text.
 
-This is a **Turborepo monorepo** (pnpm workspaces) with two apps — **`apps/web`** (the Next.js frontend — the surfaces above) and **`apps/api`** (a Hono server) — plus a shared **`packages/shared`** (`@repo/shared`). There is still **no real database**: the dashboard data is **hardcoded**, but it now lives in **`apps/api`** and is **served over HTTP** (the web app fetches it server-side rather than importing a local module). "Live" behaviors (matchmaking, AI chat, the venue monitor) are still faked client-side with timers. See **Dashboard data flow** below.
+`web` (Next.js 16 frontend) and `api` (NestJS server) are two **dedicated, standalone projects** — each has its own `package.json` and pnpm lockfile; there is no Turborepo, no pnpm workspace, no shared package. The small set of entity types/config/pure helpers both apps need is **hand-duplicated**: `web/lib/shared/` and `api/src/shared/` are separate copies kept in sync manually — when one side changes in a way the other depends on, update both. (Web's copy uses extensionless internal imports for Turbopack; api's copy uses `.js` extensions like the rest of `api`.)
+
+Most dashboard data is **hardcoded seed** (`api/src/data/{player,venue}.ts`) served over HTTP, but parts are **MongoDB-backed** (Mongoose): venues/courts (seeded on first read, mutations persist) and a player's own sessions/bookings/assessment (keyed by Clerk `userId`). Live behaviors like matchmaking timers, AI chat, and payment are simulated client-side.
 
 ## Commands
 
-Run from the repo root — **Turborepo** fans each task out across `apps/web` + `apps/api`:
+Each app is a separate project — `cd` into it and run pnpm directly:
 
 ```bash
-pnpm dev         # dev servers (Next.js on :3000, Hono on :6969)
-pnpm build       # production builds (next build + tsc)
-pnpm lint        # eslint across all packages
-pnpm typecheck   # tsc --noEmit across all packages
-pnpm format      # prettier --write on **/*.{ts,tsx} (root-level tooling)
+cd web && pnpm install && pnpm dev    # Next.js on :3000
+cd api && pnpm install && pnpm dev    # NestJS on :6969 (nest start --watch --no-shell)
 ```
 
-Target a single package with a filter:
+Within either app:
 
 ```bash
-pnpm --filter web dev      # just the Next.js app
-pnpm --filter api dev      # just the Hono API (tsx watch)
+pnpm build       # production build
+pnpm lint        # eslint
+pnpm typecheck   # tsc --noEmit
 ```
 
-Package manager is **pnpm** (workspaces); the build system is **Turborepo** (`turbo.json`). The root `package.json` carries only repo tooling and **delegates every script to `turbo run`** — don't put build/lint logic there. There is no test suite.
+Only `api` has tests — Node's built-in runner via `tsx`:
+
+```bash
+cd api && pnpm test                                    # all tests (test/*.test.ts)
+node --import tsx --test test/auth.test.ts             # a single test file
+```
+
+To run both apps together, use Docker Compose from the repo root: `docker compose up --build` (bind-mounts source for hot reload; `web` reaches `api` inside the compose network via `API_URL=http://api:6969`). There is no root `package.json` — each app owns its own Prettier config (`.prettierrc`/`.prettierignore`) and `pnpm format` script; run it from inside `api/` or `web/`.
+
+**API dev caveat:** the api dev script must stay `nest start --watch --no-shell` — without `--no-shell`, watch-mode reloads leave the old server holding the port (EADDRINUSE), especially inside the `node:26-slim` container where `ps` is absent.
 
 ## Next.js version warning (read before writing Next.js code)
 
-This is **Next.js 16** (App Router, React 19) — newer than most training data, with breaking changes to APIs, conventions, and file structure. Per `AGENTS.md`, read the relevant guide in `node_modules/next/dist/docs/` (e.g. `01-app/`) before writing Next-specific code, and heed deprecation notices.
+This is **Next.js 16** (App Router, React 19) — newer than most training data, with breaking changes to APIs, conventions, and file structure. Per `AGENTS.md`, read the relevant guide in `web/node_modules/next/dist/docs/` before writing Next-specific code, and heed deprecation notices.
 
 ## Architecture
 
-### Monorepo & Turborepo
-The repo is a pnpm-workspace monorepo (`pnpm-workspace.yaml` globs `apps/*`, `packages/*`) driven by Turborepo (`turbo.json`). Two apps + one shared package:
-- **`apps/web`** — the Next.js 16 frontend. Self-contained: it owns its `next.config.ts`, `postcss.config.mjs`, `eslint.config.mjs`, `components.json`, `tsconfig.json`, `proxy.ts`, `i18n/`, `messages/`, `public/`. `next.config.ts` sets `outputFileTracingRoot` to the monorepo root so production builds trace correctly from `apps/web`.
-- **`apps/api`** — a Hono server on `@hono/node-server` (Node, native ESM via `NodeNext`). Entry is `src/index.ts` (app bootstrap, `logger`, `cors` on `/api/*`, `onError`/`notFound`, graceful shutdown); the **hardcoded records** live in `src/data/*.ts` and resource routers in `src/routes/*.ts`, mounted with `app.route(...)`. Handlers are **chained** so the exported `AppType` carries full RPC types for a future typed client. Input is validated with `@hono/zod-validator` + zod v4. **Relative imports must use `.js` extensions** (NodeNext requirement), e.g. `import { courts } from "./routes/courts.js"`.
-- **`packages/shared`** (`@repo/shared`) — the entity **types**, UI **config** (sport catalog, level/accent maps, slot grids) and pure **helpers** both apps share. It is a **compiled** internal package (`tsc` → `dist`, `exports` point at `dist`), so `dev`/`build` depend on `^build` (Turborepo builds it first). Helpers that need records take them as parameters (e.g. `courtByVenue(courts, name)`, `conflictFor(courts, user, sessions, q)`, `buildSeedSessions(...)`); the web binds these to the fetched data.
+### api — NestJS
 
-Shared code that both apps need belongs in `packages/shared` (or a new `packages/*` workspace), not inside an app. **All paths in the sections below are under `apps/web/`** (e.g. `components/dashboard/data.ts` = `apps/web/components/dashboard/data.ts`).
+NestJS 11 on Express (native ESM — **relative imports must use `.js` extensions**). `src/main.ts` bootstraps: global `api` route prefix (except the open `GET /health` and `/health/ready` probes), CORS reflecting `WEB_URL`, body-size limits, shutdown hooks. `src/app.module.ts` wires everything:
 
-### Dashboard routing pattern
-Each dashboard section is a route under `app/dashboard/<section>/page.tsx`. These page files are **thin server components**: they export `metadata` and render a matching view from `components/dashboard/views/`. The actual UI/logic lives in the view component (usually `"use client"`).
+- **Env validation** — `src/env.validation.ts` (zod) runs at boot via `ConfigModule.forRoot({ validate })`; a missing `DATABASE_URL`/`CLERK_SECRET_KEY`/`CLERK_PUBLISHABLE_KEY` crashes the process immediately. Read config via `ConfigService`, not raw `process.env`.
+- **MongoDB** — `MongooseModule.forRootAsync` on `DATABASE_URL` (MongoDB Atlas). Feature schemas are `@nestjs/mongoose` classes in each feature folder.
+- **Global providers, in order:** `ThrottlerGuard` (120 req/min per IP) → `ClerkAuthGuard` → `AllExceptionsFilter`.
 
-Navigation is centralized in `components/dashboard/nav.ts` (`NAV` array, `SectionKey` type, `isNavActive`/`activeNavItem` helpers). **To add a section:** create the route `page.tsx`, add the view in `views/`, and add a `NAV` entry — the sidebar and topbar derive from `NAV` automatically.
+**Features** live in `src/features/<feature>/` (`courts`, `players`, `sessions`, `assessment`, `venues`, `seed`, `health`), each with its `*.module.ts`, `*.controller.ts`, `*.service.ts`, `*.schema.ts` (Mongoose) and, where a route takes input, `*.dto.ts` (class-validator DTOs). Some features have several of a kind (e.g. `players/{player,profile}.*`). Cross-cutting pieces are in `src/common/` (auth guard, exceptions filter, `@Public()` and `@UserId()` decorators, mongo-util). Seed records stay in `src/data/`.
 
-### Persistent dashboard state
-`app/dashboard/layout.tsx` mounts providers around all dashboard pages so their state and timers **survive client-side navigation between sections**:
-- `MatchmakingProvider` (`components/dashboard/matchmaking.tsx`) — owns the lobby list and matchmaking queue; consume via the `useMatchmaking()` hook. Includes the floating `MatchmakingDock`.
-- `CourtAssistant` (`components/dashboard/court-assistant.tsx`) — a faked AI assistant chat with simulated "chain of thought" steps.
+**Error handling is centralized:** services/controllers **throw Nest `HttpException`s** (`NotFoundException`, `BadRequestException`, `ConflictException`, …) instead of returning sentinels; `AllExceptionsFilter` renders every failure as `{ error: message }` at its status (unknown throws → logged → 500). Validate request input with **class-validator DTO classes** (`*.dto.ts`), typed on the handler param (`@Body()`/`@Query()`/`@Param() dto: SomeDto`) and checked by the global `ValidationPipe` (`whitelist: true, transform: true`) wired in `main.ts`; a failure throws `BadRequestException` (message array joined by the filter) so misses flow through the same `{ error }` filter. Handler args typed as a plain interface/type (metatype `Object`, e.g. the raw PlaySession PUT body) are intentionally left unvalidated. (Env validation in `env.validation.ts` still uses zod — a separate boot-time concern.)
 
-When adding behavior that must persist across navigation, hang it off these layout-level providers rather than per-page state.
+**Auth:** every route requires a valid Clerk session token (Bearer) or gets 401 — `ClerkAuthGuard` wraps `@clerk/express`'s `clerkMiddleware` + `getAuth`. Routes marked `@Public()` (health probes) skip it. The guard distinguishes caller-fault token errors (→ 401) from infrastructure failures like a missing secret or unreachable JWKS (→ 500). Data is shared demo data — the guard requires *a* signed-in user; only sessions/profile/assessment are scoped per `userId` (via the `@UserId()` decorator).
 
-### Dashboard data flow (data loaded from the API)
-The dashboard data is still hardcoded, but it is **served by the Hono API and fetched by the web app** — it is no longer imported as a local web module. Values are **intentionally static/deterministic so server and client renders stay in sync** (no `Date.now()`/random in render).
+### web — Next.js, feature-based
 
-- **Records** live in `apps/api/src/data/{player,venue}.ts` (`COURTS`, `MATCH_SUGGESTIONS`, `BOOKINGS`, `CHATS`, `VENUE_*`, …) and the derived `SESSIONS` seed (built via `buildSeedSessions`). The API exposes them as a single aggregate at **`GET /api/seed`** (plus per-resource routes like `/api/courts`, `/api/players`, `/api/venue/*`).
-- **Types, config & pure helpers** live in `@repo/shared` (`Sport`, `Player`, `Court`, `Booking`, …, plus `sportLabel`, `formatVnd`, `slotRange`, accent maps, etc.).
-- **Web side:** `app/[locale]/dashboard/layout.tsx` is an `async` server component (`export const dynamic = "force-dynamic"`) that calls `fetchSeed()` (`lib/api.ts`, server-only, reads `API_URL`, defaults to `http://localhost:6969`) and passes the seed into `<DataProvider>` (`components/dashboard/data-provider.tsx`). Components read records and **record-bound helpers** (with their original signatures) via the **`useData()`** hook — e.g. `const { courts: COURTS, playerByInitials } = useData()`. There is **no client-side fetching or loading state**.
-- `components/dashboard/data.ts` and `components/dashboard/venue/data.ts` are now thin **barrels** that re-export `@repo/shared` (so existing type/config/pure-helper imports keep working); they no longer export records.
+Code is organized by **feature folders** under `web/features/` (imported as `@/features/<feature>/...`): `landing/` (marketing sections, GSAP scroll animations), `auth/` (Clerk forms), `dashboard/` (sidebar/topbar/nav, data provider, shared primitives), `play/` (matchmaking + court finder/map, the PlaySession store in `session.tsx`), `booking/` (wizard + calendar), `chat/` (AI chat home), `assessment/`, `venue/` (the whole operator surface at `/dashboard/venue/[venueId]/*`, with its own `venue-data-provider` and server actions in `venue-actions.ts`). Truly generic code stays outside features: `components/ui/` (shadcn primitives), `lib/` (`utils.ts`, `api.ts`, `auth-server.ts`), `hooks/`. Cross-feature imports (e.g. booking → play's session store) are fine.
 
-Reusable dashboard UI primitives (e.g. `SportDot`, `SportTag`, `CourtRow`) live in `components/dashboard/shared.tsx`.
+**Routing pattern:** route files under `app/[locale]/dashboard/<section>/page.tsx` are thin server components — they export `metadata` and render a view from the feature folder (usually `"use client"`). Navigation is centralized in `features/dashboard/nav.ts` (`NAV` array) and `features/venue/nav.ts`; sidebar/topbar derive from it. To add a section: route `page.tsx` + feature view + `NAV` entry.
+
+**Persistent dashboard state:** `dashboard/layout.tsx` mounts providers around all dashboard pages so state/timers survive client-side navigation — e.g. `MatchmakingProvider` (`features/play/matchmaking.tsx`, consumed via `useMatchmaking()`). Hang cross-navigation state off these layout-level providers, not per-page state.
+
+**Data flow:** the dashboard layout is an async server component (`force-dynamic`) that calls `fetchSeed()` (`lib/api.ts`, server-only, `API_URL` default `http://localhost:6969`) and passes the aggregate `GET /api/seed` payload into `<DataProvider>`. Components read records and record-bound helpers via **`useData()`** — no client-side fetching or loading states. Seed values are intentionally static/deterministic so server and client renders match (no `Date.now()`/random in render). `features/dashboard/data.ts` and `features/venue/data.ts` are thin barrels re-exporting `@/lib/shared`. Every server-side fetch attaches the Clerk token via `authHeaders()` (`auth().getToken()` as `Authorization: Bearer`).
 
 ### Theming and fonts
-- **Tailwind v4, CSS-first.** There is no `tailwind.config`; the entire theme is defined in `app/globals.css` via `@theme inline` plus CSS custom properties (oklch colors). The palette is emerald/green (`primary`, `brand`, `chart-1..5`) with a `lime` accent.
-- **Two font scopes.** The landing page uses Barlow (sans) + Barlow Condensed (headings). The dashboard is scoped to **Geist** via the `.font-geist` class applied on `SidebarProvider` in the dashboard layout (this rebinds `--font-sans`/`--font-heading`). Both share Geist Mono. All fonts are wired up in `app/layout.tsx`.
-- **Dark mode** via `@teispace/next-themes` (an API-compatible `next-themes` fork; `class` attribute, system default). Pressing `l` (not while typing) toggles light/dark — see `ThemeHotkey` in `components/theme-provider.tsx`.
 
-### UI components
-shadcn/ui with the `base-luma` style (`components.json`). Note these are built on **`@base-ui/react`**, not Radix. Add components with `npx shadcn@latest add <name>`; an `@aceternity` registry is also configured. Primitives live in `components/ui/`.
+- **Tailwind v4, CSS-first** — no `tailwind.config`; the theme lives in `app/globals.css` (`@theme inline` + oklch custom properties). Emerald/green palette with a lime accent.
+- **Two font scopes:** landing uses Barlow + Barlow Condensed; the dashboard is scoped to Geist via `.font-geist` on the dashboard layout's `SidebarProvider` (rebinds `--font-sans`/`--font-heading`).
+- **Dark mode** via `@teispace/next-themes` (next-themes fork, class attribute). Pressing `l` (not while typing) toggles the theme.
+- **shadcn/ui** with the `base-luma` style, built on **`@base-ui/react`, not Radix**. Add with `cd web && npx shadcn@latest add <name>`.
 
 ## Conventions
 
-- **Prettier** (`.prettierrc`): no semicolons, double quotes, 2-space indent, es5 trailing commas, 80-col. The Tailwind plugin auto-sorts classes; `cn` and `cva` are registered as Tailwind functions, so put class strings in them.
-- **Imports** in `apps/web` use the `@/*` alias mapped to the web package root, i.e. `apps/web/*` (`@/components`, `@/lib/utils`, `@/hooks`).
-- Compose Tailwind classes with `cn()` from `lib/utils.ts`.
+- **Prettier** (`.prettierrc`): no semicolons, double quotes, 2-space indent, es5 trailing commas, 80-col. The Tailwind plugin sorts classes; `cn`/`cva` are registered Tailwind functions, so put class strings in them.
+- Web imports use the `@/*` alias (maps to `web/*`); compose Tailwind classes with `cn()` from `lib/utils.ts`.
 - Money is VND, formatted compactly with `formatVnd` (e.g. `180K`).
+- Repo eslint errors on synchronous `setState` inside effects — lift such UI state into the owning provider instead.
