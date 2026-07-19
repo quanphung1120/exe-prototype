@@ -288,12 +288,14 @@ export interface ActivityItem {
 
 // ── Notifications ────────────────────────────────────────────────────────────
 
-export type NotificationKind =
-  | "match"
-  | "chat"
-  | "booking"
-  | "rating"
-  | "streak"
+export const NOTIFICATION_KINDS = [
+  "match",
+  "chat",
+  "booking",
+  "rating",
+  "streak",
+] as const
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
 
 export interface NotificationItem {
   id: string
@@ -306,6 +308,29 @@ export interface NotificationItem {
   href?: string
   /** Chat to select when clicked (paired with an href to `/dashboard/chat`). */
   chatId?: string
+  /**
+   * ISO datetime this notification was created — present only on items
+   * sourced from the `notifications` collection (Phase 7). The web
+   * notification centre recomputes `time` as a relative string from this on
+   * every poll instead of trusting a stale `time`; seed/demo and client-only
+   * matchmaking items have no `createdAt` and keep a fixed/localized `time`.
+   */
+  createdAt?: string
+}
+
+/**
+ * A transactional notification as persisted server-side (Phase 7,
+ * `api/src/features/notifications/`) and returned by `GET /api/notifications`.
+ * `id` is the dedupe key (`notifId`) so the web client can merge server- and
+ * client-origin items into one `NotificationItem[]` list by id.
+ */
+export interface NotificationRecord {
+  id: string
+  kind: NotificationKind
+  text: string
+  href?: string
+  read: boolean
+  createdAt: string
 }
 
 // ── Venue: localized content ─────────────────────────────────────────────────
@@ -428,12 +453,7 @@ export interface ScheduleEvent {
 
 export type BookingSource = "app" | "walk-in"
 export type ReservationStatus =
-  | "pending"
-  | "confirmed"
-  | "checked-in"
-  | "completed"
-  | "cancelled"
-  | "no-show"
+  "pending" | "confirmed" | "checked-in" | "completed" | "cancelled" | "no-show"
 
 export interface Reservation {
   id: string

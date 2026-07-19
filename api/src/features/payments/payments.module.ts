@@ -3,7 +3,7 @@ import { MongooseModule } from "@nestjs/mongoose"
 
 import { BookingsModule } from "../bookings/bookings.module.js"
 import { Booking, BookingSchema } from "../bookings/booking.schema.js"
-import { PlayersModule } from "../players/players.module.js"
+import { NotificationsModule } from "../notifications/notifications.module.js"
 import { Venue, VenueSchema } from "../venues/venue.schema.js"
 import { BookingsSweeperService } from "./bookings-sweeper.service.js"
 import { Payment, PaymentSchema } from "./payment.schema.js"
@@ -16,8 +16,9 @@ import { SEPAY_CLIENT, SepayClient } from "./sepay.client.js"
 // so `PaymentsService` can read a booking's price/owner and flip a venue
 // owner's notification feed directly, without a new cross-service dependency
 // beyond `BookingsModule` (for `BookingsService#confirmPayment`, the only
-// place the booking-side state machine is touched) and `PlayersModule` (for
-// `ProfileService#addNotification`). `SEPAY_CLIENT` binds the real
+// place the booking-side state machine is touched) and `NotificationsModule`
+// (for `NotificationsService#create` — VienTD-Review Phase 7 replaced the old
+// `ProfileService#addNotification` seam here). `SEPAY_CLIENT` binds the real
 // `sepay-pg-node`-backed client here; tests override this provider with a
 // fake so nothing hits the network.
 //
@@ -36,7 +37,7 @@ import { SEPAY_CLIENT, SepayClient } from "./sepay.client.js"
       { name: Venue.name, schema: VenueSchema },
     ]),
     BookingsModule,
-    PlayersModule,
+    NotificationsModule,
   ],
   controllers: [PaymentsController],
   providers: [

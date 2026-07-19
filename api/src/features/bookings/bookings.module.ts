@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common"
 import { MongooseModule } from "@nestjs/mongoose"
 
+import { NotificationsModule } from "../notifications/notifications.module.js"
 import { PlayersModule } from "../players/players.module.js"
 import { Venue, VenueSchema } from "../venues/venue.schema.js"
 import { BookingLock, BookingLockSchema } from "./booking-lock.schema.js"
@@ -15,9 +16,11 @@ import { BookingsService } from "./bookings.service.js"
 // VenuesModule and SessionsModule both depend on BookingsModule (one
 // direction each) without either depending on the other's *service*, which is
 // what dissolves the old Sessions↔Venues forwardRef cycle. PlayersModule
-// gives BookingsService the customer-name lookup (`createHold`) and the
-// decision-notification service (`decide`/`markNoShow`) — PlayersModule has
-// no feature-module deps of its own, so this stays one-directional too.
+// gives BookingsService the customer-name lookup (`createHold`); both
+// PlayersModule and NotificationsModule have no feature-module deps of their
+// own, so this stays one-directional too. NotificationsModule backs the
+// booking-decision/auto-confirm/no-show notification producers
+// (`decide`/`sweep`/`markNoShow` — VienTD-Review Phase 7).
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -26,6 +29,7 @@ import { BookingsService } from "./bookings.service.js"
       { name: Venue.name, schema: VenueSchema },
     ]),
     PlayersModule,
+    NotificationsModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

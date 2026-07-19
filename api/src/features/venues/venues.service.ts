@@ -37,6 +37,7 @@ import {
   once,
   withVersionRetry,
 } from "../../common/mongo-util.js"
+import { NotificationsService } from "../notifications/notifications.service.js"
 import { ProfileService } from "../players/profile.service.js"
 import { decisionNotification } from "../bookings/booking.helpers.js"
 import {
@@ -127,6 +128,8 @@ export class VenuesService {
     // constructor-injection would otherwise rely on.
     @Inject(BookingsService) private readonly bookings: BookingsService,
     @Inject(ProfileService) private readonly profiles: ProfileService,
+    @Inject(NotificationsService)
+    private readonly notifications: NotificationsService,
     // Operator decline/cancel best-effort freezes the linked room's chat
     // (quyết định #13) — see updateReservationStatus.
     @Inject(StreamService) private readonly stream: StreamService
@@ -564,7 +567,7 @@ export class VenuesService {
         status,
         reason
       )
-      if (notify) await this.profiles.addNotification(userId, notify)
+      if (notify) await this.notifications.create(userId, notify)
       // Operator decline/cancel freezes the room's chat (quyết định #13) — keeps
       // history, blocks new sends. Best-effort: a chat failure (channel never
       // opened, Stream outage) must never fail the booking decision itself.

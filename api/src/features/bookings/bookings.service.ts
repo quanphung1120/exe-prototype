@@ -31,6 +31,7 @@ import {
   isTransactionsUnsupported,
   withVersionRetry,
 } from "../../common/mongo-util.js"
+import { NotificationsService } from "../notifications/notifications.service.js"
 import { ProfileService } from "../players/profile.service.js"
 import { Venue, type VenueDocument } from "../venues/venue.schema.js"
 import { BookingLock, type BookingLockDocument } from "./booking-lock.schema.js"
@@ -186,6 +187,8 @@ export class BookingsService {
     // tsx don't emit the design:paramtypes metadata Nest's implicit
     // constructor-injection would otherwise rely on.
     @Inject(ProfileService) private readonly profiles: ProfileService,
+    @Inject(NotificationsService)
+    private readonly notifications: NotificationsService,
     @Inject(ConfigService) private readonly config: ConfigService
   ) {}
 
@@ -613,7 +616,7 @@ export class BookingsService {
             undefined,
             true // auto — every sweeper confirm is silent consent
           )
-          if (notify) await this.profiles.addNotification(b.userId, notify)
+          if (notify) await this.notifications.create(b.userId, notify)
         }
       }
     }
@@ -830,7 +833,7 @@ export class BookingsService {
         status,
         reason
       )
-      if (notify) await this.profiles.addNotification(doc.userId, notify)
+      if (notify) await this.notifications.create(doc.userId, notify)
     }
     return bookingSummaryFrom(doc)
   }
@@ -881,7 +884,7 @@ export class BookingsService {
     })
     if (result.userId) {
       const notify = decisionNotification(bookingId, "confirmed", "no-show")
-      if (notify) await this.profiles.addNotification(result.userId, notify)
+      if (notify) await this.notifications.create(result.userId, notify)
     }
     return bookingSummaryFrom(result)
   }

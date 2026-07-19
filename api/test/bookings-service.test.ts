@@ -16,6 +16,7 @@ import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
+import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { ProfileService } from "../src/features/players/profile.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { vnNowIso } from "../src/shared/index.js"
@@ -158,14 +159,17 @@ async function makeService(deps: Deps = {}) {
       Promise.resolve(
         deps.profile ?? { user: { name: "Khách Test", initials: "KT" } }
       ),
-    addNotification: (userId: string, item: unknown) => {
+  }
+  const notificationsMock = {
+    create: (userId: string, item: unknown) => {
       notifications.push({ userId, item })
       return Promise.resolve()
     },
   }
 
   const configMock = {
-    get: (_key: string, fallback?: unknown) => deps.confirmSlaMinutes ?? fallback,
+    get: (_key: string, fallback?: unknown) =>
+      deps.confirmSlaMinutes ?? fallback,
   }
 
   const moduleRef = await Test.createTestingModule({
@@ -176,6 +180,7 @@ async function makeService(deps: Deps = {}) {
       { provide: getModelToken(Venue.name), useValue: venueModelMock },
       { provide: getConnectionToken(), useValue: connectionMock },
       { provide: ProfileService, useValue: profilesMock },
+      { provide: NotificationsService, useValue: notificationsMock },
       { provide: ConfigService, useValue: configMock },
     ],
   }).compile()
@@ -519,7 +524,10 @@ void test("listMine projects every persisted field the API contract promises", a
 
 void test("confirmPayment moves awaiting_payment to pending and stamps a confirmDeadlineAt from the default SLA", async () => {
   const { service, bookingDoc } = await makeService({
-    bookingDoc: makeBookingDoc({ status: "awaiting_payment", paymentStatus: "awaiting" }),
+    bookingDoc: makeBookingDoc({
+      status: "awaiting_payment",
+      paymentStatus: "awaiting",
+    }),
   })
   const before = Date.now()
 
@@ -538,7 +546,10 @@ void test("confirmPayment moves awaiting_payment to pending and stamps a confirm
 
 void test("confirmPayment honors a configured BOOKING_CONFIRM_SLA_MINUTES", async () => {
   const { service } = await makeService({
-    bookingDoc: makeBookingDoc({ status: "awaiting_payment", paymentStatus: "awaiting" }),
+    bookingDoc: makeBookingDoc({
+      status: "awaiting_payment",
+      paymentStatus: "awaiting",
+    }),
     confirmSlaMinutes: 5,
   })
   const before = Date.now()

@@ -12,11 +12,11 @@ import { ConfigService } from "@nestjs/config"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
-import { vnNowIso, type NotificationItem } from "../../shared/index.js"
+import { vnNowIso } from "../../shared/index.js"
 
 import { Booking, type BookingDocument } from "../bookings/booking.schema.js"
 import { BookingsService } from "../bookings/bookings.service.js"
-import { ProfileService } from "../players/profile.service.js"
+import { NotificationsService } from "../notifications/notifications.service.js"
 import { Venue, type VenueDocument } from "../venues/venue.schema.js"
 import { Payment, type PaymentDocument, type PaymentRecordStatus } from "./payment.schema.js"
 import {
@@ -86,11 +86,12 @@ export class PaymentsService {
     private readonly venueModel: Model<VenueDocument>,
     @Inject(SEPAY_CLIENT) private readonly sepay: SepayClientPort,
     @Inject(BookingsService) private readonly bookings: BookingsService,
-    @Inject(ProfileService) private readonly profiles: ProfileService,
+    @Inject(NotificationsService)
+    private readonly notifications: NotificationsService,
     // Explicit token (not just the TS type) since esbuild-based runners like
     // tsx don't emit the design:paramtypes metadata implicit constructor
-    // injection would otherwise rely on — see the same note on ProfileService
-    // above and throughout bookings.service.ts.
+    // injection would otherwise rely on — see the same note on
+    // NotificationsService above and throughout bookings.service.ts.
     @Inject(ConfigService) config: ConfigService
   ) {
     this.returnUrl = config.getOrThrow<string>("SEPAY_RETURN_URL")
@@ -260,22 +261,19 @@ export class PaymentsService {
     return updated
   }
 
-  /** Simple seam (Phase 7 replaces this with the real notifications collection). */
+  /** Notify the venue owner a booking just paid and is awaiting their decision. */
   private async notifyVenue(venueId: string, bookingId: string): Promise<void> {
     const venue = await this.venueModel
       .findOne({ venueId })
       .select("ownerId")
       .lean<{ ownerId?: string }>()
     if (!venue?.ownerId) return
-    const item: NotificationItem = {
+    await this.notifications.create(venue.ownerId, {
       id: `payment-paid-${bookingId}`,
       kind: "booking",
       text: "Có lượt đặt sân mới đã thanh toán — vui lòng duyệt trong vòng 30 phút (im lặng sẽ tự động duyệt).",
-      time: "Vừa xong",
-      read: false,
       href: `/dashboard/venue/${venueId}/schedule`,
-    }
-    await this.profiles.addNotification(venue.ownerId, item)
+    })
   }
 
   // ── Phase 5 seam ─────────────────────────────────────────────────────────

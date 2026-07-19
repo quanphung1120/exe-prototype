@@ -14,7 +14,8 @@ import type { BookingRecordStatus, Reservation } from "../src/shared/index.js"
  * `VenuesService` only wraps that with the player notification + this Phase 8
  * addition, a best-effort freeze of the linked room's Stream chat on decline/
  * cancel. These tests pin that wrapper against a fully mocked
- * Bookings/Profile/Stream collaborators, no real database or Stream app.
+ * Bookings/Profile/Notifications/Stream collaborators, no real database or
+ * Stream app.
  *
  * `VenuesService` is constructed directly (bypassing `@nestjs/testing`'s DI
  * container, unlike sessions-service.test.ts) rather than via
@@ -73,7 +74,8 @@ function makeService(
   const bookingsMock = {
     updateStatus: () => Promise.resolve({ reservation, prevStatus, userId }),
   }
-  const profilesMock = { addNotification: () => Promise.resolve() }
+  const profilesMock = {}
+  const notificationsMock = { create: () => Promise.resolve() }
   const streamMock = { freezeChannelById }
 
   return new VenuesService(
@@ -81,6 +83,7 @@ function makeService(
       venueModelMock,
       bookingsMock,
       profilesMock,
+      notificationsMock,
       streamMock,
     ] as unknown as VenuesCtorArgs)
   )

@@ -10,6 +10,7 @@ import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
+import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { ProfileService } from "../src/features/players/profile.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { addMinutesToIso, vnNowIso } from "../src/shared/index.js"
@@ -93,14 +94,15 @@ async function makeService(bookings: FakeBooking[]) {
           )
             return false
           if (filter.holdExpiresAt)
-            return !!b.holdExpiresAt && b.holdExpiresAt <= filter.holdExpiresAt.$lte
+            return (
+              !!b.holdExpiresAt && b.holdExpiresAt <= filter.holdExpiresAt.$lte
+            )
           if (filter.confirmDeadlineAt)
             return (
               !!b.confirmDeadlineAt &&
               b.confirmDeadlineAt <= filter.confirmDeadlineAt.$lte
             )
-          if (filter.endAt)
-            return !!b.endAt && b.endAt <= filter.endAt.$lte
+          if (filter.endAt) return !!b.endAt && b.endAt <= filter.endAt.$lte
           return true
         })
       ),
@@ -113,8 +115,9 @@ async function makeService(bookings: FakeBooking[]) {
         ) ?? null
       ),
   }
-  const profilesMock = {
-    addNotification: (userId: string, item: unknown) => {
+  const profilesMock = {}
+  const notificationsMock = {
+    create: (userId: string, item: unknown) => {
       notifications.push({ userId, item })
       return Promise.resolve()
     },
@@ -129,9 +132,12 @@ async function makeService(bookings: FakeBooking[]) {
       { provide: getModelToken(Venue.name), useValue: {} },
       {
         provide: getConnectionToken(),
-        useValue: { transaction: (fn: (s?: unknown) => Promise<unknown>) => fn(undefined) },
+        useValue: {
+          transaction: (fn: (s?: unknown) => Promise<unknown>) => fn(undefined),
+        },
       },
       { provide: ProfileService, useValue: profilesMock },
+      { provide: NotificationsService, useValue: notificationsMock },
       { provide: ConfigService, useValue: configMock },
     ],
   }).compile()

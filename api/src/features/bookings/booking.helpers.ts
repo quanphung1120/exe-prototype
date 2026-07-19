@@ -423,8 +423,9 @@ export function bookingSummaryFrom(booking: BookingRecord): BookingSummary {
  * silent. Pure (no DI) so `VenuesService` (the venue-scoped status route),
  * `BookingsService` (the narrower `POST /api/bookings/:id/decision` etc. and
  * the Phase 5 sweeper) all produce identical copy without depending on each
- * other. A dedicated `notifications` collection (Phase 7) will replace this
- * ad hoc push onto the player's profile feed.
+ * other. Every caller delivers the result via `NotificationsService#create`
+ * (the dedicated `notifications` collection, Phase 7) — this function itself
+ * stays a plain, DI-free builder.
  *
  * `prevStatus`/`status` take the full `BookingRecordStatus` domain (not just
  * the six-value `ReservationStatus`) so the sweeper can pass its two

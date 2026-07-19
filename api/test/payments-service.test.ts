@@ -20,7 +20,7 @@ import {
 } from "../src/features/payments/sepay.client.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
-import { ProfileService } from "../src/features/players/profile.service.js"
+import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 
 /**
@@ -61,7 +61,10 @@ interface FakePaymentDoc {
   save: () => Promise<void>
 }
 
-function matches(doc: Record<string, unknown>, filter: Record<string, unknown>) {
+function matches(
+  doc: Record<string, unknown>,
+  filter: Record<string, unknown>
+) {
   return Object.entries(filter).every(([k, v]) => doc[k] === v)
 }
 
@@ -79,10 +82,14 @@ function makeFakePaymentModel(store: Map<string, FakePaymentDoc>) {
     return undefined
   }
   return {
-    findOne: (filter: Record<string, unknown>) => makeQuery(find(filter) ?? null),
+    findOne: (filter: Record<string, unknown>) =>
+      makeQuery(find(filter) ?? null),
     findOneAndUpdate: (
       filter: Record<string, unknown>,
-      update: { $set?: Record<string, unknown>; $setOnInsert?: Record<string, unknown> },
+      update: {
+        $set?: Record<string, unknown>
+        $setOnInsert?: Record<string, unknown>
+      },
       options: { upsert?: boolean; new?: boolean } = {}
     ) => {
       let doc = find(filter)
@@ -158,11 +165,13 @@ function makeService(deps: Deps = {}) {
   const bookingsServiceMock = {
     confirmPayment: (bookingId: string) => {
       confirmPaymentCalls.push(bookingId)
-      return Promise.resolve(deps.confirmPaymentResult ?? { bookingId, venueId: "v9" })
+      return Promise.resolve(
+        deps.confirmPaymentResult ?? { bookingId, venueId: "v9" }
+      )
     },
   }
-  const profilesMock = {
-    addNotification: (userId: string, item: unknown) => {
+  const notificationsMock = {
+    create: (userId: string, item: unknown) => {
       notifications.push({ userId, item })
       return Promise.resolve()
     },
@@ -179,7 +188,7 @@ function makeService(deps: Deps = {}) {
       { provide: getModelToken(Venue.name), useValue: venueModelMock },
       { provide: SEPAY_CLIENT, useValue: sepayMock },
       { provide: BookingsService, useValue: bookingsServiceMock },
-      { provide: ProfileService, useValue: profilesMock },
+      { provide: NotificationsService, useValue: notificationsMock },
       { provide: ConfigService, useValue: configMock },
     ],
   })
@@ -227,14 +236,20 @@ void test("checkout rejects a caller who doesn't own the booking", async () => {
   const { service } = await makeService({
     bookingLean: makeBookingLean({ userId: "someone-else" }),
   })
-  await assert.rejects(() => service.checkout("user-1", "b1"), ForbiddenException)
+  await assert.rejects(
+    () => service.checkout("user-1", "b1"),
+    ForbiddenException
+  )
 })
 
 void test("checkout rejects a booking that isn't awaiting payment", async () => {
   const { service } = await makeService({
     bookingLean: makeBookingLean({ status: "confirmed" }),
   })
-  await assert.rejects(() => service.checkout("user-1", "b1"), ConflictException)
+  await assert.rejects(
+    () => service.checkout("user-1", "b1"),
+    ConflictException
+  )
 })
 
 void test("checkout rejects re-checkout once the booking is already paid", async () => {
@@ -252,14 +267,17 @@ void test("checkout rejects re-checkout once the booking is already paid", async
       },
     ],
   })
-  await assert.rejects(() => service.checkout("user-1", "b1"), ConflictException)
+  await assert.rejects(
+    () => service.checkout("user-1", "b1"),
+    ConflictException
+  )
 })
 
 // ── IPN ──────────────────────────────────────────────────────────────────────
 
 void test("handleIpn marks the payment paid, confirms the booking, and notifies the venue", async () => {
-  const { service, store, notifications, confirmPaymentCalls } = await makeService(
-    {
+  const { service, store, notifications, confirmPaymentCalls } =
+    await makeService({
       seedPayments: [
         {
           invoiceNumber: "b1",
@@ -272,8 +290,7 @@ void test("handleIpn marks the payment paid, confirms the booking, and notifies 
           save: () => Promise.resolve(),
         },
       ],
-    }
-  )
+    })
 
   const result = await service.handleIpn(Buffer.from(ipnBody("b1")), {
     "x-sepay-signature": "sha256=irrelevant-in-this-fake",

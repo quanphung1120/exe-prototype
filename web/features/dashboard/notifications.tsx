@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { useTranslations } from "next-intl"
+import { useFormatter, useTranslations } from "next-intl"
+import { toast } from "sonner"
 import {
   Bell,
   CalendarCheck,
@@ -21,12 +22,21 @@ import {
 import {
   type NotificationItem,
   type NotificationKind,
+  type NotificationRecord,
 } from "@/features/dashboard/data"
 import { useData } from "@/features/dashboard/data-provider"
+import {
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "@/features/dashboard/notification-actions"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { useAuthUser } from "@/features/dashboard/auth-user"
 import { demoChannelId, roomChannelId } from "@/features/chat/channel-ids"
 import { useRouter } from "@/i18n/navigation"
+
+/** How often the notification centre polls `GET /api/notifications`. */
+const POLL_MS = 30_000
 
 interface NotificationsContextValue {
   items: NotificationItem[]
@@ -49,9 +59,13 @@ export function useNotifications() {
 }
 
 /**
- * Mock notification centre. Mounted in the dashboard layout (inside
+ * Notification centre. Mounted in the dashboard layout (inside
  * MatchmakingProvider) so it can watch `joinedRooms` and push a live
- * "new team chat" notification whenever the user joins or hosts a match.
+ * "new team chat" notification whenever the user joins or hosts a match, and
+ * poll the Phase 7 transactional feed (`GET /api/notifications`) for
+ * server-delivered ones (an operator's approve/decline, an auto-confirm, a
+ * no-show mark, …). The static seed (`useData().notifications`) is only the
+ * base/demo items — every dynamic notification arrives via the poll.
  */
 export function NotificationsProvider({
   children,
@@ -60,28 +74,81 @@ export function NotificationsProvider({
 }) {
   const t = useTranslations("Notifications")
   const tm = useTranslations("MatchMaker")
+  const format = useFormatter()
   const { joinedRooms, expiredEvents } = useMatchmaking()
   const { notifications } = useData()
   const [items, setItems] = React.useState<NotificationItem[]>(notifications)
   const seenRef = React.useRef<Set<string>>(new Set())
   const seenExpiredRef = React.useRef<Set<string>>(new Set())
-  // Server-pushed notifications (e.g. an operator's approve/decline of a
-  // booking) arrive via a refreshed seed. Merge any not already shown, deduped
-  // by their stable id, so a cross-surface decision surfaces without a reload.
-  const seenSeedRef = React.useRef<Set<string>>(
-    new Set(notifications.map((n) => n.id))
-  )
-  React.useEffect(() => {
-    const fresh = notifications.filter((n) => !seenSeedRef.current.has(n.id))
-    if (fresh.length) {
+  // The server-notification ids already merged into `items`, so a poll only
+  // toasts genuinely new ones. Starts empty (not the seed's ids — server ids
+  // never collide with the seed's `n1…n4`) and is filled by the first poll,
+  // which never toasts (a fresh mount shouldn't replay every unread item that
+  // arrived while the user was away as a toast storm).
+  const seenServerRef = React.useRef<Set<string>>(new Set())
+  const firstPollRef = React.useRef(true)
+
+  // Merge a fresh `GET /api/notifications` response into `items` by id —
+  // server records win over any stale copy already shown. `time` is
+  // recomputed as a relative string from `createdAt` on every poll (next-intl
+  // localizes it — "5 phút trước" in vi, "5 minutes ago" in en — for free).
+  const mergeServer = React.useCallback(
+    (records: NotificationRecord[]) => {
+      const now = new Date()
       setItems((prev) => {
-        const existing = new Set(prev.map((p) => p.id))
-        const add = fresh.filter((n) => !existing.has(n.id))
-        return add.length ? [...add, ...prev] : prev
+        const byId = new Map(prev.map((p) => [p.id, p] as const))
+        for (const r of records) {
+          byId.set(r.id, {
+            id: r.id,
+            kind: r.kind,
+            text: r.text,
+            href: r.href,
+            read: r.read,
+            time: format.relativeTime(new Date(r.createdAt), now),
+            createdAt: r.createdAt,
+          })
+        }
+        const serverIds = new Set(records.map((r) => r.id))
+        return [
+          ...records.map((r) => byId.get(r.id)!),
+          ...prev.filter((p) => !serverIds.has(p.id)),
+        ]
       })
+      if (!firstPollRef.current) {
+        for (const r of records) {
+          if (!r.read && !seenServerRef.current.has(r.id)) toast(r.text)
+        }
+      }
+      firstPollRef.current = false
+      seenServerRef.current = new Set(records.map((r) => r.id))
+    },
+    [format]
+  )
+
+  React.useEffect(() => {
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const records = await listNotifications()
+        if (!cancelled) mergeServer(records)
+      } catch {
+        // Transient poll failure (offline, API blip) — the next tick retries.
+      }
     }
-    seenSeedRef.current = new Set(notifications.map((n) => n.id))
-  }, [notifications])
+    void poll()
+    const interval = setInterval(() => void poll(), POLL_MS)
+    const onFocusOrVisible = () => {
+      if (document.visibilityState === "visible") void poll()
+    }
+    document.addEventListener("visibilitychange", onFocusOrVisible)
+    window.addEventListener("focus", onFocusOrVisible)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", onFocusOrVisible)
+      window.removeEventListener("focus", onFocusOrVisible)
+    }
+  }, [mergeServer])
 
   React.useEffect(() => {
     const additions = joinedRooms.filter((r) => !seenRef.current.has(r.id))
@@ -113,32 +180,37 @@ export function NotificationsProvider({
     )
     if (additions.length) {
       setItems((prev) => [
-        ...additions.map(
-          (e): NotificationItem => ({
-            id: e.id,
-            kind: e.kind === "hold" ? "booking" : "match",
-            text:
-              e.kind === "hold"
-                ? t("holdExpired", { title: e.title })
-                : e.kind === "request"
-                  ? t("requestExpired", { name: e.title })
-                  : t("inviteExpired", { name: e.title }),
-            time: t("justNow"),
-            read: false,
-          })
-        ),
+        ...additions.map((e): NotificationItem => ({
+          id: e.id,
+          kind: e.kind === "hold" ? "booking" : "match",
+          text:
+            e.kind === "hold"
+              ? t("holdExpired", { title: e.title })
+              : e.kind === "request"
+                ? t("requestExpired", { name: e.title })
+                : t("inviteExpired", { name: e.title }),
+          time: t("justNow"),
+          read: false,
+        })),
         ...prev,
       ])
     }
     seenExpiredRef.current = new Set(expiredEvents.map((e) => e.id))
   }, [expiredEvents, t])
 
-  const markRead = (id: string) =>
+  // Optimistic: flip local state immediately, mirror to the server in the
+  // background. A client-only id (matchmaking/expiry events, the static seed)
+  // no-ops server-side harmlessly — see `NotificationsService#markRead`.
+  const markRead = (id: string) => {
     setItems((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     )
-  const markAllRead = () =>
+    markNotificationRead(id).catch(() => {})
+  }
+  const markAllRead = () => {
     setItems((prev) => prev.map((n) => ({ ...n, read: true })))
+    markAllNotificationsRead().catch(() => {})
+  }
 
   const unreadCount = items.reduce((n, item) => n + (item.read ? 0 : 1), 0)
 
