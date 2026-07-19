@@ -62,8 +62,6 @@ const MAX_CAPACITY = 8
 // opening your own booking to friends (addTeamToSession) are exempt because a
 // real, paid court already backs them.
 const MAX_HOSTED_ROOMS = 3
-// How long a host (faked) takes to review + approve the user's join request.
-const APPROVE_MS = 1600
 // Once a court+slot is picked (still forming, not yet paid), the slot is held
 // this long before it's released back for others to book.
 const HOLD_MS = 20 * 60 * 1000
@@ -284,16 +282,6 @@ function clampSlot(slot: string): string | null {
   if (slot < COURT_OPEN_FROM) return COURT_OPEN_FROM
   if (slot > COURT_OPEN_TO) return COURT_OPEN_TO
   return slot
-}
-
-/** Tiny FNV-1a hash — deterministic RSVP timing without Date/random. */
-function hash(s: string): number {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return h >>> 0
 }
 
 /**
@@ -810,8 +798,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   // ── Match Maker actions ──
+  // Demo (seed) rooms are browsable but never joinable — they never back a
+  // real booking, so mocks can never enter a real transaction through them.
   const isSuitable = (room: MatchRoom) =>
-    room.joined < room.capacity && !joinedIds.has(room.id)
+    room.joined < room.capacity && !joinedIds.has(room.id) && !room.demo
 
   const matchesQuickFilters = (room: MatchRoom, f: QuickJoinFilters) => {
     if (f.sport !== "all" && room.sport !== f.sport) return false
@@ -839,59 +829,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const roomTitle = (room: MatchRoom) =>
     tm.has(`rooms.${room.id}.title`) ? tm(`rooms.${room.id}.title`) : room.title
 
-  /**
-   * Faked host review of the user's join request: after a beat the host
-   * reviews the user's reliability, clears them, and the seat confirms.
-   */
-  const scheduleHostApproval = (sessionId: string, hostName: string) => {
-    const key = `approve:${sessionId}:${USER.initials}`
-    const handle = setTimeout(() => {
-      timers.current.delete(key)
-      let approved = false
-      let full = false
-      setSessions((prev) => {
-        const s = prev.find((x) => x.id === sessionId)
-        if (!s || s.status === "cancelled") return prev
-        const me = s.roster.find((p) => p.initials === USER.initials)
-        if (!me || me.rsvp !== "requested") return prev
-        // Re-check capacity at approval time, not just request time — the room
-        // can fill between the request and this timer firing. Mirrors the manual
-        // approveRequest guard so both paths enforce the same invariant. When the
-        // room filled first, drop the request (like a host decline) rather than
-        // confirm an over-capacity seat or leave a stuck "requested" pill.
-        if (activeRoster(s).length >= s.capacity) {
-          full = true
-          return prev.map((x) =>
-            x.id === sessionId
-              ? {
-                  ...x,
-                  roster: x.roster.filter((p) => p.initials !== USER.initials),
-                }
-              : x
-          )
-        }
-        approved = true
-        return prev.map((x) =>
-          x.id === sessionId
-            ? {
-                ...x,
-                roster: x.roster.map((p) =>
-                  p.initials === USER.initials ? { ...p, rsvp: "going" } : p
-                ),
-              }
-            : x
-        )
-      })
-      if (approved) {
-        // Now (and only now) the user is a real member — grant joinedIds so the
-        // team chat, notification, and active-room pill appear post-approval.
-        setJoinedIds((prev) => new Set(prev).add(sessionId))
-        toast.success(ts("toast.requestApproved"), { description: hostName })
-      } else if (full) toast.error(ts("toast.full"))
-    }, APPROVE_MS)
-    timers.current.set(key, handle)
-  }
-
   /** Ask to join someone else's room — the host approves before you're in. */
   const requestJoin = (room: MatchRoom) => {
     setSessions((prev) =>
@@ -916,23 +853,27 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     )
     // Don't grant membership yet — the user is only "requested", not "joined".
     // joinedIds (and everything derived from it: the team chat, the "new chat"
-    // notification, the active-room pill) is set in scheduleHostApproval once the
-    // host actually approves. The "requested" state surfaces via requestedIds.
+    // notification, the active-room pill) is granted once the real host calls
+    // approveRequest. The "requested" state surfaces via requestedIds until then
+    // — there's no faked auto-approval here anymore.
     setActiveSessionId(room.id)
     toast(tm("toast.requested"), {
       description: `${roomTitle(room)} · ${room.venue}`,
     })
-    scheduleHostApproval(room.id, room.host.name)
   }
 
   const joinRoom = (room: MatchRoom) => {
+    if (room.demo) {
+      toast.error(tm("toast.demoRoom"))
+      return
+    }
     if (joinedIds.has(room.id)) {
       setActiveSessionId(room.id)
       setManagerOpen(true)
       return
     }
     // Already asked and awaiting the host — don't fire a second request (which
-    // would re-toast and schedule a duplicate approval timer).
+    // would re-toast).
     if (requestedIds.has(room.id)) return
     // Don't let one player hold seats in overlapping rooms. If this room's slot
     // clashes with a game they're already committed to, block the join and point
@@ -991,60 +932,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     removeRealRoomMember(sessionId, initials)
     toast(ts("toast.declined"), {
       description: playerByInitials(initials).name,
-    })
-  }
-
-  /**
-   * Faked "live" discovery: a couple of nearby players spot the user's open
-   * room and ask to join, arriving staggered over a few seconds. They land as
-   * `requested` so the host (the user) reviews their reliability and approves.
-   */
-  const scheduleJoinRequests = (session: PlaySession) => {
-    const openSeats = session.capacity - activeRoster(session).length
-    if (openSeats <= 0) return
-    const exclude = session.roster.map((p) => p.initials)
-    const askers = pickPartners(
-      session.sport,
-      userLevelForSport(session.sport),
-      Math.min(openSeats, 2),
-      exclude
-    )
-    askers.forEach((p, i) => {
-      const key = `req:${session.id}:${p.initials}`
-      const h = hash(`${session.id}:${p.initials}`)
-      const delay = 2200 + i * 1600 + (h % 2200)
-      const handle = setTimeout(() => {
-        timers.current.delete(key)
-        let asked = false
-        setSessions((prev) => {
-          const s = prev.find((x) => x.id === session.id)
-          if (!s || s.status === "cancelled") return prev
-          if (
-            activeRoster(s).length >= s.capacity ||
-            s.roster.some((r) => r.initials === p.initials)
-          )
-            return prev
-          asked = true
-          return prev.map((x) =>
-            x.id === session.id
-              ? {
-                  ...x,
-                  roster: [
-                    ...x.roster,
-                    {
-                      name: p.name,
-                      initials: p.initials,
-                      rsvp: "requested",
-                      rsvpAt: Date.now(),
-                    },
-                  ],
-                }
-              : x
-          )
-        })
-        if (asked) toast(ts("toast.joinRequest"), { description: p.name })
-      }, delay)
-      timers.current.set(key, handle)
     })
   }
 
@@ -1130,7 +1017,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setActiveSessionId(room.id)
     persist(next)
     openRoomChat(next.id, next.title)
-    scheduleJoinRequests(next)
   }
 
   const createInviteRoom = ({
@@ -1212,7 +1098,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setActiveSessionId(id)
     persist(full)
     openRoomChat(id, title)
-    scheduleRsvp(id, invitees)
     return id
   }
 
@@ -1236,48 +1121,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       )
     )
   }
-
-  /** Schedule the faked RSVP flips for freshly-invited members. */
-  const scheduleRsvp = React.useCallback(
-    (sessionId: string, inits: string[]) => {
-      inits.forEach((init) => {
-        const h = hash(`${sessionId}:${init}`)
-        const declined = h % 5 === 0
-        const delay = 1500 + (h % 4800)
-        const key = `rsvp:${sessionId}:${init}`
-        const handle = setTimeout(() => {
-          timers.current.delete(key)
-          setSessions((prev) => {
-            const s = prev.find((x) => x.id === sessionId)
-            if (!s || s.status === "cancelled") return prev
-            const m = s.roster.find((p) => p.initials === init)
-            if (!m || m.rsvp !== "pending") return prev
-            return prev.map((x) =>
-              x.id === sessionId
-                ? {
-                    ...x,
-                    roster: x.roster.map((p) =>
-                      p.initials === init
-                        ? {
-                            ...p,
-                            rsvp: declined ? "declined" : "going",
-                          }
-                        : p
-                    ),
-                  }
-                : x
-            )
-          })
-          const name = playerByInitials(init).name
-          toast(declined ? ts("toast.rsvpDeclined") : ts("toast.rsvpGoing"), {
-            description: name,
-          })
-        }, delay)
-        timers.current.set(key, handle)
-      })
-    },
-    [ts, playerByInitials]
-  )
 
   const invitePlayer = (sessionId: string, initials: string) => {
     const s = sessions.find((x) => x.id === sessionId)
@@ -1305,7 +1148,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           : x
       )
     )
-    scheduleRsvp(sessionId, [initials])
   }
 
   const kickPlayer = (sessionId: string, initials: string) => {
@@ -1375,10 +1217,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             : x
         )
       )
-      scheduleRsvp(
-        session.id,
-        partners.map((p) => p.initials)
-      )
       setSearch((cur) =>
         cur
           ? {
@@ -1439,7 +1277,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setActiveSessionId(id)
     setManagerOpen(true)
     openRoomChat(id, next.title)
-    scheduleJoinRequests(next)
     return id
   }
 
@@ -1659,7 +1496,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             }
       )
     )
-    scheduleRsvp(sessionId, toAdd)
     return toAdd.length
   }
 

@@ -51,6 +51,8 @@ export interface Player {
   trust: number
   online: boolean
   blurb: string
+  /** Seed-only mock suggestion — never a real player, never enters a real booking. */
+  demo?: boolean
 }
 
 /** A participant resolvable from a match room's `players` initials. */
@@ -118,6 +120,8 @@ export interface MatchRoom {
   durationMin?: number
   /** Set once a court has been booked for this room. */
   bookingId?: string
+  /** Seed liquidity, not a real room — browsable but never joinable/bookable. */
+  demo?: boolean
 }
 
 // ── Bookings ─────────────────────────────────────────────────────────────────
@@ -234,6 +238,8 @@ export interface PlaySession {
   pricePerHour: number
   result?: "W" | "L"
   score?: string
+  /** Seed liquidity (from the demo ROOMS catalog) — browsable but never joinable/bookable. */
+  demo?: boolean
 }
 
 export type Conflict = "court-taken" | "self-overlap" | null

@@ -37,6 +37,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     trust: 88,
     online: true,
     blurb: "Plays evenings · aggressive baseliner",
+    demo: true,
   },
   {
     id: "p2",
@@ -49,6 +50,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     trust: 95,
     online: true,
     blurb: "Looking for doubles partner",
+    demo: true,
   },
   {
     id: "p3",
@@ -61,6 +63,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     trust: 84,
     online: false,
     blurb: "Weekend singles · all-court",
+    demo: true,
   },
   {
     id: "p4",
@@ -73,6 +76,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     trust: 79,
     online: true,
     blurb: "New to the area, very social",
+    demo: true,
   },
   {
     id: "p5",
@@ -85,6 +89,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     trust: 91,
     online: false,
     blurb: "Competitive · league regular",
+    demo: true,
   },
   {
     id: "p6",
@@ -97,6 +102,7 @@ export const MATCH_SUGGESTIONS: Player[] = [
     trust: 76,
     online: true,
     blurb: "Fast hands, fun rallies",
+    demo: true,
   },
 ]
 
@@ -296,6 +302,7 @@ export const ROOMS: MatchRoom[] = [
     joined: 2,
     players: ["TH", "LL"],
     pricePerHour: 360000,
+    demo: true,
   },
   {
     id: "r2",
@@ -313,6 +320,7 @@ export const ROOMS: MatchRoom[] = [
     joined: 1,
     players: ["PQ"],
     pricePerHour: 220000,
+    demo: true,
   },
   {
     id: "r3",
@@ -330,6 +338,7 @@ export const ROOMS: MatchRoom[] = [
     joined: 3,
     players: ["ĐA", "VH", "BK"],
     pricePerHour: 150000,
+    demo: true,
   },
   {
     id: "r4",
@@ -347,6 +356,7 @@ export const ROOMS: MatchRoom[] = [
     joined: 2,
     players: ["VH", "PQ"],
     pricePerHour: 280000,
+    demo: true,
   },
   {
     id: "r5",
@@ -364,6 +374,7 @@ export const ROOMS: MatchRoom[] = [
     joined: 2,
     players: ["LL", "BK"],
     pricePerHour: 130000,
+    demo: true,
   },
   {
     id: "r6",
@@ -381,6 +392,7 @@ export const ROOMS: MatchRoom[] = [
     joined: 1,
     players: ["BK"],
     pricePerHour: 280000,
+    demo: true,
   },
 ]
 

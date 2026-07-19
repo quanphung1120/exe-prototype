@@ -635,6 +635,7 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
     pricePerHour: s.pricePerHour,
     durationMin: s.durationMin,
     bookingId: s.status === "booked" ? s.id : undefined,
+    demo: s.demo,
   }
 }
 
@@ -758,6 +759,7 @@ function roomToSession(
     district: r.district,
     distanceKm: r.distanceKm,
     pricePerHour: r.pricePerHour,
+    demo: r.demo,
   }
 }
 
