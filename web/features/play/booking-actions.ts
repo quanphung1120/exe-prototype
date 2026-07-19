@@ -6,12 +6,13 @@ import { apiFetch } from "@/lib/api"
 
 // Server actions for the player-facing bookings API (Phase 3, VienTD-Review
 // decision #8) — the narrow POST /api/bookings/* routes layered on top of the
-// canonical `bookings` collection. `session.tsx`'s `confirmBooking` awaits
-// `createBookingHold` at the moment a court+slot is actually reserved (the
-// server computes the 20-minute hold expiry now, replacing the old
-// client-only HOLD_MS timer / PUT-triggered cross-write), and `cancelBooking`
-// awaits `cancelBookingRecord` so the refund policy (≥24h/<24h/after-start)
-// runs server-side instead of being simulated locally.
+// canonical `bookings` collection. `session.tsx`'s `reserveHold` (called from
+// `pay`, Phase 4) awaits `createBookingHold` at the moment a court+slot is
+// actually reserved (the server computes the 20-minute hold expiry now,
+// replacing the old client-only HOLD_MS timer / PUT-triggered cross-write),
+// and `cancelBooking` awaits `cancelBookingRecord` so the refund policy
+// (≥24h/<24h/after-start) runs server-side instead of being simulated
+// locally.
 //
 // These return a result object instead of throwing: a thrown Error crossing
 // the Server Action boundary back to the client loses its subclass/custom
