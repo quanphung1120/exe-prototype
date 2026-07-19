@@ -1018,6 +1018,8 @@ export const BOOKING_TRANSITIONS: Record<
   BookingRecordStatus,
   BookingRecordStatus[]
 > = {
+  // "pending" here means paid, awaiting venue approval; a sweeper auto-confirm
+  // (silence = consent) also lands on "confirmed" through this same edge.
   awaiting_payment: ["pending", "expired", "cancelled"],
   pending: ["confirmed", "cancelled"],
   confirmed: ["checked-in", "cancelled", "no-show"],

@@ -4,8 +4,10 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common"
+import { ConfigService } from "@nestjs/config"
 import { InjectConnection, InjectModel } from "@nestjs/mongoose"
 import type { ClientSession, Connection, Model } from "mongoose"
 
@@ -62,8 +64,21 @@ export interface CreateBookingInput {
 /** Minutes an unpaid `awaiting_payment` hold keeps its slot before it lapses. */
 const HOLD_MIN = 20
 
-/** Minutes a venue has to approve/decline a paid booking before it auto-confirms (decision #5). */
-const CONFIRM_SLA_MIN = 30
+/**
+ * Fallback minutes a venue has to approve/decline a paid booking before it
+ * auto-confirms (decision #5), when `BOOKING_CONFIRM_SLA_MINUTES` is unset —
+ * see `confirmSlaMinutes` below, which reads the configurable value.
+ */
+const DEFAULT_CONFIRM_SLA_MIN = 30
+
+/** One sweep run's tally of guarded transitions actually applied — for logging/tests. */
+export interface SweepResult {
+  expired: number
+  autoConfirmed: number
+  completed: number
+  /** bookingIds the sweeper expired — the caller cancels their gateway order. */
+  expiredBookingIds: string[]
+}
 
 // ── Inputs ─────────────────────────────────────────────────────────────────
 
@@ -158,6 +173,8 @@ async function withOverlapGuard<T>(
 // the old Sessions↔Venues forwardRef cycle.
 @Injectable()
 export class BookingsService {
+  private readonly logger = new Logger(BookingsService.name)
+
   constructor(
     @InjectModel(Booking.name)
     private readonly bookingModel: Model<BookingDocument>,
@@ -168,8 +185,17 @@ export class BookingsService {
     // Explicit token (not just the TS type) since esbuild-based runners like
     // tsx don't emit the design:paramtypes metadata Nest's implicit
     // constructor-injection would otherwise rely on.
-    @Inject(ProfileService) private readonly profiles: ProfileService
+    @Inject(ProfileService) private readonly profiles: ProfileService,
+    @Inject(ConfigService) private readonly config: ConfigService
   ) {}
+
+  /** Decision #5's SLA window, minutes — overridable via `BOOKING_CONFIRM_SLA_MINUTES`. */
+  private confirmSlaMinutes(): number {
+    return this.config.get<number>(
+      "BOOKING_CONFIRM_SLA_MINUTES",
+      DEFAULT_CONFIRM_SLA_MIN
+    )
+  }
 
   // ── Venue doc helpers ──────────────────────────────────────────────────────
 
@@ -492,11 +518,12 @@ export class BookingsService {
 
   /**
    * Confirm a booking's SePay payment — `awaiting_payment` → `pending` with a
-   * fresh `confirmDeadlineAt` (decision #5: 30-minute venue approval SLA,
-   * silence = approve). Called by `PaymentsService` once its own IPN
-   * idempotency (`Payment.invoiceNumber` unique + guarded `findOneAndUpdate`)
-   * has confirmed this is the *first* time the order was marked paid — but
-   * this method is itself idempotent too (a booking already past
+   * fresh `confirmDeadlineAt` (decision #5: venue approval SLA — overridable
+   * via `BOOKING_CONFIRM_SLA_MINUTES`, default 30 minutes — silence =
+   * approve). Called by `PaymentsService` once its own IPN idempotency
+   * (`Payment.invoiceNumber` unique + guarded `findOneAndUpdate`) has
+   * confirmed this is the *first* time the order was marked paid — but this
+   * method is itself idempotent too (a booking already past
    * `awaiting_payment` is a no-op), so a defensive double-call from a
    * retried/replayed IPN never re-applies the transition or clobbers a
    * status the venue has already moved on from.
@@ -508,7 +535,10 @@ export class BookingsService {
       if (doc.status !== "awaiting_payment") return doc
       doc.status = "pending"
       doc.paymentStatus = "paid"
-      doc.confirmDeadlineAt = addMinutesToIso(vnNowIso(), CONFIRM_SLA_MIN)
+      doc.confirmDeadlineAt = addMinutesToIso(
+        vnNowIso(),
+        this.confirmSlaMinutes()
+      )
       doc.statusHistory = [
         ...(doc.statusHistory ?? []),
         { status: "pending", at: vnNowIso() },
@@ -516,6 +546,113 @@ export class BookingsService {
       await doc.save()
       return doc
     })
+  }
+
+  // ── Scheduler sweep (Phase 5) ───────────────────────────────────────────────
+
+  /**
+   * Run every guarded, idempotent booking transition that's driven by the
+   * clock rather than a person (`payments/bookings-sweeper.service.ts` calls
+   * this every minute): an unpaid hold past `holdExpiresAt` expires; a
+   * `pending` (paid) booking whose venue hasn't decided within the confirm
+   * SLA silently auto-confirms (decision #5, "silence = consent"), notifying
+   * the player; a checked-in booking past its `endAt` completes. No-show
+   * stays a manual venue action — an empty court isn't a fact the clock alone
+   * can establish.
+   *
+   * Each rule's query filters on the *current* status, so re-running the
+   * sweep (the whole point of a cron) only ever touches bookings still due a
+   * transition. Each individual transition goes through `setStatus`, which
+   * re-reads the doc under `withVersionRetry` and no-ops on a same-status
+   * write — so a booking a concurrent operator decision already moved past
+   * this rule's expected `from` status is silently skipped rather than
+   * clobbered (`canTransitionBooking` would reject the stale transition, and
+   * that per-booking failure is swallowed so the rest of the batch proceeds).
+   * `expiredBookingIds` comes back for the caller (the sweeper trigger,
+   * `bookings-sweeper.service.ts`) to cancel each one's SePay order via
+   * `PaymentsService` — a payments-side concern this service doesn't depend
+   * on, to avoid a module cycle with `PaymentsModule`.
+   */
+  async sweep(now: string = vnNowIso()): Promise<SweepResult> {
+    const result: SweepResult = {
+      expired: 0,
+      autoConfirmed: 0,
+      completed: 0,
+      expiredBookingIds: [],
+    }
+
+    const expiring = await this.bookingModel
+      .find({ status: "awaiting_payment", holdExpiresAt: { $lte: now } })
+      .select("bookingId venueId")
+      .lean<{ bookingId: string; venueId: string }[]>()
+    for (const b of expiring) {
+      const applied = await this.trySetStatus(b.venueId, b.bookingId, "expired")
+      if (applied) {
+        result.expired++
+        result.expiredBookingIds.push(b.bookingId)
+      }
+    }
+
+    const confirming = await this.bookingModel
+      .find({
+        status: "pending",
+        paymentStatus: "paid",
+        confirmDeadlineAt: { $lte: now },
+      })
+      .select("bookingId venueId userId")
+      .lean<{ bookingId: string; venueId: string; userId?: string }[]>()
+    for (const b of confirming) {
+      const applied = await this.trySetStatus(b.venueId, b.bookingId, "confirmed")
+      if (applied) {
+        result.autoConfirmed++
+        if (b.userId) {
+          const notify = decisionNotification(
+            b.bookingId,
+            "pending",
+            "confirmed",
+            undefined,
+            true // auto — every sweeper confirm is silent consent
+          )
+          if (notify) await this.profiles.addNotification(b.userId, notify)
+        }
+      }
+    }
+
+    const completing = await this.bookingModel
+      .find({ status: "checked-in", endAt: { $lte: now } })
+      .select("bookingId venueId")
+      .lean<{ bookingId: string; venueId: string }[]>()
+    for (const b of completing) {
+      const applied = await this.trySetStatus(b.venueId, b.bookingId, "completed")
+      if (applied) result.completed++
+    }
+
+    return result
+  }
+
+  /**
+   * `setStatus`, but for the sweeper: swallows any failure (a stale
+   * transition from a concurrent operator decision — `ConflictException` —
+   * or a booking that vanished between the sweep's query and this write —
+   * `NotFoundException` — or an unexpected DB error) instead of throwing, so
+   * one bad booking never aborts the rest of the batch; the next tick just
+   * retries it. Returns whether the transition actually applied (false for a
+   * swallowed failure and for an idempotent same-status no-op).
+   */
+  private async trySetStatus(
+    venueId: string,
+    bookingId: string,
+    status: BookingRecordStatus
+  ): Promise<boolean> {
+    try {
+      const { prevStatus } = await this.setStatus(venueId, bookingId, status)
+      return prevStatus !== null
+    } catch (err) {
+      this.logger.warn(
+        `Sweep: failed to transition booking ${bookingId} to "${status}": ${err instanceof Error ? err.message : String(err)}`
+      )
+      return false
+    }
   }
 
   // ── Player-facing bookings API (`BookingsController`, Phase 3) ─────────────

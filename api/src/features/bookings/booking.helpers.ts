@@ -418,18 +418,28 @@ export function bookingSummaryFrom(booking: BookingRecord): BookingSummary {
 // ── Player notification copy for an operator decision ─────────────────────────
 
 /**
- * The player notification for an operator decision on their booking, or null
- * when the transition is silent. Pure (no DI) so both `VenuesService` (the
- * existing venue-scoped status route) and `BookingsService` (the narrower
- * `POST /api/bookings/:id/decision` etc.) can produce identical copy without
- * depending on each other. A dedicated `notifications` collection (Phase 7)
- * will replace this ad hoc push onto the player's profile feed.
+ * The player notification for an operator decision — or a sweeper-driven
+ * clock transition — on their booking, or null when the transition is
+ * silent. Pure (no DI) so `VenuesService` (the venue-scoped status route),
+ * `BookingsService` (the narrower `POST /api/bookings/:id/decision` etc. and
+ * the Phase 5 sweeper) all produce identical copy without depending on each
+ * other. A dedicated `notifications` collection (Phase 7) will replace this
+ * ad hoc push onto the player's profile feed.
+ *
+ * `prevStatus`/`status` take the full `BookingRecordStatus` domain (not just
+ * the six-value `ReservationStatus`) so the sweeper can pass its two
+ * clock-driven edges — `awaiting_payment → expired` and the auto-confirm
+ * landing on `confirmed` — through the same function. `auto` distinguishes
+ * that silent SLA auto-confirm (decision #5, "silence = consent") from a
+ * manual operator approval — same target status, different copy so the
+ * player understands why nobody actively approved it.
  */
 export function decisionNotification(
   reservationId: string,
-  prevStatus: ReservationStatus,
-  status: ReservationStatus,
-  reason?: string
+  prevStatus: BookingRecordStatus,
+  status: BookingRecordStatus,
+  reason?: string,
+  auto = false
 ): NotificationItem | null {
   const base = { time: "Vừa xong", read: false, href: "/dashboard/bookings" }
   if (status === "cancelled" && prevStatus === "pending" && reason) {
@@ -448,6 +458,14 @@ export function decisionNotification(
       ...base,
     }
   }
+  if (status === "confirmed" && auto) {
+    return {
+      id: `booking-auto-confirmed-${reservationId}`,
+      kind: "booking",
+      text: "Đặt sân của bạn đã được tự động xác nhận do chủ sân chưa phản hồi trong thời gian quy định.",
+      ...base,
+    }
+  }
   if (status === "confirmed") {
     return {
       id: `booking-approved-${reservationId}`,
@@ -461,6 +479,14 @@ export function decisionNotification(
       id: `booking-no-show-${reservationId}`,
       kind: "booking",
       text: "Bạn đã được đánh dấu vắng mặt (no-show) cho lượt đặt sân này.",
+      ...base,
+    }
+  }
+  if (status === "expired") {
+    return {
+      id: `booking-expired-${reservationId}`,
+      kind: "booking",
+      text: "Đặt sân đã hết hạn do chưa hoàn tất thanh toán trong thời gian giữ chỗ.",
       ...base,
     }
   }

@@ -1386,12 +1386,14 @@
       "walk-in": "Khách vãng lai"
     },
     "status": {
+      "awaiting_payment": "Chờ thanh toán",
       "pending": "Chờ duyệt",
       "confirmed": "Đã xác nhận",
       "checked-in": "Đã nhận sân",
       "completed": "Hoàn tất",
       "cancelled": "Đã hủy",
-      "no-show": "Vắng mặt"
+      "no-show": "Vắng mặt",
+      "expired": "Hết hạn giữ chỗ"
     },
     "approve": "Duyệt",
     "decidedApproved": "Đã duyệt · đã báo khách",

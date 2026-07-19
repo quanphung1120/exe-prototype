@@ -10,6 +10,7 @@ import {
   NotFoundException,
 } from "@nestjs/common"
 import { Test } from "@nestjs/testing"
+import { ConfigService } from "@nestjs/config"
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
@@ -119,6 +120,7 @@ interface Deps {
   overlapExisting?: unknown[]
   createdRecords?: unknown[]
   profile?: { user: { name: string; initials: string } }
+  confirmSlaMinutes?: number
 }
 
 async function makeService(deps: Deps = {}) {
@@ -162,6 +164,10 @@ async function makeService(deps: Deps = {}) {
     },
   }
 
+  const configMock = {
+    get: (_key: string, fallback?: unknown) => deps.confirmSlaMinutes ?? fallback,
+  }
+
   const moduleRef = await Test.createTestingModule({
     providers: [
       BookingsService,
@@ -170,6 +176,7 @@ async function makeService(deps: Deps = {}) {
       { provide: getModelToken(Venue.name), useValue: venueModelMock },
       { provide: getConnectionToken(), useValue: connectionMock },
       { provide: ProfileService, useValue: profilesMock },
+      { provide: ConfigService, useValue: configMock },
     ],
   }).compile()
 
@@ -506,4 +513,52 @@ void test("listMine projects every persisted field the API contract promises", a
   assert.equal(mine[0]?.bookingId, "b1")
   // The Reservation-only fields (customer, statusHistory) are dropped.
   assert.equal((mine[0] as Record<string, unknown>).customer, undefined)
+})
+
+// ── confirmPayment (Phase 5's SLA-clock wiring) ─────────────────────────────
+
+void test("confirmPayment moves awaiting_payment to pending and stamps a confirmDeadlineAt from the default SLA", async () => {
+  const { service, bookingDoc } = await makeService({
+    bookingDoc: makeBookingDoc({ status: "awaiting_payment", paymentStatus: "awaiting" }),
+  })
+  const before = Date.now()
+
+  const doc = await service.confirmPayment("b1")
+
+  assert.ok(doc)
+  assert.equal(doc.status, "pending")
+  assert.equal(doc.paymentStatus, "paid")
+  assert.ok(bookingDoc.statusHistory.some((h) => h.status === "pending"))
+  assert.ok(doc.confirmDeadlineAt)
+  const deadlineMs = new Date(doc.confirmDeadlineAt).getTime()
+  // Default SLA is 30 minutes when BOOKING_CONFIRM_SLA_MINUTES is unset.
+  assert.ok(deadlineMs - before >= 29 * 60_000)
+  assert.ok(deadlineMs - before <= 31 * 60_000)
+})
+
+void test("confirmPayment honors a configured BOOKING_CONFIRM_SLA_MINUTES", async () => {
+  const { service } = await makeService({
+    bookingDoc: makeBookingDoc({ status: "awaiting_payment", paymentStatus: "awaiting" }),
+    confirmSlaMinutes: 5,
+  })
+  const before = Date.now()
+
+  const doc = await service.confirmPayment("b1")
+
+  assert.ok(doc?.confirmDeadlineAt)
+  const deadlineMs = new Date(doc.confirmDeadlineAt).getTime()
+  assert.ok(deadlineMs - before >= 4 * 60_000)
+  assert.ok(deadlineMs - before <= 6 * 60_000)
+})
+
+void test("confirmPayment is a no-op past awaiting_payment (idempotent against IPN replay)", async () => {
+  const { service, bookingDoc } = await makeService({
+    bookingDoc: makeBookingDoc({ status: "pending", paymentStatus: "paid" }),
+  })
+  const before = bookingDoc.statusHistory.length
+
+  const doc = await service.confirmPayment("b1")
+
+  assert.equal(doc?.status, "pending")
+  assert.equal(bookingDoc.statusHistory.length, before)
 })

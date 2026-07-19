@@ -1386,12 +1386,14 @@
       "walk-in": "Walk-in"
     },
     "status": {
+      "awaiting_payment": "Awaiting payment",
       "pending": "Pending",
       "confirmed": "Confirmed",
       "checked-in": "Checked in",
       "completed": "Completed",
       "cancelled": "Cancelled",
-      "no-show": "No-show"
+      "no-show": "No-show",
+      "expired": "Expired"
     },
     "approve": "Approve",
     "decidedApproved": "Approved · customer notified",

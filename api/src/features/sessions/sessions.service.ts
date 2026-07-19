@@ -45,9 +45,11 @@ function mapBookingStatus(status: BookingRecordStatus): {
       return { status: "booked", hold: "confirmed" }
     case "completed":
       return { status: "completed", hold: "confirmed" }
-    case "expired":
+    // An unpaid hold that timed out never became a real booking — same
+    // player-facing outcome as a cancel, just no refund to simulate.
     case "cancelled":
     case "no-show":
+    case "expired":
       return { status: "cancelled" }
   }
 }

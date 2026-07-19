@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common"
 import { APP_FILTER, APP_GUARD } from "@nestjs/core"
 import { ConfigModule, ConfigService } from "@nestjs/config"
 import { MongooseModule } from "@nestjs/mongoose"
+import { ScheduleModule } from "@nestjs/schedule"
 import { TerminusModule } from "@nestjs/terminus"
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler"
 
@@ -45,6 +46,10 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     }),
     // Backs the /health/ready readiness probe (MongooseHealthIndicator).
     TerminusModule,
+    // Drives the Phase 5 booking sweeper (expire unpaid holds, auto-confirm
+    // past the SLA, auto-complete finished checked-in bookings) — see
+    // `features/payments/bookings-sweeper.service.ts`.
+    ScheduleModule.forRoot(),
     BookingsModule,
     CourtsModule,
     PlayersModule,
