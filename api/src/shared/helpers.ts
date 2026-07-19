@@ -32,7 +32,6 @@ import type {
   Player,
   PlaySession,
   Reservation,
-  ReservationStatus,
   RevenuePoint,
   RoomLevel,
   RosterEntry,
