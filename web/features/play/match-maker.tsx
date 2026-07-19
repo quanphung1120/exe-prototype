@@ -137,6 +137,14 @@ function RoomCard({
             <span className="text-xs text-muted-foreground">
               · {tc(`format.${room.format.toLowerCase()}`)}
             </span>
+            {room.demo ? (
+              <span
+                className="rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase"
+                title={t("demoJoin")}
+              >
+                {t("demoBadge")}
+              </span>
+            ) : null}
           </div>
           <p className="mt-1 truncate font-heading text-lg leading-tight font-semibold">
             {title}
@@ -253,11 +261,18 @@ function RoomCard({
           <Button
             size="sm"
             className="ml-auto shrink-0 rounded-full text-base font-semibold"
-            variant={full || conflict ? "outline" : "default"}
-            disabled={full || conflict}
+            variant={full || conflict || room.demo ? "outline" : "default"}
+            disabled={full || conflict || room.demo}
+            title={room.demo ? t("demoJoin") : undefined}
             onClick={onJoin}
           >
-            {full ? t("full") : conflict ? t("timeClash") : t("join")}
+            {room.demo
+              ? t("demoBadge")
+              : full
+                ? t("full")
+                : conflict
+                  ? t("timeClash")
+                  : t("join")}
           </Button>
         )}
       </div>

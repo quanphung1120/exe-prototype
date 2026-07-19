@@ -1423,6 +1423,7 @@ function RoomCard({
   onJoin: (room: MatchRoom) => void
 }) {
   const t = useTranslations("AiDashboard")
+  const tm = useTranslations("MatchMaker")
   const { joinedIds, requestedIds } = useSession()
   const open = room.capacity - room.joined
   const isJoined = joinedIds.has(room.id)
@@ -1432,7 +1433,17 @@ function RoomCard({
     <div className="flex flex-col gap-3 rounded-3xl border border-border bg-background p-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-heading font-semibold text-sm">{room.title}</p>
+          <p className="flex min-w-0 items-center gap-1.5 truncate font-heading font-semibold text-sm">
+            <span className="truncate">{room.title}</span>
+            {room.demo ? (
+              <span
+                className="shrink-0 rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase"
+                title={tm("demoJoin")}
+              >
+                {tm("demoBadge")}
+              </span>
+            ) : null}
+          </p>
           <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
             <MapPin className="size-3 shrink-0" />
             {room.venue} · {room.district} · {room.distanceKm} km
@@ -1472,8 +1483,9 @@ function RoomCard({
         <Button
           size="sm"
           className="rounded-full"
-          variant={isJoined ? "secondary" : "default"}
-          disabled={isRequested}
+          variant={isJoined ? "secondary" : room.demo ? "outline" : "default"}
+          disabled={isRequested || room.demo}
+          title={room.demo ? tm("demoJoin") : undefined}
           onClick={() => onJoin(room)}
         >
           {isJoined ? (
@@ -1483,6 +1495,8 @@ function RoomCard({
             </>
           ) : isRequested ? (
             t("requested")
+          ) : room.demo ? (
+            tm("demoBadge")
           ) : (
             <>
               <LogIn className="size-3.5" />
