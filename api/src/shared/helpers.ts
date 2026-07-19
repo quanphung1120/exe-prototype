@@ -221,6 +221,16 @@ function vnIsoOf(epochMs: number): string {
   return `${vn.getUTCFullYear()}-${pad2(vn.getUTCMonth() + 1)}-${pad2(vn.getUTCDate())}T${time}+07:00`
 }
 
+/**
+ * `iso` shifted by `mins` (may be negative), formatted the same as
+ * `vnNowIso`/`combineDateTime` (fixed `+07:00` offset). Used for server-computed
+ * deadlines derived from a real instant — e.g. a booking hold's
+ * `now + 20min` (`bookings.service.ts#createHold`).
+ */
+export function addMinutesToIso(iso: string, mins: number): string {
+  return vnIsoOf(new Date(iso).getTime() + mins * 60_000)
+}
+
 /** "YYYY-MM-DD" (Asia/Ho_Chi_Minh) for an arbitrary epoch-ms instant. */
 const vnDateOf = (epochMs: number) => isoDateOf(vnIsoOf(epochMs))
 

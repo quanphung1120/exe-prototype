@@ -17,6 +17,7 @@ import {
   type BookingRecord,
   type BookingRecordStatus,
   type BookingSource,
+  type NotificationItem,
   type PaymentStatus,
   type Reservation,
   type ReservationStatus,
@@ -45,6 +46,31 @@ export function assertWithinHours(
       "Reservation must stay within venue opening hours"
     )
   }
+}
+
+// ── Court blocks (seam for Phase 6) ─────────────────────────────────────────
+
+/**
+ * Seam for Phase 6 court-block enforcement (VienTD-Review decision #12): once
+ * `CourtBlock` entities exist (start/end + a required reason, rejecting
+ * booking/walk-in overlap), this is the single call site that will query them
+ * and throw a `ConflictException` on overlap — see `bookings.service.ts#createHold`.
+ * No blocks exist yet, so this is a deliberate no-op today.
+ */
+export function assertNoCourtBlock(
+  venueId: string,
+  courtId: string,
+  dateKey: string,
+  start: string,
+  durationMin: number
+): void {
+  // Intentionally empty — Phase 6 fills this in. Referencing the params (as a
+  // no-op) keeps the seam's signature exact without an unused-args lint error.
+  void venueId
+  void courtId
+  void dateKey
+  void start
+  void durationMin
 }
 
 // ── Overlap ──────────────────────────────────────────────────────────────────
@@ -94,6 +120,56 @@ export function bookingsOverlap(
   })
 }
 
+/** The minimal shape the self-overlap check reads off one user's bookings. */
+export interface UserBookingSlot {
+  bookingId: string
+  dateKey: string
+  start: string
+  durationMin: number
+  status: BookingRecordStatus
+}
+
+/**
+ * True when a proposed slot overlaps a live booking of `existing` (a user's
+ * own bookings, already filtered to that user) *regardless of court/venue* —
+ * VienTD-Review decision #8: a player may not hold two courts (anywhere) at
+ * once. Hard-blocked at `POST /api/bookings` (`bookings.service.ts#createHold`);
+ * unlike `bookingsOverlap`, this never gates a write inside the per-court
+ * transaction/lock (a user's bookings can span many venues), so it's a
+ * best-effort pre-check rather than a fully race-proof guard.
+ */
+export function userBookingsOverlap(
+  existing: UserBookingSlot[],
+  dateKey: string,
+  start: string,
+  durationMin: number,
+  excludeId?: string
+): boolean {
+  return existing.some((b) => {
+    if (excludeId && b.bookingId === excludeId) return false
+    if (b.dateKey !== dateKey) return false
+    if (NON_BLOCKING_STATUSES.has(b.status)) return false
+    return rangesOverlap(start, durationMin, b.start, b.durationMin)
+  })
+}
+
+// ── Cancellation refund policy (decision #6) ────────────────────────────────
+
+/**
+ * Percent of the price refunded on a player-initiated cancel, by how far
+ * `nowIso` sits before the booking's `startAt`: ≥24h → 100%, <24h → 50%, at or
+ * after the start time → 0%. A venue *decline* is a flat 100% regardless of
+ * timing (the venue's fault, not the player's) — that's applied directly by
+ * the caller (`bookings.service.ts#decide`), not through this helper.
+ */
+export function refundPctFor(nowIso: string, startAt: string): number {
+  const now = new Date(nowIso).getTime()
+  const start = new Date(startAt).getTime()
+  if (now >= start) return 0
+  const hoursUntilStart = (start - now) / (60 * 60 * 1000)
+  return hoursUntilStart >= 24 ? 100 : 50
+}
+
 // ── Building / updating a BookingRecord ────────────────────────────────────
 
 export interface NewBookingInput {
@@ -108,6 +184,8 @@ export interface NewBookingInput {
   customer: BookingCustomer
   userId?: string
   sessionId?: string
+  /** An unpaid hold's expiry (ISO, +07:00) — set only for `awaiting_payment`. */
+  holdExpiresAt?: string
 }
 
 /** A fresh `BookingRecord` (bookingId is a Mongo ObjectId hex string). */
@@ -135,6 +213,7 @@ export function buildBookingRecord(input: NewBookingInput): BookingRecord {
     price: priceFor(input.court.pricePerHour, input.durationMin),
     status: input.status,
     paymentStatus: input.paymentStatus,
+    holdExpiresAt: input.holdExpiresAt,
     statusHistory: [{ status: input.status, at: vnNowIso() }],
   }
 }
@@ -243,4 +322,119 @@ export function reservationFromBooking(
     isRegular: false,
     declineReason: booking.declineReason,
   }
+}
+
+// ── Projection: BookingRecord → the player-facing bookings API shape ──────────
+
+/**
+ * The canonical fields `api/src/features/bookings/bookings.controller.ts`
+ * returns to the caller — everything a player/operator needs from a booking
+ * mutation (hold expiry, payment state, refund) that the venue-scoped
+ * `Reservation` projection above intentionally omits (its shape is frozen to
+ * match the pre-existing venue UI contract).
+ */
+export type BookingSummary = Pick<
+  BookingRecord,
+  | "bookingId"
+  | "venueId"
+  | "courtId"
+  | "courtName"
+  | "sport"
+  | "source"
+  | "userId"
+  | "sessionId"
+  | "startAt"
+  | "endAt"
+  | "dateKey"
+  | "start"
+  | "durationMin"
+  | "price"
+  | "status"
+  | "paymentStatus"
+  | "holdExpiresAt"
+  | "confirmDeadlineAt"
+  | "checkedInAt"
+  | "declineReason"
+  | "cancelReason"
+  | "refund"
+>
+
+/** Project a full `BookingRecord` (a lean/hydrated doc) to `BookingSummary`. */
+export function bookingSummaryFrom(booking: BookingRecord): BookingSummary {
+  return {
+    bookingId: booking.bookingId,
+    venueId: booking.venueId,
+    courtId: booking.courtId,
+    courtName: booking.courtName,
+    sport: booking.sport,
+    source: booking.source,
+    userId: booking.userId,
+    sessionId: booking.sessionId,
+    startAt: booking.startAt,
+    endAt: booking.endAt,
+    dateKey: booking.dateKey,
+    start: booking.start,
+    durationMin: booking.durationMin,
+    price: booking.price,
+    status: booking.status,
+    paymentStatus: booking.paymentStatus,
+    holdExpiresAt: booking.holdExpiresAt,
+    confirmDeadlineAt: booking.confirmDeadlineAt,
+    checkedInAt: booking.checkedInAt,
+    declineReason: booking.declineReason,
+    cancelReason: booking.cancelReason,
+    refund: booking.refund,
+  }
+}
+
+// ── Player notification copy for an operator decision ─────────────────────────
+
+/**
+ * The player notification for an operator decision on their booking, or null
+ * when the transition is silent. Pure (no DI) so both `VenuesService` (the
+ * existing venue-scoped status route) and `BookingsService` (the narrower
+ * `POST /api/bookings/:id/decision` etc.) can produce identical copy without
+ * depending on each other. A dedicated `notifications` collection (Phase 7)
+ * will replace this ad hoc push onto the player's profile feed.
+ */
+export function decisionNotification(
+  reservationId: string,
+  prevStatus: ReservationStatus,
+  status: ReservationStatus,
+  reason?: string
+): NotificationItem | null {
+  const base = { time: "Vừa xong", read: false, href: "/dashboard/bookings" }
+  if (status === "cancelled" && prevStatus === "pending" && reason) {
+    return {
+      id: `booking-declined-${reservationId}`,
+      kind: "booking",
+      text: `Chủ sân đã từ chối đặt sân: ${reason}. Đã hoàn tiền (mô phỏng).`,
+      ...base,
+    }
+  }
+  if (status === "cancelled" && reason) {
+    return {
+      id: `booking-cancelled-${reservationId}`,
+      kind: "booking",
+      text: `Chủ sân đã huỷ đặt sân đã duyệt của bạn: ${reason}. Đã hoàn tiền (mô phỏng).`,
+      ...base,
+    }
+  }
+  if (status === "confirmed") {
+    return {
+      id: `booking-approved-${reservationId}`,
+      kind: "booking",
+      text: "Chủ sân đã duyệt đặt sân của bạn.",
+      ...base,
+    }
+  }
+  if (status === "no-show") {
+    return {
+      id: `booking-no-show-${reservationId}`,
+      kind: "booking",
+      text: "Bạn đã được đánh dấu vắng mặt (no-show) cho lượt đặt sân này.",
+      ...base,
+    }
+  }
+  return null
 }

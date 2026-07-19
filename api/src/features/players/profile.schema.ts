@@ -21,7 +21,13 @@ import type {
 // intentionally-empty arrays (e.g. no notifications).
 @Schema({ timestamps: true, minimize: false })
 export class Profile {
-  @Prop({ required: true, unique: true, index: true }) userId: string
+  // Explicit `type: String` (not inferred from the TS annotation) since
+  // esbuild-based runners like tsx don't emit the design:type metadata @Prop()
+  // needs — see test/sessions-service.test.ts (this schema wasn't reachable
+  // from any test's import graph until BookingsService started depending on
+  // ProfileService, which is what surfaced this).
+  @Prop({ type: String, required: true, unique: true, index: true })
+  userId: string
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) user: User
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) streak: Streak
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) stats: Stats

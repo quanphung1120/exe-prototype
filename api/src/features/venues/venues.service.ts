@@ -17,7 +17,6 @@ import {
   vnNowIso,
   type BookingRecordStatus,
   type Court,
-  type NotificationItem,
   type Reservation,
   type ReservationStatus,
   type SportKey,
@@ -34,6 +33,7 @@ import {
   withVersionRetry,
 } from "../../common/mongo-util.js"
 import { ProfileService } from "../players/profile.service.js"
+import { decisionNotification } from "../bookings/booking.helpers.js"
 import {
   BookingsService,
   type RescheduleReservationInput,
@@ -530,7 +530,7 @@ export class VenuesService {
     // from here today. Guard anyway so a future caller can't notify off them.
     const prevReservationStatus = prevStatus && asReservationStatus(prevStatus)
     if (prevReservationStatus && userId) {
-      const notify = this.decisionNotification(
+      const notify = decisionNotification(
         reservationId,
         prevReservationStatus,
         status,
@@ -539,49 +539,6 @@ export class VenuesService {
       if (notify) await this.profiles.addNotification(userId, notify)
     }
     return reservation
-  }
-
-  /** The player notification for an operator decision, or null when silent. */
-  private decisionNotification(
-    reservationId: string,
-    prevStatus: ReservationStatus,
-    status: ReservationStatus,
-    reason?: string
-  ): NotificationItem | null {
-    const base = { time: "Vừa xong", read: false, href: "/dashboard/bookings" }
-    if (status === "cancelled" && prevStatus === "pending" && reason) {
-      return {
-        id: `booking-declined-${reservationId}`,
-        kind: "booking",
-        text: `Chủ sân đã từ chối đặt sân: ${reason}. Đã hoàn tiền (mô phỏng).`,
-        ...base,
-      }
-    }
-    if (status === "cancelled" && reason) {
-      return {
-        id: `booking-cancelled-${reservationId}`,
-        kind: "booking",
-        text: `Chủ sân đã huỷ đặt sân đã duyệt của bạn: ${reason}. Đã hoàn tiền (mô phỏng).`,
-        ...base,
-      }
-    }
-    if (status === "confirmed") {
-      return {
-        id: `booking-approved-${reservationId}`,
-        kind: "booking",
-        text: "Chủ sân đã duyệt đặt sân của bạn.",
-        ...base,
-      }
-    }
-    if (status === "no-show") {
-      return {
-        id: `booking-no-show-${reservationId}`,
-        kind: "booking",
-        text: "Bạn đã được đánh dấu vắng mặt (no-show) cho lượt đặt sân này.",
-        ...base,
-      }
-    }
-    return null
   }
 
   async rescheduleReservation(

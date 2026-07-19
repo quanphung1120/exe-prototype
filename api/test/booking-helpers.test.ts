@@ -4,16 +4,28 @@ import { test } from "node:test"
 import "reflect-metadata"
 
 import { BadRequestException, ConflictException } from "@nestjs/common"
+import { plainToInstance } from "class-transformer"
+import { validateSync } from "class-validator"
 
 import { isTransactionsUnsupported } from "../src/common/mongo-util.js"
+import {
+  BookingDecisionDto,
+  CancelBookingDto,
+  CreateBookingDto,
+} from "../src/features/bookings/bookings.dto.js"
 import {
   assertWithinHours,
   bookingsOverlap,
   bookingSlotFields,
+  bookingSummaryFrom,
   buildBookingRecord,
+  refundPctFor,
   reservationFromBooking,
+  userBookingsOverlap,
   type BookingSlot,
+  type UserBookingSlot,
 } from "../src/features/bookings/booking.helpers.js"
+import { addMinutesToIso } from "../src/shared/index.js"
 import type { Venue, VenueCourt } from "../src/shared/index.js"
 
 /**
@@ -290,4 +302,174 @@ void test("isTransactionsUnsupported rejects unrelated errors, including our own
   assert.equal(isTransactionsUnsupported(new Error("network timeout")), false)
   assert.equal(isTransactionsUnsupported("not an Error"), false)
   assert.equal(isTransactionsUnsupported(undefined), false)
+})
+
+// ── userBookingsOverlap (Phase 3: self-overlap hard block, decision #8) ──────
+
+function makeUserSlot(overrides: Partial<UserBookingSlot> = {}): UserBookingSlot {
+  return {
+    bookingId: "b1",
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+    status: "confirmed",
+    ...overrides,
+  }
+}
+
+void test("userBookingsOverlap blocks an overlapping slot regardless of court/venue", () => {
+  const existing = [makeUserSlot({ start: "18:00", durationMin: 60 })]
+  assert.ok(userBookingsOverlap(existing, TODAY_ISO, "18:30", 60))
+})
+
+void test("userBookingsOverlap allows a back-to-back slot", () => {
+  const existing = [makeUserSlot({ start: "18:00", durationMin: 60 })]
+  assert.equal(userBookingsOverlap(existing, TODAY_ISO, "19:00", 60), false)
+})
+
+void test("userBookingsOverlap ignores a different day", () => {
+  const existing = [
+    makeUserSlot({ dateKey: "2026-07-21", start: "18:00", durationMin: 60 }),
+  ]
+  assert.equal(userBookingsOverlap(existing, TODAY_ISO, "18:00", 60), false)
+})
+
+void test("userBookingsOverlap frees the slot for cancelled/no-show/expired bookings", () => {
+  const existing = [
+    makeUserSlot({ start: "18:00", durationMin: 60, status: "cancelled" }),
+    makeUserSlot({ start: "18:00", durationMin: 60, status: "no-show" }),
+    makeUserSlot({ start: "18:00", durationMin: 60, status: "expired" }),
+  ]
+  assert.equal(userBookingsOverlap(existing, TODAY_ISO, "18:00", 60), false)
+})
+
+void test("userBookingsOverlap excludes the booking being re-written", () => {
+  const existing = [
+    makeUserSlot({ bookingId: "self", start: "18:00", durationMin: 60 }),
+  ]
+  assert.equal(
+    userBookingsOverlap(existing, TODAY_ISO, "18:00", 60, "self"),
+    false
+  )
+})
+
+// ── refundPctFor (cancellation policy, decision #6) ─────────────────────────
+
+void test("refundPctFor gives 100% at exactly 24h before the start", () => {
+  const now = "2026-07-20T10:00:00+07:00"
+  const startAt = "2026-07-21T10:00:00+07:00" // exactly 24h out
+  assert.equal(refundPctFor(now, startAt), 100)
+})
+
+void test("refundPctFor gives 50% inside the 24h window but before the start", () => {
+  const now = "2026-07-20T10:00:00+07:00"
+  const startAt = "2026-07-21T09:00:00+07:00" // 23h out
+  assert.equal(refundPctFor(now, startAt), 50)
+})
+
+void test("refundPctFor gives 0% at or after the start time", () => {
+  const now = "2026-07-21T10:00:00+07:00"
+  assert.equal(refundPctFor(now, "2026-07-21T10:00:00+07:00"), 0)
+  assert.equal(refundPctFor(now, "2026-07-21T09:00:00+07:00"), 0)
+})
+
+// ── bookingSummaryFrom ───────────────────────────────────────────────────────
+
+void test("bookingSummaryFrom exposes hold/payment/refund fields the Reservation projection omits", () => {
+  const record = buildBookingRecord({
+    venueId: "v9",
+    court: makeCourt(),
+    dateKey: TODAY_ISO,
+    start: "18:00",
+    durationMin: 60,
+    source: "app",
+    status: "awaiting_payment",
+    paymentStatus: "awaiting",
+    customer: { name: "Khách", initials: "K" },
+    userId: "user-1",
+    holdExpiresAt: "2026-07-20T14:20:00+07:00",
+  })
+  const summary = bookingSummaryFrom(record)
+  assert.equal(summary.holdExpiresAt, "2026-07-20T14:20:00+07:00")
+  assert.equal(summary.paymentStatus, "awaiting")
+  assert.equal(summary.venueId, "v9")
+  // The venue-facing Reservation shape's `customer`/`statusHistory` aren't
+  // part of this projection.
+  assert.equal((summary as Record<string, unknown>).customer, undefined)
+})
+
+// ── addMinutesToIso (shared/helpers.ts) ─────────────────────────────────────
+
+void test("addMinutesToIso shifts an ISO datetime by whole minutes, wrapping the day/offset", () => {
+  assert.equal(
+    addMinutesToIso("2026-07-20T23:50:00+07:00", 20),
+    "2026-07-21T00:10:00+07:00"
+  )
+  assert.equal(
+    addMinutesToIso("2026-07-20T14:00:00+07:00", 20),
+    "2026-07-20T14:20:00+07:00"
+  )
+})
+
+// ── bookings.dto.ts (class-validator) ───────────────────────────────────────
+
+function dtoErrors(cls: new () => object, input: unknown): number {
+  const dto = plainToInstance(cls, input)
+  return validateSync(dto).length
+}
+
+void test("CreateBookingDto requires courtId/dateKey/an HH:MM start/an in-range duration", () => {
+  assert.equal(
+    dtoErrors(CreateBookingDto, {
+      courtId: "v9c1",
+      dateKey: TODAY_ISO,
+      start: "18:00",
+      durationMin: 60,
+    }),
+    0
+  )
+  assert.notEqual(
+    dtoErrors(CreateBookingDto, {
+      courtId: "v9c1",
+      dateKey: TODAY_ISO,
+      start: "18:60",
+      durationMin: 60,
+    }),
+    0
+  )
+  assert.notEqual(
+    dtoErrors(CreateBookingDto, {
+      courtId: "v9c1",
+      dateKey: TODAY_ISO,
+      start: "18:00",
+      durationMin: 5, // below the 15-minute floor
+    }),
+    0
+  )
+  // The DTO only bounds durationMin — the 15-minute *step* is a business rule
+  // enforced server-side by `assertWithinHours` (see the tests above), not a
+  // class-validator constraint.
+})
+
+void test("CancelBookingDto's reason is optional but must be >=3 chars when given", () => {
+  assert.equal(dtoErrors(CancelBookingDto, {}), 0)
+  assert.notEqual(dtoErrors(CancelBookingDto, { reason: "no" }), 0)
+  assert.equal(dtoErrors(CancelBookingDto, { reason: "Đổi lịch" }), 0)
+})
+
+void test("BookingDecisionDto requires a reason (>=3 chars) only when declining", () => {
+  assert.equal(dtoErrors(BookingDecisionDto, { decision: "approve" }), 0)
+  assert.notEqual(dtoErrors(BookingDecisionDto, { decision: "decline" }), 0)
+  assert.notEqual(
+    dtoErrors(BookingDecisionDto, { decision: "decline", reason: "no" }),
+    0
+  )
+  assert.equal(
+    dtoErrors(BookingDecisionDto, { decision: "decline", reason: "Hết sân" }),
+    0
+  )
+})
+
+void test("BookingDecisionDto rejects a decision outside approve/decline", () => {
+  assert.notEqual(dtoErrors(BookingDecisionDto, { decision: "maybe" }), 0)
 })
