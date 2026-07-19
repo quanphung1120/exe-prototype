@@ -4,6 +4,17 @@ import * as React from "react"
 import { ArrowDownRight, ArrowUpRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Field, FieldLabel } from "@/components/ui/field"
+import { Textarea } from "@/components/ui/textarea"
 
 /**
  * Shared venue-workspace primitives. Intentionally text-free (everything comes
@@ -306,5 +317,78 @@ export function VenueEmpty({ text }: { text: string }) {
     <p className="rounded-3xl bg-muted/50 px-4 py-8 text-center text-sm text-muted-foreground">
       {text}
     </p>
+  )
+}
+
+/**
+ * A required-reason prompt for any reservation action the API rejects without
+ * one (decline, cancel). Shared by the reservations table and the schedule
+ * event popover so both flows send the same shape of reason back to the API.
+ */
+export function ReasonDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  reasonLabel,
+  reasonPlaceholder,
+  cancelLabel,
+  confirmLabel,
+  reason,
+  onReasonChange,
+  onConfirm,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: React.ReactNode
+  description: React.ReactNode
+  reasonLabel: React.ReactNode
+  reasonPlaceholder: string
+  cancelLabel: React.ReactNode
+  confirmLabel: React.ReactNode
+  reason: string
+  onReasonChange: (reason: string) => void
+  onConfirm: () => void
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <Field className="my-2">
+          <FieldLabel htmlFor="reason-dialog-reason">{reasonLabel}</FieldLabel>
+          <Textarea
+            id="reason-dialog-reason"
+            value={reason}
+            onChange={(e) => onReasonChange(e.target.value)}
+            placeholder={reasonPlaceholder}
+            rows={3}
+            maxLength={200}
+            autoFocus
+          />
+        </Field>
+        <DialogFooter className="flex-row justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full"
+            onClick={() => onOpenChange(false)}
+          >
+            {cancelLabel}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            className="rounded-full"
+            disabled={reason.trim().length < 3}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

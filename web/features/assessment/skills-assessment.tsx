@@ -37,9 +37,12 @@ const SPORT_EMOJI: Record<AssessmentSport, string> = {
 
 export function SkillsAssessmentView({
   initial = null,
+  nextPath = "/dashboard",
 }: {
   /** The player's server-persisted assessment (Mongo), passed by the page. */
   initial?: PlayerAssessment | null
+  /** Where the completion CTA routes to — `/setup` when a venue is still owed. */
+  nextPath?: string
 } = {}) {
   const t = useTranslations("Assessment")
   const router = useRouter()
@@ -201,7 +204,8 @@ export function SkillsAssessmentView({
         {completed ? (
           <CompletionScreen
             assessment={completed}
-            onEnter={() => router.replace("/dashboard")}
+            nextPath={nextPath}
+            onEnter={() => router.replace(nextPath)}
           />
         ) : (
           <>
@@ -570,9 +574,11 @@ function QuestionsStep({
 
 function CompletionScreen({
   assessment,
+  nextPath,
   onEnter,
 }: {
   assessment: PlayerAssessment
+  nextPath: string
   onEnter: () => void
 }) {
   const t = useTranslations("Assessment")
@@ -642,7 +648,7 @@ function CompletionScreen({
         className="mt-10 rounded-full px-8"
         onClick={onEnter}
       >
-        {t("complete.cta")}
+        {nextPath === "/setup" ? t("complete.ctaSetup") : t("complete.cta")}
         <ArrowRight className="size-4" />
       </Button>
     </div>

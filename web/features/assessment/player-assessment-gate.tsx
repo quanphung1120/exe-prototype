@@ -17,6 +17,7 @@ import { useTranslations } from "next-intl"
 import { usePathname, useRouter } from "@/i18n/navigation"
 import { cn } from "@/lib/utils"
 import { workspaceForPath } from "@/features/dashboard/workspace"
+import type { AccountType } from "@/lib/shared"
 import {
   ASSESSMENTS,
   PLAYER_ASSESSMENT_PATH,
@@ -37,23 +38,35 @@ interface PlayerAssessmentGateProps {
    * this rather than redirecting them to redo the wizard.
    */
   serverAssessment?: PlayerAssessment | null
+  /** Effective account type (from the dashboard seed); drives the venue-only lock. */
+  accountType?: AccountType | null
 }
 
 /**
  * Redirects players who haven't completed the skill assessment to the dedicated
  * wizard page ({@link PLAYER_ASSESSMENT_PATH}). The wizard lives outside the
  * dashboard layout so the gate only decides *whether* to send them there — it
- * never renders inline. The venue workspace is never gated.
+ * never renders inline. The venue workspace is never gated. A venue-only
+ * account is locked out of the player workspace entirely (redirected to their
+ * venue instead) and never asked to assess.
  */
 export function PlayerAssessmentGate({
   children,
   serverAssessment = null,
+  accountType = null,
 }: PlayerAssessmentGateProps) {
   const pathname = usePathname()
   const router = useRouter()
-  const needsAssessment = workspaceForPath(pathname) !== "venue"
+  const workspace = workspaceForPath(pathname)
+  const venueOnly = accountType === "venue"
+  const lockedOut = venueOnly && workspace !== "venue"
+  const needsAssessment = workspace !== "venue" && !venueOnly
   const [ready, setReady] = React.useState(!needsAssessment)
   const [hasAssessment, setHasAssessment] = React.useState(false)
+
+  React.useEffect(() => {
+    if (lockedOut) router.replace("/dashboard/venue")
+  }, [lockedOut, router])
 
   React.useEffect(() => {
     if (!needsAssessment) return

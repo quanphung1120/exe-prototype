@@ -190,12 +190,17 @@ export async function checkInReservation(
   return setReservationStatus(venueId, reservationId, "checked-in")
 }
 
-/** Cancel a reservation (→ cancelled), e.g. from the schedule event popover. */
+/**
+ * Cancel a reservation (→ cancelled), e.g. from the schedule event popover.
+ * The API requires a reason for any cancellation; it flows back to the
+ * player as a refund notification.
+ */
 export async function cancelReservation(
   venueId: string,
-  reservationId: string
+  reservationId: string,
+  reason: string
 ): Promise<Reservation> {
-  return setReservationStatus(venueId, reservationId, "cancelled")
+  return setReservationStatus(venueId, reservationId, "cancelled", reason)
 }
 
 export interface RescheduleReservationInput {

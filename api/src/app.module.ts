@@ -8,6 +8,7 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler"
 import { AllExceptionsFilter } from "./common/all-exceptions.filter.js"
 import { ClerkAuthGuard } from "./common/clerk-auth.guard.js"
 import { validateEnv } from "./env.validation.js"
+import { AccountModule } from "./features/account/account.module.js"
 import { AssessmentModule } from "./features/assessment/assessment.module.js"
 import { CourtsModule } from "./features/courts/courts.module.js"
 import { HealthController } from "./features/health/health.controller.js"
@@ -47,6 +48,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     SessionsModule,
     AssessmentModule,
     VenuesModule,
+    AccountModule,
     StreamModule,
     SeedModule,
   ],

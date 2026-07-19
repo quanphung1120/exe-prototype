@@ -57,7 +57,8 @@ export function AppSidebar() {
   const { signOut, openUserProfile } = useClerk()
   const { isMobile, setOpenMobile } = useSidebar()
   const { userName } = useMatchmaking()
-  const { user: USER, venues: VENUES } = useData()
+  const { user: USER, venues: VENUES, accountType } = useData()
+  const venueOnly = accountType === "venue"
   // Live unread total from Stream (0 when chat is degraded); drives the chat badge.
   const unreadCount = useStreamUnreadCount()
 
@@ -126,6 +127,12 @@ export function AppSidebar() {
     handleNavigate()
   }
 
+  // Venue-only accounts opt into the player role via the skills assessment.
+  const becomePlayer = () => {
+    router.push("/assessment")
+    handleNavigate()
+  }
+
   return (
     <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader className="gap-3">
@@ -173,11 +180,22 @@ export function AppSidebar() {
               >
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>{t("workspaces")}</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={switchToPlayer}>
-                    <LogoMark className="size-6 text-primary" />
-                    <span className="flex-1">{t("playerWorkspace")}</span>
-                    {!isVenue ? <Check className="size-4 text-brand" /> : null}
-                  </DropdownMenuItem>
+                  {venueOnly ? (
+                    <DropdownMenuItem onClick={becomePlayer}>
+                      <div className="flex size-6 items-center justify-center rounded-lg border border-dashed border-sidebar-border text-secondary-foreground">
+                        <Plus className="size-4" />
+                      </div>
+                      <span className="flex-1">{t("becomePlayer")}</span>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={switchToPlayer}>
+                      <LogoMark className="size-6 text-primary" />
+                      <span className="flex-1">{t("playerWorkspace")}</span>
+                      {!isVenue ? (
+                        <Check className="size-4 text-brand" />
+                      ) : null}
+                    </DropdownMenuItem>
+                  )}
                   {VENUE ? (
                     <DropdownMenuItem onClick={switchToVenue}>
                       <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">

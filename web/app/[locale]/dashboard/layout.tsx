@@ -44,6 +44,12 @@ export default async function DashboardLayout({
     fetchStreamCredentials(session.user),
   ])
 
+  // No account type chosen or inferred yet — send fresh accounts (email and
+  // Google SSO alike) through the onboarding choice point before anything else.
+  if (seed.accountType === null) {
+    redirect("/" + locale + "/onboarding")
+  }
+
   return (
     <TooltipProvider>
       <AuthUserProvider user={session.user}>
@@ -57,7 +63,10 @@ export default async function DashboardLayout({
                 userImage={session.user.image}
               >
                 <SportFilterProvider>
-                  <PlayerAssessmentGate serverAssessment={seed.assessment}>
+                  <PlayerAssessmentGate
+                    serverAssessment={seed.assessment}
+                    accountType={seed.accountType}
+                  >
                     <SidebarProvider className="font-geist">
                       <AppSidebar />
                       <SidebarInset className="overflow-hidden">

@@ -13,6 +13,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from "class-validator"
 
@@ -140,10 +141,10 @@ export class ReservationStatusDto {
   @IsIn(RESERVATION_STATUSES)
   status: (typeof RESERVATION_STATUSES)[number]
 
-  /** Required by the operator UI when declining (status "cancelled"). */
-  @IsOptional()
+  /** Required whenever the operator moves a reservation to "cancelled". */
+  @ValidateIf((o: ReservationStatusDto) => o.status === "cancelled")
   @IsString()
-  @Length(1, 200)
+  @Length(3, 200)
   reason?: string
 }
 

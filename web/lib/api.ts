@@ -4,7 +4,12 @@ import { auth } from "@clerk/nextjs/server"
 import { notFound } from "next/navigation"
 import { createFetch } from "@better-fetch/fetch"
 
-import type { PlayerAssessment, Seed, VenueSeed } from "@/lib/shared"
+import type {
+  AccountType,
+  PlayerAssessment,
+  Seed,
+  VenueSeed,
+} from "@/lib/shared"
 
 // Where the Hono API lives. Server-side fetch only (no CORS concerns); override
 // with API_URL in deployment. Single source of truth — server actions import it
@@ -103,6 +108,23 @@ export async function fetchAssessment(): Promise<PlayerAssessment | null> {
     return await apiFetch<PlayerAssessment | null>("/api/assessment")
   } catch {
     throw new Error(`Failed to load assessment. Is the API running?`)
+  }
+}
+
+/**
+ * Fetch the signed-in account's effective account type (null until chosen).
+ * Used by the standalone `/onboarding` and `/assessment` routes, which live
+ * outside the dashboard layout and so don't receive the seed. The dashboard
+ * itself reads it from the seed (`Seed.accountType`) instead.
+ */
+export async function fetchAccountType(): Promise<AccountType | null> {
+  try {
+    const { accountType } = await apiFetch<{ accountType: AccountType | null }>(
+      "/api/account"
+    )
+    return accountType
+  } catch {
+    throw new Error(`Failed to load account type. Is the API running?`)
   }
 }
 

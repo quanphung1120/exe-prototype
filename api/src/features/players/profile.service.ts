@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
-import type { NotificationItem } from "../../shared/index.js"
+import type { AccountType, NotificationItem } from "../../shared/index.js"
 
 import {
   ACTIVITY,
@@ -41,6 +41,7 @@ export class ProfileService {
       bookings: BOOKINGS,
       activity: ACTIVITY,
       notifications: NOTIFICATIONS,
+      accountType: null,
     }
   }
 
@@ -82,5 +83,11 @@ export class ProfileService {
       { userId },
       { $push: { notifications: { $each: [item], $position: 0 } } }
     )
+  }
+
+  /** Set the user's self-declared account type, seeding their profile first if needed. */
+  async setAccountType(userId: string, accountType: AccountType): Promise<void> {
+    await this.getProfile(userId)
+    await this.profileModel.updateOne({ userId }, { $set: { accountType } })
   }
 }
