@@ -7,9 +7,18 @@ import { plainToInstance } from "class-transformer"
 import { validateSync } from "class-validator"
 
 import {
+  addDaysIso,
   canTransitionBooking,
+  computeChannelMix,
+  computePeakHours,
+  computeRevenueSeries,
+  computeSportMix,
+  computeUtilizationHeatmap,
   computeVenueStats,
+  courtDayEvents,
+  heatmapRowLabels,
   venueCourtToCourt,
+  weekdayLabel,
 } from "../src/shared/helpers.js"
 import type {
   Reservation,
@@ -320,4 +329,158 @@ void test("computeVenueStats counts distinct app users + walk-in phones, minus c
   )
   // distinct kept keys: u1, phone 0911, u2 → 3
   assert.equal(stats.newCustomers, 3)
+})
+
+// ── Phase 10: real analytics from a venue's own reservations ─────────────────
+
+void test("computeRevenueSeries returns 7 days oldest → today, labeled by real weekday", () => {
+  const series = computeRevenueSeries(
+    [makeReservation({ status: "confirmed", price: 180000, dayKey: TODAY_ISO })],
+    TODAY_ISO
+  )
+  assert.equal(series.length, 7)
+  assert.deepEqual(series[6].label, weekdayLabel(TODAY_ISO))
+  assert.equal(series[6].value, 180000)
+  // every earlier day has no reservations → 0
+  assert.ok(series.slice(0, 6).every((p) => p.value === 0))
+})
+
+void test("computeRevenueSeries only counts confirmed/completed revenue on their real day", () => {
+  const reservations = [
+    makeReservation({ id: "a", status: "confirmed", price: 100000, dayKey: TODAY_ISO }),
+    makeReservation({ id: "b", status: "completed", price: 50000, dayKey: TODAY_ISO }),
+    makeReservation({ id: "c", status: "pending", price: 999999, dayKey: TODAY_ISO }), // excluded
+    makeReservation({ id: "d", status: "cancelled", price: 999999, dayKey: TODAY_ISO }), // excluded
+    makeReservation({
+      id: "e",
+      status: "confirmed",
+      price: 70000,
+      dayKey: addDaysIso(TODAY_ISO, -2),
+    }),
+  ]
+  const series = computeRevenueSeries(reservations, TODAY_ISO)
+  assert.equal(series[6].value, 150000)
+  assert.equal(series[4].value, 70000) // today - 2
+})
+
+void test("computeSportMix shares live bookings per sport and excludes cancelled", () => {
+  const reservations = [
+    makeReservation({ id: "a", sport: "badminton" }),
+    makeReservation({ id: "b", sport: "badminton" }),
+    makeReservation({ id: "c", sport: "pickleball" }),
+    makeReservation({ id: "d", sport: "badminton", status: "cancelled" }),
+  ]
+  const mix = computeSportMix(reservations)
+  const badminton = mix.find((m) => m.sport === "badminton")
+  const pickleball = mix.find((m) => m.sport === "pickleball")
+  assert.equal(badminton?.bookings, 2)
+  assert.equal(badminton?.pct, 67)
+  assert.equal(pickleball?.bookings, 1)
+  assert.equal(pickleball?.pct, 33)
+})
+
+void test("computeSportMix is empty for a venue with no live bookings", () => {
+  assert.deepEqual(computeSportMix([]), [])
+  assert.deepEqual(
+    computeSportMix([makeReservation({ status: "cancelled" })]),
+    []
+  )
+})
+
+void test("computeChannelMix always reports both app and walk-in, even at 0%", () => {
+  const mix = computeChannelMix([makeReservation({ source: "app" })])
+  assert.deepEqual(
+    mix.map((m) => m.source),
+    ["app", "walk-in"]
+  )
+  assert.equal(mix.find((m) => m.source === "app")?.pct, 100)
+  assert.equal(mix.find((m) => m.source === "walk-in")?.pct, 0)
+})
+
+void test("computeChannelMix excludes cancelled reservations from the split", () => {
+  const mix = computeChannelMix([
+    makeReservation({ id: "a", source: "app" }),
+    makeReservation({ id: "b", source: "walk-in" }),
+    makeReservation({ id: "c", source: "walk-in", status: "cancelled" }),
+  ])
+  assert.equal(mix.find((m) => m.source === "app")?.pct, 50)
+  assert.equal(mix.find((m) => m.source === "walk-in")?.pct, 50)
+})
+
+void test("computePeakHours ranks the hour with more occupied courts higher, top 4", () => {
+  const courts = [makeCourt({ id: "v9c1" }), makeCourt({ id: "v9c2" })]
+  const reservations = [
+    makeReservation({ id: "a", courtId: "v9c1", start: "19:00", durationMin: 60 }),
+    makeReservation({ id: "b", courtId: "v9c2", start: "19:00", durationMin: 60 }),
+    makeReservation({ id: "c", courtId: "v9c1", start: "09:00", durationMin: 60 }),
+  ]
+  const peaks = computePeakHours(courts, reservations)
+  assert.equal(peaks.length, 4)
+  assert.equal(peaks[0].hour, "19:00")
+  assert.equal(peaks[0].util, 100) // both courts occupied
+  assert.ok(peaks[0].util >= peaks[1].util)
+})
+
+void test("computePeakHours ignores cancelled reservations", () => {
+  const peaks = computePeakHours(
+    [makeCourt()],
+    [makeReservation({ start: "19:00", status: "cancelled" })]
+  )
+  assert.ok(peaks.every((p) => p.util === 0))
+})
+
+void test("computeUtilizationHeatmap is a 7-day zeroed grid for a venue with no reservations", () => {
+  const heatmap = computeUtilizationHeatmap([makeCourt()], [], TODAY_ISO)
+  assert.equal(heatmap.length, 7)
+  assert.ok(heatmap.every((row) => row.every((v) => v === 0)))
+})
+
+void test("computeUtilizationHeatmap marks today's real reservation on its real hour", () => {
+  const heatmap = computeUtilizationHeatmap(
+    [makeCourt()],
+    [makeReservation({ start: "18:00", durationMin: 60, dayKey: TODAY_ISO })],
+    TODAY_ISO
+  )
+  // Last row = today; the "18" column (18:00 falls in the 18:00–20:00 bucket).
+  assert.ok(heatmap[6].some((v) => v === 100))
+})
+
+void test("heatmapRowLabels labels the real 7-day window, oldest → today", () => {
+  const labels = heatmapRowLabels(TODAY_ISO)
+  assert.equal(labels.length, 7)
+  assert.deepEqual(labels[6], weekdayLabel(TODAY_ISO))
+  assert.deepEqual(labels[0], weekdayLabel(addDaysIso(TODAY_ISO, -6)))
+})
+
+// ── Phase 10: courtDayEvents fake filler disabled for owned venues ──────────
+
+void test("courtDayEvents returns no fabricated filler when fillerEnabled is false", () => {
+  const events = courtDayEvents(
+    makeVenue(),
+    [makeCourt()],
+    "v9c1",
+    TODAY_ISO,
+    TODAY_ISO,
+    false
+  )
+  assert.deepEqual(events, [])
+})
+
+void test("courtDayEvents still returns a real maintenance block when filler is disabled", () => {
+  const court = makeCourt({ state: "maintenance" })
+  const events = courtDayEvents(
+    makeVenue(),
+    [court],
+    court.id,
+    TODAY_ISO,
+    TODAY_ISO,
+    false
+  )
+  assert.equal(events.length, 1)
+  assert.equal(events[0].kind, "blocked")
+})
+
+void test("courtDayEvents fabricates filler by default (fillerEnabled defaults to true)", () => {
+  const events = courtDayEvents(makeVenue(), [makeCourt()], "v9c1", TODAY_ISO, TODAY_ISO)
+  assert.ok(events.length > 0)
 })

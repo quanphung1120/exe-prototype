@@ -1443,6 +1443,11 @@
       "title": "Peak hours",
       "caption": "Busiest windows",
       "note": "These windows sell out first — price and staff them accordingly."
+    },
+    "insights": {
+      "title": "AI insights",
+      "demoChip": "Demo AI",
+      "subtitle": "Sample recommendations for demo purposes — not generated from this venue's real bookings."
     }
   },
   "VenueInsights": {

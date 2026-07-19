@@ -197,8 +197,19 @@ export function VenueDataProvider({
   const value = React.useMemo<VenueDataContextValue>(() => {
     const venue = seed.info
     const courts = seed.courts
+    // A venue with a real operator gets an honest schedule — no fabricated
+    // filler bookings, only real reservations (overlaid below) and genuine
+    // court state (e.g. a maintenance block, which the helper still returns).
+    const isOwned = Boolean(venue.ownerId)
     const courtDayEvents = (courtId: string, dayKey: string) => {
-      const base = courtDayEventsFn(venue, courts, courtId, dayKey, todayIso)
+      const base = courtDayEventsFn(
+        venue,
+        courts,
+        courtId,
+        dayKey,
+        todayIso,
+        !isOwned
+      )
       const overlays = reservations
         .filter((reservation) => {
           if (!ACTIVE_SCHEDULE_STATUSES.has(reservation.status)) return false
