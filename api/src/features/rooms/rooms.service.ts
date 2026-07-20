@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto"
+
 import {
   BadRequestException,
   ConflictException,
@@ -126,7 +128,14 @@ export class RoomsService {
       { $push: { "data.roster": entry } }
     )
     await this.notifications.create(doc.userId, {
-      id: `room-request-${roomId}-${userId}`,
+      // Suffixed with a fresh id, not just `room-request-${roomId}-${userId}`:
+      // a user can request → get declined (their roster entry is pulled) →
+      // request again, and `NotificationsService#create` silently drops a
+      // duplicate-key collision — a stable key here would swallow the second
+      // request's notification to the host. (A `Date.now()` suffix isn't
+      // enough — two calls in the same test/request tick can land in the
+      // same millisecond — so this uses `randomUUID()`.)
+      id: `room-request-${roomId}-${userId}-${randomUUID()}`,
       kind: "match",
       text: `${profile.user.name} muốn tham gia phòng "${room.title}" của bạn.`,
       href: "/dashboard/play",
@@ -163,7 +172,11 @@ export class RoomsService {
         { $pull: { "data.roster": { userId: targetUserId } } }
       )
       await this.notifications.create(targetUserId, {
-        id: `room-declined-${roomId}-${targetUserId}`,
+        // Suffixed for the same reason as `requestJoin`'s notification — a
+        // request→decline→request→decline cycle would otherwise reuse the
+        // same dedupe key and the second decline notification would be
+        // silently swallowed.
+        id: `room-declined-${roomId}-${targetUserId}-${randomUUID()}`,
         kind: "match",
         text: `Chủ phòng đã từ chối yêu cầu tham gia "${room.title}".`,
         href: "/dashboard/play",
@@ -188,7 +201,10 @@ export class RoomsService {
       throw new ConflictException("Yêu cầu tham gia đã được xử lý")
     }
     await this.notifications.create(targetUserId, {
-      id: `room-approved-${roomId}-${targetUserId}`,
+      // Suffixed for the same reason as the request/decline ids above —
+      // leaving and rejoining (or a decline→re-request→approve cycle) must
+      // not reuse a dedupe key an earlier approval already claimed.
+      id: `room-approved-${roomId}-${targetUserId}-${randomUUID()}`,
       kind: "match",
       text: `Chủ phòng đã duyệt yêu cầu tham gia "${room.title}" của bạn.`,
       href: "/dashboard/play",

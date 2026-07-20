@@ -179,9 +179,12 @@ void test("requestJoin pushes a requested roster entry and notifies the host", a
 
   assert.equal(recorder.notifications.length, 1)
   assert.equal(recorder.notifications[0]?.userId, "host-1")
-  assert.equal(
+  // Suffixed with a fresh id (not just `room-request-{roomId}-{userId}`) so a
+  // request→decline→request cycle doesn't reuse a dedupe key an earlier
+  // request notification already claimed — see rooms.service.ts.
+  assert.match(
     (recorder.notifications[0]?.input as { id: string }).id,
-    "room-request-room-1-guest-1"
+    /^room-request-room-1-guest-1-[\w-]+$/
   )
 })
 
@@ -345,6 +348,41 @@ void test("decideRequest decline pulls the roster entry and notifies the request
   assert.equal(recorder.notifications.length, 1)
   assert.equal(recorder.notifications[0]?.userId, "guest-1")
   assert.equal(recorder.removeMember.length, 1)
+})
+
+void test("decideRequest decline notification id doesn't collide across a re-request/re-decline cycle", async () => {
+  // A user can be declined, then request the same room again (decline pulls
+  // their roster entry, so `requestJoin`'s duplicate check no longer blocks
+  // it) — a stable `room-declined-{roomId}-{userId}` dedupe key would let
+  // `NotificationsService#create`'s duplicate-key swallow silently drop the
+  // second decline's notification. Regression for that.
+  const room = makeRoom({
+    roster: [
+      { name: "Host", initials: "HO", rsvp: "host" },
+      { name: "Nam", initials: "NM", rsvp: "requested", userId: "guest-1" },
+    ],
+  })
+  const doc = makeDoc("host-1", room)
+  const { service, recorder } = await makeService({
+    findOne: () => Promise.resolve(doc),
+    updateOne: () => Promise.resolve({ acknowledged: true }),
+  })
+
+  await service.decideRequest("host-1", "room-1", "guest-1", "decline")
+  // Simulate the re-request: the roster entry is back as "requested".
+  doc.data.roster.push({
+    name: "Nam",
+    initials: "NM",
+    rsvp: "requested",
+    userId: "guest-1",
+  })
+  await service.decideRequest("host-1", "room-1", "guest-1", "decline")
+
+  assert.equal(recorder.notifications.length, 2)
+  const ids = recorder.notifications.map(
+    (n) => (n.input as { id: string }).id
+  )
+  assert.notEqual(ids[0], ids[1])
 })
 
 void test("decideRequest rejects a non-host caller", async () => {
