@@ -228,8 +228,14 @@ export class BookingsService {
 
   /** Every booking for a venue, projected to the operator's Reservation shape. */
   async listForVenue(venueId: string): Promise<Reservation[]> {
+    // Exclude the two payment-gate states that aren't operator-actionable
+    // bookings: an unpaid `awaiting_payment` hold (transient — it would project
+    // to a "pending" the operator can't actually approve, since payment, not
+    // the operator, gates that transition) and a lapsed `expired` hold (which
+    // never became a booking). The slot each holds stays protected by the
+    // overlap guard regardless of whether it appears in this list.
     const docs = await this.bookingModel
-      .find({ venueId })
+      .find({ venueId, status: { $nin: ["awaiting_payment", "expired"] } })
       .sort({ createdAt: 1 })
       .lean()
     const today = isoDateOf(vnNowIso())
@@ -552,7 +558,14 @@ export class BookingsService {
       status,
       reason,
       (d) => {
-        if (status === "cancelled" && reason) d.declineReason = reason
+        if (status === "cancelled") {
+          if (reason) d.declineReason = reason
+          // A venue-initiated cancel/decline is the venue's fault, not the
+          // player's — a flat 100% refund (decision #6), the same as `decide`'s
+          // decline path. `applyRefund` no-ops unless the booking was actually
+          // paid, so an unpaid hold cancels clean.
+          this.applyRefund(d, 100)
+        }
       }
     )
     return {
@@ -578,8 +591,24 @@ export class BookingsService {
       .lean<{ courtId: string }>()
     if (!existing) throw new NotFoundException("Reservation not found")
 
-    assertWithinHours(venueDoc.info, input.start, input.durationMin)
     const court = this.findCourt(venueDoc, existing.courtId)
+    if (court.archived) {
+      throw new BadRequestException("Court has been archived")
+    }
+    if (court.state === "maintenance") {
+      throw new BadRequestException("Court is under maintenance")
+    }
+    assertWithinHours(venueDoc.info, input.start, input.durationMin)
+    // The same court-block guard app-booking/walk-in creation runs (decision
+    // #12) — an operator can't reschedule a reservation onto a slot they've
+    // blocked out for maintenance/internal use.
+    assertNoCourtBlock(
+      venueDoc.ops.blocks ?? [],
+      existing.courtId,
+      input.dayKey,
+      input.start,
+      input.durationMin
+    )
 
     const updated = await this.writeWithOverlapGuard(
       venueId,
@@ -627,18 +656,46 @@ export class BookingsService {
     return withVersionRetry(async () => {
       const doc = await this.bookingModel.findOne({ bookingId })
       if (!doc) return null
-      if (doc.status !== "awaiting_payment") return doc
-      doc.status = "pending"
-      doc.paymentStatus = "paid"
-      doc.confirmDeadlineAt = addMinutesToIso(
-        vnNowIso(),
-        this.confirmSlaMinutes()
-      )
-      doc.statusHistory = [
-        ...(doc.statusHistory ?? []),
-        { status: "pending", at: vnNowIso() },
-      ]
-      await doc.save()
+      if (doc.status === "awaiting_payment") {
+        doc.status = "pending"
+        doc.paymentStatus = "paid"
+        doc.confirmDeadlineAt = addMinutesToIso(
+          vnNowIso(),
+          this.confirmSlaMinutes()
+        )
+        doc.statusHistory = [
+          ...(doc.statusHistory ?? []),
+          { status: "pending", at: vnNowIso() },
+        ]
+        await doc.save()
+        return doc
+      }
+      // Payment landed *after* the hold had already lapsed (the sweeper moved it
+      // to `expired`) or the booking was cancelled — the slot is gone, so the
+      // money the player just paid is owed straight back rather than silently
+      // kept with no booking to show for it. Record the payment and queue a full
+      // refund, guarded on the absence of an existing refund so a replayed IPN
+      // can't re-queue it.
+      if (
+        (doc.status === "expired" || doc.status === "cancelled") &&
+        doc.paymentStatus !== "paid" &&
+        !doc.refund
+      ) {
+        doc.paymentStatus = "paid"
+        this.applyRefund(doc, 100)
+        await doc.save()
+        if (doc.userId) {
+          await this.notifications.create(doc.userId, {
+            id: `booking-late-refund-${bookingId}`,
+            kind: "booking",
+            text: "Thanh toán đã nhận nhưng lượt giữ chỗ đã hết hạn — khoản tiền sẽ được hoàn lại (mô phỏng).",
+            href: "/dashboard/bookings",
+          })
+        }
+        return doc
+      }
+      // Already pending/confirmed/checked-in/completed — an idempotent no-op for
+      // a defensive double-call from a retried/replayed IPN.
       return doc
     })
   }

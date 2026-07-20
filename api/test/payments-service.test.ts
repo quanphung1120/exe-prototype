@@ -124,7 +124,11 @@ function makeBookingLean(overrides: Record<string, unknown> = {}) {
 interface Deps {
   bookingLean?: ReturnType<typeof makeBookingLean>
   venueOwnerId?: string | null
-  confirmPaymentResult?: { bookingId: string; venueId: string } | null
+  confirmPaymentResult?: {
+    bookingId: string
+    venueId: string
+    status?: string
+  } | null
   remoteOrder?: { order_status?: string }
   validSignature?: boolean
   seedPayments?: FakePaymentDoc[]
@@ -165,8 +169,16 @@ function makeService(deps: Deps = {}) {
   const bookingsServiceMock = {
     confirmPayment: (bookingId: string) => {
       confirmPaymentCalls.push(bookingId)
+      // A real `confirmPayment` returns the booking doc it moved to `pending`;
+      // `markPaid` only notifies the venue when the booking actually reached
+      // that approvable state (a payment landing after expiry is refunded, not
+      // approvable), so the fake returns a `pending` status by default.
       return Promise.resolve(
-        deps.confirmPaymentResult ?? { bookingId, venueId: "v9" }
+        deps.confirmPaymentResult ?? {
+          bookingId,
+          venueId: "v9",
+          status: "pending",
+        }
       )
     },
   }

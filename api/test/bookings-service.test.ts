@@ -57,8 +57,16 @@ interface FakeBookingDoc {
   bookingId: string
   venueId: string
   courtId: string
+  courtName: string
+  sport: string
+  source: string
   userId?: string
+  customer: { name: string; initials: string }
   startAt: string
+  endAt: string
+  dateKey: string
+  start: string
+  durationMin: number
   status: BookingRecordStatus
   paymentStatus: PaymentStatus
   price: number
@@ -80,8 +88,16 @@ function makeBookingDoc(
     bookingId: "b1",
     venueId: "v9",
     courtId: "v9c1",
+    courtName: "Sân 1",
+    sport: "badminton",
+    source: "app",
     userId: "user-1",
+    customer: { name: "Khách Test", initials: "KT" },
     startAt: "2026-07-21T18:00:00+07:00",
+    endAt: "2026-07-21T19:00:00+07:00",
+    dateKey: "2026-07-21",
+    start: "18:00",
+    durationMin: 60,
     status: "confirmed",
     paymentStatus: "paid",
     price: 200_000,
@@ -538,6 +554,44 @@ void test("decide rejects a caller who doesn't own the booking's venue", async (
   )
 })
 
+// ── updateStatus (venue-scoped reservation route) ────────────────────────────
+
+void test("updateStatus refunds 100% when the venue cancels a paid booking (venue's fault, decision #6)", async () => {
+  const { service, bookingDoc } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "confirmed",
+      paymentStatus: "paid",
+      price: 200_000,
+    }),
+  })
+
+  const { reservation } = await service.updateStatus(
+    "v9",
+    "b1",
+    "cancelled",
+    "Sự cố sân"
+  )
+
+  assert.equal(reservation.status, "cancelled")
+  assert.equal(bookingDoc.paymentStatus, "refunded")
+  assert.equal(bookingDoc.refund?.pct, 100)
+  assert.equal(bookingDoc.refund?.amount, 200_000)
+})
+
+void test("updateStatus never refunds an unpaid hold cancelled by the venue", async () => {
+  const { service, bookingDoc } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "awaiting_payment",
+      paymentStatus: "awaiting",
+    }),
+  })
+
+  await service.updateStatus("v9", "b1", "cancelled", "Đóng sân")
+
+  assert.equal(bookingDoc.refund, undefined)
+  assert.equal(bookingDoc.paymentStatus, "awaiting")
+})
+
 // ── checkIn ──────────────────────────────────────────────────────────────────
 
 void test("checkIn marks a confirmed booking checked-in", async () => {
@@ -678,4 +732,41 @@ void test("confirmPayment is a no-op past awaiting_payment (idempotent against I
 
   assert.equal(doc?.status, "pending")
   assert.equal(bookingDoc.statusHistory.length, before)
+})
+
+void test("confirmPayment queues a full refund when payment lands after the hold expired (no money kept for a dead booking)", async () => {
+  const { service, bookingDoc, notifications } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "expired",
+      paymentStatus: "awaiting",
+      price: 200_000,
+    }),
+  })
+
+  const doc = await service.confirmPayment("b1")
+
+  assert.ok(doc)
+  // Booking stays terminal — the slot is gone — but the money is refunded.
+  assert.equal(doc.status, "expired")
+  assert.equal(bookingDoc.paymentStatus, "refunded")
+  assert.equal(bookingDoc.refund?.pct, 100)
+  assert.equal(bookingDoc.refund?.amount, 200_000)
+  // The player is told, not left in the dark.
+  assert.equal(notifications.length, 1)
+  assert.equal(notifications[0]?.userId, "user-1")
+})
+
+void test("confirmPayment doesn't double-refund a late payment on an already-refunded booking (IPN replay)", async () => {
+  const { service, bookingDoc, notifications } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "expired",
+      paymentStatus: "refunded",
+      refund: { pct: 100, amount: 200_000, at: vnNowIso() },
+    }),
+  })
+
+  await service.confirmPayment("b1")
+
+  assert.equal(bookingDoc.paymentStatus, "refunded")
+  assert.equal(notifications.length, 0)
 })

@@ -19,3 +19,9 @@ export class BookingLock {
 
 export type BookingLockDocument = HydratedDocument<BookingLock>
 export const BookingLockSchema = SchemaFactory.createForClass(BookingLock)
+
+// Self-heal an orphaned lock: if a holder is killed between acquiring the lock
+// (insert) and releasing it (the `finally` delete in `withCourtLock`), MongoDB's
+// TTL monitor reaps the doc so a court+day can't deadlock forever. The critical
+// section is sub-second, so a 60s expiry never reaps a live lock.
+BookingLockSchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 })

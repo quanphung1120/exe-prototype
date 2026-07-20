@@ -250,7 +250,11 @@ export class PaymentsService {
     if (!updated) return null
 
     const bookingDoc = await this.bookings.confirmPayment(updated.bookingId)
-    if (bookingDoc) {
+    // Only ping the venue when the payment actually produced a booking awaiting
+    // their decision. A payment that landed after the hold expired confirms to
+    // nobody — `confirmPayment` refunds it instead of moving it to `pending` —
+    // so notifying the venue of an "approvable" booking would be misleading.
+    if (bookingDoc?.status === "pending") {
       await this.notifyVenue(bookingDoc.venueId, updated.bookingId).catch((err: unknown) => {
         // A notification failure must never undo a real payment — log and move on.
         this.logger.warn(
