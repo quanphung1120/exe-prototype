@@ -1,17 +1,18 @@
 # Release Checklist
 
 This is the pre-release checklist for SportMatch AI. It covers environment
-setup, the SePay payment-gateway sandbox flow (planned — see status note
-below), reseeding the database, the full build/lint/typecheck/test matrix,
-and Clerk test-mode E2E notes. Cross-reference `FIX_REVIEW_VIENTD.md` for the
-underlying business decisions and phase roadmap this checklist assumes.
+setup, the SePay payment-gateway sandbox flow, reseeding the database, the
+full build/lint/typecheck/test matrix, and Clerk test-mode E2E notes.
+Cross-reference `FIX_REVIEW_VIENTD.md` for the underlying business decisions
+and phase roadmap this checklist assumes.
 
-> **Status note (2026-07-20):** `SEPAY_*` env vars and the `payments` feature
-> described in section 2 are the **target** configuration for roadmap
-> **Phase 4** (`FIX_REVIEW_VIENTD.md`), which has **not landed yet** — the
-> repo currently ships fake/simulated payment (decorative QR, 5% deposit,
-> client-side timer). This checklist documents the setup so it's ready to
-> follow the moment Phase 4 ships; until then, skip section 2's runtime steps.
+> **Status note (2026-07-20, updated after Phase 6 merge):** `SEPAY_*` env
+> vars and the `payments` feature described in section 2 are **implemented**
+> — roadmap **Phase 4** (`FIX_REVIEW_VIENTD.md`) landed (real checkout +
+> signed IPN, no more decorative QR/5% deposit/client-side timer). Sandbox
+> merchant credentials already live in `api/.env` for local dev/testing; the
+> IPN tunnel procedure in section 2 is the real, current setup path for
+> exercising it end-to-end, not a future plan.
 
 ## 1. Environment variables
 
@@ -43,10 +44,12 @@ list. Never commit `.env`/`.env.local` — both are gitignored.
 | `OPENROUTER_MODEL` | no | Defaults to a small reasoning-capable model; override to any OpenRouter model returning a `reasoning` field. |
 | `NEXT_PUBLIC_BOXMAP_TOKEN` | yes (for Find Courts map) | Mapbox token, used by `react-map-gl`. |
 
-### api/.env — planned `SEPAY_*` (Phase 4, not yet implemented)
+### api/.env — `SEPAY_*` (Phase 4, implemented)
 
 Per `FIX_REVIEW_VIENTD.md` Phase 4, the SePay integration (`sepay-pg-node`)
-will need:
+requires (already required by `src/env.validation.ts`'s zod schema and
+present in `api/.env.example`; sandbox values are already filled in in
+`api/.env` for local dev):
 
 | Var | Notes |
 | --- | --- |
@@ -55,12 +58,9 @@ will need:
 | `SEPAY_SECRET_KEY` | Signs checkout form fields (HMAC SHA256) and verifies IPN callback signatures — server-only, never exposed to the client. |
 | `SEPAY_RETURN_URL` | Where SePay redirects the browser after checkout (web route, e.g. `${WEB_URL}/dashboard/bookings/return`). |
 
-Add these to `api/.env.example` and `src/env.validation.ts`'s zod schema when
-Phase 4 lands (`SEPAY_ENV`/`SEPAY_MERCHANT_ID`/`SEPAY_SECRET_KEY` required,
-`SEPAY_RETURN_URL` required) — read via `ConfigService`, never raw
-`process.env`, per repo convention.
+Read via `ConfigService`, never raw `process.env`, per repo convention.
 
-## 2. SePay IPN tunnel setup + sandbox test procedure (Phase 4, planned)
+## 2. SePay IPN tunnel setup + sandbox test procedure
 
 SePay's IPN (Instant Payment Notification) webhook needs a publicly reachable
 HTTPS URL — `localhost:6969` isn't reachable from SePay's servers, so local
@@ -88,12 +88,12 @@ Either way, the API must be running locally first (`cd api && pnpm dev`).
 
 1. Log into the SePay **sandbox** merchant dashboard.
 2. Set the IPN callback URL to `https://<tunnel-host>/api/payments/ipn`
-   (the `payments` feature's `@Public()` IPN route — planned Phase 4).
+   (the `payments` feature's `@Public()` IPN route).
 3. Keep `SEPAY_ENV=sandbox` in `api/.env` for the whole session — sandbox
    transactions never move real money and don't require production
    merchant approval.
 
-### 2.3 Test procedure (golden path, once Phase 4 + 5 land)
+### 2.3 Test procedure (golden path — Phase 4 + 5 have landed)
 
 1. `docker compose up --build` (or run `api`/`web` separately) with the
    tunnel pointed at the local API as above.
