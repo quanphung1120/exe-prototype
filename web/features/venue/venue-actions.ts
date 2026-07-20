@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import type {
+  CourtBlock,
+  CourtBlockReason,
   Reservation,
   ReservationStatus,
   SportKey,
@@ -90,6 +92,29 @@ export async function updateVenue(
   const venue = await api<Venue>("/api/venues", {
     method: "PUT",
     body: JSON.stringify(input),
+  })
+  revalidatePath(`/dashboard/venue/${id}`, "layout")
+  revalidatePath("/dashboard", "layout")
+  return venue
+}
+
+/**
+ * Archive (soft-delete) the caller's venue — VienTD-Review decision #11.
+ * `DELETE /api/venues` 409s with a Vietnamese message when the venue still
+ * has a pending/confirmed booking in the future; callers should surface that
+ * message and offer a link to the reservations screen rather than retry.
+ */
+export async function archiveVenue(id: string): Promise<void> {
+  await api("/api/venues", { method: "DELETE" })
+  revalidatePath(`/dashboard/venue/${id}`, "layout")
+  revalidatePath("/dashboard", "layout")
+}
+
+/** Restore a previously archived venue (clears `archived`). */
+export async function restoreVenue(id: string): Promise<Venue> {
+  const venue = await api<Venue>("/api/venues", {
+    method: "PUT",
+    body: JSON.stringify({ archived: false }),
   })
   revalidatePath(`/dashboard/venue/${id}`, "layout")
   revalidatePath("/dashboard", "layout")
@@ -240,4 +265,39 @@ export async function createCustomer(
   })
   revalidatePath(`/dashboard/venue/${venueId}`, "layout")
   return customer
+}
+
+// ── Court blocks (VienTD-Review decision #12) ────────────────────────────────
+// A block always carries a required `reason` — never inferred — and is
+// guarded server-side against a live (pending/confirmed/checked-in) booking on
+// the same court/slot.
+
+export interface CourtBlockInput {
+  courtId: string
+  dateKey: string
+  start: string
+  durationMin: number
+  reason: CourtBlockReason
+  note?: string
+}
+
+export async function addCourtBlock(
+  venueId: string,
+  input: CourtBlockInput
+): Promise<CourtBlock> {
+  const block = await api<CourtBlock>("/api/venues/blocks", {
+    method: "POST",
+    body: JSON.stringify(input),
+  })
+  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  return block
+}
+
+/** Reopen a blocked slot ("Mở lại khung giờ"). */
+export async function removeCourtBlock(
+  venueId: string,
+  blockId: string
+): Promise<void> {
+  await api(`/api/venues/blocks/${blockId}`, { method: "DELETE" })
+  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
 }

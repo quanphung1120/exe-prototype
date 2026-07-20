@@ -23,6 +23,7 @@ import type {
   Conflict,
   ConflictQuery,
   Court,
+  CourtBlock,
   InviteStatus,
   Level,
   Localized,
@@ -46,6 +47,7 @@ import type {
   User,
   Venue,
   VenueCourt,
+  VenueCustomer,
   VenueStats,
 } from "./types.js"
 
@@ -1263,4 +1265,96 @@ export function computeUtilizationHeatmap(
       return Math.round((occupiedCourts.size / totalCourts) * 100)
     })
   })
+}
+
+// ── Venue: CRM customer stats computed from real bookings (Phase 6) ───────────
+
+/** A CRM customer matches a reservation by linked account, else by phone. */
+function reservationMatchesCustomer(
+  reservation: Reservation,
+  customer: VenueCustomer
+): boolean {
+  if (customer.userId) return reservation.userId === customer.userId
+  return (
+    !!reservation.customer.phone && reservation.customer.phone === customer.id
+  )
+}
+
+/**
+ * Tier purely from completion history — no time dimension (no "last visit"
+ * clock), so this stays a pure function of the customer's own record: a
+ * sharply declining `trend` (kept at whatever value the caller last set,
+ * itself out of scope for this derivation) reads as "at-risk" ahead of the
+ * visit-count bands, mirroring the flagship seed's Vũ Hà (27 visits, trend
+ * -34 → "at-risk" despite a "regular"-sized visit count).
+ */
+function tierFor(visits: number, trend: number): VenueCustomer["tier"] {
+  if (trend <= -20) return "at-risk"
+  if (visits >= 40) return "vip"
+  if (visits >= 10) return "regular"
+  return "new"
+}
+
+/**
+ * Recompute each customer's `visits`/`ltv`/`noShowRate`/`tier` from the venue's
+ * real reservations — VienTD-Review decision #15/default: "visits/LTV recompute
+ * từ reservation completed". Pure and read-time-only (no write hook), so a
+ * customer created by `upsertWalkInCustomer`/`upsertAppCustomer` at zeroed
+ * stats is always consistent with its bookings without any completion-time
+ * mutation. `lastVisit`/`trend` are left as stored — this only touches the
+ * four fields with a real derivation.
+ */
+export function computeCustomerStats(
+  customers: VenueCustomer[],
+  reservations: Reservation[]
+): VenueCustomer[] {
+  return customers.map((customer) => {
+    const own = reservations.filter((r) =>
+      reservationMatchesCustomer(r, customer)
+    )
+    const completed = own.filter((r) => r.status === "completed")
+    const visits = completed.length
+    const ltv = completed.reduce((sum, r) => sum + r.price, 0)
+    const counted = own.filter(
+      (r) =>
+        r.status === "completed" ||
+        r.status === "checked-in" ||
+        r.status === "no-show"
+    )
+    const noShows = counted.filter((r) => r.status === "no-show").length
+    const noShowRate = counted.length
+      ? Math.round((noShows / counted.length) * 100)
+      : 0
+    return {
+      ...customer,
+      visits,
+      ltv,
+      noShowRate,
+      tier: tierFor(visits, customer.trend),
+    }
+  })
+}
+
+// ── Venue: court blocks (Phase 6, decision #12) ────────────────────────────────
+
+/**
+ * True when a proposed slot on `courtId`/`dateKey` overlaps any block in
+ * `blocks` — a real `CourtBlock` entity, not the old per-court `maintenance`
+ * flag. Pure so both the API's booking/walk-in creation guards and the web's
+ * schedule-grid block overlay (`blockDayEvents`) share one definition of
+ * "blocked".
+ */
+export function overlapsBlock(
+  blocks: CourtBlock[],
+  courtId: string,
+  dateKey: string,
+  start: string,
+  durationMin: number
+): boolean {
+  return blocks.some(
+    (b) =>
+      b.courtId === courtId &&
+      b.dateKey === dateKey &&
+      rangesOverlap(start, durationMin, b.start, b.durationMin)
+  )
 }

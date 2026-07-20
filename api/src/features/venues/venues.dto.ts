@@ -3,6 +3,7 @@ import { Type } from "class-transformer"
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -17,7 +18,8 @@ import {
   ValidateNested,
 } from "class-validator"
 
-import type { SportKey } from "../../shared/index.js"
+import { COURT_BLOCK_REASONS } from "../../shared/index.js"
+import type { CourtBlockReason, SportKey } from "../../shared/index.js"
 
 const SPORTS = ["pickleball", "badminton"] as const
 const COURT_STATES = [
@@ -76,7 +78,12 @@ export class VenueInputDto {
   managerName: string
 }
 
-export class VenuePatchDto extends PartialType(VenueInputDto) {}
+export class VenuePatchDto extends PartialType(VenueInputDto) {
+  /** Archive (decision #11) or `false` to restore; guarded on future bookings. */
+  @IsOptional()
+  @IsBoolean()
+  archived?: boolean
+}
 
 /** The guided setup-wizard payload: the venue profile plus its initial courts. */
 export class VenueSetupDto extends VenueInputDto {
@@ -109,7 +116,12 @@ export class CourtInputDto {
   state?: (typeof COURT_STATES)[number]
 }
 
-export class CourtPatchDto extends PartialType(CourtInputDto) {}
+export class CourtPatchDto extends PartialType(CourtInputDto) {
+  /** Archive (decision #11) or `false` to restore; guarded on future bookings. */
+  @IsOptional()
+  @IsBoolean()
+  archived?: boolean
+}
 
 export class WalkInInputDto {
   @IsString()
@@ -173,6 +185,41 @@ export class CustomerDto {
 
   @IsIn(SPORTS)
   favoriteSport: SportKey
+}
+
+// ── Court blocks (decision #12) ─────────────────────────────────────────────
+
+export class CourtBlockInputDto {
+  @IsString()
+  @IsNotEmpty()
+  courtId: string
+
+  @IsString()
+  @IsNotEmpty()
+  dateKey: string
+
+  @Matches(HHMM, { message: "start: Expected HH:MM" })
+  start: string
+
+  @IsInt()
+  @Min(15)
+  @Max(MAX_DURATION_MIN)
+  durationMin: number
+
+  /** Always required — never inferred (VienTD-Review decision #12). */
+  @IsIn(COURT_BLOCK_REASONS)
+  reason: CourtBlockReason
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  note?: string
+}
+
+export class BlockIdParamDto {
+  @IsString()
+  @IsNotEmpty()
+  blockId: string
 }
 
 export class IdParamDto {

@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { useLocale, useTranslations } from "next-intl"
 import { Link } from "@/i18n/navigation"
 import {
+  AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
   CalendarPlus,
@@ -24,6 +25,7 @@ import { useVenueData } from "@/features/venue/venue-data-provider"
 import { checkInReservation } from "@/features/venue/venue-actions"
 import { SportTag } from "@/features/dashboard/shared"
 import { useVenue } from "@/features/venue/venue-provider"
+import { venueBase } from "@/features/venue/nav"
 import {
   MicroLabel,
   Ring,
@@ -41,6 +43,7 @@ import {
 
 export function VenueCommandView() {
   const t = useTranslations("VenueCommand")
+  const tm = useTranslations("VenueManage")
   const locale = useLocale()
   const {
     revenueSeries: REVENUE_SERIES,
@@ -86,6 +89,25 @@ export function VenueCommandView() {
           {t("asOf", { time: VENUE.now })}
         </p>
       </div>
+
+      {/* ── Archived banner ───────────────────────────────────────── */}
+      {VENUE.archived ? (
+        <div className="flex flex-col gap-3 rounded-3xl bg-amber-500/10 px-4 py-3 ring-1 ring-amber-500/30 sm:flex-row sm:items-center sm:justify-between">
+          <span className="inline-flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            {tm("archivedBanner.title")}
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="shrink-0 rounded-full"
+            nativeButton={false}
+            render={<Link href={`${venueBase(VENUE.id)}/manage`} />}
+          >
+            {tm("restoreVenue.button")}
+          </Button>
+        </div>
+      ) : null}
 
       {/* ── KPI row ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -223,8 +245,6 @@ export function VenueCommandView() {
         </div>
       </section>
 
-
-
       {/* ── Arrivals + revenue ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Upcoming arrivals */}
@@ -238,7 +258,9 @@ export function VenueCommandView() {
               className="rounded-full"
               nativeButton={false}
               render={
-                <Link href="/dashboard/venue/schedule?tab=reservations" />
+                <Link
+                  href={`${venueBase(VENUE.id)}/schedule?tab=reservations`}
+                />
               }
             >
               {t("seeAll")}

@@ -761,6 +761,7 @@ export function emptyOps(courts: VenueCourt[] = []): VenueOps {
     reservations: [],
     refundQueue: [],
     customers: [],
+    blocks: [],
     revenueSeries: EMPTY_REVENUE_SERIES.map((p) => ({ ...p })),
     sportMix: sports.map((sport) => ({ sport, bookings: 0, pct: 0 })),
     channelMix: EMPTY_CHANNEL_MIX.map((p) => ({ ...p })),
@@ -782,6 +783,7 @@ export const INITIAL_VENUES: VenueRecord[] = [
       // same as `reservations` above (see the comment on `composeBundle`).
       refundQueue: [],
       customers: VENUE_CUSTOMERS,
+      blocks: [],
       revenueSeries: REVENUE_SERIES,
       sportMix: SPORT_MIX,
       channelMix: CHANNEL_MIX,

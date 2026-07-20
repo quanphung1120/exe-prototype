@@ -294,6 +294,112 @@ void test("createHold rejects a slot outside opening hours", async () => {
   )
 })
 
+void test("createHold rejects a slot overlapping a court block (decision #12)", async () => {
+  const venueDoc = makeVenueDoc({
+    ops: {
+      ...makeVenueDoc().ops,
+      blocks: [
+        {
+          id: "v9b1",
+          courtId: "v9c1",
+          dateKey: "2026-07-21",
+          start: "17:30",
+          durationMin: 90,
+          reason: "maintenance",
+        },
+      ],
+    },
+  })
+  const { service } = await makeService({ venueDoc, overlapExisting: [] })
+
+  await assert.rejects(
+    () =>
+      service.createHold("user-1", {
+        courtId: "v9c1",
+        dateKey: "2026-07-21",
+        start: "18:00",
+        durationMin: 60,
+      }),
+    ConflictException
+  )
+})
+
+void test("createHold allows a slot that doesn't touch an unrelated block", async () => {
+  const venueDoc = makeVenueDoc({
+    ops: {
+      ...makeVenueDoc().ops,
+      blocks: [
+        {
+          id: "v9b1",
+          courtId: "v9c1",
+          dateKey: "2026-07-21",
+          start: "06:00",
+          durationMin: 60,
+          reason: "break",
+        },
+      ],
+    },
+  })
+  const { service, created } = await makeService({
+    venueDoc,
+    overlapExisting: [],
+  })
+
+  await service.createHold("user-1", {
+    courtId: "v9c1",
+    dateKey: "2026-07-21",
+    start: "18:00",
+    durationMin: 60,
+  })
+  assert.equal(created.length, 1)
+})
+
+void test("createHold rejects an archived court", async () => {
+  const venueDoc = makeVenueDoc({
+    ops: {
+      ...makeVenueDoc().ops,
+      courts: [
+        {
+          id: "v9c1",
+          name: "Sân 1",
+          sport: "badminton",
+          state: "available",
+          pricePerHour: 200_000,
+          archived: true,
+        },
+      ],
+    },
+  })
+  const { service } = await makeService({ venueDoc, overlapExisting: [] })
+
+  await assert.rejects(
+    () =>
+      service.createHold("user-1", {
+        courtId: "v9c1",
+        dateKey: "2026-07-21",
+        start: "18:00",
+        durationMin: 60,
+      }),
+    BadRequestException
+  )
+})
+
+void test("createHold tolerates a persisted venue doc that predates ops.blocks", async () => {
+  const venueDoc = makeVenueDoc() // no `blocks` key at all, like an old doc
+  const { service, created } = await makeService({
+    venueDoc,
+    overlapExisting: [],
+  })
+
+  await service.createHold("user-1", {
+    courtId: "v9c1",
+    dateKey: "2026-07-21",
+    start: "18:00",
+    durationMin: 60,
+  })
+  assert.equal(created.length, 1)
+})
+
 void test("createHold 404s when the court doesn't resolve to a venue", async () => {
   const { service } = await makeService({
     venueDoc: makeVenueDoc({ ops: { courts: [] } }),

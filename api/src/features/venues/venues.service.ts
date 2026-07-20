@@ -11,6 +11,7 @@ import type { Model } from "mongoose"
 
 import {
   computeChannelMix,
+  computeCustomerStats,
   computePeakHours,
   computeRevenueSeries,
   computeSportMix,
@@ -22,6 +23,8 @@ import {
   vnNowIso,
   type BookingRecordStatus,
   type Court,
+  type CourtBlock,
+  type CourtBlockReason,
   type Reservation,
   type ReservationStatus,
   type SportKey,
@@ -39,7 +42,10 @@ import {
 } from "../../common/mongo-util.js"
 import { NotificationsService } from "../notifications/notifications.service.js"
 import { ProfileService } from "../players/profile.service.js"
-import { decisionNotification } from "../bookings/booking.helpers.js"
+import {
+  assertWithinHours,
+  decisionNotification,
+} from "../bookings/booking.helpers.js"
 import {
   BookingsService,
   type RescheduleReservationInput,
@@ -62,6 +68,8 @@ export interface VenueInput {
   managerName: string
   /** Clerk account provisioning this venue (setup wizard) — enforces one-per-account. */
   ownerId?: string
+  /** Update-only: archive (decision #11) or `false` to restore. Never set at creation. */
+  archived?: boolean
 }
 
 /** A setup-wizard payload: the venue profile plus its initial courts. */
@@ -75,12 +83,23 @@ export interface CourtInput {
   surface: string
   pricePerHour: number
   state?: VenueCourt["state"]
+  /** Update-only: archive (decision #11) or `false` to restore. Never set at creation. */
+  archived?: boolean
 }
 
 export interface CustomerInput {
   name: string
   phone: string
   favoriteSport: SportKey
+}
+
+export interface CourtBlockInput {
+  courtId: string
+  dateKey: string
+  start: string
+  durationMin: number
+  reason: CourtBlockReason
+  note?: string
 }
 
 // Insertion order = venue order (the first venue is the default). Sorting by
@@ -194,7 +213,16 @@ export class VenuesService {
       this.bookings.listForVenue(rec.info.id),
       this.bookings.listRefundQueue(rec.info.id),
     ])
-    return { info: rec.info, ...rec.ops, reservations, refundQueue }
+    // `ops.blocks` postdates some persisted venue docs — default it here, the
+    // one place a stored `VenueRecord` becomes the served `VenueSeed`, so every
+    // caller downstream can assume the array exists (VienTD-Review decision #12).
+    return {
+      info: rec.info,
+      ...rec.ops,
+      blocks: rec.ops.blocks ?? [],
+      reservations,
+      refundQueue,
+    }
   }
 
   /** The active venue's full operator bundle (the seed's `venue` payload). */
@@ -231,6 +259,11 @@ export class VenuesService {
    * honest for a real business. Demo venues (no owner) keep their curated,
    * hardcoded series; AI insights are never computed either way — they stay
    * seeded, and the web marks them with a fixed "Demo AI" chip.
+   *
+   * Also re-derives each CRM customer's visits/ltv/noShowRate/tier from the
+   * same reservations (`computeCustomerStats`, decision #15/default) — pure,
+   * read-time-only, so a walk-in/app-booking CRM row created at zeroed stats
+   * is always consistent without a completion-time write hook.
    */
   private withComputedStats(bundle: VenueSeed): VenueSeed {
     const todayIso = isoDateOf(vnNowIso())
@@ -249,6 +282,7 @@ export class VenuesService {
       sportMix: computeSportMix(bundle.reservations),
       channelMix: computeChannelMix(bundle.reservations),
       peakHours: computePeakHours(bundle.courts, bundle.reservations),
+      customers: computeCustomerStats(bundle.customers, bundle.reservations),
     }
   }
 
@@ -291,14 +325,21 @@ export class VenuesService {
    * The shared discovery catalog: every venue's `VenueCourt`s projected to the
    * `Court` shape the player finder/map read. One source of truth — retiring the
    * separate hardcoded catalog — so a booked court (`vc*`) resolves straight back
-   * to its owning venue for the reservation cross-write.
+   * to its owning venue for the reservation cross-write. Archived venues/courts
+   * (decision #11) are excluded — they're retired from discovery/new bookings,
+   * but `findVenueByCourtId` (`BookingsService`) deliberately does NOT filter,
+   * so an existing booking still resolves back to its venue.
    */
   async catalogCourts(sport?: SportKey): Promise<Court[]> {
     await this.ensureSeeded()
     const records = await this.loadRecords()
-    const courts = records.flatMap((rec) =>
-      rec.ops.courts.map((court) => venueCourtToCourt(rec.info, court))
-    )
+    const courts = records
+      .filter((rec) => !rec.info.archived)
+      .flatMap((rec) =>
+        rec.ops.courts
+          .filter((court) => !court.archived)
+          .map((court) => venueCourtToCourt(rec.info, court))
+      )
     return sport ? courts.filter((c) => c.sports.includes(sport)) : courts
   }
 
@@ -383,20 +424,55 @@ export class VenuesService {
       if (toMinutes(next.openFrom) >= toMinutes(next.openTo)) {
         throw new BadRequestException("openFrom must be before openTo")
       }
+      // Archiving through the general patch route (as opposed to `archiveVenue`,
+      // which `DELETE /api/venues` calls) is guarded the same way — restoring
+      // (`archived: false`) never is, since restoring can't conflict with a
+      // live booking.
+      if (patch.archived === true && !next.archived) {
+        await this.guardNoFutureLiveBookings(id)
+      }
+      if (patch.archived !== undefined) next.archived = patch.archived
       doc.markModified("info")
       await doc.save()
       return doc.info
     })
   }
 
-  async removeVenue(id: string): Promise<void> {
+  /**
+   * Throw a Conflict when `venueId` (optionally one `courtId`) still has a
+   * future pending/confirmed booking — the guard behind both archive routes
+   * (decision #11: "chặn khi còn reservation pending/confirmed tương lai").
+   */
+  private async guardNoFutureLiveBookings(
+    venueId: string,
+    courtId?: string
+  ): Promise<void> {
+    if (await this.bookings.hasFutureLiveBookings(venueId, courtId)) {
+      throw new ConflictException(
+        "Còn lượt đặt sân đang chờ duyệt hoặc đã xác nhận trong tương lai — hãy huỷ và hoàn tiền trước khi lưu trữ."
+      )
+    }
+  }
+
+  /**
+   * Archive (soft-delete) the caller's venue — `DELETE /api/venues` (decision
+   * #11), replacing a hard delete. Guarded on a future pending/confirmed
+   * booking anywhere in the venue; idempotent on an already-archived venue.
+   * Restore via `updateVenue({ archived: false })`. The venue keeps occupying
+   * its account's one-venue slot while archived (see `Venue.ownerId`'s unique
+   * index) — the manage UI offers "Khôi phục", not a fresh setup.
+   */
+  async archiveVenue(id: string): Promise<void> {
     await this.ensureSeeded()
-    if (!(await this.venueModel.exists({ venueId: id })))
-      throw new NotFoundException("Venue not found")
-    // Never delete the operator's only venue — the workspace needs a fallback.
-    if ((await this.venueModel.countDocuments()) <= 1)
-      throw new BadRequestException("Cannot delete the only venue")
-    await this.venueModel.deleteOne({ venueId: id })
+    await withVersionRetry(async () => {
+      const doc = await this.findDoc(id)
+      if (!doc) throw new NotFoundException("Venue not found")
+      if (doc.info.archived) return
+      await this.guardNoFutureLiveBookings(id)
+      doc.info.archived = true
+      doc.markModified("info")
+      await doc.save()
+    })
   }
 
   /**
@@ -510,21 +586,112 @@ export class VenuesService {
       if (patch.pricePerHour !== undefined)
         court.pricePerHour = patch.pricePerHour
       if (patch.state !== undefined) court.state = patch.state
+      // Same archive guard as `removeCourt`/`archiveVenue` — restoring
+      // (`archived: false`, decision #11's documented restore path) skips it.
+      if (patch.archived === true && !court.archived) {
+        await this.guardNoFutureLiveBookings(venueId, courtId)
+      }
+      if (patch.archived !== undefined) court.archived = patch.archived
       doc.markModified("ops")
       await doc.save()
       return court
     })
   }
 
+  /**
+   * Archive (soft-delete) a court — `DELETE /api/venues/courts/:courtId`
+   * (decision #11), replacing a hard delete so a historical booking never
+   * orphans. Guarded on a future pending/confirmed booking on this court;
+   * idempotent when already archived. Restore via
+   * `updateCourt(venueId, courtId, { archived: false })`.
+   */
   async removeCourt(venueId: string, courtId: string): Promise<void> {
     await this.ensureSeeded()
     await withVersionRetry(async () => {
       const doc = await this.findDoc(venueId)
-      if (!doc) throw new NotFoundException("Court not found")
-      const before = doc.ops.courts.length
-      doc.ops.courts = doc.ops.courts.filter((c) => c.id !== courtId)
-      if (doc.ops.courts.length === before)
-        throw new NotFoundException("Court not found")
+      const court = doc?.ops.courts.find((c) => c.id === courtId)
+      if (!doc || !court) throw new NotFoundException("Court not found")
+      if (court.archived) return
+      await this.guardNoFutureLiveBookings(venueId, courtId)
+      court.archived = true
+      doc.markModified("ops")
+      await doc.save()
+    })
+  }
+
+  // ── Court block mutations (scoped to a venue, decision #12) ──────────────────
+
+  /**
+   * Block a court/day/time window out from both booking paths — `POST
+   * /api/venues/blocks`. Rejects an archived court and, per decision #12,
+   * rejects overlapping a *live* booking (pending/confirmed/checked-in — see
+   * `BookingsService#hasLiveBookingOverlap`); it never blocks on an already-
+   * cancelled/completed/expired one. `blockSeq` mints `id` the same way
+   * `courtSeq` mints a court's.
+   */
+  async addBlock(venueId: string, input: CourtBlockInput): Promise<CourtBlock> {
+    await this.ensureSeeded()
+    return withVersionRetry(async () => {
+      const doc = await this.findDoc(venueId)
+      if (!doc) throw new NotFoundException("Venue not found")
+      const court = doc.ops.courts.find((c) => c.id === input.courtId)
+      if (!court) throw new NotFoundException("Court not found")
+      if (court.archived) {
+        throw new BadRequestException(
+          "Không thể khoá khung giờ trên sân đã lưu trữ"
+        )
+      }
+      assertWithinHours(doc.info, input.start, input.durationMin)
+      if (
+        await this.bookings.hasLiveBookingOverlap(
+          venueId,
+          input.courtId,
+          input.dateKey,
+          input.start,
+          input.durationMin
+        )
+      ) {
+        throw new ConflictException(
+          "Khung giờ này đang có lượt đặt sân (chờ duyệt/đã xác nhận/đã check-in) — hãy xử lý trước khi khoá sân"
+        )
+      }
+      const existing = doc.ops.blocks ?? []
+      const seq =
+        Math.max(
+          doc.blockSeq ?? 0,
+          maxSeq(
+            existing.map((b) => b.id),
+            `${venueId}b`
+          )
+        ) + 1
+      doc.blockSeq = seq
+      const block: CourtBlock = {
+        id: `${venueId}b${seq}`,
+        courtId: input.courtId,
+        dateKey: input.dateKey,
+        start: input.start,
+        durationMin: input.durationMin,
+        reason: input.reason,
+        note: input.note,
+      }
+      doc.ops.blocks = [...existing, block]
+      doc.markModified("ops")
+      await doc.save()
+      return block
+    })
+  }
+
+  /** Lift a court block (open the slot back up) — `DELETE /api/venues/blocks/:blockId`. */
+  async removeBlock(venueId: string, blockId: string): Promise<void> {
+    await this.ensureSeeded()
+    await withVersionRetry(async () => {
+      const doc = await this.findDoc(venueId)
+      if (!doc) throw new NotFoundException("Venue not found")
+      const existing = doc.ops.blocks ?? []
+      const next = existing.filter((b) => b.id !== blockId)
+      if (next.length === existing.length)
+        throw new NotFoundException("Block not found")
+      doc.ops.blocks = next
       doc.markModified("ops")
       await doc.save()
     })

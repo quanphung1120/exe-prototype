@@ -27,6 +27,11 @@ export class Venue {
   // used to have an equivalent counter here — bookings are now their own
   // `bookings` collection keyed by a Mongo ObjectId, see BookingsService.)
   @Prop({ type: Number }) courtSeq?: number
+  // Monotonic high-water court-block-id counter (Phase 6, decision #12) — same
+  // shape/reason as `courtSeq` above, minting `CourtBlock.id`. Older persisted
+  // docs predate both this counter and `ops.blocks`; every read of the latter
+  // defaults with `?? []` (see `VenuesService`).
+  @Prop({ type: Number }) blockSeq?: number
 }
 
 export type VenueDocument = HydratedDocument<Venue>

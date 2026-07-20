@@ -134,7 +134,8 @@
     "searchVenue": "Search bookings, players…",
     "venues": "Your venues",
     "addVenue": "Add venue",
-    "becomePlayer": "Become a player"
+    "becomePlayer": "Become a player",
+    "manageVenue": "Manage venue"
   },
   "WorkspaceSettings": {
     "title": "Workspace settings",
@@ -1216,6 +1217,31 @@
       "courtCreated": "{name} added",
       "courtUpdated": "{name} updated",
       "courtDeleted": "{name} removed"
+    },
+    "manageTitle": "Manage venue",
+    "manageSubtitle": "Venue details and important actions.",
+    "archive": "Archive",
+    "dangerZone": {
+      "title": "Danger zone",
+      "archiveLabel": "Archive this venue",
+      "archiveDescription": "Hide the venue from new activity. Existing bookings are kept as-is and you can restore it anytime."
+    },
+    "archiveVenue": {
+      "title": "Archive this venue?",
+      "description": "{name} will stop taking new bookings. You can restore it anytime from this screen.",
+      "confirm": "Confirm archive",
+      "pending": "Archiving...",
+      "done": "{name} archived",
+      "viewReservations": "View reservations"
+    },
+    "restoreVenue": {
+      "button": "Restore",
+      "pending": "Restoring...",
+      "done": "{name} restored"
+    },
+    "archivedBanner": {
+      "title": "This venue is archived",
+      "description": "It won't take new bookings until restored. It still occupies the account's single venue slot — restore it instead of creating a new one."
     }
   },
   "VenuePricing": {
@@ -1311,19 +1337,33 @@
     },
     "toast": {
       "walkInTitle": "Walk-in added",
+      "walkInConflict": "This slot is held by an in-app booking — decline it (with a reason, auto-refunded) first.",
       "blockTitle": "Court blocked",
       "suggestTitle": "Finding players to fill this slot",
       "messaged": "Message sent",
       "rescheduled": "Reschedule started",
       "cancelledEvent": "Booking cancelled",
-      "reopened": "Court reopened"
+      "reopened": "Time slot reopened"
     },
     "event": {
       "maintenance": "Maintenance",
       "message": "Message customer",
       "reschedule": "Reschedule",
       "cancel": "Cancel booking",
-      "reopen": "Reopen court"
+      "reopen": "Reopen time slot"
+    },
+    "blockDialog": {
+      "title": "Block time slot",
+      "description": "Pick a reason for blocking this slot — it won't be bookable until reopened.",
+      "reasonLabel": "Reason",
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "e.g. re-stringing nets, internal event…"
+    },
+    "blockReasons": {
+      "maintenance": "Maintenance",
+      "internal": "Internal use",
+      "vip": "VIP guest",
+      "break": "Break"
     },
     "cancelDialog": {
       "title": "Cancel booking",

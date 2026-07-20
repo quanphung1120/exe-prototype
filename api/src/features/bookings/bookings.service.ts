@@ -43,6 +43,7 @@ import {
   bookingsOverlap,
   buildBookingRecord,
   decisionNotification,
+  liveBookingOverlap,
   refundPctFor,
   refundQueueItemFromBooking,
   reservationFromBooking,
@@ -275,6 +276,48 @@ export class BookingsService {
     )
   }
 
+  /**
+   * True when `venueId` (optionally narrowed to one `courtId`) has a
+   * `pending`/`confirmed` booking whose `startAt` is still in the future —
+   * VienTD-Review decision #11's archive guard for `DELETE /api/venues`
+   * (whole venue) and `DELETE /api/venues/courts/:courtId` (one court): both
+   * refuse to archive while this is true, so the operator must cancel+refund
+   * first. `checked-in`/`completed`/terminal statuses don't block archiving —
+   * only bookings still awaiting their outcome do.
+   */
+  async hasFutureLiveBookings(
+    venueId: string,
+    courtId?: string
+  ): Promise<boolean> {
+    const filter: Record<string, unknown> = {
+      venueId,
+      status: { $in: ["pending", "confirmed"] },
+      startAt: { $gt: vnNowIso() },
+    }
+    if (courtId) filter.courtId = courtId
+    return (await this.bookingModel.exists(filter)) !== null
+  }
+
+  /**
+   * True when a proposed court block (`courtId`/`dateKey`/`start`/`durationMin`)
+   * overlaps a live booking (pending/confirmed/checked-in) — the guard
+   * `VenuesService#addBlock` runs before writing a new `CourtBlock` (decision
+   * #12: a block may never land on top of a booking someone is honoring).
+   */
+  async hasLiveBookingOverlap(
+    venueId: string,
+    courtId: string,
+    dateKey: string,
+    start: string,
+    durationMin: number
+  ): Promise<boolean> {
+    const existing = await this.bookingModel
+      .find({ venueId, courtId, dateKey })
+      .select("bookingId courtId dateKey start durationMin status")
+      .lean<BookingSlot[]>()
+    return liveBookingOverlap(existing, courtId, dateKey, start, durationMin)
+  }
+
   // ── Overlap-guarded write ────────────────────────────────────────────────
 
   /**
@@ -329,10 +372,20 @@ export class BookingsService {
   ): Promise<Reservation> {
     const venueDoc = await this.loadVenueDoc(venueId)
     const court = this.findCourt(venueDoc, input.courtId)
+    if (court.archived) {
+      throw new BadRequestException("Court has been archived")
+    }
     if (court.state === "maintenance") {
       throw new BadRequestException("Court is under maintenance")
     }
     assertWithinHours(venueDoc.info, input.start, input.durationMin)
+    assertNoCourtBlock(
+      venueDoc.ops.blocks ?? [],
+      input.courtId,
+      input.dayKey,
+      input.start,
+      input.durationMin
+    )
 
     const created = await this.writeWithOverlapGuard(
       venueId,
@@ -362,10 +415,43 @@ export class BookingsService {
       }
     )
 
+    // Merge the walk-in into the venue CRM by phone (decision #15's default:
+    // "walk-in tạo/merge CRM customer theo phone"). Stats start zeroed — a
+    // completed booking is what makes a "visit", derived at read time by
+    // `computeCustomerStats` (`withComputedStats`), never written here.
+    await this.upsertWalkInCustomer(
+      venueId,
+      input.customerName,
+      input.customerPhone,
+      court.sport
+    )
+
     return reservationFromBooking(created, isoDateOf(vnNowIso()))
   }
 
-  // ── App booking CRM sync ──────────────────────────────────────────────────
+  // ── CRM customer sync (app + walk-in) ───────────────────────────────────────
+
+  /** A freshly onboarded CRM row — every stat derives at read time, never here. */
+  private zeroedCustomer(
+    id: string,
+    name: string,
+    sport: SportKey,
+    userId?: string
+  ): VenueCustomer {
+    return {
+      id,
+      userId,
+      name: name.trim(),
+      initials: initialsOf(name),
+      favoriteSport: sport,
+      visits: 0,
+      lastVisit: { en: "Today", vi: "Hôm nay" },
+      ltv: 0,
+      noShowRate: 0,
+      tier: "new",
+      trend: 0,
+    }
+  }
 
   /** Add the app booker to the venue CRM once (linked by account), if new. */
   private async upsertAppCustomer(
@@ -379,20 +465,26 @@ export class BookingsService {
       if (!doc) return
       if (doc.ops.customers.some((c) => c.id === userId || c.userId === userId))
         return
-      const customer: VenueCustomer = {
-        id: userId,
-        userId,
-        name: name.trim(),
-        initials: initialsOf(name),
-        favoriteSport: sport,
-        visits: 0,
-        lastVisit: { en: "Today", vi: "Hôm nay" },
-        ltv: 0,
-        noShowRate: 0,
-        tier: "new",
-        trend: 0,
-      }
-      doc.ops.customers.push(customer)
+      doc.ops.customers.push(this.zeroedCustomer(userId, name, sport, userId))
+      doc.markModified("ops")
+      await doc.save()
+    })
+  }
+
+  /** Add/merge a walk-in into the venue CRM by phone, if new (decision #15). */
+  private async upsertWalkInCustomer(
+    venueId: string,
+    name: string,
+    phone: string,
+    sport: SportKey
+  ): Promise<void> {
+    const id = phone.trim()
+    if (!id) return
+    await withVersionRetry(async () => {
+      const doc = await this.venueModel.findOne({ venueId })
+      if (!doc) return
+      if (doc.ops.customers.some((c) => c.id === id)) return
+      doc.ops.customers.push(this.zeroedCustomer(id, name, sport))
       doc.markModified("ops")
       await doc.save()
     })
@@ -676,13 +768,15 @@ export class BookingsService {
     if (!venueId) throw new NotFoundException("Court not found")
     const venueDoc = await this.loadVenueDoc(venueId)
     const court = this.findCourt(venueDoc, input.courtId)
+    if (court.archived) {
+      throw new BadRequestException("Court has been archived")
+    }
     if (court.state === "maintenance") {
       throw new BadRequestException("Court is under maintenance")
     }
     assertWithinHours(venueDoc.info, input.start, input.durationMin)
-    // Seam for Phase 6 (court blocks) — a no-op today, see booking.helpers.ts.
     assertNoCourtBlock(
-      venueId,
+      venueDoc.ops.blocks ?? [],
       input.courtId,
       input.dateKey,
       input.start,
