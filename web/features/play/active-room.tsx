@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import { toast } from "sonner"
 import {
   CalendarCheck,
   CalendarPlus,
@@ -60,7 +59,6 @@ import {
 import { useData } from "@/features/dashboard/data-provider"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { useSession } from "@/features/play/session"
-import { ensureRoomChannel } from "@/features/chat/stream-actions"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
 import { useRouter } from "@/i18n/navigation"
 import { initialsOf } from "@/lib/shared"
@@ -163,6 +161,7 @@ function RoomDetail({
   const sUser = useAuthUser()
   const {
     sessions,
+    requestedIds,
     invitePlayer,
     kickPlayer,
     bookCourtForSession,
@@ -172,13 +171,17 @@ function RoomDetail({
   const { players: MATCH_SUGGESTIONS, user: USER } = useData()
   const router = useRouter()
 
+  // Only ever set for a room I host — someone else's room I'm awaiting
+  // approval on isn't in my own `sessions` (Phase 9 G2: it lives on the
+  // host's doc, discoverable only via `GET /api/rooms`).
   const session = sessions.find((s) => s.id === room.id)
   // Players awaiting this host's approval (host reviews their reliability).
   const requests = session ? pendingRequests(session) : []
-  // Whether the user themselves is still waiting on this room's host.
-  const awaitingApproval =
-    session?.roster.find((p) => p.initials === USER.initials)?.rsvp ===
-    "requested"
+  // Whether the user themselves is still waiting on this room's host —
+  // derived from `requestedIds` (which covers both my own and cross-user
+  // rooms), not from `session`, since a cross-user pending request never
+  // lands in my own doc.
+  const awaitingApproval = requestedIds.has(room.id)
 
   const title = tm.has(`rooms.${room.id}.title`)
     ? tm(`rooms.${room.id}.title`)
@@ -211,21 +214,12 @@ function RoomDetail({
     setProfileOpen(true)
   }
 
-  const openChat = async () => {
-    // Lazily get-or-create the room's Stream channel with the other members
-    // (the current user is added by the api), then deep-link into it. The user
-    // themselves is already a member via their Clerk id, so drop their initials.
-    try {
-      await ensureRoomChannel({
-        roomId: room.id,
-        name: title,
-        memberInitials: room.players.filter((i) => i !== USER.initials),
-      })
-      router.push(`/dashboard/chat?channel=room-${room.id}`)
-      onClose()
-    } catch {
-      toast.error(t("openChatError"))
-    }
+  const openChat = () => {
+    // The room's chat channel already exists — created host-only the moment
+    // the room was, with real members added/removed as join requests are
+    // approved/declined/left (Phase 9 G2) — so this just deep-links into it.
+    router.push(`/dashboard/chat?channel=room-${room.id}`)
+    onClose()
   }
 
   const leave = () => {

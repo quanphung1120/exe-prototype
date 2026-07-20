@@ -3,31 +3,17 @@
 import { apiFetch } from "@/lib/api"
 import { roomChannelId } from "@/features/chat/channel-ids"
 
-// Server action for lazily creating a match-room / team Stream channel. Runs on
-// the server (keeps the API base + Clerk bearer off the client) and calls the
-// api's get-or-create endpoint. Idempotent: re-opening a room chat returns the
-// existing channel without overwriting it.
-export async function ensureRoomChannel(input: {
-  roomId: string
-  name: string
-  memberInitials: string[]
-}): Promise<{ id: string }> {
-  return apiFetch<{ id: string }>("/api/stream/channels", {
-    method: "POST",
-    body: {
-      id: roomChannelId(input.roomId),
-      name: input.name,
-      memberInitials: input.memberInitials,
-    },
-  })
-}
-
 // ── Real room-chat lifecycle (quyết định #13) ────────────────────────────
-// Distinct from `ensureRoomChannel` above: no mock seeding, only the room's
-// real members ever added, every mutation authorized against the channel's
-// `created_by` (the host) on the api side. Failures here are always
-// best-effort from the caller's side — a chat hiccup must never block a
-// matchmaking/booking decision.
+// Only the room's real members are ever added — no mock seeding — every
+// mutation authorized against the channel's `created_by` (the host) on the
+// api side. Failures here are always best-effort from the caller's side — a
+// chat hiccup must never block a matchmaking/booking decision. The old
+// `ensureRoomChannel` (`POST /api/stream/channels`, mock-seeded invitees) was
+// removed in Phase 9 — a room's chat is created host-only by `createRoomChat`
+// the moment the room exists; real members are added/removed by the api
+// itself as part of deciding a join request or a member leaving (Phase 9 G2,
+// `api/src/features/rooms/`), not by the web calling these directly for that
+// flow anymore.
 
 /** Create a room's real chat with only the host as a member — never mocks. */
 export async function createRoomChat(input: {

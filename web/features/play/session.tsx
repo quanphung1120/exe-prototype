@@ -43,7 +43,12 @@ import {
 } from "@/features/play/booking-actions"
 import { startPaymentCheckout } from "@/features/play/payment-actions"
 import {
-  addRoomMember,
+  decideRoomRequest,
+  leaveRoomMembership,
+  listRooms,
+  requestJoinRoom,
+} from "@/features/play/rooms-actions"
+import {
   createRoomChat,
   freezeRoomChat,
   removeRoomMember,
@@ -69,6 +74,9 @@ const HOLD_MS = 20 * 60 * 1000
 const REQUEST_EXPIRY_MS = 2 * 60 * 60 * 1000
 // An invite a player hasn't responded to auto-expires after this long.
 const INVITE_EXPIRY_MS = 6 * 60 * 60 * 1000
+// How often `GET /api/rooms` (every other user's listed rooms) is repolled —
+// mirrors `NotificationsProvider`'s POLL_MS.
+const ROOMS_POLL_MS = 30_000
 
 /** Fill mode chosen at the "do you have a team yet?" gate. */
 export type FillMode = "court" | "invite" | "find"
@@ -361,7 +369,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   const [sessions, setSessions] = React.useState<PlaySession[]>(SEED_SESSIONS)
-  const [joinedIds, setJoinedIds] = React.useState<Set<string>>(() => new Set())
+  // Own-doc bookkeeping only — which of *my* sessions I consider "joined" for
+  // Match Maker purposes (hosting a room, or approved into my own solo hold
+  // via `addTeamToSession`). A room I've joined that someone *else* hosts
+  // never lives here — see `crossRooms`/the unified `joinedIds` memo below.
+  const [localJoinedIds, setLocalJoinedIds] = React.useState<Set<string>>(
+    () => new Set()
+  )
+  // Every other signed-in user's listed, active room (Phase 9 G2,
+  // `GET /api/rooms`) — the cross-user browse pool, and the only place a room
+  // I've joined but don't host is discoverable (the mutation that adds me
+  // lands on *their* doc, never mine). Polled below; refreshed immediately
+  // after request/approve/decline/leave for snappier consistency.
+  const [crossRooms, setCrossRooms] = React.useState<PlaySession[]>([])
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     null
   )
@@ -427,6 +447,81 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     )
   }, [SEED_SESSIONS])
 
+  // ── Cross-user rooms (Phase 9 G2) ───────────────────────────────────────
+  // `GET /api/rooms` is the only place a room I've joined but don't host is
+  // discoverable — see the `localJoinedIds`/`crossRooms` doc comments above.
+  //
+  // A join request lands directly on the *host's* doc server-side (see
+  // `RoomsService#requestJoin`) — never routed through this client's own
+  // `setSessions`. Surface a fresh one on a room I host by folding any
+  // `requested` roster entry the latest `GET /api/rooms` snapshot has that my
+  // local copy doesn't, additively only (never removes/mutates an entry) so
+  // it can't clobber an in-flight optimistic approve/decline. There's a small
+  // eventual-consistency window where a stale snapshot could re-add an entry
+  // a decline just removed locally — every mutation below re-fetches right
+  // after deciding, which supersedes it almost immediately; acceptable for a
+  // coordination-only layer with no money on the line (same tolerance the
+  // API side documents for concurrent join requests).
+  const mergeIncomingRequests = (remote: PlaySession[]) => {
+    setSessions((prev) => {
+      let changed = false
+      const next = prev.map((s) => {
+        const r = remote.find((x) => x.id === s.id)
+        if (!r) return s
+        const localInitials = new Set(s.roster.map((p) => p.initials))
+        const incoming = r.roster.filter(
+          (p) => p.rsvp === "requested" && !localInitials.has(p.initials)
+        )
+        if (!incoming.length) return s
+        changed = true
+        return { ...s, roster: [...s.roster, ...incoming] }
+      })
+      return changed ? next : prev
+    })
+  }
+
+  /** Refetch every listed cross-user room — called after request/approve/decline/leave. */
+  const refreshRooms = React.useCallback(async () => {
+    try {
+      const remote = await listRooms()
+      setCrossRooms(remote)
+      mergeIncomingRequests(remote)
+    } catch (err) {
+      console.error("Failed to load cross-user rooms", err)
+    }
+  }, [])
+
+  // Polled on an interval (mirroring `NotificationsProvider`) plus on
+  // focus/visibility, so a host picks up a fresh join request — and a
+  // requester picks up the host's decision — without a hard reload.
+  React.useEffect(() => {
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const remote = await listRooms()
+        if (cancelled) return
+        setCrossRooms(remote)
+        mergeIncomingRequests(remote)
+      } catch (err) {
+        // Transient poll failure (offline, API blip) — the next tick retries.
+        console.error("Failed to load cross-user rooms", err)
+      }
+    }
+    void poll()
+    const interval = setInterval(() => void poll(), ROOMS_POLL_MS)
+    const onFocusOrVisible = () => {
+      if (document.visibilityState === "visible") void poll()
+    }
+    document.addEventListener("visibilitychange", onFocusOrVisible)
+    window.addEventListener("focus", onFocusOrVisible)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", onFocusOrVisible)
+      window.removeEventListener("focus", onFocusOrVisible)
+    }
+  }, [])
+
   // A per-mount base keeps generated ids unique across reloads: the counter
   // resets to 0 on every mount, so without a base a new session could reuse an
   // old counter value and clobber a persisted session sharing that id. Seeded
@@ -481,24 +576,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   /**
-   * Add a real (non-mock) member to a room's chat, e.g. once the host approves
-   * their join request. Mock players (the entire `MATCH_SUGGESTIONS` pool)
-   * aren't Stream users under this real lifecycle — `ensureRoomChannel`'s
-   * mock-seeding (still used until Phase 9) covers them when chat opens.
-   */
-  const addRealRoomMember = (sessionId: string, initials: string) => {
-    if (MATCH_SUGGESTIONS.some((p) => p.initials === initials)) return
-    void addRoomMember({ roomId: sessionId, memberId: initials }).catch(
-      (err: unknown) => {
-        console.error("Failed to add room member", err)
-      }
-    )
-  }
-
-  /**
-   * Remove a member from a room's chat — host kick/decline (by initials) or a
-   * member leaving themselves (by their real Stream/Clerk id, which never
-   * collides with a mock's 2-3 letter initials, so it always passes the guard).
+   * Remove a member from a room's chat — host-initiated kick of an already-
+   * approved (by initials) roster member. Cross-user join/approve/decline/
+   * leave (Phase 9 G2) no longer call this: `RoomsService` adds/removes real
+   * members server-side as part of deciding a request or a member leaving —
+   * see `rooms-actions.ts`. Mock players (the entire `MATCH_SUGGESTIONS`
+   * pool) aren't Stream users, so the guard below skips them.
    */
   const removeRealRoomMember = (sessionId: string, memberId: string) => {
     if (MATCH_SUGGESTIONS.some((p) => p.initials === memberId)) return
@@ -661,40 +744,85 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [sweepExpirations])
 
   // ── Derived projections ──
-  const rooms = React.useMemo(
-    () =>
-      sessions
-        .filter((s) => s.listed && s.status !== "cancelled")
-        .map(sessionToRoom),
+  // My own session ids — anything NOT in this set that shows up in
+  // `crossRooms` is, by construction, someone else's room (`RoomsService`
+  // only ever writes a request/decision onto the *host's* doc, so an id that
+  // round-trips back into my own `/api/seed` sessions is always mine).
+  const ownSessionIds = React.useMemo(
+    () => new Set(sessions.map((s) => s.id)),
     [sessions]
   )
-  const joinedSessions = React.useMemo(
+  // Other users' listed, active rooms — the cross-user half of the browse
+  // pool, and the only place a room I've joined without hosting shows up.
+  const otherRoomsRaw = React.useMemo(
+    () => crossRooms.filter((r) => !ownSessionIds.has(r.id)),
+    [crossRooms, ownSessionIds]
+  )
+  // Cross-user rooms where I hold a confirmed (non-host) seat.
+  const remoteJoinedIds = React.useMemo(
     () =>
-      sessions.filter(
+      new Set(
+        otherRoomsRaw
+          .filter((r) =>
+            r.roster.some((p) => p.userId === authUser.id && p.rsvp === "going")
+          )
+          .map((r) => r.id)
+      ),
+    [otherRoomsRaw, authUser.id]
+  )
+  // The room-membership semantic change of Phase 9 G2: "joined" is no longer
+  // just local bookkeeping over my own session doc — it's my own doc's rooms
+  // UNION whichever of *other* users' rooms `GET /api/rooms` currently shows
+  // me as an approved member of.
+  const joinedIds = React.useMemo(
+    () => new Set([...localJoinedIds, ...remoteJoinedIds]),
+    [localJoinedIds, remoteJoinedIds]
+  )
+  const rooms = React.useMemo(
+    () => [
+      ...sessions
+        .filter((s) => s.listed && s.status !== "cancelled")
+        .map(sessionToRoom),
+      ...otherRoomsRaw.map(sessionToRoom),
+    ],
+    [sessions, otherRoomsRaw]
+  )
+  const joinedSessions = React.useMemo(
+    () => [
+      ...sessions.filter(
         (s) =>
-          joinedIds.has(s.id) &&
+          localJoinedIds.has(s.id) &&
           s.status !== "cancelled" &&
           s.status !== "completed"
       ),
-    [sessions, joinedIds]
+      ...otherRoomsRaw.filter(
+        (r) =>
+          remoteJoinedIds.has(r.id) &&
+          r.status !== "cancelled" &&
+          r.status !== "completed"
+      ),
+    ],
+    [sessions, localJoinedIds, otherRoomsRaw, remoteJoinedIds]
   )
   const joinedRooms = React.useMemo(
     () => joinedSessions.map(sessionToRoom),
     [joinedSessions]
   )
-  // Sessions the user has requested to join but isn't approved into yet.
+  // Rooms (mine or someone else's) I've asked to join and am still awaiting
+  // the host's approval on. My own doc never carries a `requested` entry for
+  // myself (I'm always the host there), so this is cross-user rooms only.
   const requestedIds = React.useMemo(
     () =>
       new Set(
-        sessions
-          .filter(
-            (s) =>
-              s.roster.find((p) => p.initials === USER.initials)?.rsvp ===
-              "requested"
+        otherRoomsRaw
+          .filter((r) =>
+            r.roster.some(
+              (p) => p.userId === authUser.id && p.rsvp === "requested"
+            )
           )
-          .map((s) => s.id)
+          .map((r) => r.id)
       ),
-    [sessions, USER.initials]
+    [otherRoomsRaw, authUser.id]
   )
   // Sessions the user is already committed to at a real time — hosting, going,
   // or a still-pending request all reserve (or aim to reserve) a seat in a
@@ -702,10 +830,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // these back the overlap guard below: joining a second room whose slot clashes
   // with one of these would let one player hoard seats across rooms — a seat they
   // could never use, denied to real players. Cancelled/completed rooms and slots
-  // that aren't set yet (no time to clash with) are excluded.
+  // that aren't set yet (no time to clash with) are excluded. Spans both my own
+  // sessions and cross-user rooms I've joined/requested.
   const committedSessions = React.useMemo(
-    () =>
-      sessions.filter(
+    () => [
+      ...sessions.filter(
         (s) =>
           s.status !== "cancelled" &&
           s.status !== "completed" &&
@@ -714,14 +843,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             (p) => p.initials === USER.initials && p.rsvp !== "declined"
           )
       ),
-    [sessions, USER.initials]
+      ...otherRoomsRaw.filter(
+        (s) =>
+          s.status !== "cancelled" &&
+          s.status !== "completed" &&
+          s.slot != null &&
+          s.roster.some((p) => p.userId === authUser.id && p.rsvp !== "declined")
+      ),
+    ],
+    [sessions, otherRoomsRaw, USER.initials, authUser.id]
   )
   // The already-committed session whose time overlaps `room` (same day + range),
   // or null when joining `room` wouldn't double-book the player. The target room
   // itself is skipped so re-opening a room you're already in never "conflicts."
   const overlappingCommitment = React.useCallback(
     (room: MatchRoom): PlaySession | null => {
-      const target = sessions.find((s) => s.id === room.id)
+      const target =
+        sessions.find((s) => s.id === room.id) ??
+        otherRoomsRaw.find((s) => s.id === room.id)
       if (!target || target.slot == null) return null
       return (
         committedSessions.find(
@@ -737,7 +876,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         ) ?? null
       )
     },
-    [sessions, committedSessions]
+    [sessions, otherRoomsRaw, committedSessions]
   )
   // Open rooms the user hosts right now — the anti-spam cap counts these. Solo
   // court holds (listed:false) and finished/cancelled rooms are excluded, so the
@@ -789,7 +928,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   const dropJoined = (sessionId: string) => {
-    setJoinedIds((prev) => {
+    setLocalJoinedIds((prev) => {
       const next = new Set(prev)
       next.delete(sessionId)
       return next
@@ -829,37 +968,51 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const roomTitle = (room: MatchRoom) =>
     tm.has(`rooms.${room.id}.title`) ? tm(`rooms.${room.id}.title`) : room.title
 
-  /** Ask to join someone else's room — the host approves before you're in. */
+  /**
+   * Ask to join someone else's room — `POST /api/rooms/:id/requests`. The
+   * host approves before the requester is in; the server checks capacity and
+   * writes the `requested` roster entry onto the *host's* doc, so this
+   * client only ever sees it back via `crossRooms`.
+   */
   const requestJoin = (room: MatchRoom) => {
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === room.id &&
-        activeRoster(s).length < s.capacity &&
-        !s.roster.some((p) => p.initials === USER.initials)
-          ? {
-              ...s,
-              roster: [
-                ...s.roster,
-                {
-                  name: userName,
-                  initials: USER.initials,
-                  rsvp: "requested",
-                  rsvpAt: Date.now(),
-                },
-              ],
-            }
-          : s
+    void (async () => {
+      const result = await requestJoinRoom(room.id)
+      if (!result.ok) {
+        toast.error(ts("toast.requestFailed"), { description: result.message })
+        return
+      }
+      // Optimistic: fold the pending request into the local mirror of
+      // `crossRooms` right away — `requestedIds`/`isSuitable` (and everything
+      // downstream) read off it — instead of waiting for the next poll tick.
+      // Don't grant membership yet — the user is only "requested", not
+      // "joined". `joinedIds` (and everything derived from it: the team
+      // chat, the active-room pill) is granted once the real host calls
+      // `approveRequest`, which the requester learns about via the
+      // notification poll — there's no faked auto-approval here.
+      setCrossRooms((prev) =>
+        prev.map((r) =>
+          r.id === room.id
+            ? {
+                ...r,
+                roster: [
+                  ...r.roster,
+                  {
+                    name: userName,
+                    initials: USER.initials,
+                    rsvp: "requested",
+                    rsvpAt: Date.now(),
+                    userId: authUser.id,
+                  },
+                ],
+              }
+            : r
+        )
       )
-    )
-    // Don't grant membership yet — the user is only "requested", not "joined".
-    // joinedIds (and everything derived from it: the team chat, the "new chat"
-    // notification, the active-room pill) is granted once the real host calls
-    // approveRequest. The "requested" state surfaces via requestedIds until then
-    // — there's no faked auto-approval here anymore.
-    setActiveSessionId(room.id)
-    toast(tm("toast.requested"), {
-      description: `${roomTitle(room)} · ${room.venue}`,
-    })
+      setActiveSessionId(room.id)
+      toast(tm("toast.requested"), {
+        description: `${roomTitle(room)} · ${room.venue}`,
+      })
+    })()
   }
 
   const joinRoom = (room: MatchRoom) => {
@@ -888,91 +1041,142 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     requestJoin(room)
   }
 
-  /** Host approves a join request → the requester takes a confirmed seat. */
+  /**
+   * Host approves a join request — `PUT /api/rooms/:id/requests/:userId`
+   * `{decision:"approve"}`. The server re-checks capacity, flips the
+   * roster entry to a confirmed seat, adds the requester to the room's real
+   * Stream chat, and notifies them (they learn the outcome via the
+   * notification poll) — this only needs to mirror the roster flip locally.
+   */
   const approveRequest = (sessionId: string, initials: string) => {
     const s = sessions.find((x) => x.id === sessionId)
-    if (!s) return
+    const target = s?.roster.find(
+      (p) => p.initials === initials && p.rsvp === "requested"
+    )
+    if (!s || !target?.userId) return
     if (activeRoster(s).length >= s.capacity) {
       toast.error(ts("toast.full"))
       return
     }
-    setSessions((prev) =>
-      prev.map((x) => {
-        if (x.id !== sessionId) return x
-        const m = x.roster.find((p) => p.initials === initials)
-        if (
-          !m ||
-          m.rsvp !== "requested" ||
-          activeRoster(x).length >= x.capacity
+    const targetUserId = target.userId
+    void (async () => {
+      const result = await decideRoomRequest(sessionId, targetUserId, "approve")
+      if (!result.ok) {
+        toast.error(ts("toast.approveFailed"), { description: result.message })
+        return
+      }
+      setSessions((prev) =>
+        prev.map((x) =>
+          x.id === sessionId
+            ? {
+                ...x,
+                roster: x.roster.map((p) =>
+                  p.initials === initials ? { ...p, rsvp: "going" } : p
+                ),
+              }
+            : x
         )
-          return x
-        return {
-          ...x,
-          roster: x.roster.map((p) =>
-            p.initials === initials ? { ...p, rsvp: "going" } : p
-          ),
-        }
-      })
-    )
-    addRealRoomMember(sessionId, initials)
-    toast.success(ts("toast.approved"), {
-      description: playerByInitials(initials).name,
-    })
-  }
-
-  /** Host declines a join request → the requester is dropped from the room. */
-  const declineRequest = (sessionId: string, initials: string) => {
-    setSessions((prev) =>
-      prev.map((x) =>
-        x.id === sessionId
-          ? { ...x, roster: x.roster.filter((p) => p.initials !== initials) }
-          : x
       )
-    )
-    removeRealRoomMember(sessionId, initials)
-    toast(ts("toast.declined"), {
-      description: playerByInitials(initials).name,
-    })
+      toast.success(ts("toast.approved"), {
+        description: playerByInitials(initials).name,
+      })
+      void refreshRooms()
+    })()
   }
 
-  const leaveRoom = (sessionId: string) => {
+  /**
+   * Host declines a join request — `PUT /api/rooms/:id/requests/:userId`
+   * `{decision:"decline"}`. The server drops the roster entry, best-effort
+   * removes them from the room's chat, and notifies them.
+   */
+  const declineRequest = (sessionId: string, initials: string) => {
     const s = sessions.find((x) => x.id === sessionId)
-    if (!s) return
-    const hosting = s.host.initials === USER.initials
-    clearTimersFor(sessionId)
-    setSessions((prev) =>
-      prev.flatMap((x) => {
-        if (x.id !== sessionId) return [x]
-        if (!hosting) {
-          return [
-            {
-              ...x,
-              roster: x.roster.filter((p) => p.initials !== USER.initials),
-            },
-          ]
-        }
-        // Host leaves: a booked room cancels its hold; a forming room disbands.
-        if (x.status === "booked")
-          return [{ ...x, status: "cancelled" as const, listed: false }]
-        return []
-      })
+    const target = s?.roster.find(
+      (p) => p.initials === initials && p.rsvp === "requested"
     )
-    // A member leaving removes themselves from the chat; the host cancelling a
-    // booked room freezes it instead (keeps history, blocks new sends).
-    if (!hosting) removeRealRoomMember(sessionId, authUser.id)
-    else if (s.status === "booked") freezeRoomChatBestEffort(sessionId)
-    dropJoined(sessionId)
+    if (!s || !target?.userId) return
+    const targetUserId = target.userId
+    void (async () => {
+      const result = await decideRoomRequest(sessionId, targetUserId, "decline")
+      if (!result.ok) {
+        toast.error(ts("toast.declineFailed"), { description: result.message })
+        return
+      }
+      setSessions((prev) =>
+        prev.map((x) =>
+          x.id === sessionId
+            ? { ...x, roster: x.roster.filter((p) => p.initials !== initials) }
+            : x
+        )
+      )
+      toast(ts("toast.declined"), {
+        description: playerByInitials(initials).name,
+      })
+      void refreshRooms()
+    })()
+  }
+
+  /**
+   * Leave a room. My own doc is always one I host — leaving there cancels a
+   * booked room's court hold or disbands a still-forming one, purely local
+   * (the existing session-persist/cancel-booking machinery already covers
+   * it). Someone *else's* room is a real server mutation instead —
+   * `DELETE /api/rooms/:id/members/me` — which pulls my roster entry from
+   * their doc and best-effort removes me from the room's Stream chat
+   * server-side (see `RoomsService#leaveRoom`).
+   */
+  const leaveRoom = (sessionId: string) => {
+    const own = sessions.find((x) => x.id === sessionId)
+    if (own) {
+      clearTimersFor(sessionId)
+      setSessions((prev) =>
+        prev.flatMap((x) => {
+          if (x.id !== sessionId) return [x]
+          // Booked room cancels its hold; a forming room disbands outright.
+          if (x.status === "booked")
+            return [{ ...x, status: "cancelled" as const, listed: false }]
+          return []
+        })
+      )
+      // Cancelling a booked room freezes its chat (keeps history, blocks
+      // new sends) rather than deleting it.
+      if (own.status === "booked") freezeRoomChatBestEffort(sessionId)
+      dropJoined(sessionId)
+      const title = tm.has(`rooms.${sessionId}.title`)
+        ? tm(`rooms.${sessionId}.title`)
+        : (own.title ?? "")
+      toast(own.status === "booked" ? ts("toast.disbanded") : tm("toast.left"), {
+        description: title,
+      })
+      return
+    }
+
+    const remote = otherRoomsRaw.find((x) => x.id === sessionId)
+    if (!remote) return
+    clearTimersFor(sessionId)
     const title = tm.has(`rooms.${sessionId}.title`)
       ? tm(`rooms.${sessionId}.title`)
-      : (s.title ?? "")
-    toast(
-      hosting && s.status === "booked"
-        ? ts("toast.disbanded")
-        : tm("toast.left"),
-      {
-        description: title,
+      : remote.title
+    void (async () => {
+      const result = await leaveRoomMembership(sessionId)
+      if (!result.ok) {
+        toast.error(ts("toast.leaveFailed"), { description: result.message })
+        return
       }
-    )
+      setCrossRooms((prev) =>
+        prev.map((r) =>
+          r.id === sessionId
+            ? {
+                ...r,
+                roster: r.roster.filter((p) => p.userId !== authUser.id),
+              }
+            : r
+        )
+      )
+      dropJoined(sessionId)
+      toast(tm("toast.left"), { description: title })
+      void refreshRooms()
+    })()
   }
 
   /** Convert a freshly-built MatchRoom (Create Room dialog) into a session. */
@@ -1013,7 +1217,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       pricePerHour: room.pricePerHour,
     }
     setSessions((prev) => [next, ...prev])
-    setJoinedIds((prev) => new Set(prev).add(room.id))
+    setLocalJoinedIds((prev) => new Set(prev).add(room.id))
     setActiveSessionId(room.id)
     persist(next)
     openRoomChat(next.id, next.title)
@@ -1094,7 +1298,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       ],
     }
     setSessions((prev) => [full, ...prev])
-    setJoinedIds((prev) => new Set(prev).add(id))
+    setLocalJoinedIds((prev) => new Set(prev).add(id))
     setActiveSessionId(id)
     persist(full)
     openRoomChat(id, title)
@@ -1273,7 +1477,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       pricePerHour: c.pricePerHour,
     }
     setSessions((prev) => [next, ...prev])
-    setJoinedIds((prev) => new Set(prev).add(id))
+    setLocalJoinedIds((prev) => new Set(prev).add(id))
     setActiveSessionId(id)
     setManagerOpen(true)
     openRoomChat(id, next.title)
@@ -1453,7 +1657,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         s.id === sessionId ? { ...s, listed: true, fillIntent: "invite" } : s
       )
     )
-    setJoinedIds((prev) => new Set(prev).add(sessionId))
+    setLocalJoinedIds((prev) => new Set(prev).add(sessionId))
     setActiveSessionId(sessionId)
     setManagerOpen(true)
     toast(ts("toast.addTeam"))

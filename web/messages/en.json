@@ -428,7 +428,11 @@
       "overlapTitle": "Time conflict",
       "overlapBody": "You're already in \"{title}\" at that time",
       "requestExpired": "Join request expired — the host never answered",
-      "inviteExpired": "Invite expired — they never answered"
+      "inviteExpired": "Invite expired — they never answered",
+      "requestFailed": "Couldn't send the join request",
+      "approveFailed": "Couldn't approve the request",
+      "declineFailed": "Couldn't decline the request",
+      "leaveFailed": "Couldn't leave the room"
     }
   },
   "Shared": {

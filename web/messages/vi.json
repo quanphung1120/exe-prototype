@@ -428,7 +428,11 @@
       "overlapTitle": "Trùng giờ",
       "overlapBody": "Quý khách đã tham gia \"{title}\" vào khung giờ đó",
       "requestExpired": "Yêu cầu tham gia đã hết hạn — chủ phòng chưa phản hồi",
-      "inviteExpired": "Lời mời đã hết hạn — chưa có phản hồi"
+      "inviteExpired": "Lời mời đã hết hạn — chưa có phản hồi",
+      "requestFailed": "Không thể gửi yêu cầu tham gia",
+      "approveFailed": "Không thể duyệt yêu cầu tham gia",
+      "declineFailed": "Không thể từ chối yêu cầu tham gia",
+      "leaveFailed": "Không thể rời phòng"
     }
   },
   "Shared": {

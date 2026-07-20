@@ -31,7 +31,6 @@ import {
 import { toast } from "sonner"
 import { useLocale, useTranslations } from "next-intl"
 
-import { ensureRoomChannel } from "@/features/chat/stream-actions"
 import { useBooking } from "@/features/booking/booking"
 import {
   activeRoster,
@@ -44,7 +43,6 @@ import {
 } from "@/features/dashboard/data"
 import { useData } from "@/features/dashboard/data-provider"
 import { useSession } from "@/features/play/session"
-import { useMatchmaking } from "@/features/play/matchmaking"
 import {
   CourtImage,
   LevelChip,
@@ -190,7 +188,6 @@ export function AiNativeDashboardView() {
   const { courts, user: USER } = useData()
   const { openBooking } = useBooking()
   const { createInviteRoom, addPlayersToSession, sessions, joinedIds, joinRoom, userLevelForSport, userLevels } = useSession()
-  const { joinedRooms } = useMatchmaking()
   const router = useRouter()
 
   const [input, setInput] = React.useState("")
@@ -428,23 +425,12 @@ export function AiNativeDashboardView() {
     )
   }
 
-  const openGroupChat = async () => {
+  const openGroupChat = () => {
     if (!inviteState.roomId) return
-    // The channel was already created by inviteToChat; re-ensure (idempotent)
-    // from the joined room so a deep-link never lands on a missing channel.
-    const room = joinedRooms.find((r) => r.id === inviteState.roomId)
-    try {
-      await ensureRoomChannel({
-        roomId: inviteState.roomId,
-        name: room?.title ?? t("groupChatCreated"),
-        memberInitials: (room?.players ?? []).filter(
-          (i) => i !== USER.initials
-        ),
-      })
-      router.push(`/dashboard/chat?channel=room-${inviteState.roomId}`)
-    } catch {
-      toast.error(t("inviteFailed"))
-    }
+    // The channel was already created host-only by `createInviteRoom` (via
+    // `session.tsx`'s `openRoomChat`) the moment the room was — just deep-link
+    // into it.
+    router.push(`/dashboard/chat?channel=room-${inviteState.roomId}`)
   }
 
   const inviteToChat = () => {
@@ -488,14 +474,9 @@ export function AiNativeDashboardView() {
           invitees: selectedPlayers.map((p) => p.initials),
         })
         if (!roomId) throw new Error("Unable to create group chat")
-        // Create the Stream channel for the invitees now (fire-and-forget) so
-        // it exists by the time the user opens the group chat. openGroupChat
-        // re-ensures it, so a failure here is non-fatal.
-        void ensureRoomChannel({
-          roomId,
-          name: inviteTitle,
-          memberInitials: selectedPlayers.map((p) => p.initials),
-        }).catch(() => {})
+        // `createInviteRoom` already created the room's chat (host-only,
+        // fire-and-forget) as part of making the room — nothing left to do
+        // here before `openGroupChat` deep-links into it.
         setInviteState({ status: "sent", roomId })
         toast.success(t("inviteSent"), {
           description: t("groupChatCreated"),
