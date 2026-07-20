@@ -88,3 +88,13 @@ Flow này phục vụ việc người chơi:
 3. Host rời room thì room bị hủy, chuyển host hay disband.
 4. Invite/request có expiry hay không.
 5. Room forming quá bao lâu thì tự đóng.
+
+## Quyết định đã chốt (2026-07-13)
+
+Phần lớn 5 câu hỏi của flow này **đã có câu trả lời trong code từ trước** (xác nhận lại ở ghi chú 2026-07-10: `MAX_HOSTED_ROOMS=3`, `HOLD_MS=20m`, `REQUEST_EXPIRY_MS=2h`, `INVITE_EXPIRY_MS=6h`, state machine `requested → approved`). Hai quyết định nghiệp vụ còn lại được chốt ngày 2026-07-13 (xem `FIX_REVIEW_VIENTD.md` mục 2):
+
+- **Quyết định #16 — Mô hình Room**: Room là **lớp phối hợp pre-booking** (projection của `PlaySession`), không phải entity độc lập lâu dài. Xác nhận đúng hành vi hiện tại — không cần thay đổi model.
+- **Quyết định #13 — Room chat**: chat tạo **khi tạo room**, chỉ member **đã approve** mới ở trong chat, kick/leave → remove khỏi chat, host cancel room → **freeze/archive** channel (giữ lịch sử, khoá gửi tin, không xoá). Trả lời trực tiếp câu 3 và câu 4 phía trên theo hướng: room bị host huỷ → **archive/freeze**, không disband ngầm; member bị kick/leave mất quyền vào chat ngay.
+- **Quyết định #10 — Gỡ giả lập**: các cơ chế hiện đang giả lập (`scheduleHostApproval` timer 1.6s, join request giả từ mock players, invite decline ~20% theo hash) sẽ được **gỡ dần** — mock không bao giờ được tham gia giao dịch thật (không được join room đã book sân thật). Seed `ROOMS`/`MATCH_SUGGESTIONS` sẽ gắn nhãn `demo: true` và render badge "Demo" trên UI.
+
+**Trạng thái triển khai**: quyết định #16 và #13 (phần membership) là confirmation của hành vi hiện tại — không cần code thay đổi. Quyết định #13 (phần freeze/archive khi cancel) và #10 (gỡ mock, room thật cross-user) là roadmap **Phase 8–9**, **chưa triển khai** tại thời điểm 2026-07-20 — matchmaking vẫn đang giả lập hoàn toàn (timer host-approve, join request mock, decline theo hash).

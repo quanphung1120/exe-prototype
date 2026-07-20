@@ -87,3 +87,13 @@ Flow này mô tả vòng đời của booking sau khi đã được tạo:
 3. Rebook có copy team không.
 4. Booking solo có được mở thành team booking không.
 5. Có cần thêm state mới ngoài 4 state hiện tại không.
+
+## Quyết định đã chốt (2026-07-13)
+
+1. **`completed` tự động hay venue action** → cả hai theo trình tự: **venue check-in** (thủ công) → **auto-complete sau giờ kết thúc** (scheduler). Nếu chưa check-in, **no-show đánh được sau 30 phút** quá giờ bắt đầu (quyết định #7).
+2. **Cancel sát giờ có mất phí không** → có, theo policy: **≥24h trước giờ chơi: hoàn 100%; <24h: hoàn 50%; sau giờ bắt đầu hoặc no-show: hoàn 0%** (quyết định #6). Venue decline (không phải player cancel) luôn hoàn 100% bất kể mốc thời gian.
+3. **Rebook có copy team không** → chưa nằm trong 16 quyết định đã chốt lần này, giữ nguyên hành vi hiện tại (không đổi).
+4. **Booking solo có được mở thành team booking không** → giữ nguyên, phù hợp quyết định #16 (Room = lớp phối hợp trên PlaySession) — "add team to session" tiếp tục là cách hợp lệ để mở rộng booking solo thành room.
+5. **Cần thêm state mới không** → có. Bảng chuyển trạng thái chuẩn (`BOOKING_TRANSITIONS`, thay `RESERVATION_TRANSITIONS` của Phase 0) là: `awaiting_payment → (IPN) pending → (duyệt | timeout 30 phút) confirmed → checked-in → completed`, cộng `expired` (hết hạn hold/link thanh toán), `cancelled` (kèm `cancelReason` bắt buộc), `no-show`. Một bảng transition dùng chung cho cả API guard lẫn trạng thái nút trên web.
+
+**Trạng thái triển khai**: state machine `RESERVATION_TRANSITIONS` (4→7 state cũ) đã **DONE ở Phase 0** cho reservation hiện tại; `BOOKING_TRANSITIONS` đầy đủ (bao gồm `awaiting_payment`/`expired`) và cancel-policy 24h/50%/0% thuộc roadmap **Phase 2–4**, **chưa triển khai** tại 2026-07-20.
