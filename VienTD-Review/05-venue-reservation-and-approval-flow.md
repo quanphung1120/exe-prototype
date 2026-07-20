@@ -19,7 +19,7 @@ Flow này phục vụ phía chủ sân khi cần:
   - completed
   - cancelled
   - no-show
-- Có approve/decline action ở mức UI, nhưng source of truth nghiệp vụ chưa thống nhất với player side.
+- Có approve/decline action, **đã persist xuống Mongo** (`venues.service.ts updateReservationStatus`) **và đã cross-write hai chiều với player side**: player book → `syncReservation()` tạo venue reservation (`source:"app"`, `status:"pending"`); venue duyệt/từ chối → `applyReservationStatus()` map ngược về player session kèm notification VN + cờ `refunded` giả lập. *(Đính chính 2026-07-13 — claim "chưa thống nhất" trong bản gốc đã lỗi thời so với source; xem `FIX_REVIEW_VIENTD.md` mục 1.)*
 
 ## Business rules nên có
 
@@ -81,3 +81,13 @@ Flow này phục vụ phía chủ sân khi cần:
 3. Decline có bắt buộc reason hay không.
 4. No-show được xác định sau bao nhiêu phút chưa check-in.
 5. Venue reservation và player booking có phải cùng một record hay không.
+
+## Quyết định đã chốt (2026-07-13)
+
+1. **Booking từ app cần venue approve hay auto-confirm** → **pending → venue duyệt**, trả tiền trước (quyết định #2) — đây **đã là hành vi hiện tại** (`venues.service.ts:744`), không phải thay đổi mới.
+2. **Pending hết hạn sau bao lâu** → **SLA duyệt 30 phút**: nếu venue không quyết định trong 30 phút, hệ thống **im lặng = auto-confirm** (quyết định #5). Venue chỉ được decline **trong** cửa sổ 30 phút này.
+3. **Decline có bắt buộc reason không** → **có**, ở cả API lẫn UI (`ReservationStatusDto` → `@ValidateIf(status==="cancelled") @IsString() @Length(3,200) reason`) — quick-win default, đã áp dụng từ Phase 0.
+4. **No-show xác định sau bao nhiêu phút** → **30 phút** sau giờ bắt đầu (`startAt`) mà chưa check-in (quyết định #7).
+5. **Venue reservation và player booking có phải cùng 1 record** → **có**, mục tiêu là **hợp nhất thành một collection `bookings` chuẩn** (quyết định #1), thay cho mô hình hiện tại là hai record (`PlaySession` + `Reservation`) cross-write hai chiều qua `sessionId`/`reservationId`.
+
+**Trạng thái triển khai**: mục 1 và 3 **đã DONE** (Phase 0 + hành vi có sẵn). Mục 2 (SLA 30 phút + scheduler auto-confirm) là roadmap **Phase 5**; mục 4 (no-show 30 phút) là **Phase 3/5**; mục 5 (hợp nhất một record) là **Phase 2** — cả ba **chưa triển khai** tại 2026-07-20; hiện chưa có scheduler nào chạy (không SLA pending, không auto-complete, không auto no-show).

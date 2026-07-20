@@ -82,3 +82,13 @@ Flow này phục vụ chủ sân khi cần:
 3. Operator có được override slot đã có app booking không.
 4. Block court có bắt buộc nhập lý do không.
 5. Walk-in có tự sinh customer record và cộng LTV hay không.
+
+## Quyết định đã chốt (2026-07-13)
+
+1. **Walk-in tạo xong `confirmed` hay `checked-in`** → `confirmed`, `paymentStatus: "none"` (walk-in không đi qua cổng thanh toán online).
+2. **Walk-in bắt buộc số điện thoại không** → **có** — bắt buộc để merge CRM customer theo phone (default quick-win).
+3. **Operator có được override slot đã có app booking (pending) không** → **không**. Quyết định #15: **pending giữ slot** (đã đúng hành vi hiện tại — overlap coi pending là blocking); operator **phải decline** reservation đó trước (kèm reason, tự động tính hoàn tiền) rồi mới được thêm walk-in vào cùng khung giờ.
+4. **Block court bắt buộc nhập lý do không** → **có**. Quyết định #12: block court trở thành **entity thật** `CourtBlock {courtId, dateKey, start, durationMin, reason: maintenance|internal|vip|break (bắt buộc), note?}`, chặn cả booking lẫn walk-in, và **không được đè lên reservation đang sống** (pending/confirmed/checked-in).
+5. **Walk-in có tự sinh customer record + cộng LTV không** → **có** (default quick-win): `upsertWalkInCustomer` merge theo phone khi tạo walk-in; `visits/ltv/noShowRate/tier` **derive lúc đọc** từ các booking đã `completed` (`computeCustomerStats`), không ghi qua write-hook.
+
+**Trạng thái triển khai**: mục 3 (pending chặn walk-in) **đã đúng hành vi hiện tại**. Mục 1, 2, 4, 5 (entity `CourtBlock` thật, CRM auto-merge, derive stats) thuộc roadmap **Phase 6**, **chưa triển khai** tại 2026-07-20 — block court hiện vẫn chỉ là `toast()` (`schedule.tsx:1129`) với cờ `maintenance` theo cả court; walk-in không sinh CRM customer, visits/LTV/tier không bao giờ recompute.

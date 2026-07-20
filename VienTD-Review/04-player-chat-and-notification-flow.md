@@ -75,3 +75,13 @@ Flow này phục vụ việc:
 3. Khi room bị cancel, chat bị archive hay xóa.
 4. Notification nào bắt buộc phải transactional.
 5. Notification cũ có tự vô hiệu hóa khi room không còn hợp lệ hay không.
+
+## Quyết định đã chốt (2026-07-13)
+
+1. **Room chat tạo ở mốc nào** → **khi tạo room** (`createRoomChannel`), chỉ host là member lúc tạo — không seed mock player vào channel (quyết định #13).
+2. **`requested` có được vào chat không** → **không**. Chỉ member **đã được host approve** mới được thêm vào channel (`addRoomMember`); decline/kick/leave → `removeRoomMember` ngay.
+3. **Room bị cancel thì chat archive hay xóa** → **freeze** (`updatePartial({set:{frozen:true}})`), giữ nguyên lịch sử, khoá gửi tin mới — không xóa channel (quyết định #13).
+4. **Notification nào bắt buộc transactional** → lưu server, không chỉ activity feed: **approve/decline booking, cancel kèm refund, no-show, join request, invite** (quyết định #14). Client poll ~30s + refetch khi focus/visibility; push để sau.
+5. **Notification cũ có tự vô hiệu hóa không** → chưa nằm trong 16 quyết định đã chốt lần này; giữ nguyên (client tự tính "đã đọc"/thời gian tương đối, không có cơ chế invalidate ngược theo entity).
+
+**Trạng thái triển khai**: toàn bộ mục 1–4 thuộc roadmap **Phase 7 (notification transactional)** và **Phase 8 (vòng đời Stream chat)**, **chưa triển khai** tại 2026-07-20 — hiện tại channel vẫn tạo lazy kèm mock players, không remove/archive khi cancel/kick/leave; notification vẫn là client tự sinh, quyết định của venue chỉ tới player khi reload seed.
