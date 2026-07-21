@@ -215,6 +215,39 @@ export class BookingsService {
     return court
   }
 
+  /**
+   * The slot-bookability guard shared by every write that claims a court/day
+   * slot (`createWalkIn`, `reschedule`, `createHold`): the court must exist,
+   * not be archived or under maintenance, the slot must fall within opening
+   * hours, and it must not overlap an operator court block. Returns the
+   * resolved court so callers that need it (pricing, name/sport for the
+   * booking record) don't look it up twice.
+   */
+  private assertSlotBookable(
+    venueDoc: VenueDocument,
+    courtId: string,
+    dayKey: string,
+    start: string,
+    durationMin: number
+  ): VenueCourt {
+    const court = this.findCourt(venueDoc, courtId)
+    if (court.archived) {
+      throw new BadRequestException("Court has been archived")
+    }
+    if (court.state === "maintenance") {
+      throw new BadRequestException("Court is under maintenance")
+    }
+    assertWithinHours(venueDoc.info, start, durationMin)
+    assertNoCourtBlock(
+      venueDoc.ops.blocks ?? [],
+      courtId,
+      dayKey,
+      start,
+      durationMin
+    )
+    return court
+  }
+
   /** The venueId whose court catalog holds `courtId` (for the booking cross-write). */
   async findVenueByCourtId(courtId: string): Promise<string | null> {
     const doc = await this.venueModel
@@ -228,14 +261,15 @@ export class BookingsService {
 
   /** Every booking for a venue, projected to the operator's Reservation shape. */
   async listForVenue(venueId: string): Promise<Reservation[]> {
-    // Exclude the two payment-gate states that aren't operator-actionable
-    // bookings: an unpaid `awaiting_payment` hold (transient — it would project
-    // to a "pending" the operator can't actually approve, since payment, not
-    // the operator, gates that transition) and a lapsed `expired` hold (which
-    // never became a booking). The slot each holds stays protected by the
-    // overlap guard regardless of whether it appears in this list.
+    // Exclude only a lapsed `expired` hold (never became a booking — the slot
+    // is simply free again). An active, unpaid `awaiting_payment` hold *does*
+    // still block its slot via the overlap guard, so it stays in this list —
+    // `reservationFromBooking` projects it to the distinct, non-actionable
+    // "held" status rather than hiding it, so the operator schedule doesn't
+    // render an already-held slot as free (which used to make a walk-in write
+    // 409 with no visible reason on-screen).
     const docs = await this.bookingModel
-      .find({ venueId, status: { $nin: ["awaiting_payment", "expired"] } })
+      .find({ venueId, status: { $ne: "expired" } })
       .sort({ createdAt: 1 })
       .lean()
     const today = isoDateOf(vnNowIso())
@@ -377,16 +411,8 @@ export class BookingsService {
     input: WalkInReservationInput
   ): Promise<Reservation> {
     const venueDoc = await this.loadVenueDoc(venueId)
-    const court = this.findCourt(venueDoc, input.courtId)
-    if (court.archived) {
-      throw new BadRequestException("Court has been archived")
-    }
-    if (court.state === "maintenance") {
-      throw new BadRequestException("Court is under maintenance")
-    }
-    assertWithinHours(venueDoc.info, input.start, input.durationMin)
-    assertNoCourtBlock(
-      venueDoc.ops.blocks ?? [],
+    const court = this.assertSlotBookable(
+      venueDoc,
       input.courtId,
       input.dayKey,
       input.start,
@@ -512,7 +538,11 @@ export class BookingsService {
     bookingId: string,
     status: BookingRecordStatus,
     reason?: string,
-    extra?: (doc: BookingDocument) => void
+    // `prevStatus` is passed to `extra` so a caller can condition an extra
+    // field change (e.g. whether a cancel auto-refunds) on the status the
+    // booking is *leaving* — `extra` runs before `doc.status` is overwritten,
+    // so `doc.status` itself still reads as `prevStatus` at that point too.
+    extra?: (doc: BookingDocument, prevStatus: BookingRecordStatus) => void
   ): Promise<{ doc: BookingDocument; prevStatus: BookingRecordStatus | null }> {
     return withVersionRetry(async () => {
       const doc = await this.bookingModel.findOne({ bookingId, venueId })
@@ -524,9 +554,9 @@ export class BookingsService {
         )
       }
       const prevStatus = doc.status
+      extra?.(doc, prevStatus)
       doc.status = status
       if (status === "checked-in") doc.checkedInAt = vnNowIso()
-      extra?.(doc)
       doc.statusHistory = [
         ...(doc.statusHistory ?? []),
         { status, at: vnNowIso(), reason },
@@ -557,14 +587,17 @@ export class BookingsService {
       bookingId,
       status,
       reason,
-      (d) => {
-        if (status === "cancelled") {
-          if (reason) d.declineReason = reason
-          // A venue-initiated cancel/decline is the venue's fault, not the
-          // player's — a flat 100% refund (decision #6), the same as `decide`'s
-          // decline path. `applyRefund` no-ops unless the booking was actually
-          // paid, so an unpaid hold cancels clean.
-          this.applyRefund(d, 100)
+      (d, prev) => {
+        if (status !== "cancelled") return
+        // A venue-initiated cancel from "pending"/"confirmed" is the venue's
+        // fault, not the player's — a flat 100% refund (decision #6), same as
+        // `decide`'s decline path. A booking the player already checked into
+        // is mostly consumed, so it's excluded here — no auto-refund; the
+        // operator compensates by hand if warranted.
+        if (prev === "pending" || prev === "confirmed") {
+          this.applyVenueFaultCancel(d, reason)
+        } else if (reason) {
+          d.declineReason = reason
         }
       }
     )
@@ -575,10 +608,23 @@ export class BookingsService {
     }
   }
 
+  /** Booking statuses a reservation may still be rescheduled from — terminal
+   * statuses (cancelled/expired/no-show/completed) can't be moved to a new
+   * slot; there's nothing left to reschedule. */
+  private static readonly RESCHEDULABLE_STATUSES: BookingRecordStatus[] = [
+    "pending",
+    "confirmed",
+    "checked-in",
+  ]
+
   /**
    * Move a booking to a new day/time on its own court, re-running the same
    * opening-hours + overlap guards as a walk-in (excluding itself) and
-   * re-deriving its price.
+   * re-deriving its price — unless the booking was already paid, in which
+   * case `price` is left untouched (this is a prepaid-only product: `price`
+   * is the amount actually collected, and every refund computes off it —
+   * `applyRefund`, `Math.round((doc.price * pct) / 100)` — so rewriting it on
+   * reschedule would silently mis-size every later refund).
    */
   async reschedule(
     venueId: string,
@@ -588,22 +634,21 @@ export class BookingsService {
     const venueDoc = await this.loadVenueDoc(venueId)
     const existing = await this.bookingModel
       .findOne({ bookingId, venueId })
-      .lean<{ courtId: string }>()
+      .select("courtId status paymentStatus")
+      .lean<{
+        courtId: string
+        status: BookingRecordStatus
+        paymentStatus: PaymentStatus
+      }>()
     if (!existing) throw new NotFoundException("Reservation not found")
+    if (!BookingsService.RESCHEDULABLE_STATUSES.includes(existing.status)) {
+      throw new ConflictException(
+        `Không thể đổi giờ đặt sân ở trạng thái "${existing.status}"`
+      )
+    }
 
-    const court = this.findCourt(venueDoc, existing.courtId)
-    if (court.archived) {
-      throw new BadRequestException("Court has been archived")
-    }
-    if (court.state === "maintenance") {
-      throw new BadRequestException("Court is under maintenance")
-    }
-    assertWithinHours(venueDoc.info, input.start, input.durationMin)
-    // The same court-block guard app-booking/walk-in creation runs (decision
-    // #12) — an operator can't reschedule a reservation onto a slot they've
-    // blocked out for maintenance/internal use.
-    assertNoCourtBlock(
-      venueDoc.ops.blocks ?? [],
+    const court = this.assertSlotBookable(
+      venueDoc,
       existing.courtId,
       input.dayKey,
       input.start,
@@ -618,15 +663,21 @@ export class BookingsService {
       input.durationMin,
       bookingId,
       async (session) => {
-        const fields = bookingSlotFields(
+        const { price, ...fields } = bookingSlotFields(
           court,
           input.dayKey,
           input.start,
           input.durationMin
         )
+        // A paid booking's price is the amount already collected — never
+        // re-derive it from the new (possibly different-duration) slot; every
+        // refund computes off `doc.price` (`applyRefund`), so rewriting it
+        // here would silently mis-size a later refund.
+        const $set =
+          existing.paymentStatus === "paid" ? fields : { ...fields, price }
         const query = this.bookingModel.findOneAndUpdate(
           { bookingId, venueId },
-          { $set: fields },
+          { $set },
           { new: true }
         )
         const doc = await (session ? query.session(session) : query)
@@ -653,9 +704,21 @@ export class BookingsService {
    * status the venue has already moved on from.
    */
   async confirmPayment(bookingId: string): Promise<BookingDocument | null> {
-    return withVersionRetry(async () => {
+    // The retry closure returns *both* the resolved doc and — when this call is
+    // the one that actually applied the late-payment refund — the userId/status
+    // the notification needs (read off the doc before it goes out of scope). We
+    // fire the notification *after* `withVersionRetry` resolves rather than
+    // inside it, so a transient notification failure can never turn a persisted
+    // refund into a 5xx that makes SePay retry the IPN (see
+    // `PaymentsService#markPaid`'s `notifyVenue` for the same best-effort
+    // pattern). Returning the flag beats a captured `let` — TS can't narrow a
+    // closure-mutated outer `let` past `null` at the read site.
+    const { doc, lateRefund } = await withVersionRetry<{
+      doc: BookingDocument | null
+      lateRefund: { userId: string; status: BookingRecordStatus } | null
+    }>(async () => {
       const doc = await this.bookingModel.findOne({ bookingId })
-      if (!doc) return null
+      if (!doc) return { doc: null, lateRefund: null }
       if (doc.status === "awaiting_payment") {
         doc.status = "pending"
         doc.paymentStatus = "paid"
@@ -668,7 +731,7 @@ export class BookingsService {
           { status: "pending", at: vnNowIso() },
         ]
         await doc.save()
-        return doc
+        return { doc, lateRefund: null }
       }
       // Payment landed *after* the hold had already lapsed (the sweeper moved it
       // to `expired`) or the booking was cancelled — the slot is gone, so the
@@ -684,20 +747,38 @@ export class BookingsService {
         doc.paymentStatus = "paid"
         this.applyRefund(doc, 100)
         await doc.save()
-        if (doc.userId) {
-          await this.notifications.create(doc.userId, {
-            id: `booking-late-refund-${bookingId}`,
-            kind: "booking",
-            text: "Thanh toán đã nhận nhưng lượt giữ chỗ đã hết hạn — khoản tiền sẽ được hoàn lại (mô phỏng).",
-            href: "/dashboard/bookings",
-          })
+        return {
+          doc,
+          lateRefund: doc.userId
+            ? { userId: doc.userId, status: doc.status }
+            : null,
         }
-        return doc
       }
       // Already pending/confirmed/checked-in/completed — an idempotent no-op for
       // a defensive double-call from a retried/replayed IPN.
-      return doc
+      return { doc, lateRefund: null }
     })
+
+    if (lateRefund) {
+      const text =
+        lateRefund.status === "cancelled"
+          ? "Thanh toán đã nhận nhưng lượt đặt sân đã bị hủy — khoản tiền sẽ được hoàn lại (mô phỏng)."
+          : "Thanh toán đã nhận nhưng lượt giữ chỗ đã hết hạn — khoản tiền sẽ được hoàn lại (mô phỏng)."
+      await this.notifications
+        .create(lateRefund.userId, {
+          id: `booking-late-refund-${bookingId}`,
+          kind: "booking",
+          text,
+          href: "/dashboard/bookings",
+        })
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `Failed to notify ${lateRefund?.userId} of late-payment refund on booking ${bookingId}: ${String(err)}`
+          )
+        })
+    }
+
+    return doc
   }
 
   // ── Scheduler sweep (Phase 5) ───────────────────────────────────────────────
@@ -754,7 +835,11 @@ export class BookingsService {
       .select("bookingId venueId userId")
       .lean<{ bookingId: string; venueId: string; userId?: string }[]>()
     for (const b of confirming) {
-      const applied = await this.trySetStatus(b.venueId, b.bookingId, "confirmed")
+      const applied = await this.trySetStatus(
+        b.venueId,
+        b.bookingId,
+        "confirmed"
+      )
       if (applied) {
         result.autoConfirmed++
         if (b.userId) {
@@ -775,7 +860,11 @@ export class BookingsService {
       .select("bookingId venueId")
       .lean<{ bookingId: string; venueId: string }[]>()
     for (const b of completing) {
-      const applied = await this.trySetStatus(b.venueId, b.bookingId, "completed")
+      const applied = await this.trySetStatus(
+        b.venueId,
+        b.bookingId,
+        "completed"
+      )
       if (applied) result.completed++
     }
 
@@ -824,16 +913,8 @@ export class BookingsService {
     const venueId = await this.findVenueByCourtId(input.courtId)
     if (!venueId) throw new NotFoundException("Court not found")
     const venueDoc = await this.loadVenueDoc(venueId)
-    const court = this.findCourt(venueDoc, input.courtId)
-    if (court.archived) {
-      throw new BadRequestException("Court has been archived")
-    }
-    if (court.state === "maintenance") {
-      throw new BadRequestException("Court is under maintenance")
-    }
-    assertWithinHours(venueDoc.info, input.start, input.durationMin)
-    assertNoCourtBlock(
-      venueDoc.ops.blocks ?? [],
+    const court = this.assertSlotBookable(
+      venueDoc,
       input.courtId,
       input.dateKey,
       input.start,
@@ -964,8 +1045,7 @@ export class BookingsService {
       reason,
       (d) => {
         if (decision === "decline") {
-          d.declineReason = reason
-          this.applyRefund(d, 100)
+          this.applyVenueFaultCancel(d, reason)
         }
       }
     )
@@ -1053,6 +1133,20 @@ export class BookingsService {
       status: "manual",
     }
     doc.paymentStatus = pct >= 100 ? "refunded" : "partial_refund"
+  }
+
+  /**
+   * Stamp a booking as declined/cancelled through the venue's fault, not the
+   * player's — a flat 100% refund (decision #6) plus the operator's reason,
+   * shared by `decide`'s decline path and `updateStatus`'s venue-initiated
+   * cancel (which only calls this when the booking's prior status still
+   * qualifies — see the `prev === "pending" || prev === "confirmed"` guard
+   * there). `applyRefund` no-ops unless the booking was actually paid, so an
+   * unpaid hold cancels/declines clean.
+   */
+  private applyVenueFaultCancel(doc: BookingDocument, reason?: string): void {
+    if (reason) doc.declineReason = reason
+    this.applyRefund(doc, 100)
   }
 
   /** The venueId a booking belongs to, after confirming the caller owns it. */

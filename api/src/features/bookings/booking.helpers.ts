@@ -277,10 +277,13 @@ export function bookingSlotFields(
 // ── Projection: BookingRecord → the venue's Reservation view ──────────────────
 
 /**
- * Collapse the two payment-gate states a future phase introduces onto the
- * six-value `ReservationStatus` the venue UI already understands: an unpaid
- * hold reads as "pending" (something is holding the slot), a lapsed one reads
- * as "cancelled" (the slot freed up). Exhaustive switch (no default) so a new
+ * Project the two payment-gate `BookingRecordStatus` values onto
+ * `ReservationStatus`: an active unpaid hold reads as "held" — a distinct,
+ * non-actionable status the operator UI renders muted/blocked rather than
+ * something it can approve/decline (payment, not the operator, gates that
+ * transition) — and a lapsed hold reads as "cancelled" (the slot freed up;
+ * `listForVenue` filters `expired` out entirely today, but the mapping stays
+ * total/defensive). Exhaustive switch (no default) so a new
  * `BookingRecordStatus` fails the build here instead of silently falling
  * through.
  */
@@ -289,7 +292,7 @@ function reservationStatusFromBooking(
 ): ReservationStatus {
   switch (status) {
     case "awaiting_payment":
-      return "pending"
+      return "held"
     case "expired":
       return "cancelled"
     case "pending":

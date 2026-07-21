@@ -82,6 +82,9 @@ const ACTIVE_SCHEDULE_STATUSES = new Set<string>([
   "confirmed",
   "checked-in",
   "completed",
+  // An unpaid `held` hold still occupies its slot — surface it on the grid so
+  // the operator doesn't read a held slot as free and try to walk-in over it.
+  "held",
 ] as const)
 
 function toMinutes(hhmm: string): number {
@@ -266,7 +269,12 @@ export function VenueDataProvider({
             courtId,
             start,
             durationMin,
-            kind: reservation.source === "walk-in" ? "walk-in" : "booked",
+            kind:
+              reservation.status === "held"
+                ? "held"
+                : reservation.source === "walk-in"
+                  ? "walk-in"
+                  : "booked",
             customer: reservation.customer.name,
             customerPhone: reservation.customer.phone,
             sport: reservation.sport,

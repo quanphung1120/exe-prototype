@@ -93,6 +93,9 @@ export const courtStateAccent: Record<CourtState, string> = {
 export const slotKindAccent: Record<SlotKind, string> = {
   booked: "bg-brand/15 text-brand ring-brand/20",
   "walk-in": "bg-lime/20 text-brand ring-lime/30",
+  // An unpaid hold: muted amber so the operator reads it as "occupied, awaiting
+  // payment" — visibly held, but not the solid `booked` tint of a paid slot.
+  held: "bg-chart-3/12 text-chart-3 ring-chart-3/25",
   blocked:
     "bg-destructive/10 text-destructive/80 ring-destructive/15 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,color-mix(in_oklch,var(--destructive)_12%,transparent)_5px,color-mix(in_oklch,var(--destructive)_12%,transparent)_10px)]",
   free: "bg-muted/40 text-muted-foreground/50 ring-transparent hover:bg-muted",
@@ -106,6 +109,9 @@ export const reservationStatusAccent: Record<ReservationStatus, string> = {
   completed: "bg-muted text-muted-foreground",
   cancelled: "bg-muted text-muted-foreground line-through",
   "no-show": "bg-destructive/12 text-destructive",
+  // An unpaid, non-actionable hold — muted so it reads as "held, not yet a
+  // booking the operator can approve/decline".
+  held: "bg-chart-3/12 text-chart-3",
 }
 
 export const riskTierAccent: Record<"low" | "medium" | "high", string> = {

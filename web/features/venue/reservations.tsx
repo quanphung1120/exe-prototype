@@ -597,6 +597,11 @@ function ReservationActions({
     )
   }
 
+  // A "held" slot is payment-gated, not operator-actionable — it offers no
+  // decision surface (and isn't a `BOOKING_TRANSITIONS` key). Guard before the
+  // lookup so the six real operator statuses index cleanly below.
+  if (r.status === "held") return null
+
   // Approve/decline is the pending-only decision surface: both target
   // statuses ("confirmed"/"cancelled") must be legal transitions off the
   // reservation's current status (see BOOKING_TRANSITIONS in

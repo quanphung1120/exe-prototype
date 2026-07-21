@@ -1325,6 +1325,7 @@
       "title": "Legend",
       "booked": "Booked",
       "walk-in": "Walk-in",
+      "held": "On hold",
       "free": "Free",
       "blocked": "Blocked"
     },
@@ -1430,6 +1431,7 @@
     },
     "status": {
       "awaiting_payment": "Awaiting payment",
+      "held": "On hold",
       "pending": "Pending",
       "confirmed": "Confirmed",
       "checked-in": "Checked in",

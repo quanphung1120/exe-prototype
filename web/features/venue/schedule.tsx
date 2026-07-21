@@ -8,6 +8,7 @@ import {
   Ban,
   CalendarClock,
   CalendarRange,
+  Clock,
   Footprints,
   Lock,
   Phone,
@@ -93,6 +94,7 @@ import {
 const LEGEND_KINDS: Exclude<SlotKind, "free">[] = [
   "booked",
   "walk-in",
+  "held",
   "blocked",
 ]
 const LEGEND_ICON: Record<
@@ -101,6 +103,7 @@ const LEGEND_ICON: Record<
 > = {
   booked: Users,
   "walk-in": Footprints,
+  held: Clock,
   blocked: Wrench,
 }
 
@@ -723,7 +726,12 @@ function EventBlock({
   const end = addMinutes(event.start, event.durationMin)
   const compact = height < 46
   const blocked = event.kind === "blocked"
-  const Icon = event.kind === "walk-in" ? Footprints : Users
+  const Icon =
+    event.kind === "walk-in"
+      ? Footprints
+      : event.kind === "held"
+        ? Clock
+        : Users
   const infoCopy =
     locale === "vi"
       ? {

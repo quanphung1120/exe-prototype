@@ -1325,6 +1325,7 @@
       "title": "Chú thích",
       "booked": "Đã đặt",
       "walk-in": "Khách vãng lai",
+      "held": "Đang giữ chỗ",
       "free": "Trống",
       "blocked": "Đã khóa"
     },
@@ -1430,6 +1431,7 @@
     },
     "status": {
       "awaiting_payment": "Chờ thanh toán",
+      "held": "Đang giữ chỗ",
       "pending": "Chờ duyệt",
       "confirmed": "Đã xác nhận",
       "checked-in": "Đã nhận sân",

@@ -331,7 +331,9 @@ void test("reservationFromBooking collapses the payment-gate states onto Reserva
     paymentStatus: "awaiting",
     customer: { name: "Khách", initials: "K" },
   })
-  assert.equal(reservationFromBooking(base, TODAY_ISO).status, "pending")
+  // An active, unpaid hold projects to the distinct, non-actionable "held"
+  // status (not "pending" — the operator can't approve it; payment gates that).
+  assert.equal(reservationFromBooking(base, TODAY_ISO).status, "held")
   assert.equal(
     reservationFromBooking({ ...base, status: "expired" }, TODAY_ISO).status,
     "cancelled"

@@ -481,7 +481,7 @@ export interface VenueStats {
 
 // ── Venue: schedule grid ─────────────────────────────────────────────────────
 
-export type SlotKind = "free" | "booked" | "blocked" | "walk-in"
+export type SlotKind = "free" | "booked" | "blocked" | "walk-in" | "held"
 
 export interface ScheduleSlot {
   courtId: string
@@ -522,7 +522,17 @@ export interface ScheduleEvent {
 
 export type BookingSource = "app" | "walk-in"
 export type ReservationStatus =
-  "pending" | "confirmed" | "checked-in" | "completed" | "cancelled" | "no-show"
+  | "pending"
+  | "confirmed"
+  | "checked-in"
+  | "completed"
+  | "cancelled"
+  | "no-show"
+  // An active, unpaid `awaiting_payment` hold — not a real 6-value operator
+  // status, but a distinct, non-actionable projection so the schedule/list
+  // views can render "someone is holding this slot" without offering
+  // approve/decline (payment, not the operator, gates that transition).
+  | "held"
 
 export interface Reservation {
   id: string

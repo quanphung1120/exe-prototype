@@ -113,7 +113,7 @@ const ORDER = { createdAt: 1, _id: 1 } as const
  */
 function asReservationStatus(
   status: BookingRecordStatus
-): ReservationStatus | null {
+): Exclude<ReservationStatus, "held"> | null {
   return status === "awaiting_payment" || status === "expired" ? null : status
 }
 
@@ -716,7 +716,10 @@ export class VenuesService {
   async updateReservationStatus(
     venueId: string,
     reservationId: string,
-    status: ReservationStatus,
+    // `held` is a projection-only status the operator never sends — the DTO
+    // (`@IsIn(RESERVATION_STATUSES)`) restricts input to the six real operator
+    // statuses, all of which are also valid `BookingRecordStatus` transitions.
+    status: Exclude<ReservationStatus, "held">,
     reason?: string
   ): Promise<Reservation> {
     await this.ensureSeeded()
