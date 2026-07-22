@@ -20,15 +20,23 @@ export async function generateMetadata({
 
 export default async function SetupPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>
+  searchParams: Promise<{ branch?: string }>
 }) {
   const { locale } = await params
+  const { branch } = await searchParams
   setRequestLocale(locale)
 
-  // Already provisioned? The wizard is one-shot — send them into the workspace.
-  const venue = await fetchMyVenue()
-  if (venue) redirect({ href: "/dashboard/venue", locale })
+  // Adding another branch (chi nhánh, `?branch=1` from the switcher)? Run the
+  // wizard even though the account is already provisioned. Otherwise the wizard
+  // is one-shot for first-time setup — an already-provisioned account is sent
+  // into its workspace.
+  if (!branch) {
+    const venue = await fetchMyVenue()
+    if (venue) redirect({ href: "/dashboard/venue", locale })
+  }
 
   return <SetupWizard />
 }

@@ -23,10 +23,10 @@ import { useRouter } from "@/i18n/navigation"
 /**
  * The venue "manage" screen — reached from the workspace switcher (sidebar
  * header dropdown), not the persistent nav (kept at 4 tabs, see
- * `nav-simplification`). Today it's scoped to the archive/restore action
- * (VienTD-Review decision #11): each account owns exactly one venue, and an
- * archived venue still occupies that slot, so restoring here — instead of
- * running setup again — is the only way back.
+ * `nav-simplification`). Scoped to this branch (chi nhánh): today it's the
+ * archive/restore action (VienTD-Review decision #11). An archived branch stays
+ * under the brand and keeps appearing in the switcher, so restoring here —
+ * instead of running setup again — is the way back.
  */
 export function VenueManageView() {
   const t = useTranslations("VenueManage")

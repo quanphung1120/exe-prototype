@@ -3,6 +3,7 @@ import { MongooseModule } from "@nestjs/mongoose"
 
 import { BookingsModule } from "../bookings/bookings.module.js"
 import { Booking, BookingSchema } from "../bookings/booking.schema.js"
+import { DiscountsModule } from "../discounts/discounts.module.js"
 import { NotificationsModule } from "../notifications/notifications.module.js"
 import { Venue, VenueSchema } from "../venues/venue.schema.js"
 import { BookingsSweeperService } from "./bookings-sweeper.service.js"
@@ -38,6 +39,9 @@ import { SEPAY_CLIENT, SepayClient } from "./sepay.client.js"
     ]),
     BookingsModule,
     NotificationsModule,
+    // Re-validates a checkout's `discountCode` server-side and bumps
+    // `usedCount` once the payment settles — see `PaymentsService#checkout`.
+    DiscountsModule,
   ],
   controllers: [PaymentsController],
   providers: [

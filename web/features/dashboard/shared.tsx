@@ -355,7 +355,6 @@ export function RoomRow({
 // listed sport). The prototype has no real court photos, so each card's "image"
 // is a deterministic gradient + court-line grid + oversized sport monogram.
 const COURT_IMG: Record<SportKey, string> = {
-  pickleball: "from-lime/45 via-brand/15 to-chart-2/20",
   badminton: "from-chart-3/35 via-brand/15 to-lime/20",
 }
 

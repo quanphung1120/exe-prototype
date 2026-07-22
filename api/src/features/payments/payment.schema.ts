@@ -23,11 +23,18 @@ export class Payment {
   @Prop({ type: String, required: true, unique: true }) bookingId: string
   @Prop({ type: String, required: true }) venueId: string
   @Prop({ type: String }) userId?: string
+  /** The amount actually charged — booking price minus any discount applied. */
   @Prop({ type: Number, required: true }) amount: number
   @Prop({ type: String, required: true, default: "VND" }) currency: string
   @Prop({ type: String, required: true }) status: PaymentRecordStatus
   @Prop({ type: String }) checkoutUrl?: string
   @Prop({ type: String }) paidAt?: string
+  /** The booking's undiscounted price — only set when a discount code was applied. */
+  @Prop({ type: Number }) originalAmount?: number
+  /** The mã giảm giá applied at checkout, uppercased, if any. */
+  @Prop({ type: String }) discountCode?: string
+  /** VND amount `discountCode` knocked off `originalAmount` to reach `amount`. */
+  @Prop({ type: Number }) discountAmount?: number
   /** The raw IPN payload that marked this paid — kept for reconciliation/audit. */
   @Prop({ type: MongooseSchema.Types.Mixed }) ipnPayload?: unknown
 }

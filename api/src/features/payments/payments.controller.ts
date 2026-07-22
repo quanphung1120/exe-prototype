@@ -27,7 +27,7 @@ export class PaymentsController {
   /** Start (or resume) a SePay checkout for the caller's own booking hold. */
   @Post("checkout")
   async checkout(@UserId() userId: string, @Body() body: CheckoutDto) {
-    return this.payments.checkout(userId, body.bookingId)
+    return this.payments.checkout(userId, body.bookingId, body.discountCode)
   }
 
   /**

@@ -13,6 +13,7 @@ import { AccountModule } from "./features/account/account.module.js"
 import { AssessmentModule } from "./features/assessment/assessment.module.js"
 import { BookingsModule } from "./features/bookings/bookings.module.js"
 import { CourtsModule } from "./features/courts/courts.module.js"
+import { DiscountsModule } from "./features/discounts/discounts.module.js"
 import { HealthController } from "./features/health/health.controller.js"
 import { NotificationsModule } from "./features/notifications/notifications.module.js"
 import { PaymentsModule } from "./features/payments/payments.module.js"
@@ -62,6 +63,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     AccountModule,
     StreamModule,
     NotificationsModule,
+    DiscountsModule,
     PaymentsModule,
     SeedModule,
   ],

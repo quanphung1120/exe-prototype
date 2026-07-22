@@ -84,7 +84,7 @@ void test("sessionToRoom projects the demo flag back onto the MatchRoom", () => 
   const demoSession: PlaySession = {
     id: "s-demo",
     title: "Demo session",
-    sport: "pickleball",
+    sport: "badminton",
     format: "Doubles",
     courtId: "c1",
     dayKey: "2026-07-20",

@@ -2,7 +2,7 @@ import { IsIn, IsNotEmpty, IsOptional, IsString } from "class-validator"
 
 import type { SportKey } from "../../shared/index.js"
 
-const SPORTS = ["pickleball", "badminton"] as const
+const SPORTS = ["badminton"] as const
 
 export class ListCourtsQueryDto {
   @IsOptional()

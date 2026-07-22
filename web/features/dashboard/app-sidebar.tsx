@@ -58,7 +58,7 @@ export function AppSidebar() {
   const { signOut, openUserProfile } = useClerk()
   const { isMobile, setOpenMobile } = useSidebar()
   const { userName } = useMatchmaking()
-  const { user: USER, venues: VENUES, accountType } = useData()
+  const { user: USER, brand: BRAND, venues: VENUES, accountType } = useData()
   const venueOnly = accountType === "venue"
   // Live unread total from Stream (0 when chat is degraded); drives the chat badge.
   const unreadCount = useStreamUnreadCount()
@@ -115,16 +115,22 @@ export function AppSidebar() {
     handleNavigate()
   }
 
-  // Switch to the venue workspace — the account's single venue.
-  const switchToVenue = () => {
-    const targetId = activeVenueId ?? VENUES[0]?.id
-    if (targetId) router.push(venueBase(targetId))
+  // Open a specific branch (chi nhánh) of the operator's brand.
+  const goToBranch = (id: string) => {
+    router.push(venueBase(id))
     handleNavigate()
   }
 
   // No venue provisioned yet — the switcher's only way into the setup wizard.
   const switchToAddVenue = () => {
     router.push("/setup")
+    handleNavigate()
+  }
+
+  // Add another branch (chi nhánh) to an existing brand — the wizard again, but
+  // `?branch=1` tells the setup gate to allow it past the one-shot first-run.
+  const addBranch = () => {
+    router.push("/setup?branch=1")
     handleNavigate()
   }
 
@@ -197,16 +203,38 @@ export function AppSidebar() {
                       ) : null}
                     </DropdownMenuItem>
                   )}
-                  {VENUE ? (
-                    <DropdownMenuItem onClick={switchToVenue}>
-                      <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
-                        {VENUE.initials}
-                      </div>
-                      <span className="flex-1 truncate">
-                        {`${VENUE.name} · ${t("venueTag")}`}
-                      </span>
-                      {isVenue ? <Check className="size-4 text-brand" /> : null}
-                    </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  {/* The brand (thương hiệu) and its branches (chi nhánh). */}
+                  <DropdownMenuLabel className="truncate">
+                    {BRAND ? BRAND.name : t("venueTag")}
+                  </DropdownMenuLabel>
+                  {VENUES.length > 0 ? (
+                    <>
+                      {VENUES.map((v) => (
+                        <DropdownMenuItem
+                          key={v.id}
+                          onClick={() => goToBranch(v.id)}
+                        >
+                          <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
+                            {v.initials}
+                          </div>
+                          <span className="flex-1 truncate">{v.name}</span>
+                          {isVenue && v.id === activeVenueId ? (
+                            <Check className="size-4 text-brand" />
+                          ) : null}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuItem onClick={addBranch}>
+                        <div className="flex size-7 items-center justify-center rounded-lg border border-dashed border-sidebar-border text-secondary-foreground">
+                          <Plus className="size-4" />
+                        </div>
+                        <span className="flex-1 truncate">
+                          {t("addBranch")}
+                        </span>
+                      </DropdownMenuItem>
+                    </>
                   ) : (
                     <DropdownMenuItem onClick={switchToAddVenue}>
                       <div className="flex size-7 items-center justify-center rounded-lg border border-dashed border-sidebar-border text-secondary-foreground">

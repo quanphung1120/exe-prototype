@@ -153,7 +153,7 @@ function toolResult(output: unknown): ToolResult | null {
     return { kind: "booking", value: output as BookingToolResult }
   if (
     typeof o.sport === "string" &&
-    (o.sport === "badminton" || o.sport === "pickleball") &&
+    o.sport === "badminton" &&
     !("courts" in o) &&
     !("players" in o) &&
     !("rooms" in o)
@@ -168,8 +168,8 @@ function trustTone(trust: number) {
   return "bg-amber-500/10 text-amber-700 dark:text-amber-300"
 }
 
-function buildInviteTitle(intent: PlayerMatchIntent, sport: SportKey) {
-  const label = sport === "badminton" ? "Badminton" : "Pickleball"
+function buildInviteTitle(intent: PlayerMatchIntent) {
+  const label = "Badminton"
   if (intent.timeLabel) return `${label} ${intent.timeLabel} group`
   if (intent.locationLabel) return `${label} ${intent.locationLabel} group`
   return `${label} teammate group`
@@ -408,9 +408,6 @@ export function AiNativeDashboardView() {
     if (assessment?.results?.badminton) {
       activeUserLevels.badminton = userLevels.badminton
     }
-    if (assessment?.results?.pickleball) {
-      activeUserLevels.pickleball = userLevels.pickleball
-    }
     void sendMessage(
       { text: trimmed },
       { body: { userLevels: activeUserLevels, userLocation, locale } }
@@ -447,7 +444,7 @@ export function AiNativeDashboardView() {
     )
     const schedule = summarizeInviteDay(lastPlayerResult.intent.timeKey)
 
-    const inviteTitle = buildInviteTitle(lastPlayerResult.intent, inviteSport)
+    const inviteTitle = buildInviteTitle(lastPlayerResult.intent)
     setInviteState({ status: "sending", roomId: null })
     inviteTimerRef.current = setTimeout(() => {
       try {

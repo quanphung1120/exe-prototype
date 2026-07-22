@@ -29,6 +29,13 @@ export function PaymentReturnView({ bookingId }: { bookingId: string }) {
   const router = useRouter()
   const [phase, setPhase] = React.useState<Phase>("waiting")
   const [amount, setAmount] = React.useState<number | null>(null)
+  const [originalAmount, setOriginalAmount] = React.useState<number | null>(
+    null
+  )
+  const [discountCode, setDiscountCode] = React.useState<string | null>(null)
+  const [discountAmount, setDiscountAmount] = React.useState<number | null>(
+    null
+  )
 
   React.useEffect(() => {
     let cancelled = false
@@ -44,6 +51,9 @@ export function PaymentReturnView({ bookingId }: { bookingId: string }) {
       }
       if (result.data.status === "paid") {
         setAmount(result.data.amount)
+        setOriginalAmount(result.data.originalAmount ?? null)
+        setDiscountCode(result.data.discountCode ?? null)
+        setDiscountAmount(result.data.discountAmount ?? null)
         setPhase("paid")
         return
       }
@@ -94,6 +104,29 @@ export function PaymentReturnView({ bookingId }: { bookingId: string }) {
                 : t("paidBodyGeneric")}
             </p>
           </div>
+          {originalAmount != null && discountCode && discountAmount != null ? (
+            <div className="flex w-full flex-col gap-1.5 rounded-2xl bg-card px-4 py-3 text-sm ring-1 ring-foreground/5 dark:ring-foreground/10">
+              <div className="flex items-center justify-between gap-3 text-muted-foreground">
+                <span>{t("subtotal")}</span>
+                <span className="tabular-nums line-through">
+                  {formatVndFull(originalAmount)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-muted-foreground">
+                <span>{t("discountApplied", { code: discountCode })}</span>
+                <span className="text-brand tabular-nums">
+                  −{formatVndFull(discountAmount)}
+                </span>
+              </div>
+              <div className="h-px bg-border" />
+              <div className="flex items-center justify-between gap-3 font-semibold text-foreground">
+                <span>{t("totalPaid")}</span>
+                <span className="tabular-nums">
+                  {amount != null ? formatVndFull(amount) : ""}
+                </span>
+              </div>
+            </div>
+          ) : null}
           <Button className="rounded-full" onClick={goToBookings}>
             {t("viewBookings")}
           </Button>

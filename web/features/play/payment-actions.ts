@@ -14,11 +14,28 @@ export type PaymentRecordStatus = "awaiting" | "paid" | "cancelled"
 export interface PaymentSummary {
   bookingId: string
   invoiceNumber: string
+  /** The actual charged amount — after any discount code is applied. */
   amount: number
   currency: string
   status: PaymentRecordStatus
   checkoutUrl?: string
   paidAt?: string
+  /** Pre-discount amount — present only when a discount code was applied. */
+  originalAmount?: number
+  discountCode?: string
+  discountAmount?: number
+}
+
+/** `POST /api/discounts/validate` response on success. */
+export interface DiscountValidation {
+  valid: true
+  code: string
+  type: "percent" | "fixed"
+  value: number
+  /** Vietnamese, server-authored — shown to the player as-is. */
+  description: string
+  discountAmount: number
+  finalAmount: number
 }
 
 /** `POST /api/payments/checkout` response — the summary plus the signed SePay form. */
@@ -61,11 +78,28 @@ async function paymentsApi<T>(
  * pay button relies on that to let a failed checkout be retried.
  */
 export async function startPaymentCheckout(
-  bookingId: string
+  bookingId: string,
+  discountCode?: string
 ): Promise<PaymentActionResult<CheckoutResult>> {
   return paymentsApi<CheckoutResult>("/api/payments/checkout", {
     method: "POST",
-    body: { bookingId },
+    body: discountCode ? { bookingId, discountCode } : { bookingId },
+  })
+}
+
+/**
+ * Validate a discount code (mã giảm giá) against the current order amount —
+ * called from the pay step as the player types a code, before checkout ever
+ * starts. Failure carries the server's Vietnamese message (e.g. "Mã giảm giá
+ * đã hết hạn") straight through for inline display.
+ */
+export async function validateDiscountCode(
+  code: string,
+  amount: number
+): Promise<PaymentActionResult<DiscountValidation>> {
+  return paymentsApi<DiscountValidation>("/api/discounts/validate", {
+    method: "POST",
+    body: { code, amount },
   })
 }
 

@@ -1,7 +1,7 @@
 # SportMatch AI
 
 A prototype for an AI-powered court-booking and player-matchmaking app for racquet
-sports (pickleball, cầu lông/badminton). `web` and `api` are two
+sports (cầu lông/badminton). `web` and `api` are two
 **dedicated, standalone projects** (own `package.json`, own pnpm lockfile) —
 there is no Turborepo, no pnpm workspace, and no shared package linking them.
 

@@ -3,17 +3,20 @@ import { VenueDataProvider } from "@/features/venue/venue-data-provider"
 import { VenueWorkspaceProvider } from "@/features/venue/venue-provider"
 
 /**
- * Venue workspace layout. Each account owns exactly one venue, resolved
- * server-side from the caller's Clerk id — the `[venueId]` segment is kept for
- * routing but the bundle always comes from the owner-scoped endpoint, so the
- * provider is seeded with the caller's real venue id.
+ * Venue workspace layout. An account's brand may own many venue branches (chi
+ * nhánh), so the active branch is the `[venueId]` segment of the URL: the layout
+ * loads that branch's bundle (the API authorizes the caller owns it) and seeds
+ * the provider with it. A venueId the caller doesn't own 404s here.
  */
 export default async function VenueWorkspaceLayout({
   children,
+  params,
 }: {
   children: React.ReactNode
+  params: Promise<{ venueId: string }>
 }) {
-  const venueSeed = await fetchVenueBundle()
+  const { venueId } = await params
+  const venueSeed = await fetchVenueBundle(venueId)
 
   return (
     <VenueDataProvider seed={venueSeed} venueId={venueSeed.info.id}>

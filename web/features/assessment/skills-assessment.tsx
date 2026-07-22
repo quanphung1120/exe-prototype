@@ -32,7 +32,6 @@ type DraftAnswers = Record<string, Record<string, string>>
 
 const SPORT_EMOJI: Record<AssessmentSport, string> = {
   badminton: "🏸",
-  pickleball: "🏓",
 }
 
 export function SkillsAssessmentView({
@@ -49,7 +48,7 @@ export function SkillsAssessmentView({
 
   const [activeTab, setActiveTab] = React.useState<Step>("sports")
   const [selectedSports, setSelectedSports] = React.useState<AssessmentSport[]>(
-    ["badminton", "pickleball"]
+    ["badminton"]
   )
   const [answers, setAnswers] = React.useState<DraftAnswers>({})
   const [submitted, setSubmitted] = React.useState(false)
@@ -172,7 +171,7 @@ export function SkillsAssessmentView({
     } as PlayerAssessment["results"]
 
     const allSportsWithResults = (
-      ["badminton", "pickleball"] as AssessmentSport[]
+      ["badminton"] as AssessmentSport[]
     ).filter((sport) => mergedResults[sport] !== undefined)
 
     const nextAssessment: PlayerAssessment = {
@@ -399,7 +398,7 @@ function SportsStep({
   onToggle: (sport: AssessmentSport) => void
 }) {
   const t = useTranslations("Assessment")
-  const sports: AssessmentSport[] = ["badminton", "pickleball"]
+  const sports: AssessmentSport[] = ["badminton"]
 
   return (
     <div className="flex flex-col gap-6">
@@ -594,8 +593,8 @@ function CompletionScreen({
         {t("complete.subtitle")}
       </p>
 
-      <div className="mt-8 grid w-full gap-3 sm:grid-cols-2">
-        {(["badminton", "pickleball"] as AssessmentSport[]).map((sport) => {
+      <div className="mt-8 grid w-full grid-cols-1 gap-3">
+        {(["badminton"] as AssessmentSport[]).map((sport) => {
           const isSelected = assessment.selectedSports.includes(sport)
           const result = assessment.results[sport]
 

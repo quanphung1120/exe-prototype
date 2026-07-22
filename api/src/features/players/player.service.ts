@@ -16,7 +16,8 @@ const ORDER = { createdAt: 1, _id: 1 } as const
 @Injectable()
 export class PlayerService {
   constructor(
-    @InjectModel(Player.name) private readonly playerModel: Model<PlayerDocument>
+    @InjectModel(Player.name)
+    private readonly playerModel: Model<PlayerDocument>
   ) {}
 
   // See CourtsService for why `once` (retry on transient failure) +

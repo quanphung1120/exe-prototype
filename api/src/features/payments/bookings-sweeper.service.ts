@@ -28,15 +28,17 @@ export class BookingsSweeperService {
     try {
       const result = await this.bookings.sweep()
       for (const bookingId of result.expiredBookingIds) {
-        await this.payments.cancelOrderForBooking(bookingId).catch((err: unknown) => {
-          // Best-effort: the booking is already expired regardless — a
-          // failure to also cancel the gateway order just means it settles
-          // itself (or stays open harmlessly, nothing was ever charged) on
-          // SePay's side.
-          this.logger.warn(
-            `Failed to cancel SePay order for expired booking ${bookingId}: ${String(err)}`
-          )
-        })
+        await this.payments
+          .cancelOrderForBooking(bookingId)
+          .catch((err: unknown) => {
+            // Best-effort: the booking is already expired regardless — a
+            // failure to also cancel the gateway order just means it settles
+            // itself (or stays open harmlessly, nothing was ever charged) on
+            // SePay's side.
+            this.logger.warn(
+              `Failed to cancel SePay order for expired booking ${bookingId}: ${String(err)}`
+            )
+          })
       }
       if (result.expired || result.autoConfirmed || result.completed) {
         this.logger.log(

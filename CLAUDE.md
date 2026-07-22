@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-SportMatch AI — a prototype for an AI-powered court-booking and player-matchmaking app for racquet sports (pickleball, cầu lông/badminton). The product is **Vietnamese-first**: Vietnamese is the primary language and target market, and all user-facing copy should default to Vietnamese (localized via next-intl — `web/messages/{en,vi}.json`, `web/i18n/`; English is the secondary locale). Two surfaces in the web app:
+SportMatch AI — a prototype for an AI-powered court-booking and player-matchmaking app for racquet sports (cầu lông/badminton). The product is **Vietnamese-first**: Vietnamese is the primary language and target market, and all user-facing copy should default to Vietnamese (localized via next-intl — `web/messages/{en,vi}.json`, `web/i18n/`; English is the secondary locale). Two surfaces in the web app:
 
 - **Landing page** (`web/app/[locale]/page.tsx`) — marketing/waitlist site. Copy is Vietnamese in a formal register, addressing the user as "Quý khách".
 - **Dashboard** (`web/app/[locale]/dashboard/`) — the interactive product demo (player + venue-operator workspaces). Some UI labels are still English; new UI copy should be written in Vietnamese (or added to both message catalogs) rather than extending the English-only text.

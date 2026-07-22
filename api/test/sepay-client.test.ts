@@ -33,7 +33,9 @@ function makeClient() {
 }
 
 function sign(timestamp: string, body: string): string {
-  const hex = createHmac("sha256", SECRET).update(`${timestamp}.${body}`).digest("hex")
+  const hex = createHmac("sha256", SECRET)
+    .update(`${timestamp}.${body}`)
+    .digest("hex")
   return `sha256=${hex}`
 }
 
@@ -53,8 +55,13 @@ void test("verifyIpnSignature accepts a correctly-signed, fresh request", () => 
 void test("verifyIpnSignature rejects a tampered body", () => {
   const client = makeClient()
   const timestamp = String(Math.floor(Date.now() / 1000))
-  const signature = sign(timestamp, JSON.stringify({ notification_type: "ORDER_PAID" }))
-  const tamperedBody = Buffer.from(JSON.stringify({ notification_type: "TRANSACTION_VOID" }))
+  const signature = sign(
+    timestamp,
+    JSON.stringify({ notification_type: "ORDER_PAID" })
+  )
+  const tamperedBody = Buffer.from(
+    JSON.stringify({ notification_type: "TRANSACTION_VOID" })
+  )
 
   const ok = client.verifyIpnSignature(tamperedBody, {
     "x-sepay-signature": signature,
@@ -68,7 +75,9 @@ void test("verifyIpnSignature rejects a signature keyed by the wrong secret", ()
   const client = makeClient()
   const body = Buffer.from(JSON.stringify({ notification_type: "ORDER_PAID" }))
   const timestamp = String(Math.floor(Date.now() / 1000))
-  const wrongSignature = `sha256=${createHmac("sha256", "wrong-secret").update(`${timestamp}.${body.toString("utf8")}`).digest("hex")}`
+  const wrongSignature = `sha256=${createHmac("sha256", "wrong-secret")
+    .update(`${timestamp}.${body.toString("utf8")}`)
+    .digest("hex")}`
 
   const ok = client.verifyIpnSignature(body, {
     "x-sepay-signature": wrongSignature,

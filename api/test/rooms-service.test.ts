@@ -379,9 +379,7 @@ void test("decideRequest decline notification id doesn't collide across a re-req
   await service.decideRequest("host-1", "room-1", "guest-1", "decline")
 
   assert.equal(recorder.notifications.length, 2)
-  const ids = recorder.notifications.map(
-    (n) => (n.input as { id: string }).id
-  )
+  const ids = recorder.notifications.map((n) => (n.input as { id: string }).id)
   assert.notEqual(ids[0], ids[1])
 })
 

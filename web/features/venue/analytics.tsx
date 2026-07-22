@@ -56,7 +56,6 @@ const CHANNEL_ICON: Record<
 /** Per-sport ring tint, staying on the emerald/lime palette. */
 const SPORT_RING: Record<string, string> = {
   badminton: "text-brand",
-  pickleball: "text-chart-2",
 }
 
 export function VenueAnalyticsView({
@@ -306,14 +305,7 @@ export function VenueAnalyticsView({
                     {s.pct}%
                   </span>
                 </div>
-                <Meter
-                  pct={s.pct}
-                  barClassName={
-                    s.sport === "pickleball"
-                      ? "bg-chart-2 from-chart-2 to-chart-2"
-                      : undefined
-                  }
-                />
+                <Meter pct={s.pct} />
               </div>
             ))}
           </div>

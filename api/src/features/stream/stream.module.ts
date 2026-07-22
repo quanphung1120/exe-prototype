@@ -3,10 +3,7 @@ import { ConfigService } from "@nestjs/config"
 import { MongooseModule } from "@nestjs/mongoose"
 import { StreamChat } from "stream-chat"
 
-import {
-  StreamSeedState,
-  StreamSeedStateSchema,
-} from "./stream-seed.schema.js"
+import { StreamSeedState, StreamSeedStateSchema } from "./stream-seed.schema.js"
 import { StreamController } from "./stream.controller.js"
 import { STREAM_CLIENT, StreamService } from "./stream.service.js"
 

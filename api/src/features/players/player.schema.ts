@@ -19,7 +19,7 @@ export class Player {
     enum: ["beginner", "intermediate", "advanced"],
   })
   level: PlayerType["level"]
-  @Prop({ type: String, required: true, enum: ["pickleball", "badminton"] })
+  @Prop({ type: String, required: true, enum: ["badminton"] })
   sport: SportKey
   // Distance from the current user, km.
   @Prop({ required: true }) distanceKm: number

@@ -69,6 +69,7 @@ function makeService(
     freezeChannelById = () => Promise.resolve(),
   } = opts
   const venueModelMock = {
+    syncIndexes: () => Promise.resolve([]),
     countDocuments: () => Promise.resolve(1), // already seeded
   }
   const bookingsMock = {
@@ -77,6 +78,10 @@ function makeService(
   const profilesMock = {}
   const notificationsMock = { create: () => Promise.resolve() }
   const streamMock = { freezeChannelById }
+  // Unused by the freeze path, but VenuesService's constructor now takes a
+  // BrandsService too — pass a stub so the arity matches and `this.brands` isn't
+  // undefined if a future assertion reaches a brand-dependent branch.
+  const brandsMock = {}
 
   return new VenuesService(
     ...([
@@ -85,6 +90,7 @@ function makeService(
       profilesMock,
       notificationsMock,
       streamMock,
+      brandsMock,
     ] as unknown as VenuesCtorArgs)
   )
 }

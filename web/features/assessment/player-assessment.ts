@@ -86,59 +86,6 @@ const badmintonAnswers = {
   ],
 } as const
 
-const pickleballAnswers = {
-  q1: [
-    "Mới tập, thường đánh hụt hoặc bóng đi sai hướng",
-    "Đánh qua lưới được nhưng chưa kiểm soát tốt",
-    "Đánh được ở tốc độ vừa phải nhưng chưa ổn định",
-    "Đánh khá ổn trong đa số tình huống",
-    "Kiểm soát tốt hướng bóng và lực đánh",
-    "Có thể thay đổi lực đánh, tốc độ và điểm rơi",
-    "Đánh chính xác, có mục đích rõ khi thi đấu",
-    "Có khả năng thi đấu ở trình độ rất cao/chuyên nghiệp",
-  ],
-  q2: [
-    "Hầu như không dùng được",
-    "Dùng được nhưng rất yếu và dễ lỗi",
-    "Đánh được cơ bản nhưng chưa ổn định",
-    "Đánh tương đối ổn trong tình huống đơn giản",
-    "Kiểm soát khá tốt hướng bóng và lực đánh",
-    "Có thể xử lý nhiều kiểu bóng khác nhau",
-    "Đánh ổn định, chính xác trong thi đấu",
-    "Có khả năng thi đấu ở trình độ rất cao/chuyên nghiệp",
-  ],
-  q3: [
-    "Chưa biết hoặc rất ít khi thực hiện",
-    "Thực hiện được nhưng bóng thường quá cao hoặc lỗi",
-    "Đánh được vài pha ngắn nhưng chưa giữ bóng lâu",
-    "Có thể duy trì qua lại gần lưới ở mức cơ bản",
-    "Biết đánh nhẹ, giữ bóng thấp và hạn chế lỗi",
-    "Biết dùng cú đánh nhẹ để tạo lợi thế",
-    "Kiên nhẫn, kiểm soát tốt các pha bóng gần lưới",
-    "Xử lý bóng gần lưới ở trình độ rất cao/chuyên nghiệp",
-  ],
-  q4: [
-    "Chưa biết cách thực hiện",
-    "Biết nhưng thường đánh lỗi hoặc bóng quá cao",
-    "Đôi lúc thực hiện thành công",
-    "Có thể dùng để đưa bóng qua và tiến lên lưới",
-    "Biết chọn lúc đánh nhẹ hoặc đánh mạnh tùy tình huống",
-    "Thực hiện khá ổn định và có mục đích rõ ràng",
-    "Thành thạo cả bên thuận tay và không thuận tay",
-    "Thực hiện ở trình độ rất cao/chuyên nghiệp",
-  ],
-  q5: [
-    "Chủ yếu đánh cho qua lưới, chưa có chiến thuật",
-    "Đánh theo phản xạ, chưa biết chọn vị trí",
-    "Hiểu cơ bản mình nên đứng đâu và di chuyển thế nào",
-    "Biết chọn vị trí hợp lý khi đánh đôi hoặc đánh đơn",
-    "Biết phối hợp với đồng đội và tạo khoảng trống trên sân",
-    "Biết quan sát điểm yếu của đối thủ để khai thác",
-    "Có thể thay đổi cách chơi tùy đối thủ và tình huống trận",
-    "Có khả năng thi đấu chiến thuật ở trình độ rất cao/chuyên nghiệp",
-  ],
-} as const
-
 function answerSet(items: readonly string[]): AssessmentAnswer[] {
   return items.map((text, index) => ({
     key: String.fromCharCode(65 + index),
@@ -189,49 +136,6 @@ export const ASSESSMENTS: AssessmentDefinition[] = [
       { min: 29, max: 30, label: "Chuyên nghiệp", bucket: "advanced" },
     ],
   },
-  {
-    sport: "pickleball",
-    title: "Pickleball",
-    description:
-      "Mỗi câu trả lời được chấm từ 1-8 điểm theo đáp án A-H trong Bộ câu hỏi.",
-    questions: [
-      {
-        id: "q1",
-        text: "Khả năng đánh bóng bằng tay thuận của bạn như thế nào?",
-        answers: answerSet(pickleballAnswers.q1),
-      },
-      {
-        id: "q2",
-        text: "Khả năng đánh bóng bằng tay trái / bên không thuận của bạn như thế nào?",
-        answers: answerSet(pickleballAnswers.q2),
-      },
-      {
-        id: "q3",
-        text: "Khả năng đánh bóng nhẹ gần lưới của bạn như thế nào?",
-        answers: answerSet(pickleballAnswers.q3),
-      },
-      {
-        id: "q4",
-        text: "Khả năng xử lý cú đánh quan trọng để tiến lên lưới của bạn như thế nào?",
-        answers: answerSet(pickleballAnswers.q4),
-      },
-      {
-        id: "q5",
-        text: "Khi chơi trận, bạn thường xử lý chiến thuật như thế nào?",
-        answers: answerSet(pickleballAnswers.q5),
-      },
-    ],
-    ranges: [
-      { min: 5, max: 10, label: "Level 1.0-2.0", bucket: "beginner" },
-      { min: 11, max: 15, label: "Level 2.5", bucket: "beginner" },
-      { min: 16, max: 20, label: "Level 3.0", bucket: "intermediate" },
-      { min: 21, max: 25, label: "Level 3.5", bucket: "intermediate" },
-      { min: 26, max: 30, label: "Level 4.0", bucket: "intermediate" },
-      { min: 31, max: 35, label: "Level 4.5", bucket: "advanced" },
-      { min: 36, max: 39, label: "Level 5.0", bucket: "advanced" },
-      { min: 40, max: 40, label: "Level 5.5+", bucket: "advanced" },
-    ],
-  },
 ]
 
 export function calculateAssessmentResult(
@@ -266,7 +170,7 @@ export function isCompleteAssessment(
 
   const selectedSports = Array.isArray(assessment.selectedSports)
     ? (assessment.selectedSports)
-    : (["badminton", "pickleball"] as AssessmentSport[])
+    : (["badminton"] as AssessmentSport[])
 
   if (selectedSports.length === 0) return false
 
@@ -294,7 +198,7 @@ export function readStoredAssessment(): PlayerAssessment | null {
     const parsed = JSON.parse(raw) as Partial<PlayerAssessment>
     if (!isCompleteAssessment(parsed)) return null
     if (!parsed.selectedSports) {
-      parsed.selectedSports = ["badminton", "pickleball"]
+      parsed.selectedSports = ["badminton"]
     }
     return parsed
   } catch {
@@ -316,7 +220,6 @@ export function levelsBySport(
 ): Record<AssessmentSport, Level> {
   return {
     badminton: levelForSport(assessment, "badminton", fallback),
-    pickleball: levelForSport(assessment, "pickleball", fallback),
   }
 }
 

@@ -244,9 +244,10 @@ interface SessionContextValue {
    * checkout — a hidden-form POST, so this actually navigates the browser
    * away. Payment confirmation happens out-of-band (SePay's IPN); the player
    * lands back on `/dashboard/bookings/[bookingId]`, which polls
-   * `GET /api/payments/by-booking/:id` for the result.
+   * `GET /api/payments/by-booking/:id` for the result. An optional applied
+   * discount code is forwarded to `startPaymentCheckout` unchanged.
    */
-  pay: () => void
+  pay: (discountCode?: string) => void
   cancelBooking: (id: string) => void
   // ── Conflict (decision 2) ──
   slotBlocked: (slot: string) => boolean
@@ -469,7 +470,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const r = remote.find((x) => x.id === s.id)
         if (!r) return s
         const localInitials = new Set(s.roster.map((p) => p.initials))
-        const incoming = r.roster.filter(
+        const incoming = (r.roster ?? []).filter(
           (p) => p.rsvp === "requested" && !localInitials.has(p.initials)
         )
         if (!incoming.length) return s
@@ -848,7 +849,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           s.status !== "cancelled" &&
           s.status !== "completed" &&
           s.slot != null &&
-          s.roster.some((p) => p.userId === authUser.id && p.rsvp !== "declined")
+          s.roster.some(
+            (p) => p.userId === authUser.id && p.rsvp !== "declined"
+          )
       ),
     ],
     [sessions, otherRoomsRaw, USER.initials, authUser.id]
@@ -1145,9 +1148,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const title = tm.has(`rooms.${sessionId}.title`)
         ? tm(`rooms.${sessionId}.title`)
         : (own.title ?? "")
-      toast(own.status === "booked" ? ts("toast.disbanded") : tm("toast.left"), {
-        description: title,
-      })
+      toast(
+        own.status === "booked" ? ts("toast.disbanded") : tm("toast.left"),
+        {
+          description: title,
+        }
+      )
       return
     }
 
@@ -2002,7 +2008,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    * the player lands back on `/dashboard/bookings/[bookingId]`
    * (`payment-return.tsx`), which polls for the result.
    */
-  const pay = () => {
+  const pay = (discountCode?: string) => {
     if (!court || !draft.slot || paying) return
     if (draftConflict) {
       toast.error(tb("toast.conflict"))
@@ -2014,7 +2020,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       try {
         const bookingId = await reserveHold()
         if (!bookingId) return // reserveHold already toasted the failure
-        const result = await startPaymentCheckout(bookingId)
+        const result = await startPaymentCheckout(bookingId, discountCode)
         if (!result.ok) {
           console.error("Failed to start SePay checkout", result.message)
           setCheckoutError(tb("pay.checkoutFailed"))

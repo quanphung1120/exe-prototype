@@ -98,13 +98,21 @@ export function NotificationsProvider({
       setItems((prev) => {
         const byId = new Map(prev.map((p) => [p.id, p] as const))
         for (const r of records) {
+          // `createdAt` should always be a valid ISO string, but guard against a
+          // missing/malformed one: `format.relativeTime` on an Invalid Date
+          // passes NaN to `Intl.RelativeTimeFormat.format`, which throws (logged
+          // as a console error). Fall back to any time we already showed.
+          const created = new Date(r.createdAt)
+          const time = Number.isNaN(created.getTime())
+            ? (byId.get(r.id)?.time ?? "")
+            : format.relativeTime(created, now)
           byId.set(r.id, {
             id: r.id,
             kind: r.kind,
             text: r.text,
             href: r.href,
             read: r.read,
-            time: format.relativeTime(new Date(r.createdAt), now),
+            time,
             createdAt: r.createdAt,
           })
         }

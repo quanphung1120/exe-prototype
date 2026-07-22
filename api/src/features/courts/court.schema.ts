@@ -14,7 +14,7 @@ export class Court {
   @Prop({ required: true }) name: string
   @Prop({ required: true }) district: string
   @Prop({ required: true }) city: string
-  @Prop({ type: [String], enum: ["pickleball", "badminton"] }) sports: SportKey[]
+  @Prop({ type: [String], enum: ["badminton"] }) sports: SportKey[]
   @Prop({ required: true }) surface: string
   @Prop({ required: true }) pricePerHour: number
   @Prop({ required: true }) distanceKm: number

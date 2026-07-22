@@ -82,7 +82,11 @@ export class SepayClient implements SepayClientPort {
     const env = config.getOrThrow<"sandbox" | "production">("SEPAY_ENV")
     const merchant_id = config.getOrThrow<string>("SEPAY_MERCHANT_ID")
     this.secretKey = config.getOrThrow<string>("SEPAY_SECRET_KEY")
-    this.client = new SePayPgClient({ env, merchant_id, secret_key: this.secretKey })
+    this.client = new SePayPgClient({
+      env,
+      merchant_id,
+      secret_key: this.secretKey,
+    })
   }
 
   initCheckout(input: SepayCheckoutInput): SepayCheckoutResult {

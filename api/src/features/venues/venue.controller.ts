@@ -1,62 +1,38 @@
-import { Body, Controller, Get, Post } from "@nestjs/common"
+import { Body, Controller, Get, Param, Post } from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
-import { VenueSetupDto } from "./venues.dto.js"
+import { VenueIdParamDto, VenueSetupDto } from "./venues.dto.js"
 import { VenuesService } from "./venues.service.js"
 
-// Venue-workspace (operator) endpoints, mounted at /api/venue. Each account owns
-// exactly one venue, so every read resolves the caller's own venue from their
-// Clerk id — an account with no venue yet gets 404 (the web routes them to setup).
+// Venue-workspace (operator) read endpoints, mounted at /api/venue. An account's
+// brand may own many venue branches: `GET /:venueId/bundle` loads one branch's
+// full operator bundle (authorized by owner). `GET /bundle` (the account's
+// default branch) is kept for the "do I have a venue yet?" gate — 404 routes a
+// fresh account to setup. (The brand + branch list the switcher needs already
+// rides along in the aggregate `/api/seed` payload, so it needs no route here.)
 @Controller("venue")
 export class VenueController {
   constructor(private readonly venues: VenuesService) {}
 
-  /** Provision the account's single venue (guided setup wizard). */
+  /** Provision a venue branch (guided setup wizard); the first also mints the brand. */
   @Post("setup")
   setup(@UserId() userId: string, @Body() body: VenueSetupDto) {
     return this.venues.provisionVenue(userId, body)
   }
 
+  /** The account's default (first) branch bundle — the setup/redirect gate. */
   @Get("bundle")
   bundle(@UserId() userId: string) {
     return this.venues.myBundle(userId)
   }
 
-  @Get()
-  async summary(@UserId() userId: string) {
-    const b = await this.venues.myBundle(userId)
-    return { venue: b.info, stats: b.stats }
-  }
-
-  @Get("courts")
-  async courts(@UserId() userId: string) {
-    return (await this.venues.myBundle(userId)).courts
-  }
-
-  @Get("reservations")
-  async reservations(@UserId() userId: string) {
-    return (await this.venues.myBundle(userId)).reservations
-  }
-
-  @Get("customers")
-  async customers(@UserId() userId: string) {
-    return (await this.venues.myBundle(userId)).customers
-  }
-
-  @Get("analytics")
-  async analytics(@UserId() userId: string) {
-    const b = await this.venues.myBundle(userId)
-    return {
-      stats: b.stats,
-      revenueSeries: b.revenueSeries,
-      sportMix: b.sportMix,
-      channelMix: b.channelMix,
-      peakHours: b.peakHours,
-    }
-  }
-
-  @Get("insights")
-  async insights(@UserId() userId: string) {
-    return (await this.venues.myBundle(userId)).insights
+  /** One specific branch's full operator bundle (authorized by owner). */
+  @Get(":venueId/bundle")
+  async branchBundle(
+    @UserId() userId: string,
+    @Param() param: VenueIdParamDto
+  ) {
+    await this.venues.assertOwnsVenue(userId, param.venueId)
+    return this.venues.venueBundle(param.venueId)
   }
 }

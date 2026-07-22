@@ -353,7 +353,7 @@ export function reservationFromBooking(
     startAt: booking.startAt,
     endAt: booking.endAt,
     time: slotRange(booking.start, booking.durationMin),
-    party: booking.sport === "pickleball" ? 4 : 2,
+    party: 2,
     source: booking.source,
     status: reservationStatusFromBooking(booking.status),
     price: booking.price,
@@ -366,7 +366,13 @@ export function reservationFromBooking(
 /** The minimal shape {@link refundQueueItemFromBooking} reads off a booking. */
 export type RefundQueueLean = Pick<
   BookingRecord,
-  "bookingId" | "customer" | "courtName" | "dateKey" | "start" | "durationMin" | "refund"
+  | "bookingId"
+  | "customer"
+  | "courtName"
+  | "dateKey"
+  | "start"
+  | "durationMin"
+  | "refund"
 >
 
 /**

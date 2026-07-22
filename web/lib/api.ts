@@ -129,9 +129,10 @@ export async function fetchAccountType(): Promise<AccountType | null> {
 }
 
 /**
- * Fetch the caller's own venue bundle, or null when they haven't provisioned one
- * yet (404). Used by the bare-venue redirect and the setup-page gate to decide
- * between the workspace and the setup wizard.
+ * Fetch the account's default (first) branch bundle, or null when it has
+ * provisioned none yet (404). Used by the bare-venue redirect and the setup-page
+ * gate to decide between the workspace and the setup wizard — the presence of
+ * *any* branch is the "has a venue" signal.
  */
 export async function fetchMyVenue(): Promise<VenueSeed | null> {
   const { data, error } = await apiFetchSafe<VenueSeed>("/api/venue/bundle")
@@ -145,18 +146,21 @@ export async function fetchMyVenue(): Promise<VenueSeed | null> {
 }
 
 /**
- * Fetch the caller's own venue-operator bundle for the venue workspace. Each
- * account owns exactly one venue, resolved server-side from the Clerk id — the
- * `[venueId]` in the URL is not sent. An account with no venue gets 404 → the
- * not-found page (the dashboard layout redirects new accounts to setup first).
+ * Fetch one branch's full venue-operator bundle for the venue workspace. The
+ * branch is the `[venueId]` segment of the `/dashboard/venue/[venueId]` URL; the
+ * API authorizes the caller owns it. A 404 (unknown venue) or 403 (another
+ * account's) both surface the not-found page — the dashboard layout redirects
+ * fresh accounts to setup first, and the switcher only ever offers owned branches.
  */
-export async function fetchVenueBundle(): Promise<VenueSeed> {
+export async function fetchVenueBundle(venueId: string): Promise<VenueSeed> {
   // One aggregate request — the API assembles the whole VenueSeed server-side
   // (mirroring /api/seed), so a partial failure can't silently render a venue
   // with empty courts/reservations/analytics.
-  const { data, error } = await apiFetchSafe<VenueSeed>("/api/venue/bundle")
+  const { data, error } = await apiFetchSafe<VenueSeed>(
+    `/api/venue/${venueId}/bundle`
+  )
 
-  if (error?.status === 404) notFound()
+  if (error?.status === 404 || error?.status === 403) notFound()
 
   if (error) {
     throw new Error(

@@ -5,7 +5,7 @@
 
 // ── Sports ───────────────────────────────────────────────────────────────────
 
-export type SportKey = "pickleball" | "badminton"
+export type SportKey = "badminton"
 
 export interface Sport {
   key: SportKey
@@ -361,10 +361,17 @@ export interface LocalizedList {
 // ── Venue: the venue itself ──────────────────────────────────────────────────
 
 export interface Venue {
-  /** Stable id. Each account owns at most one venue (see `ownerId`). */
+  /** Stable id. A venue is one physical location (a branch) under a {@link Brand}. */
   id: string
-  /** Clerk account that owns this venue (absent on ownerless demo seeds). */
+  /**
+   * Clerk account that owns this venue's brand — denormalized from
+   * {@link Brand.ownerId} so booking/notification auth needs no brand join.
+   * Absent on ownerless demo seeds. No longer unique: one account's brand may
+   * own many venues (branches).
+   */
   ownerId?: string
+  /** The {@link Brand} this venue is a branch of (absent on ownerless demo seeds). */
+  brandId?: string
   name: string
   initials: string
   /** Optional profile photo URL (operator-set; the UI falls back to initials). */
@@ -389,10 +396,33 @@ export interface Venue {
    * Archived (soft-deleted) — VienTD-Review decision #11. Set by `DELETE
    * /api/venues` in place of a hard delete, guarded on future pending/confirmed
    * bookings; cleared via `updateVenue({ archived: false })` to restore. An
-   * archived venue still occupies the one-venue-per-account slot (see
-   * `Venue.ownerId`'s unique index) — the manage UI offers "Khôi phục", not a
-   * fresh setup, until this is cleared.
+   * archived venue stays a branch of its {@link Brand} — the manage UI offers
+   * "Khôi phục", not a fresh setup, until this is cleared.
    */
+  archived?: boolean
+}
+
+// ── Brand: the account-owned parent of one or more venues (branches) ──────────
+
+/**
+ * A venue operator's brand / system (thương hiệu) — the account-owned root that
+ * groups one or more {@link Venue} branches (chi nhánh). Each Clerk account owns
+ * at most one Brand (enforced by a unique index on `ownerId`); a Brand has many
+ * Venues, and each Venue is a single physical location under it. Ownerless demo
+ * seeds may be grouped under a demo Brand or have none.
+ */
+export interface Brand {
+  /** Stable id (e.g. "b1"). */
+  id: string
+  /** Clerk account that owns this brand — unique, one Brand per account. */
+  ownerId: string
+  name: string
+  initials: string
+  /** Optional brand logo URL (the UI falls back to initials). */
+  image?: string
+  /** Optional short description shown on the brand profile. */
+  description?: string
+  /** Archived (soft-deleted) brand — mirrors {@link Venue.archived}. */
   archived?: boolean
 }
 
@@ -789,7 +819,7 @@ export type AccountType = (typeof ACCOUNT_TYPES)[number]
 // ── Player skills assessment ─────────────────────────────────────────────────
 
 /** The sports a player can self-assess (the app's racquet sports). */
-export type AssessmentSport = Extract<SportKey, "badminton" | "pickleball">
+export type AssessmentSport = Extract<SportKey, "badminton">
 
 /** A player's computed result for one sport. */
 export interface SportAssessmentResult {
@@ -848,7 +878,9 @@ export interface Seed {
   stats: Stats
   activity: ActivityItem[]
   notifications: NotificationItem[]
-  /** Every venue the operator manages (profiles only — for the switcher/manager). */
+  /** The operator's brand (thương hiệu), or null for a player-only / unprovisioned account. */
+  brand: Brand | null
+  /** Every branch (chi nhánh) the operator manages (profiles only — for the switcher/manager). */
   venues: Venue[]
   /** Which venue {@link Seed.venue} is the bundle for. */
   activeVenueId: string

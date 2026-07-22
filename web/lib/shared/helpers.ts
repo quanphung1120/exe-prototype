@@ -903,7 +903,7 @@ export function courtDayEvents(
       kind: walkIn ? "walk-in" : "booked",
       customer: SCHED_NAMES[(h >>> 5) % SCHED_NAMES.length],
       sport,
-      party: sport === "pickleball" ? 4 : 2 + (h % 3),
+      party: 2 + (h % 3),
       past: isToday && cursor + dur <= now,
     })
     cursor += dur + (h % 4 === 0 ? 15 : 0) // occasional turnover buffer

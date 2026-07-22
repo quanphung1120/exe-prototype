@@ -14,11 +14,17 @@ import {
   ShieldCheck,
   Star,
   TriangleAlert,
+  X,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import {
+  validateDiscountCode,
+  type DiscountValidation,
+} from "@/features/play/payment-actions"
 import {
   COURT_OPEN_FROM,
   COURT_OPEN_TO,
@@ -100,6 +106,67 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * The order's price lines — subtotal, an optional discount (as a removable
+ * code chip) and the bold final total. Shared by the confirm and pay steps
+ * so a code applied on Pay still shows correctly if the player steps back.
+ */
+function PriceBreakdown({
+  subtotal,
+  finalTotal,
+  appliedDiscount,
+  onRemoveDiscount,
+  removable,
+  t,
+}: {
+  subtotal: number
+  finalTotal: number
+  appliedDiscount: DiscountValidation | null
+  onRemoveDiscount?: () => void
+  removable?: boolean
+  t: ReturnType<typeof useTranslations>
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">{t("pay.subtotal")}</span>
+        <span className="tabular-nums">{formatVndFull(subtotal)}</span>
+      </div>
+      {appliedDiscount ? (
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            {t("pay.discount")}
+            <Badge
+              variant="secondary"
+              className="gap-1 font-mono text-[10px] tracking-wide"
+            >
+              {appliedDiscount.code}
+              {removable && onRemoveDiscount ? (
+                <button
+                  type="button"
+                  onClick={onRemoveDiscount}
+                  aria-label={t("pay.removeDiscount")}
+                  className="-mr-0.5 ml-0.5 rounded-full hover:opacity-70"
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </Badge>
+          </span>
+          <span className="text-brand tabular-nums">
+            −{formatVndFull(appliedDiscount.discountAmount)}
+          </span>
+        </div>
+      ) : null}
+      <div className="h-px bg-border" />
+      <div className="flex items-center justify-between gap-3 text-lg font-semibold">
+        <span>{t("pay.amountDue")}</span>
+        <span className="tabular-nums">{formatVndFull(finalTotal)}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
  * The court-booking wizard, rendered as a full dashboard page (it used to live
  * in a small dialog, which left no room for the day calendar — especially on
  * phones). The flow/steps are unchanged; the pay step now hands off to a real
@@ -175,6 +242,49 @@ export function BookView() {
 
   // Free-form booking: a start + end time (any minute), priced pro-rata.
   const total = court ? priceFor(court.pricePerHour, draft.durationMin) : 0
+
+  // Discount code (mã giảm giá) — validated server-side against `total`
+  // before it's ever sent to checkout; applying it just narrates the
+  // resulting `finalAmount`/`discountAmount` here, the real deduction
+  // happens again on the server when `pay()` calls `startPaymentCheckout`.
+  const [discountInput, setDiscountInput] = React.useState("")
+  const [discountLoading, setDiscountLoading] = React.useState(false)
+  const [discountError, setDiscountError] = React.useState<string | null>(null)
+  const [appliedDiscount, setAppliedDiscount] =
+    React.useState<DiscountValidation | null>(null)
+  // The `total` a code was validated against — a changed total (duration
+  // edited, different court, …) can invalidate a code (min-order thresholds,
+  // different caps), so a stale basis is treated as "not applied" below
+  // rather than eagerly cleared from an effect.
+  const [discountBasis, setDiscountBasis] = React.useState<number | null>(null)
+
+  const applyDiscount = async () => {
+    const code = discountInput.trim().toUpperCase()
+    if (!code || discountLoading) return
+    setDiscountLoading(true)
+    setDiscountError(null)
+    const result = await validateDiscountCode(code, total)
+    setDiscountLoading(false)
+    if (!result.ok) {
+      setAppliedDiscount(null)
+      setDiscountBasis(null)
+      setDiscountError(result.message)
+      return
+    }
+    setAppliedDiscount(result.data)
+    setDiscountBasis(total)
+  }
+
+  const removeDiscount = () => {
+    setAppliedDiscount(null)
+    setDiscountBasis(null)
+    setDiscountInput("")
+    setDiscountError(null)
+  }
+
+  const activeDiscount =
+    appliedDiscount && discountBasis === total ? appliedDiscount : null
+  const finalTotal = activeDiscount ? activeDiscount.finalAmount : total
 
   const endTime = draft.slot ? addMinutes(draft.slot, draft.durationMin) : ""
   const setEnd = (end: string) => {
@@ -482,10 +592,12 @@ export function BookView() {
             <div className="h-px bg-border" />
 
             {/* Price */}
-            <div className="flex items-center justify-between gap-3 text-lg font-semibold">
-              <span>{t("pay.amountDue")}</span>
-              <span className="tabular-nums">{formatVndFull(total)}</span>
-            </div>
+            <PriceBreakdown
+              subtotal={total}
+              finalTotal={finalTotal}
+              appliedDiscount={activeDiscount}
+              t={t}
+            />
 
             {holdCountdown ? (
               <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -521,12 +633,13 @@ export function BookView() {
               </p>
             </div>
 
-            <div className="h-px bg-border" />
-
-            {/* Amount due */}
-            <div className="flex items-center justify-between gap-3 text-lg font-semibold">
-              <span>{t("pay.amountDue")}</span>
-              <span className="tabular-nums">{formatVndFull(total)}</span>
+            {/* Date + time slot */}
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-muted-foreground">{t("when")}</span>
+              <span className="text-right font-medium">
+                {locStr(dayLabelFor(draft.dayKey), locale)} ·{" "}
+                {slotRange(draft.slot, draft.durationMin)}
+              </span>
             </div>
 
             {holdCountdown ? (
@@ -535,6 +648,74 @@ export function BookView() {
                 {t("pay.holdCountdown", { time: holdCountdown })}
               </p>
             ) : null}
+
+            <div className="h-px bg-border" />
+
+            {/* Price breakdown */}
+            <PriceBreakdown
+              subtotal={total}
+              finalTotal={finalTotal}
+              appliedDiscount={activeDiscount}
+              onRemoveDiscount={removeDiscount}
+              removable
+              t={t}
+            />
+
+            {/* Discount code */}
+            <div className="flex flex-col gap-1.5">
+              <Label>{t("pay.discountLabel")}</Label>
+              {activeDiscount ? (
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-brand/8 px-3.5 py-2.5 ring-1 ring-brand/15">
+                  <p className="inline-flex items-center gap-1.5 text-sm text-brand">
+                    <Check className="size-4 shrink-0" />
+                    {activeDiscount.description}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <Input
+                      value={discountInput}
+                      onChange={(e) => {
+                        setDiscountInput(e.target.value.toUpperCase())
+                        setDiscountError(null)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          void applyDiscount()
+                        }
+                      }}
+                      placeholder={t("pay.discountPlaceholder")}
+                      aria-label={t("pay.discountLabel")}
+                      disabled={paying || discountLoading}
+                      className="h-9 flex-1 font-mono tracking-wider uppercase"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-9 shrink-0 rounded-full"
+                      disabled={
+                        !discountInput.trim() || paying || discountLoading
+                      }
+                      onClick={() => void applyDiscount()}
+                    >
+                      {discountLoading ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        t("pay.applyDiscount")
+                      )}
+                    </Button>
+                  </div>
+                  {discountError ? (
+                    <p className="inline-flex items-center gap-1.5 text-xs font-medium text-destructive">
+                      <TriangleAlert className="size-3.5 shrink-0" />
+                      {discountError}
+                    </p>
+                  ) : null}
+                </>
+              )}
+            </div>
 
             <div className="h-px bg-border" />
 
@@ -584,7 +765,7 @@ export function BookView() {
           <Button
             className="h-11 rounded-full px-5 text-base"
             disabled={!canPay}
-            onClick={pay}
+            onClick={() => pay(activeDiscount?.code)}
           >
             {paying ? (
               <>
@@ -594,7 +775,9 @@ export function BookView() {
             ) : (
               <>
                 <Lock />
-                {t("pay.payNow", { amount: court ? formatVnd(total) : "" })}
+                {t("pay.payNow", {
+                  amount: court ? formatVnd(finalTotal) : "",
+                })}
               </>
             )}
           </Button>

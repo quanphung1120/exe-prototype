@@ -52,7 +52,7 @@ function makeVenue(overrides: Partial<Venue> = {}): Venue {
     initials: "QA",
     district: "Cầu Giấy",
     city: "Hà Nội",
-    sports: ["badminton", "pickleball"],
+    sports: ["badminton"],
     openFrom: "06:00",
     openTo: "22:00",
     rating: 4.6,
@@ -344,7 +344,13 @@ void test("computeVenueStats counts distinct app users + walk-in phones, minus c
 
 void test("computeRevenueSeries returns 7 days oldest → today, labeled by real weekday", () => {
   const series = computeRevenueSeries(
-    [makeReservation({ status: "confirmed", price: 180000, dayKey: TODAY_ISO })],
+    [
+      makeReservation({
+        status: "confirmed",
+        price: 180000,
+        dayKey: TODAY_ISO,
+      }),
+    ],
     TODAY_ISO
   )
   assert.equal(series.length, 7)
@@ -356,10 +362,30 @@ void test("computeRevenueSeries returns 7 days oldest → today, labeled by real
 
 void test("computeRevenueSeries only counts confirmed/completed revenue on their real day", () => {
   const reservations = [
-    makeReservation({ id: "a", status: "confirmed", price: 100000, dayKey: TODAY_ISO }),
-    makeReservation({ id: "b", status: "completed", price: 50000, dayKey: TODAY_ISO }),
-    makeReservation({ id: "c", status: "pending", price: 999999, dayKey: TODAY_ISO }), // excluded
-    makeReservation({ id: "d", status: "cancelled", price: 999999, dayKey: TODAY_ISO }), // excluded
+    makeReservation({
+      id: "a",
+      status: "confirmed",
+      price: 100000,
+      dayKey: TODAY_ISO,
+    }),
+    makeReservation({
+      id: "b",
+      status: "completed",
+      price: 50000,
+      dayKey: TODAY_ISO,
+    }),
+    makeReservation({
+      id: "c",
+      status: "pending",
+      price: 999999,
+      dayKey: TODAY_ISO,
+    }), // excluded
+    makeReservation({
+      id: "d",
+      status: "cancelled",
+      price: 999999,
+      dayKey: TODAY_ISO,
+    }), // excluded
     makeReservation({
       id: "e",
       status: "confirmed",
@@ -373,19 +399,19 @@ void test("computeRevenueSeries only counts confirmed/completed revenue on their
 })
 
 void test("computeSportMix shares live bookings per sport and excludes cancelled", () => {
+  // Badminton is now the only sport, so the mix has a single entry; this still
+  // exercises that live bookings are counted per sport and cancelled ones excluded.
   const reservations = [
     makeReservation({ id: "a", sport: "badminton" }),
     makeReservation({ id: "b", sport: "badminton" }),
-    makeReservation({ id: "c", sport: "pickleball" }),
+    makeReservation({ id: "c", sport: "badminton" }),
     makeReservation({ id: "d", sport: "badminton", status: "cancelled" }),
   ]
   const mix = computeSportMix(reservations)
   const badminton = mix.find((m) => m.sport === "badminton")
-  const pickleball = mix.find((m) => m.sport === "pickleball")
-  assert.equal(badminton?.bookings, 2)
-  assert.equal(badminton?.pct, 67)
-  assert.equal(pickleball?.bookings, 1)
-  assert.equal(pickleball?.pct, 33)
+  assert.equal(mix.length, 1)
+  assert.equal(badminton?.bookings, 3)
+  assert.equal(badminton?.pct, 100)
 })
 
 void test("computeSportMix is empty for a venue with no live bookings", () => {
@@ -419,9 +445,24 @@ void test("computeChannelMix excludes cancelled reservations from the split", ()
 void test("computePeakHours ranks the hour with more occupied courts higher, top 4", () => {
   const courts = [makeCourt({ id: "v9c1" }), makeCourt({ id: "v9c2" })]
   const reservations = [
-    makeReservation({ id: "a", courtId: "v9c1", start: "19:00", durationMin: 60 }),
-    makeReservation({ id: "b", courtId: "v9c2", start: "19:00", durationMin: 60 }),
-    makeReservation({ id: "c", courtId: "v9c1", start: "09:00", durationMin: 60 }),
+    makeReservation({
+      id: "a",
+      courtId: "v9c1",
+      start: "19:00",
+      durationMin: 60,
+    }),
+    makeReservation({
+      id: "b",
+      courtId: "v9c2",
+      start: "19:00",
+      durationMin: 60,
+    }),
+    makeReservation({
+      id: "c",
+      courtId: "v9c1",
+      start: "09:00",
+      durationMin: 60,
+    }),
   ]
   const peaks = computePeakHours(courts, reservations)
   assert.equal(peaks.length, 4)
@@ -490,7 +531,13 @@ void test("courtDayEvents still returns a real maintenance block when filler is 
 })
 
 void test("courtDayEvents fabricates filler by default (fillerEnabled defaults to true)", () => {
-  const events = courtDayEvents(makeVenue(), [makeCourt()], "v9c1", TODAY_ISO, TODAY_ISO)
+  const events = courtDayEvents(
+    makeVenue(),
+    [makeCourt()],
+    "v9c1",
+    TODAY_ISO,
+    TODAY_ISO
+  )
   assert.ok(events.length > 0)
 })
 

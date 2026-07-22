@@ -119,7 +119,6 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   const bio = tProfile("bio")
 
   const badminton = assessment?.results?.badminton
-  const pickleball = assessment?.results?.pickleball
 
   const reviewPool = REVIEW_POOL.filter((r) => r.initials !== USER.initials)
   const reviewSeed = USER.initials.split("").reduce((s, c) => s + c.charCodeAt(0), 0)
@@ -180,7 +179,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
               {tProfile("yourLevel")}
             </h4>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               {/* Badminton Level Card */}
               <div className="group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-chart-3/20 bg-chart-3/5 p-3.5">
                 <div className="absolute -right-3 -bottom-3 size-12 rounded-full bg-chart-3/10 blur-md transition-transform duration-300 group-hover:scale-125" />
@@ -200,29 +199,6 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
                   </p>
                   <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
                     {tProfile("points", { score: badminton ? badminton.score : 0 })}
-                  </p>
-                </div>
-              </div>
-
-              {/* Pickleball Level Card */}
-              <div className="group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-lime/30 bg-lime/10 p-3.5">
-                <div className="absolute -right-3 -bottom-3 size-12 rounded-full bg-lime/20 blur-md transition-transform duration-300 group-hover:scale-125" />
-                <div className="z-10 flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-lime" />
-                  <span className="font-mono text-[11px] font-semibold tracking-wider text-lime-foreground uppercase dark:text-lime">
-                    {tc("sports.pickleball")}
-                  </span>
-                </div>
-                <div className="z-10 mt-1">
-                  <p className="font-heading text-base leading-tight font-bold text-foreground">
-                    {pickleball ? (
-                      tAssessment(`pickleball.ranges.r${getRangeIndex("pickleball", pickleball.score)}`)
-                    ) : (
-                      tProfile("notAssessed")
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
-                    {tProfile("points", { score: pickleball ? pickleball.score : 0 })}
                   </p>
                 </div>
               </div>

@@ -46,7 +46,7 @@ function makeVenue(overrides: Partial<Venue> = {}): Venue {
     initials: "QA",
     district: "Cầu Giấy",
     city: "Hà Nội",
-    sports: ["badminton", "pickleball"],
+    sports: ["badminton"],
     openFrom: "06:00",
     openTo: "22:00",
     rating: 4.6,
@@ -296,7 +296,7 @@ void test("reservationFromBooking preserves the operator Reservation shape (id, 
     venueId: "v9",
     court: makeCourt({
       name: "Sân 3",
-      sport: "pickleball",
+      sport: "badminton",
       pricePerHour: 240000,
     }),
     dateKey: TODAY_ISO,
@@ -312,9 +312,9 @@ void test("reservationFromBooking preserves the operator Reservation shape (id, 
   const reservation = reservationFromBooking(record, TODAY_ISO)
   assert.equal(reservation.id, record.bookingId)
   assert.equal(reservation.court, "Sân 3")
-  assert.equal(reservation.sport, "pickleball")
+  assert.equal(reservation.sport, "badminton")
   assert.equal(reservation.time, "18:00 – 19:00")
-  assert.equal(reservation.party, 4) // pickleball
+  assert.equal(reservation.party, 2) // badminton bookings are always party of 2
   assert.equal(reservation.status, "pending")
   assert.equal(reservation.noShowRisk, 10) // app source
 })

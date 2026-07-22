@@ -47,9 +47,7 @@ export class SeedService {
         userId
           ? this.profiles.getProfile(userId)
           : Promise.resolve(this.profiles.defaultProfile()),
-        userId
-          ? this.sessions.listUserSessions(userId)
-          : Promise.resolve([]),
+        userId ? this.sessions.listUserSessions(userId) : Promise.resolve([]),
         userId
           ? this.assessment.getUserAssessment(userId)
           : Promise.resolve(null),
@@ -72,19 +70,23 @@ export class SeedService {
       ...demoSessions.filter((s) => !ownIds.has(s.id)),
     ]
 
-    // One venue per account: the caller's own venue, or none yet. When they have
-    // none, `venues` is empty (the web redirects to setup) and `venue` carries a
-    // structural fallback bundle that is never rendered before that redirect.
-    const myVenueId = userId ? await this.venues.myVenueId(userId) : null
-    const venue = myVenueId
-      ? await this.venues.venueBundle(myVenueId)
+    // The caller's brand and its branches (chi nhánh), or none yet. When they
+    // have none, `venues` is empty (the web redirects to setup) and `venue`
+    // carries a structural fallback bundle never rendered before that redirect.
+    // `activeVenueId` defaults to the first branch; the web overrides it from the
+    // `/dashboard/venue/[venueId]` URL segment.
+    const { brand, venues } = userId
+      ? await this.venues.myWorkspace(userId)
+      : { brand: null, venues: [] }
+    const activeVenueId = venues[0]?.id ?? null
+    const venue = activeVenueId
+      ? await this.venues.venueBundle(activeVenueId)
       : await this.venues.activeBundle()
-    const venues = myVenueId ? [venue.info] : []
 
     const accountType = resolveAccountType(
       profile.accountType,
       assessment !== null,
-      myVenueId !== null
+      venues.length > 0
     )
 
     return {
@@ -99,8 +101,9 @@ export class SeedService {
       stats: profile.stats,
       activity: profile.activity,
       notifications: profile.notifications,
+      brand,
       venues,
-      activeVenueId: myVenueId ?? "",
+      activeVenueId: activeVenueId ?? "",
       venue,
       assessment,
       accountType,

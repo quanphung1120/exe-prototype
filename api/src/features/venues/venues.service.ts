@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -27,6 +28,7 @@ import {
   type CourtBlockReason,
   type Reservation,
   type ReservationStatus,
+  type Brand,
   type SportKey,
   type Venue as VenueInfo,
   type VenueCourt,
@@ -37,6 +39,7 @@ import {
 import { emptyOps, INITIAL_VENUES, type VenueRecord } from "../../data/venue.js"
 import {
   isDuplicateKeyError,
+  isDuplicateKeyErrorOn,
   once,
   withVersionRetry,
 } from "../../common/mongo-util.js"
@@ -52,6 +55,7 @@ import {
   type WalkInReservationInput,
 } from "../bookings/bookings.service.js"
 import { roomChannelId, StreamService } from "../stream/stream.service.js"
+import { BrandsService } from "../brands/brands.service.js"
 import { Venue, type VenueDocument } from "./venue.schema.js"
 
 // ── Inputs ─────────────────────────────────────────────────────────────────
@@ -66,8 +70,10 @@ export interface VenueInput {
   openFrom: string
   openTo: string
   managerName: string
-  /** Clerk account provisioning this venue (setup wizard) — enforces one-per-account. */
+  /** Clerk account provisioning this venue (setup wizard) — denormalized brand owner. */
   ownerId?: string
+  /** The {@link Brand} this venue is a branch of (set by `provisionVenue`). */
+  brandId?: string
   /** Update-only: archive (decision #11) or `false` to restore. Never set at creation. */
   archived?: boolean
 }
@@ -151,12 +157,29 @@ export class VenuesService {
     private readonly notifications: NotificationsService,
     // Operator decline/cancel best-effort freezes the linked room's chat
     // (quyết định #13) — see updateReservationStatus.
-    @Inject(StreamService) private readonly stream: StreamService
+    @Inject(StreamService) private readonly stream: StreamService,
+    // Provisioning a venue ensures the account's brand (its branches' parent).
+    @Inject(BrandsService) private readonly brands: BrandsService
   ) {}
 
   // Memoize the one-time seed so concurrent first-requests don't each insert the
   // demo venues (which would collide on the unique `venueId` index).
   private readonly ensureSeeded = once(async () => {
+    // Reconcile the collection's indexes with the current schema before anything
+    // reads/writes by owner. This venue used to carry a UNIQUE index on `ownerId`
+    // (one venue per account); that constraint moved to `Brand.ownerId`, and a
+    // venue's `ownerId` is now a plain non-unique index (a brand owns many
+    // branches). Deleting the `unique` index line from the schema does NOT drop
+    // the index already built on an existing database, so without this a second
+    // branch's insert would still collide on the stale unique index. `syncIndexes`
+    // drops indexes no longer in the schema and builds the current set; swallow
+    // failures (e.g. missing privileges) so a read never 500s over indexing.
+    try {
+      await this.venueModel.syncIndexes()
+    } catch (err) {
+      this.logger.warn(`Venue index sync skipped: ${String(err)}`)
+    }
+
     if ((await this.venueModel.countDocuments()) > 0) return
     try {
       await this.venueModel.insertMany(
@@ -293,16 +316,58 @@ export class VenuesService {
     return doc.info
   }
 
-  // ── Owner-scoped reads (one venue per account) ───────────────────────────────
+  // ── Owner-scoped reads (an account's brand may own many branches) ────────────
 
-  /** The venueId this account owns, or null when it hasn't provisioned one yet. */
+  /**
+   * The account's default (first) branch id, or null when it has provisioned
+   * none. Insertion order = branch order, so this is the account's flagship.
+   */
   async myVenueId(userId: string): Promise<string | null> {
     await this.ensureSeeded()
     const doc = await this.venueModel
       .findOne({ ownerId: userId })
+      .sort(ORDER)
       .select("venueId")
       .lean<VenueDocument>()
     return doc?.venueId ?? null
+  }
+
+  /** Every branch this account owns (profiles only) — for the switcher/manager. */
+  async myBranches(userId: string): Promise<VenueInfo[]> {
+    await this.ensureSeeded()
+    const docs = await this.venueModel
+      .find({ ownerId: userId })
+      .sort(ORDER)
+      .lean<VenueDocument[]>()
+    return docs.map((d) => d.info)
+  }
+
+  /** The account's brand plus its branches — the operator workspace header. */
+  async myWorkspace(
+    userId: string
+  ): Promise<{ brand: Brand | null; venues: VenueInfo[] }> {
+    const [brand, venues] = await Promise.all([
+      this.brands.myBrand(userId),
+      this.myBranches(userId),
+    ])
+    return { brand, venues }
+  }
+
+  /**
+   * Assert `userId` owns `venueId` (a branch of their brand): 404 when the
+   * venue is unknown, 403 when it belongs to another account. The guard behind
+   * every branch-scoped read/mutation now that the path carries the venue id.
+   */
+  async assertOwnsVenue(userId: string, venueId: string): Promise<void> {
+    await this.ensureSeeded()
+    const doc = await this.venueModel
+      .findOne({ venueId })
+      .select("ownerId")
+      .lean<VenueDocument>()
+    if (!doc) throw new NotFoundException("Venue not found")
+    if (doc.ownerId !== userId) {
+      throw new ForbiddenException("You do not manage this venue")
+    }
   }
 
   /** The caller's own venue profile; throws NotFound → the web shows setup. */
@@ -357,12 +422,15 @@ export class VenuesService {
     if (toMinutes(input.openFrom) >= toMinutes(input.openTo)) {
       throw new BadRequestException("openFrom must be before openTo")
     }
-    // Two concurrent creates can compute the same `v<n>` id; the unique index
-    // rejects the loser. Recompute and retry a few times rather than 500.
+    // Two concurrent creates can compute the same `v<n>` id; the unique `venueId`
+    // index rejects the loser. Recompute and retry a few times rather than 500 —
+    // but only for a `venueId` collision: a duplicate on any other index means a
+    // constraint a fresh id can't satisfy, so surface it instead of looping.
     for (let attempt = 1; ; attempt++) {
       const ids = await this.venueModel.distinct("venueId")
       const info: VenueInfo = {
         id: `v${maxSeq(ids, "v") + 1}`,
+        brandId: input.brandId,
         name: input.name,
         initials: initialsOf(input.name),
         image: input.image,
@@ -389,7 +457,7 @@ export class VenuesService {
         })
         return info
       } catch (err) {
-        if (isDuplicateKeyError(err) && attempt < 5) continue
+        if (isDuplicateKeyErrorOn(err, "venueId") && attempt < 5) continue
         throw err
       }
     }
@@ -455,12 +523,12 @@ export class VenuesService {
   }
 
   /**
-   * Archive (soft-delete) the caller's venue — `DELETE /api/venues` (decision
+   * Archive (soft-delete) one branch — `DELETE /api/venues/:venueId` (decision
    * #11), replacing a hard delete. Guarded on a future pending/confirmed
    * booking anywhere in the venue; idempotent on an already-archived venue.
-   * Restore via `updateVenue({ archived: false })`. The venue keeps occupying
-   * its account's one-venue slot while archived (see `Venue.ownerId`'s unique
-   * index) — the manage UI offers "Khôi phục", not a fresh setup.
+   * Restore via `updateVenue({ archived: false })`. An archived branch stays
+   * under its brand and keeps appearing in the switcher — the manage UI offers
+   * "Khôi phục", not a fresh setup.
    */
   async archiveVenue(id: string): Promise<void> {
     await this.ensureSeeded()
@@ -476,19 +544,28 @@ export class VenuesService {
   }
 
   /**
-   * Provision the account's single venue from the setup wizard: create the venue
-   * (owned by `userId`, enforced one-per-account), add each court, and seed the
-   * account's player profile so it has a bookable identity from day one.
+   * Provision a venue branch from the setup wizard: ensure the account's brand
+   * (created from this branch's profile on the first call, reused after), create
+   * the venue under it (owned by `userId`, brand denormalized onto the venue),
+   * add each court, and seed the account's player profile so it has a bookable
+   * identity from day one. No longer one-per-account — an account's brand may
+   * hold many branches.
    */
   async provisionVenue(
     userId: string,
     input: VenueSetupInput
   ): Promise<VenueSeed> {
     await this.ensureSeeded()
-    if (await this.myVenueId(userId)) {
-      throw new ConflictException("This account already has a venue")
-    }
-    const info = await this.createVenue({ ...input, ownerId: userId })
+    const brand = await this.brands.ensureBrand(userId, {
+      name: input.name,
+      image: input.image,
+      description: input.description,
+    })
+    const info = await this.createVenue({
+      ...input,
+      ownerId: userId,
+      brandId: brand.id,
+    })
     for (const court of input.courts) {
       await this.addCourt(info.id, court)
     }

@@ -15,6 +15,19 @@ export function isDuplicateKeyError(err: unknown): boolean {
 }
 
 /**
+ * A duplicate-key error (11000) whose offending index covers `field`. Lets a
+ * retry loop that only knows how to resolve one kind of collision (e.g. recompute
+ * a `v<n>` id after a `venueId` race) act *only* on that index, and surface any
+ * other unique-constraint violation instead of looping on it forever.
+ */
+export function isDuplicateKeyErrorOn(err: unknown, field: string): boolean {
+  if (!isDuplicateKeyError(err)) return false
+  const keyPattern = (err as { keyPattern?: Record<string, unknown> })
+    .keyPattern
+  return keyPattern != null && field in keyPattern
+}
+
+/**
  * Memoize a one-shot async task (e.g. seed-on-empty) so concurrent first callers
  * share a single in-flight run — but *don't* cache a rejection. If the task
  * throws (a transient Mongo blip during the first request), the memo is cleared

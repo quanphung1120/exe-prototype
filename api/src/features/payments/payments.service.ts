@@ -16,9 +16,14 @@ import { vnNowIso } from "../../shared/index.js"
 
 import { Booking, type BookingDocument } from "../bookings/booking.schema.js"
 import { BookingsService } from "../bookings/bookings.service.js"
+import { DiscountsService } from "../discounts/discounts.service.js"
 import { NotificationsService } from "../notifications/notifications.service.js"
 import { Venue, type VenueDocument } from "../venues/venue.schema.js"
-import { Payment, type PaymentDocument, type PaymentRecordStatus } from "./payment.schema.js"
+import {
+  Payment,
+  type PaymentDocument,
+  type PaymentRecordStatus,
+} from "./payment.schema.js"
 import {
   SEPAY_CLIENT,
   type SepayClientPort,
@@ -35,6 +40,12 @@ export interface PaymentSummary {
   status: PaymentRecordStatus
   checkoutUrl?: string
   paidAt?: string
+  /** The booking's undiscounted price — only present when a code was applied. */
+  originalAmount?: number
+  /** The mã giảm giá applied at checkout, if any. */
+  discountCode?: string
+  /** VND amount the code knocked off `originalAmount` to reach `amount`. */
+  discountAmount?: number
 }
 
 /** `POST /api/payments/checkout` response — the summary plus the signed form to submit. */
@@ -53,6 +64,9 @@ function toPaymentSummary(doc: Payment): PaymentSummary {
     status: doc.status,
     checkoutUrl: doc.checkoutUrl,
     paidAt: doc.paidAt,
+    originalAmount: doc.originalAmount,
+    discountCode: doc.discountCode,
+    discountAmount: doc.discountAmount,
   }
 }
 
@@ -88,6 +102,7 @@ export class PaymentsService {
     @Inject(BookingsService) private readonly bookings: BookingsService,
     @Inject(NotificationsService)
     private readonly notifications: NotificationsService,
+    @Inject(DiscountsService) private readonly discounts: DiscountsService,
     // Explicit token (not just the TS type) since esbuild-based runners like
     // tsx don't emit the design:paramtypes metadata implicit constructor
     // injection would otherwise rely on — see the same note on
@@ -102,11 +117,23 @@ export class PaymentsService {
   /**
    * Start (or resume) a SePay checkout for the caller's own `awaiting_payment`
    * hold — `POST /api/payments/checkout`. Charges 100% of the booking price
-   * (decision #3, no deposit model). Re-POSTing for the same booking before
-   * it's paid reuses the same `Payment` doc/invoice (the upsert below is keyed
-   * on `bookingId`) instead of opening a second order.
+   * (decision #3, no deposit model), minus any `discountCode` — re-validated
+   * here against `booking.price` with the exact same rules
+   * `DiscountsService#validate` enforces (an invalid/expired/exhausted code
+   * throws rather than being silently ignored). Re-POSTing for the same
+   * booking before it's paid reuses the same `Payment` doc/invoice (the
+   * upsert below is keyed on `bookingId`) instead of opening a second order —
+   * that resume path deliberately keeps the amounts/discount stored on the
+   * first call: the upsert's `$setOnInsert` only takes effect on the initial
+   * insert, so a different `discountCode` sent on a resume is ignored rather
+   * than re-priced (simplest correct behavior — the hold's price was already
+   * quoted to the player once).
    */
-  async checkout(userId: string, bookingId: string): Promise<CheckoutResult> {
+  async checkout(
+    userId: string,
+    bookingId: string,
+    discountCode?: string
+  ): Promise<CheckoutResult> {
     const booking = await this.bookingModel
       .findOne({ bookingId })
       .select("venueId userId status price courtName")
@@ -127,6 +154,10 @@ export class PaymentsService {
       )
     }
 
+    const discount = discountCode
+      ? await this.discounts.validate(discountCode, booking.price)
+      : null
+
     const payment = await this.paymentModel.findOneAndUpdate(
       { bookingId },
       {
@@ -135,9 +166,16 @@ export class PaymentsService {
           bookingId,
           venueId: booking.venueId,
           userId,
-          amount: booking.price,
+          amount: discount ? discount.finalAmount : booking.price,
           currency: "VND",
           status: "awaiting",
+          ...(discount
+            ? {
+                originalAmount: booking.price,
+                discountCode: discount.code,
+                discountAmount: discount.discountAmount,
+              }
+            : {}),
         },
       },
       { upsert: true, new: true }
@@ -178,9 +216,8 @@ export class PaymentsService {
     if (payment.status !== "awaiting") return toPaymentSummary(payment)
 
     try {
-      const remote = (await this.sepay.retrieveOrder(
-        payment.invoiceNumber
-      )) as RemoteOrder | undefined
+      const remote = (await this.sepay.retrieveOrder(payment.invoiceNumber)) as
+        RemoteOrder | undefined
       if (remote && PAID_REMOTE_STATUSES.has(remote.order_status ?? "")) {
         const paid = await this.markPaid(payment.invoiceNumber, remote)
         if (paid) return toPaymentSummary(paid)
@@ -249,18 +286,32 @@ export class PaymentsService {
     )
     if (!updated) return null
 
+    // Only bump usedCount once the payment actually settles — not at
+    // checkout — so an abandoned/expired checkout never burns a redemption.
+    if (updated.discountCode) {
+      await this.discounts
+        .applyUsage(updated.discountCode)
+        .catch((err: unknown) => {
+          this.logger.warn(
+            `Failed to record discount usage for ${updated.discountCode} (booking ${updated.bookingId}): ${String(err)}`
+          )
+        })
+    }
+
     const bookingDoc = await this.bookings.confirmPayment(updated.bookingId)
     // Only ping the venue when the payment actually produced a booking awaiting
     // their decision. A payment that landed after the hold expired confirms to
     // nobody — `confirmPayment` refunds it instead of moving it to `pending` —
     // so notifying the venue of an "approvable" booking would be misleading.
     if (bookingDoc?.status === "pending") {
-      await this.notifyVenue(bookingDoc.venueId, updated.bookingId).catch((err: unknown) => {
-        // A notification failure must never undo a real payment — log and move on.
-        this.logger.warn(
-          `Failed to notify venue ${bookingDoc.venueId} of paid booking ${updated.bookingId}: ${String(err)}`
-        )
-      })
+      await this.notifyVenue(bookingDoc.venueId, updated.bookingId).catch(
+        (err: unknown) => {
+          // A notification failure must never undo a real payment — log and move on.
+          this.logger.warn(
+            `Failed to notify venue ${bookingDoc.venueId} of paid booking ${updated.bookingId}: ${String(err)}`
+          )
+        }
+      )
     }
     return updated
   }

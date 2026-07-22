@@ -69,7 +69,10 @@ export class ProfileService {
   }
 
   /** Set the user's self-declared account type, seeding their profile first if needed. */
-  async setAccountType(userId: string, accountType: AccountType): Promise<void> {
+  async setAccountType(
+    userId: string,
+    accountType: AccountType
+  ): Promise<void> {
     await this.getProfile(userId)
     await this.profileModel.updateOne({ userId }, { $set: { accountType } })
   }

@@ -70,7 +70,7 @@ See `.env.example` for the full list with comments.
 Checkout (`POST /api/payments/checkout`) works against `pgapi-sandbox.sepay.vn`
 with just `SEPAY_ENV=sandbox` and sandbox credentials from
 [my.sepay.vn](https://my.sepay.vn) (Payment Gateway → Configuration) — no
-tunnel needed to *start* a payment.
+tunnel needed to _start_ a payment.
 
 The **IPN** (`POST /api/payments/ipn`), SePay's server-to-server payment
 notification, is the one leg that needs a publicly reachable URL. To exercise
@@ -90,17 +90,17 @@ the HMAC verification and checkout/IPN/reconciliation logic against a fake
 
 ## Routes
 
-| Method            | Path                                             |
-| ----------------- | ------------------------------------------------ |
-| GET               | `/health` (open)                                 |
-| GET               | `/api/seed`                                      |
-| GET               | `/api/courts`, `/api/courts/:id`                 |
-| GET               | `/api/me` `/players` `/rooms` `/bookings` `/chats` `/chats/thread` `/activity` `/notifications` |
-| GET/PUT/DELETE    | `/api/sessions`, `/api/sessions/:id`             |
-| GET/PUT           | `/api/assessment`                                |
-| GET/POST/PUT/DEL  | `/api/venues` (+ `/:id`, `/:id/courts`, `/:id/reservations/*`, `/:id/customers`) |
-| GET               | `/api/venue/{bundle,courts,reservations,customers,analytics,insights}` |
-| POST              | `/api/bookings`, `/api/bookings/:id/{cancel,decision,check-in,no-show}` |
-| GET               | `/api/bookings/mine`                             |
-| POST              | `/api/payments/checkout`, `/api/payments/ipn` (open — HMAC-verified) |
-| GET               | `/api/payments/by-booking/:id`                   |
+| Method           | Path                                                                                            |
+| ---------------- | ----------------------------------------------------------------------------------------------- |
+| GET              | `/health` (open)                                                                                |
+| GET              | `/api/seed`                                                                                     |
+| GET              | `/api/courts`, `/api/courts/:id`                                                                |
+| GET              | `/api/me` `/players` `/rooms` `/bookings` `/chats` `/chats/thread` `/activity` `/notifications` |
+| GET/PUT/DELETE   | `/api/sessions`, `/api/sessions/:id`                                                            |
+| GET/PUT          | `/api/assessment`                                                                               |
+| GET/POST/PUT/DEL | `/api/venues` (+ `/:id`, `/:id/courts`, `/:id/reservations/*`, `/:id/customers`)                |
+| GET              | `/api/venue/{bundle,courts,reservations,customers,analytics,insights}`                          |
+| POST             | `/api/bookings`, `/api/bookings/:id/{cancel,decision,check-in,no-show}`                         |
+| GET              | `/api/bookings/mine`                                                                            |
+| POST             | `/api/payments/checkout`, `/api/payments/ipn` (open — HMAC-verified)                            |
+| GET              | `/api/payments/by-booking/:id`                                                                  |

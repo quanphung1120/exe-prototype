@@ -32,7 +32,8 @@ export class Profile {
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) streak: Streak
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) stats: Stats
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) rooms: MatchRoom[]
-  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) bookings: Booking[]
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true })
+  bookings: Booking[]
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })
   activity: ActivityItem[]
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })

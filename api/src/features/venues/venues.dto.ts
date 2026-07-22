@@ -21,7 +21,7 @@ import {
 import { COURT_BLOCK_REASONS } from "../../shared/index.js"
 import type { CourtBlockReason, SportKey } from "../../shared/index.js"
 
-const SPORTS = ["pickleball", "badminton"] as const
+const SPORTS = ["badminton"] as const
 const COURT_STATES = [
   "available",
   "in-play",
@@ -216,47 +216,41 @@ export class CourtBlockInputDto {
   note?: string
 }
 
-export class BlockIdParamDto {
+// Branch-scoped params: the venue (branch) id is carried in the path now that
+// an account's brand may own many venues (chi nhánh), plus the nested resource
+// id where the route targets one.
+export class VenueIdParamDto {
+  @IsString()
+  @IsNotEmpty()
+  venueId: string
+}
+
+export class VenueCourtParamDto {
+  @IsString()
+  @IsNotEmpty()
+  venueId: string
+
+  @IsString()
+  @IsNotEmpty()
+  courtId: string
+}
+
+export class VenueReservationParamDto {
+  @IsString()
+  @IsNotEmpty()
+  venueId: string
+
+  @IsString()
+  @IsNotEmpty()
+  reservationId: string
+}
+
+export class VenueBlockParamDto {
+  @IsString()
+  @IsNotEmpty()
+  venueId: string
+
   @IsString()
   @IsNotEmpty()
   blockId: string
-}
-
-export class IdParamDto {
-  @IsString()
-  @IsNotEmpty()
-  id: string
-}
-
-export class CourtParamDto {
-  @IsString()
-  @IsNotEmpty()
-  id: string
-
-  @IsString()
-  @IsNotEmpty()
-  courtId: string
-}
-
-export class ReservationParamDto {
-  @IsString()
-  @IsNotEmpty()
-  id: string
-
-  @IsString()
-  @IsNotEmpty()
-  reservationId: string
-}
-
-// Owner-scoped params (the venue is resolved from the caller, not the path).
-export class CourtIdParamDto {
-  @IsString()
-  @IsNotEmpty()
-  courtId: string
-}
-
-export class ReservationIdParamDto {
-  @IsString()
-  @IsNotEmpty()
-  reservationId: string
 }

@@ -91,9 +91,9 @@ export function SetupWizard() {
   const submit = async () => {
     setSubmitting(true)
     try {
-      await provisionVenue({ ...venue, courts })
+      const venueId = await provisionVenue({ ...venue, courts })
       toast.success(t("toast.done", { name: venue.name }))
-      router.replace("/dashboard/venue")
+      router.replace(`/dashboard/venue/${venueId}`)
       router.refresh()
     } catch (e) {
       setSubmitting(false)

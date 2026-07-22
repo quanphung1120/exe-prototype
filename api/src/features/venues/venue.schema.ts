@@ -17,9 +17,14 @@ import type { VenueOps } from "../../data/venue.js"
 export class Venue {
   @Prop({ type: String, required: true, unique: true, index: true })
   venueId: string
-  // Clerk account that owns this venue. Sparse so the ownerless demo seeds don't
-  // collide; unique so each account holds at most one venue (see index below).
-  @Prop({ type: String }) ownerId?: string
+  // Clerk account that owns this venue's brand, denormalized from
+  // Brand.ownerId so booking/notification auth needs no brand join. No longer
+  // unique — an account's brand may own many venue branches; the one-per-account
+  // constraint now lives on Brand.ownerId. Indexed (non-unique) for owner reads.
+  @Prop({ type: String, index: true }) ownerId?: string
+  // The brand (chi nhánh's parent) this venue belongs to; absent on ownerless
+  // demo seeds. Indexed for brand-scoped branch listing.
+  @Prop({ type: String, index: true }) brandId?: string
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) info: VenueInfo
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) ops: VenueOps
   // Monotonic high-water court-id counter. Persisted so ids are never reused
@@ -36,6 +41,3 @@ export class Venue {
 
 export type VenueDocument = HydratedDocument<Venue>
 export const VenueSchema = SchemaFactory.createForClass(Venue)
-// One venue per account: unique on ownerId but sparse, so the many ownerless
-// demo venues (ownerId absent) are exempt and only real owners are constrained.
-VenueSchema.index({ ownerId: 1 }, { unique: true, sparse: true })

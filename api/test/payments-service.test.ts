@@ -20,6 +20,7 @@ import {
 } from "../src/features/payments/sepay.client.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
+import { DiscountsService } from "../src/features/discounts/discounts.service.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 
@@ -57,6 +58,9 @@ interface FakePaymentDoc {
   status: "awaiting" | "paid" | "cancelled"
   checkoutUrl?: string
   paidAt?: string
+  originalAmount?: number
+  discountCode?: string
+  discountAmount?: number
   ipnPayload?: unknown
   save: () => Promise<void>
 }
@@ -132,6 +136,19 @@ interface Deps {
   remoteOrder?: { order_status?: string }
   validSignature?: boolean
   seedPayments?: FakePaymentDoc[]
+  /** Stubs `DiscountsService#validate` — throw to simulate an invalid code. */
+  discountValidate?: (
+    code: string,
+    amount: number
+  ) => {
+    valid: true
+    code: string
+    type: "percent" | "fixed"
+    value: number
+    description: string
+    discountAmount: number
+    finalAmount: number
+  }
 }
 
 function makeService(deps: Deps = {}) {
@@ -191,6 +208,19 @@ function makeService(deps: Deps = {}) {
   const configMock = {
     getOrThrow: () => "http://localhost:3000/dashboard/bookings",
   }
+  const applyUsageCalls: string[] = []
+  const discountsMock = {
+    validate: (code: string, amount: number) => {
+      if (deps.discountValidate) {
+        return Promise.resolve(deps.discountValidate(code, amount))
+      }
+      return Promise.reject(new Error(`no discountValidate stub for ${code}`))
+    },
+    applyUsage: (code: string) => {
+      applyUsageCalls.push(code)
+      return Promise.resolve()
+    },
+  }
 
   return Test.createTestingModule({
     providers: [
@@ -201,6 +231,7 @@ function makeService(deps: Deps = {}) {
       { provide: SEPAY_CLIENT, useValue: sepayMock },
       { provide: BookingsService, useValue: bookingsServiceMock },
       { provide: NotificationsService, useValue: notificationsMock },
+      { provide: DiscountsService, useValue: discountsMock },
       { provide: ConfigService, useValue: configMock },
     ],
   })
@@ -211,6 +242,7 @@ function makeService(deps: Deps = {}) {
       notifications,
       cancelCalls,
       confirmPaymentCalls,
+      applyUsageCalls,
     }))
 }
 
@@ -285,6 +317,36 @@ void test("checkout rejects re-checkout once the booking is already paid", async
   )
 })
 
+void test("checkout with a valid discountCode charges the discounted amount and persists it", async () => {
+  const { service, store } = await makeService({
+    discountValidate: (code, amount) => ({
+      valid: true,
+      code,
+      type: "percent",
+      value: 10,
+      description: "Giảm 10%",
+      discountAmount: 20_000,
+      finalAmount: amount - 20_000,
+    }),
+  })
+  const result = await service.checkout("user-1", "b1", "giam10")
+
+  assert.equal(result.payment.amount, 180_000)
+  assert.equal(result.payment.originalAmount, 200_000)
+  assert.equal(result.payment.discountCode, "giam10")
+  assert.equal(result.payment.discountAmount, 20_000)
+  assert.equal(store.get("b1")?.amount, 180_000)
+})
+
+void test("checkout re-throws when the discountCode fails validation instead of silently ignoring it", async () => {
+  const { service } = await makeService({
+    discountValidate: () => {
+      throw new ConflictException("Mã giảm giá đã hết hạn")
+    },
+  })
+  await assert.rejects(() => service.checkout("user-1", "b1", "hethan"))
+})
+
 // ── IPN ──────────────────────────────────────────────────────────────────────
 
 void test("handleIpn marks the payment paid, confirms the booking, and notifies the venue", async () => {
@@ -315,6 +377,34 @@ void test("handleIpn marks the payment paid, confirms the booking, and notifies 
   assert.deepEqual(confirmPaymentCalls, ["b1"])
   assert.equal(notifications.length, 1)
   assert.equal(notifications[0]?.userId, "owner-1")
+})
+
+void test("handleIpn increments the discount's usedCount only once the payment settles", async () => {
+  const { service, store, applyUsageCalls } = await makeService({
+    seedPayments: [
+      {
+        invoiceNumber: "b1",
+        bookingId: "b1",
+        venueId: "v9",
+        userId: "user-1",
+        amount: 180_000,
+        currency: "VND",
+        status: "awaiting",
+        originalAmount: 200_000,
+        discountCode: "GIAM10",
+        discountAmount: 20_000,
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+
+  await service.handleIpn(Buffer.from(ipnBody("b1")), {
+    "x-sepay-signature": "sha256=irrelevant-in-this-fake",
+    "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+  })
+
+  assert.equal(store.get("b1")?.status, "paid")
+  assert.deepEqual(applyUsageCalls, ["GIAM10"])
 })
 
 void test("handleIpn rejects an invalid signature and touches nothing", async () => {
