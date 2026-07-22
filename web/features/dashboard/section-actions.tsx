@@ -12,6 +12,7 @@ import {
   venueBase,
   type VenueSectionKey,
 } from "@/features/venue/nav"
+import type { AdminSectionKey } from "@/features/admin/nav"
 import {
   venueIdFromPath,
   type Workspace,
@@ -100,6 +101,13 @@ const PLAYER_ACTIONS: Partial<Record<SectionKey, ComponentType>> = {
 
 const VENUE_ACTIONS: Partial<Record<VenueSectionKey, ComponentType>> = {}
 
+// The admin workspace is read-mostly (its mutations live inline in each
+// table, not as a topbar CTA) — every section renders no extra action.
+const ADMIN_ACTIONS: Partial<Record<AdminSectionKey, ComponentType>> = {}
+function NoAction() {
+  return null
+}
+
 /** Render the active section's topbar actions for the given workspace. */
 export function SectionActions({
   workspace,
@@ -108,6 +116,10 @@ export function SectionActions({
   workspace: Workspace
   sectionKey: string
 }) {
+  if (workspace === "admin") {
+    const Action = ADMIN_ACTIONS[sectionKey as AdminSectionKey] ?? NoAction
+    return <Action />
+  }
   if (workspace === "venue") {
     const Action =
       VENUE_ACTIONS[sectionKey as VenueSectionKey] ?? VenueNewBookingAction

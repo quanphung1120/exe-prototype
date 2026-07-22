@@ -42,6 +42,12 @@ export class BrandsService {
     return doc?.info ?? null
   }
 
+  /** Every brand in the system — the admin venues/brands view (admin feature). */
+  async listAll(): Promise<BrandInfo[]> {
+    const docs = await this.brandModel.find().lean<BrandDocument[]>()
+    return docs.map((d) => d.info)
+  }
+
   /** The brandId this account owns, or null. */
   async myBrandId(userId: string): Promise<string | null> {
     const doc = await this.brandModel

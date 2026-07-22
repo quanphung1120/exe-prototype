@@ -31,6 +31,7 @@ import {
   type Brand,
   type SportKey,
   type Venue as VenueInfo,
+  type VenueApprovalStatus,
   type VenueCourt,
   type VenueCustomer,
   type VenueSeed,
@@ -56,7 +57,7 @@ import {
 } from "../bookings/bookings.service.js"
 import { roomChannelId, StreamService } from "../stream/stream.service.js"
 import { BrandsService } from "../brands/brands.service.js"
-import { Venue, type VenueDocument } from "./venue.schema.js"
+import { effectiveApproval, Venue, type VenueDocument } from "./venue.schema.js"
 
 // ── Inputs ─────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,14 @@ function asReservationStatus(
   status: BookingRecordStatus
 ): Exclude<ReservationStatus, "held"> | null {
   return status === "awaiting_payment" || status === "expired" ? null : status
+}
+
+/** Merge a doc's resolved approval status onto the VenueInfo served to the web. */
+function withApproval(
+  info: VenueInfo,
+  doc: { approval?: VenueApprovalStatus }
+): VenueInfo {
+  return { ...info, approval: effectiveApproval(doc) }
 }
 
 /** Largest numeric suffix among ids shaped `${prefix}<n>` (0 when none match). */
@@ -206,7 +215,7 @@ export class VenuesService {
       .find()
       .sort(ORDER)
       .lean<VenueDocument[]>()
-    return docs.map((d) => ({ info: d.info, ops: d.ops }))
+    return docs.map((d) => ({ info: withApproval(d.info, d), ops: d.ops }))
   }
 
   private async firstRecord(): Promise<VenueRecord> {
@@ -215,7 +224,7 @@ export class VenuesService {
       .sort(ORDER)
       .lean<VenueDocument>()
     // The store is always seeded before this runs, so a venue always exists.
-    return { info: doc!.info, ops: doc!.ops }
+    return { info: withApproval(doc!.info, doc!), ops: doc!.ops }
   }
 
   // ── Reads ──────────────────────────────────────────────────────────────────
@@ -253,7 +262,7 @@ export class VenuesService {
     await this.ensureSeeded()
     const doc = id ? await this.findDoc(id).lean<VenueDocument>() : null
     const rec = doc
-      ? { info: doc.info, ops: doc.ops }
+      ? { info: withApproval(doc.info, doc), ops: doc.ops }
       : await this.firstRecord()
     return this.withComputedStats(await this.composeBundle(rec))
   }
@@ -267,7 +276,10 @@ export class VenuesService {
     const doc = await this.findDoc(id).lean<VenueDocument>()
     if (!doc) throw new NotFoundException("Venue not found")
     return this.withComputedStats(
-      await this.composeBundle({ info: doc.info, ops: doc.ops })
+      await this.composeBundle({
+        info: withApproval(doc.info, doc),
+        ops: doc.ops,
+      })
     )
   }
 
@@ -313,7 +325,7 @@ export class VenuesService {
     await this.ensureSeeded()
     const doc = await this.findDoc(id).lean<VenueDocument>()
     if (!doc) throw new NotFoundException("Venue not found")
-    return doc.info
+    return withApproval(doc.info, doc)
   }
 
   // ── Owner-scoped reads (an account's brand may own many branches) ────────────
@@ -339,7 +351,7 @@ export class VenuesService {
       .find({ ownerId: userId })
       .sort(ORDER)
       .lean<VenueDocument[]>()
-    return docs.map((d) => d.info)
+    return docs.map((d) => withApproval(d.info, d))
   }
 
   /** The account's brand plus its branches — the operator workspace header. */
@@ -393,13 +405,16 @@ export class VenuesService {
    * to its owning venue for the reservation cross-write. Archived venues/courts
    * (decision #11) are excluded — they're retired from discovery/new bookings,
    * but `findVenueByCourtId` (`BookingsService`) deliberately does NOT filter,
-   * so an existing booking still resolves back to its venue.
+   * so an existing booking still resolves back to its venue. A venue still
+   * `pending`/`rejected` admin approval is excluded too — it can't take
+   * bookings yet (`BookingsService#assertVenueApproved`), so surfacing it in
+   * discovery would only let a player walk the whole flow into that error.
    */
   async catalogCourts(sport?: SportKey): Promise<Court[]> {
     await this.ensureSeeded()
     const records = await this.loadRecords()
     const courts = records
-      .filter((rec) => !rec.info.archived)
+      .filter((rec) => !rec.info.archived && rec.info.approval === "approved")
       .flatMap((rec) =>
         rec.ops.courts
           .filter((court) => !court.archived)
@@ -454,8 +469,11 @@ export class VenuesService {
           ownerId: input.ownerId,
           info,
           ops: emptyOps([]),
+          // Every freshly provisioned venue starts pending admin review — the
+          // only caller of createVenue is provisionVenue (the setup wizard).
+          approval: "pending",
         })
-        return info
+        return withApproval(info, { approval: "pending" })
       } catch (err) {
         if (isDuplicateKeyErrorOn(err, "venueId") && attempt < 5) continue
         throw err
@@ -502,7 +520,7 @@ export class VenuesService {
       if (patch.archived !== undefined) next.archived = patch.archived
       doc.markModified("info")
       await doc.save()
-      return doc.info
+      return withApproval(doc.info, doc)
     })
   }
 
@@ -878,6 +896,42 @@ export class VenuesService {
       doc.markModified("ops")
       await doc.save()
       return customer
+    })
+  }
+
+  // ── Admin approval (admin feature — role-guarded at the controller) ─────────
+
+  /** Every venue still awaiting admin review, oldest-first. */
+  async listPendingApprovals(): Promise<VenueInfo[]> {
+    await this.ensureSeeded()
+    const docs = await this.venueModel
+      .find({ approval: "pending" })
+      .sort(ORDER)
+      .lean<VenueDocument[]>()
+    return docs.map((d) => withApproval(d.info, d))
+  }
+
+  /**
+   * Approve or reject a pending venue — an admin action, deliberately with no
+   * `assertOwnsVenue` check (an admin isn't the venue's owner). Approving
+   * unblocks the booking-creation gate in `BookingsService#assertSlotBookable`;
+   * rejecting leaves the venue visible to its operator (still not bookable)
+   * with `approvalReason` surfaced as the reason.
+   */
+  async setApproval(
+    id: string,
+    status: Exclude<VenueApprovalStatus, "pending">,
+    reason?: string
+  ): Promise<VenueInfo> {
+    await this.ensureSeeded()
+    return withVersionRetry(async () => {
+      const doc = await this.findDoc(id)
+      if (!doc) throw new NotFoundException("Venue not found")
+      doc.approval = status
+      doc.approvalReason = status === "rejected" ? reason : undefined
+      doc.approvedAt = vnNowIso()
+      await doc.save()
+      return withApproval(doc.info, doc)
     })
   }
 }

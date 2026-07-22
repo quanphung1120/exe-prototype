@@ -13,31 +13,14 @@ import type {
   VenueSeed,
 } from "@/lib/shared"
 
-import { apiFetch } from "@/lib/api"
+import { apiAction as api } from "@/lib/api"
 
 // Server actions for venue management. They run on the server (so the Hono API
 // base stays off the client) and call the API's CRUD routes, then revalidate
 // the relevant venue path so the server-rendered seed refetches.
-// apiFetch (lib/api.ts) carries the shared base URL, timeout and Clerk bearer
-// token, so writes hit the same host/port and auth as reads.
-
-// The API's onError maps every AppError to `{ error: message }` (see
-// CLAUDE.md § API auth); better-fetch surfaces that parsed body as
-// `BetterFetchError.error`, so unwrap it one level to get the message string.
-async function api<T>(
-  path: string,
-  init?: Parameters<typeof apiFetch>[1]
-): Promise<T> {
-  try {
-    return await apiFetch<T>(path, init)
-  } catch (err) {
-    const message =
-      err && typeof err === "object" && "error" in err
-        ? ((err as { error?: { error?: string } }).error?.error ?? undefined)
-        : undefined
-    throw new Error(message ?? "Request failed")
-  }
-}
+// apiAction (lib/api.ts) carries the shared base URL, timeout and Clerk bearer
+// token, and unwraps a non-2xx response into a plain `Error`, so writes hit
+// the same host/port and auth as reads and callers can just `catch` a message.
 
 export interface VenueInput {
   name: string

@@ -1,7 +1,10 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose"
 import { Schema as MongooseSchema, type HydratedDocument } from "mongoose"
 
-import type { Venue as VenueInfo } from "../../shared/index.js"
+import type {
+  Venue as VenueInfo,
+  VenueApprovalStatus,
+} from "../../shared/index.js"
 
 import type { VenueOps } from "../../data/venue.js"
 
@@ -37,7 +40,29 @@ export class Venue {
   // docs predate both this counter and `ops.blocks`; every read of the latter
   // defaults with `?? []` (see `VenuesService`).
   @Prop({ type: Number }) blockSeq?: number
+  // Manual admin approval gate. Missing on venues seeded before this field
+  // existed / hardcoded demo venues — every read treats an absent value as
+  // "approved" (see `withApproval`, venues.service.ts) rather than backfilling
+  // every existing document. Indexed for the admin approvals-queue query.
+  @Prop({ type: String, index: true }) approval?: VenueApprovalStatus
+  @Prop({ type: String }) approvalReason?: string
+  @Prop({ type: String }) approvedAt?: string
 }
 
 export type VenueDocument = HydratedDocument<Venue>
 export const VenueSchema = SchemaFactory.createForClass(Venue)
+
+/**
+ * A venue doc's resolved approval status, treating an absent value (venues
+ * seeded before this field existed, and the hardcoded `INITIAL_VENUES` demo
+ * seed) as `"approved"` rather than backfilling every existing document.
+ * Shared by `VenuesService` (approval-queue reads/writes) and
+ * `BookingsService` (the booking-creation gate) — lives here, not in either
+ * service, since those two already depend on each other and a helper on
+ * either side would be a circular import.
+ */
+export function effectiveApproval(doc: {
+  approval?: VenueApprovalStatus
+}): VenueApprovalStatus {
+  return doc.approval ?? "approved"
+}

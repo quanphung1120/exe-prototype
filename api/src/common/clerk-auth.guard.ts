@@ -10,7 +10,11 @@ import { verifyToken } from "@clerk/express"
 import type { Request } from "express"
 
 import { IS_PUBLIC_KEY } from "./public.decorator.js"
-import { setRequestUserId } from "./request-auth.js"
+import {
+  setRequestRole,
+  setRequestUserId,
+  type ClerkRole,
+} from "./request-auth.js"
 
 /**
  * Whether a `verifyToken` throw is the *caller's* fault (a bad token → 401)
@@ -43,6 +47,15 @@ function isInfraFailure(err: unknown): boolean {
  * token to `verifyToken` — no request/response mutation, no middleware to drive.
  * The secret key (read via ConfigService, so ConfigModule loads `.env` first)
  * lets `verifyToken` fetch and cache the instance JWKS.
+ *
+ * RBAC (basic-rbac, https://clerk.com/docs/guides/secure/basic-rbac): a role
+ * is granted purely in the Clerk dashboard (`publicMetadata.role`), never by
+ * this app. It only reaches the verified JWT payload because the Clerk
+ * dashboard's session-token customization (Sessions → Customize session
+ * token) adds `{ "metadata": "{{user.public_metadata}}" }` — without that
+ * claim, `payload.metadata` is simply absent and every caller is treated as
+ * roleless. `RolesGuard` (roles.guard.ts) reads the role stashed here to gate
+ * `@Roles("admin")` routes.
  */
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
@@ -74,15 +87,21 @@ export class ClerkAuthGuard implements CanActivate {
     // rethrown so AllExceptionsFilter logs it and returns 500 instead of masking
     // an outage as "everyone is signed out".
     let userId: string
+    let role: ClerkRole | undefined
     try {
       const payload = await verifyToken(token, { secretKey: this.secretKey })
       userId = payload.sub
+      // `metadata` only exists when the session-token customization above is
+      // configured — duck-typed (like `isInfraFailure`) since the JWT payload
+      // type carries no field for an app-defined custom claim.
+      role = (payload as { metadata?: { role?: ClerkRole } }).metadata?.role
     } catch (err) {
       if (isInfraFailure(err)) throw err
       throw new UnauthorizedException()
     }
 
     setRequestUserId(req, userId)
+    setRequestRole(req, role)
     return true
   }
 }

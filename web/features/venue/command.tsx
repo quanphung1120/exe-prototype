@@ -109,6 +109,25 @@ export function VenueCommandView() {
         </div>
       ) : null}
 
+      {/* ── Admin approval banner ─────────────────────────────────── */}
+      {VENUE.approval === "pending" || VENUE.approval === "rejected" ? (
+        <div className="flex flex-col gap-1 rounded-3xl bg-amber-500/10 px-4 py-3 ring-1 ring-amber-500/30">
+          <span className="inline-flex items-start gap-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            {VENUE.approval === "pending"
+              ? t("approvalBanner.pendingTitle")
+              : t("approvalBanner.rejectedTitle")}
+          </span>
+          <p className="pl-6 text-sm text-amber-700/90 dark:text-amber-400/90">
+            {VENUE.approval === "pending"
+              ? t("approvalBanner.pendingDescription")
+              : t("approvalBanner.rejectedDescription", {
+                  reason: VENUE.approvalReason ?? "—",
+                })}
+          </p>
+        </div>
+      ) : null}
+
       {/* ── KPI row ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <VenueStat

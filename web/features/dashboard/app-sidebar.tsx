@@ -8,6 +8,7 @@ import {
   Plus,
   Search,
   Settings,
+  ShieldCheck,
   UserCog,
   UserRound,
 } from "lucide-react"
@@ -71,6 +72,7 @@ export function AppSidebar() {
 
   const { workspace, ns, items, active, venueId } = navContext(pathname)
   const isVenue = workspace === "venue"
+  const isAdmin = workspace === "admin"
 
   // The active venue is derived from the URL's [venueId] (per-venue workspace).
   // In the player workspace there's no active venue, so fall back to the
@@ -115,6 +117,13 @@ export function AppSidebar() {
     handleNavigate()
   }
 
+  // Switch to the admin workspace — only reachable when the sidebar renders
+  // the entry below, which is itself gated on the Clerk role.
+  const switchToAdmin = () => {
+    router.push("/dashboard/admin")
+    handleNavigate()
+  }
+
   // Open a specific branch (chi nhánh) of the operator's brand.
   const goToBranch = (id: string) => {
     router.push(venueBase(id))
@@ -155,11 +164,13 @@ export function AppSidebar() {
                     <div
                       className={cn(
                         "flex aspect-square size-10 items-center justify-center rounded-xl",
-                        isVenue &&
+                        (isVenue || isAdmin) &&
                           "bg-secondary text-xs font-bold text-secondary-foreground"
                       )}
                     >
-                      {isVenue && VENUE ? (
+                      {isAdmin ? (
+                        <ShieldCheck className="size-5" />
+                      ) : isVenue && VENUE ? (
                         VENUE.initials
                       ) : (
                         <LogoMark className="size-9! text-primary" />
@@ -167,7 +178,11 @@ export function AppSidebar() {
                     </div>
                     <div className="grid flex-1 text-left leading-tight">
                       <span className="truncate font-heading text-sm font-bold tracking-tight">
-                        {isVenue && VENUE ? VENUE.name : "SportMatch AI"}
+                        {isAdmin
+                          ? t("adminWorkspace")
+                          : isVenue && VENUE
+                            ? VENUE.name
+                            : "SportMatch AI"}
                       </span>
                       {isVenue && VENUE ? (
                         <span className="truncate text-xs text-sidebar-foreground/60">
@@ -198,11 +213,18 @@ export function AppSidebar() {
                     <DropdownMenuItem onClick={switchToPlayer}>
                       <LogoMark className="size-6 text-primary" />
                       <span className="flex-1">{t("playerWorkspace")}</span>
-                      {!isVenue ? (
+                      {workspace === "player" ? (
                         <Check className="size-4 text-brand" />
                       ) : null}
                     </DropdownMenuItem>
                   )}
+                  {sUser.role === "admin" ? (
+                    <DropdownMenuItem onClick={switchToAdmin}>
+                      <ShieldCheck className="size-6 text-primary" />
+                      <span className="flex-1">{t("adminWorkspace")}</span>
+                      {isAdmin ? <Check className="size-4 text-brand" /> : null}
+                    </DropdownMenuItem>
+                  ) : null}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>

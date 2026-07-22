@@ -10,6 +10,12 @@ export type AuthUser = {
   email: string
   emailVerified: boolean
   image?: string | null
+  /**
+   * RBAC (https://clerk.com/docs/guides/secure/basic-rbac): granted purely in
+   * the Clerk dashboard (`publicMetadata.role`), never by app code. `null` for
+   * every ordinary player/venue-operator account.
+   */
+  role: "admin" | null
 }
 
 /**
@@ -34,6 +40,7 @@ export async function getServerSession(): Promise<{ user: AuthUser } | null> {
       // Clerk only surfaces verified primary emails on the server user.
       emailVerified: true,
       image: user.imageUrl ?? null,
+      role: user.publicMetadata?.role ?? null,
     },
   }
 }

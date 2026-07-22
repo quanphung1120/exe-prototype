@@ -84,6 +84,17 @@ export class SessionsService {
     @Inject(BookingsService) private readonly bookings: BookingsService
   ) {}
 
+  /**
+   * Count of PlaySessions still live (forming a lobby or holding a court) —
+   * the admin overview's "active sessions" KPI. Historical sessions
+   * (completed/cancelled) don't count.
+   */
+  async countActive(): Promise<number> {
+    return this.sessionModel.countDocuments({
+      "data.status": { $in: ["forming", "booked"] },
+    })
+  }
+
   /** Every PlaySession this user has persisted, oldest first. */
   async listUserSessions(userId: string): Promise<PlaySessionData[]> {
     const docs = await this.sessionModel.find({ userId }).sort(ORDER).lean()

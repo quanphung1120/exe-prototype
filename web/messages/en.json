@@ -135,7 +135,8 @@
     "addVenue": "Add venue",
     "addBranch": "Add branch",
     "becomePlayer": "Become a player",
-    "manageVenue": "Manage venue"
+    "manageVenue": "Manage venue",
+    "adminWorkspace": "Admin console"
   },
   "WorkspaceSettings": {
     "title": "Workspace settings",
@@ -1306,7 +1307,13 @@
     "emptyArrivals": "No more arrivals expected today.",
     "revenueWeek": "Revenue this week",
     "today": "Today",
-    "revenueCaption": "Trailing 7-day average utilization is {util}%."
+    "revenueCaption": "Trailing 7-day average utilization is {util}%.",
+    "approvalBanner": {
+      "pendingTitle": "Awaiting admin approval",
+      "pendingDescription": "This venue can't take bookings until an admin reviews it.",
+      "rejectedTitle": "Approval rejected",
+      "rejectedDescription": "Reason: {reason}"
+    }
   },
   "VenueSchedule": {
     "metaTitle": "Schedule",
@@ -1858,5 +1865,156 @@
       "description": "List your courts and manage bookings."
     },
     "continue": "Continue"
+  },
+  "AdminNav": {
+    "group": "Admin",
+    "overview": {
+      "label": "Overview",
+      "caption": "System-wide KPIs"
+    },
+    "venues": {
+      "label": "Venues & brands",
+      "caption": "Every brand and its branches"
+    },
+    "bookings": {
+      "label": "Bookings & payments",
+      "caption": "Recent transactions across every venue"
+    },
+    "refunds": {
+      "label": "Refund queue",
+      "caption": "Manual refunds awaiting settlement"
+    },
+    "approvals": {
+      "label": "Approvals",
+      "caption": "New venues awaiting review"
+    }
+  },
+  "AdminOverview": {
+    "metaTitle": "Admin overview",
+    "metaDescription": "System-wide KPIs across every venue",
+    "greeting": "Admin console",
+    "subtitle": "A cross-tenant view of the whole system",
+    "kpi": {
+      "users": "Users",
+      "brands": "Brands",
+      "venues": "Venues",
+      "venuesPending": "Pending review",
+      "bookings": "Bookings",
+      "grossRevenue": "Gross revenue",
+      "activeSessions": "Active sessions",
+      "pendingRefunds": "Pending refunds",
+      "pendingApprovals": "Pending approvals"
+    }
+  },
+  "AdminVenues": {
+    "metaTitle": "Venues & brands",
+    "metaDescription": "Every brand and its venue branches, system-wide",
+    "title": "Venues & brands",
+    "subtitle": "Every brand and its branches, with booking/revenue totals",
+    "noBrand": "No brand",
+    "table": {
+      "venue": "Venue",
+      "district": "District",
+      "approval": "Approval",
+      "status": "Status",
+      "bookings": "Bookings",
+      "revenue": "Revenue",
+      "actions": "Actions"
+    },
+    "approval": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "status": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "suspend": "Suspend",
+    "restore": "Restore",
+    "empty": "No venues yet"
+  },
+  "AdminBookings": {
+    "metaTitle": "Bookings & payments",
+    "metaDescription": "Recent transactions across every venue",
+    "title": "Bookings & payments",
+    "subtitle": "The {count} most recent bookings, across every venue",
+    "table": {
+      "booking": "Booking",
+      "venue": "Venue",
+      "court": "Court",
+      "when": "When",
+      "price": "Price",
+      "status": "Status",
+      "payment": "Payment",
+      "actions": "Actions"
+    },
+    "cancel": {
+      "button": "Cancel",
+      "title": "Force-cancel this booking?",
+      "description": "This refunds the customer in full (if paid) and frees the slot. This cannot be undone.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "e.g. Duplicate booking, fraud, venue request…",
+      "cancel": "Back",
+      "confirm": "Force cancel"
+    },
+    "status": {
+      "awaiting_payment": "Awaiting payment",
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "checked-in": "Checked in",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no-show": "No-show",
+      "expired": "Expired"
+    },
+    "paymentStatus": {
+      "awaiting": "Awaiting",
+      "paid": "Paid",
+      "refunded": "Refunded",
+      "partial_refund": "Partially refunded",
+      "none": "None"
+    },
+    "empty": "No bookings yet"
+  },
+  "AdminRefunds": {
+    "metaTitle": "Refund queue",
+    "metaDescription": "Manual refunds awaiting settlement, across every venue",
+    "title": "Refund queue",
+    "subtitle": "SePay has no refund API — every refund here is a manual bank transfer",
+    "pct": "{pct}% refund",
+    "settle": {
+      "button": "Mark settled",
+      "title": "Mark this refund settled?",
+      "description": "Record the bank-transfer reference once you've sent the refund by hand.",
+      "refLabel": "Transfer reference",
+      "refPlaceholder": "e.g. bank transaction id",
+      "cancel": "Back",
+      "confirm": "Mark settled"
+    },
+    "empty": "No refunds awaiting settlement"
+  },
+  "AdminApprovals": {
+    "metaTitle": "Approvals",
+    "metaDescription": "New venues awaiting admin review",
+    "title": "Approvals",
+    "subtitle": "A freshly provisioned venue can't take bookings until approved",
+    "approve": "Approve",
+    "reject": {
+      "button": "Reject",
+      "title": "Reject this venue?",
+      "description": "The operator will see this reason. They can still fix and be re-reviewed later.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "e.g. Missing business license…",
+      "cancel": "Back",
+      "confirm": "Reject"
+    },
+    "empty": "Nothing pending review",
+    "table": {
+      "venue": "Venue",
+      "district": "District",
+      "city": "City",
+      "actions": "Actions"
+    }
   }
 }

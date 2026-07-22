@@ -399,7 +399,21 @@ export interface Venue {
    * "Khôi phục", not a fresh setup, until this is cleared.
    */
   archived?: boolean
+  /**
+   * Manual admin approval gate: a freshly provisioned venue starts `"pending"`
+   * and isn't bookable until an admin approves it in the admin workspace
+   * (auto-approval is a later concern). Absent on venues seeded before this
+   * field existed / hardcoded demo venues — treated as `"approved"`
+   * everywhere this is read (see `withApproval` in `venues.service.ts`).
+   */
+  approval?: VenueApprovalStatus
+  /** Admin's reason when rejecting (mirrors `Venue.declineReason` elsewhere). */
+  approvalReason?: string
+  /** ISO datetime of the admin's approve/reject decision. */
+  approvedAt?: string
 }
+
+export type VenueApprovalStatus = "pending" | "approved" | "rejected"
 
 // ── Brand: the account-owned parent of one or more venues (branches) ──────────
 
@@ -642,9 +656,13 @@ export interface BookingRefund {
   amount: number
   /** ISO datetime the refund was recorded. */
   at: string
-  /** How the refund is settled — manual bank transfer by an operator. */
-  status: "manual"
-  /** Manual transfer reference, once an operator completes it. */
+  /**
+   * How the refund is settled — always starts `"manual"` (bank transfer by an
+   * operator/admin); flips to `"settled"` once `ref` is recorded (admin's
+   * "mark settled" action), which is what drops it off `listRefundQueue`.
+   */
+  status: "manual" | "settled"
+  /** Manual transfer reference, once an operator/admin completes it. */
   ref?: string
 }
 

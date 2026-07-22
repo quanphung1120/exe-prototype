@@ -40,27 +40,38 @@ interface PlayerAssessmentGateProps {
   serverAssessment?: PlayerAssessment | null
   /** Effective account type (from the dashboard seed); drives the venue-only lock. */
   accountType?: AccountType | null
+  /**
+   * Whether the signed-in caller carries the Clerk `"admin"` role. Exemption
+   * is keyed on this, not on the current route's workspace — an admin has no
+   * accountType and must never be routed into the assessment wizard even from
+   * a player-workspace page (e.g. switching there from the sidebar).
+   */
+  isAdmin?: boolean
 }
 
 /**
  * Redirects players who haven't completed the skill assessment to the dedicated
  * wizard page ({@link PLAYER_ASSESSMENT_PATH}). The wizard lives outside the
  * dashboard layout so the gate only decides *whether* to send them there — it
- * never renders inline. The venue workspace is never gated. A venue-only
- * account is locked out of the player workspace entirely (redirected to their
- * venue instead) and never asked to assess.
+ * never renders inline. The venue workspace is never gated, and an admin
+ * account is never gated regardless of which workspace it's currently
+ * viewing (an admin may have no accountType at all). A venue-only account is
+ * locked out of the player workspace entirely (redirected to their venue
+ * instead) and never asked to assess.
  */
 export function PlayerAssessmentGate({
   children,
   serverAssessment = null,
   accountType = null,
+  isAdmin = false,
 }: PlayerAssessmentGateProps) {
   const pathname = usePathname()
   const router = useRouter()
   const workspace = workspaceForPath(pathname)
   const venueOnly = accountType === "venue"
-  const lockedOut = venueOnly && workspace !== "venue"
-  const needsAssessment = workspace !== "venue" && !venueOnly
+  const exempt = workspace === "venue" || isAdmin
+  const lockedOut = venueOnly && !exempt
+  const needsAssessment = !exempt && !venueOnly
   const [ready, setReady] = React.useState(!needsAssessment)
   const [hasAssessment, setHasAssessment] = React.useState(false)
 
@@ -111,9 +122,7 @@ function AssessmentLoading() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>{t("title")}</CardTitle>
-          <CardDescription>
-            {t("description")}
-          </CardDescription>
+          <CardDescription>{t("description")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Progress value={55} />
@@ -130,8 +139,9 @@ export function ResetPlayerAssessmentButton({
 }) {
   const t = useTranslations("Assessment")
   const tc = useTranslations("Common")
-  const [assessment, setAssessment] =
-    React.useState<PlayerAssessment | null>(null)
+  const [assessment, setAssessment] = React.useState<PlayerAssessment | null>(
+    null
+  )
 
   React.useEffect(() => {
     const sync = () => setAssessment(readStoredAssessment())
@@ -162,17 +172,19 @@ export function ResetPlayerAssessmentButton({
           <div className="mt-2 grid gap-1 text-sm text-muted-foreground">
             {ASSESSMENTS.map((definition) => {
               const result = assessment.results[definition.sport]
-              
+
               let resultStr = t("results.notAssessed")
               if (result) {
                 const rIdx = getRangeIndex(definition.sport, result.score)
-                const localizedLevelLabel = t(`${definition.sport}.ranges.r${rIdx}`)
+                const localizedLevelLabel = t(
+                  `${definition.sport}.ranges.r${rIdx}`
+                )
                 resultStr = t("results.resultText", {
                   score: result.score,
                   levelLabel: localizedLevelLabel,
                 })
               }
-              
+
               return (
                 <p key={definition.sport}>
                   <span className="font-medium text-foreground">

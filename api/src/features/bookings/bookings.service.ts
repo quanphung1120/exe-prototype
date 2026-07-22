@@ -33,7 +33,11 @@ import {
 } from "../../common/mongo-util.js"
 import { NotificationsService } from "../notifications/notifications.service.js"
 import { ProfileService } from "../players/profile.service.js"
-import { Venue, type VenueDocument } from "../venues/venue.schema.js"
+import {
+  effectiveApproval,
+  Venue,
+  type VenueDocument,
+} from "../venues/venue.schema.js"
 import { BookingLock, type BookingLockDocument } from "./booking-lock.schema.js"
 import {
   assertNoCourtBlock,
@@ -217,11 +221,11 @@ export class BookingsService {
 
   /**
    * The slot-bookability guard shared by every write that claims a court/day
-   * slot (`createWalkIn`, `reschedule`, `createHold`): the court must exist,
-   * not be archived or under maintenance, the slot must fall within opening
-   * hours, and it must not overlap an operator court block. Returns the
-   * resolved court so callers that need it (pricing, name/sport for the
-   * booking record) don't look it up twice.
+   * slot (`createWalkIn`, `reschedule`, `createHold`): the venue must not be
+   * suspended, the court must exist, not be archived or under maintenance,
+   * the slot must fall within opening hours, and it must not overlap an
+   * operator court block. Returns the resolved court so callers that need it
+   * (pricing, name/sport for the booking record) don't look it up twice.
    */
   private assertSlotBookable(
     venueDoc: VenueDocument,
@@ -230,6 +234,12 @@ export class BookingsService {
     start: string,
     durationMin: number
   ): VenueCourt {
+    // Admin suspend gate — mirrors the venue-discovery filter in
+    // `catalogCourts` (venues.service.ts): a suspended venue keeps its
+    // existing data but can't take on any new court/day claim.
+    if (venueDoc.info.archived) {
+      throw new BadRequestException("Venue has been suspended")
+    }
     const court = this.findCourt(venueDoc, courtId)
     if (court.archived) {
       throw new BadRequestException("Court has been archived")
@@ -246,6 +256,24 @@ export class BookingsService {
       durationMin
     )
     return court
+  }
+
+  /**
+   * Admin approval gate — see `effectiveApproval` (venue.schema.ts). Checked
+   * only where a *new* commitment to the venue is made (`createWalkIn`,
+   * `createHold`), not on `reschedule`: a venue's approval flipping after a
+   * booking already exists shouldn't retroactively strand that customer's
+   * existing reservation.
+   */
+  private assertVenueApproved(venueDoc: VenueDocument): void {
+    const approval = effectiveApproval(venueDoc)
+    if (approval !== "approved") {
+      throw new BadRequestException(
+        approval === "pending"
+          ? "Venue đang chờ quản trị viên phê duyệt — chưa thể đặt sân"
+          : "Venue đã bị từ chối phê duyệt — không thể đặt sân"
+      )
+    }
   }
 
   /** The venueId whose court catalog holds `courtId` (for the booking cross-write). */
@@ -411,6 +439,7 @@ export class BookingsService {
     input: WalkInReservationInput
   ): Promise<Reservation> {
     const venueDoc = await this.loadVenueDoc(venueId)
+    this.assertVenueApproved(venueDoc)
     const court = this.assertSlotBookable(
       venueDoc,
       input.courtId,
@@ -913,6 +942,7 @@ export class BookingsService {
     const venueId = await this.findVenueByCourtId(input.courtId)
     if (!venueId) throw new NotFoundException("Court not found")
     const venueDoc = await this.loadVenueDoc(venueId)
+    this.assertVenueApproved(venueDoc)
     const court = this.assertSlotBookable(
       venueDoc,
       input.courtId,
@@ -1147,6 +1177,127 @@ export class BookingsService {
   private applyVenueFaultCancel(doc: BookingDocument, reason?: string): void {
     if (reason) doc.declineReason = reason
     this.applyRefund(doc, 100)
+  }
+
+  // ── Admin (admin feature — role-guarded at the controller) ──────────────────
+
+  /** Total booking count across every venue — the admin overview KPI. */
+  async count(): Promise<number> {
+    return this.bookingModel.countDocuments()
+  }
+
+  /** Per-venue booking count + paid revenue total — the admin venues/brands view. */
+  async venueTotals(): Promise<
+    Map<string, { bookings: number; revenue: number }>
+  > {
+    const rows = await this.bookingModel.aggregate<{
+      _id: string
+      bookings: number
+      revenue: number
+    }>([
+      {
+        $group: {
+          _id: "$venueId",
+          bookings: { $sum: 1 },
+          revenue: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentStatus", "paid"] }, "$price", 0],
+            },
+          },
+        },
+      },
+    ])
+    return new Map(
+      rows.map((r) => [r._id, { bookings: r.bookings, revenue: r.revenue }])
+    )
+  }
+
+  /** Every booking across every venue, most recent first — the admin worklist. */
+  async listRecent(limit = 200): Promise<BookingSummary[]> {
+    const docs = await this.bookingModel
+      .find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean()
+    return docs.map(bookingSummaryFrom)
+  }
+
+  /**
+   * Every booking across every venue still owing a manual refund, oldest
+   * first — same projection `listRefundQueue` uses, without the venue scope,
+   * plus `venueId` (the per-venue queue doesn't need it — it's already scoped).
+   */
+  async listRefundQueueAll(): Promise<
+    (RefundQueueItem & { venueId: string })[]
+  > {
+    const docs = await this.bookingModel
+      .find({ "refund.status": "manual" })
+      .sort({ "refund.at": 1 })
+      .lean()
+    const today = isoDateOf(vnNowIso())
+    return docs.map((d) => ({
+      ...refundQueueItemFromBooking(d, today),
+      venueId: d.venueId,
+    }))
+  }
+
+  /**
+   * Mark a queued manual refund settled (an admin action, cross-tenant — no
+   * venue ownership to check). Recording `ref` and flipping `status` to
+   * `"settled"` is what drops the booking off `listRefundQueue`/
+   * `listRefundQueueAll`, both of which filter on `"refund.status": "manual"`.
+   */
+  async settleRefund(bookingId: string, ref?: string): Promise<void> {
+    await withVersionRetry(async () => {
+      const doc = await this.bookingModel.findOne({ bookingId })
+      if (!doc) throw new NotFoundException("Booking not found")
+      if (!doc.refund || doc.refund.status !== "manual") {
+        throw new ConflictException(
+          "This booking has no manual refund awaiting settlement"
+        )
+      }
+      doc.refund = {
+        ...doc.refund,
+        status: "settled",
+        ref: ref ?? doc.refund.ref,
+      }
+      doc.markModified("refund")
+      await doc.save()
+    })
+  }
+
+  /**
+   * Force-cancel any booking regardless of venue ownership (an admin action) —
+   * always a flat 100% refund when paid, same convention as a venue-fault
+   * cancel/decline (`applyVenueFaultCancel`).
+   */
+  async adminForceCancel(
+    bookingId: string,
+    reason?: string
+  ): Promise<BookingSummary> {
+    const booking = await this.bookingModel
+      .findOne({ bookingId })
+      .select("venueId")
+      .lean<{ venueId: string }>()
+    if (!booking) throw new NotFoundException("Booking not found")
+    const { doc } = await this.setStatus(
+      booking.venueId,
+      bookingId,
+      "cancelled",
+      reason,
+      (d, prev) => {
+        // Same carve-out as a venue-initiated cancel (`updateStatus`): a
+        // booking already checked into is mostly consumed, so it doesn't
+        // auto-refund — an admin settles that by hand via the refund queue
+        // if warranted.
+        if (prev === "pending" || prev === "confirmed") {
+          this.applyVenueFaultCancel(d, reason)
+        } else if (reason) {
+          d.declineReason = reason
+        }
+      }
+    )
+    return bookingSummaryFrom(doc)
   }
 
   /** The venueId a booking belongs to, after confirming the caller owns it. */

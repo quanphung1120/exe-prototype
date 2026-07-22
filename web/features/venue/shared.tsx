@@ -337,6 +337,12 @@ export function ReasonDialog({
   reason,
   onReasonChange,
   onConfirm,
+  // Default preserves prior behavior for the reject/cancel flows (server DTOs
+  // there allow up to 300 chars, so 200 was already a safe, stricter cap).
+  // Callers whose server DTO enforces a *tighter* limit than 200 (e.g. a
+  // bank-transfer reference) must pass it here — otherwise the client would
+  // accept input the server rejects with a 400.
+  maxLength = 200,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -349,6 +355,7 @@ export function ReasonDialog({
   reason: string
   onReasonChange: (reason: string) => void
   onConfirm: () => void
+  maxLength?: number
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -365,7 +372,7 @@ export function ReasonDialog({
             onChange={(e) => onReasonChange(e.target.value)}
             placeholder={reasonPlaceholder}
             rows={3}
-            maxLength={200}
+            maxLength={maxLength}
             autoFocus
           />
         </Field>

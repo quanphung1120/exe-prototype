@@ -135,7 +135,8 @@
     "addVenue": "Thêm địa điểm",
     "addBranch": "Thêm chi nhánh",
     "becomePlayer": "Trở thành người chơi",
-    "manageVenue": "Quản lý địa điểm"
+    "manageVenue": "Quản lý địa điểm",
+    "adminWorkspace": "Trang quản trị"
   },
   "WorkspaceSettings": {
     "title": "Cài đặt không gian",
@@ -1306,7 +1307,13 @@
     "emptyArrivals": "Hôm nay không còn khách đến dự kiến.",
     "revenueWeek": "Doanh thu tuần này",
     "today": "Hôm nay",
-    "revenueCaption": "Công suất trung bình 7 ngày gần nhất đạt {util}%."
+    "revenueCaption": "Công suất trung bình 7 ngày gần nhất đạt {util}%.",
+    "approvalBanner": {
+      "pendingTitle": "Đang chờ quản trị viên duyệt",
+      "pendingDescription": "Venue này chưa thể nhận đặt sân cho đến khi được duyệt.",
+      "rejectedTitle": "Đã bị từ chối duyệt",
+      "rejectedDescription": "Lý do: {reason}"
+    }
   },
   "VenueSchedule": {
     "metaTitle": "Lịch sân",
@@ -1858,5 +1865,156 @@
       "description": "Đăng sân của bạn và quản lý lượt đặt."
     },
     "continue": "Tiếp tục"
+  },
+  "AdminNav": {
+    "group": "Quản trị",
+    "overview": {
+      "label": "Tổng quan",
+      "caption": "Chỉ số toàn hệ thống"
+    },
+    "venues": {
+      "label": "Venue & thương hiệu",
+      "caption": "Mọi thương hiệu và chi nhánh"
+    },
+    "bookings": {
+      "label": "Đặt sân & thanh toán",
+      "caption": "Giao dịch gần đây trên toàn hệ thống"
+    },
+    "refunds": {
+      "label": "Hàng đợi hoàn tiền",
+      "caption": "Hoàn tiền thủ công đang chờ xử lý"
+    },
+    "approvals": {
+      "label": "Phê duyệt",
+      "caption": "Venue mới đang chờ duyệt"
+    }
+  },
+  "AdminOverview": {
+    "metaTitle": "Tổng quan quản trị",
+    "metaDescription": "Chỉ số toàn hệ thống trên mọi venue",
+    "greeting": "Bảng điều khiển quản trị",
+    "subtitle": "Góc nhìn toàn hệ thống, xuyên suốt mọi tài khoản",
+    "kpi": {
+      "users": "Người dùng",
+      "brands": "Thương hiệu",
+      "venues": "Venue",
+      "venuesPending": "Chờ duyệt",
+      "bookings": "Lượt đặt sân",
+      "grossRevenue": "Tổng doanh thu",
+      "activeSessions": "Phiên đang hoạt động",
+      "pendingRefunds": "Hoàn tiền chờ xử lý",
+      "pendingApprovals": "Chờ phê duyệt"
+    }
+  },
+  "AdminVenues": {
+    "metaTitle": "Venue & thương hiệu",
+    "metaDescription": "Mọi thương hiệu và chi nhánh venue, toàn hệ thống",
+    "title": "Venue & thương hiệu",
+    "subtitle": "Mọi thương hiệu và chi nhánh, kèm tổng lượt đặt/doanh thu",
+    "noBrand": "Không có thương hiệu",
+    "table": {
+      "venue": "Venue",
+      "district": "Quận/Huyện",
+      "approval": "Phê duyệt",
+      "status": "Trạng thái",
+      "bookings": "Lượt đặt",
+      "revenue": "Doanh thu",
+      "actions": "Hành động"
+    },
+    "approval": {
+      "pending": "Chờ duyệt",
+      "approved": "Đã duyệt",
+      "rejected": "Đã từ chối"
+    },
+    "status": {
+      "active": "Hoạt động",
+      "archived": "Đã lưu trữ"
+    },
+    "suspend": "Tạm ngưng",
+    "restore": "Khôi phục",
+    "empty": "Chưa có venue nào"
+  },
+  "AdminBookings": {
+    "metaTitle": "Đặt sân & thanh toán",
+    "metaDescription": "Giao dịch gần đây trên toàn hệ thống",
+    "title": "Đặt sân & thanh toán",
+    "subtitle": "{count} lượt đặt sân gần nhất, trên toàn hệ thống",
+    "table": {
+      "booking": "Mã đặt sân",
+      "venue": "Venue",
+      "court": "Sân",
+      "when": "Thời gian",
+      "price": "Giá",
+      "status": "Trạng thái",
+      "payment": "Thanh toán",
+      "actions": "Hành động"
+    },
+    "cancel": {
+      "button": "Huỷ",
+      "title": "Buộc huỷ lượt đặt sân này?",
+      "description": "Khách sẽ được hoàn tiền toàn bộ (nếu đã thanh toán) và khung giờ sẽ được mở lại. Không thể hoàn tác.",
+      "reasonLabel": "Lý do",
+      "reasonPlaceholder": "VD: Đặt trùng, gian lận, venue yêu cầu…",
+      "cancel": "Quay lại",
+      "confirm": "Buộc huỷ"
+    },
+    "status": {
+      "awaiting_payment": "Chờ thanh toán",
+      "pending": "Chờ duyệt",
+      "confirmed": "Đã xác nhận",
+      "checked-in": "Đã nhận sân",
+      "completed": "Hoàn tất",
+      "cancelled": "Đã hủy",
+      "no-show": "Vắng mặt",
+      "expired": "Hết hạn giữ chỗ"
+    },
+    "paymentStatus": {
+      "awaiting": "Đang chờ",
+      "paid": "Đã thanh toán",
+      "refunded": "Đã hoàn tiền",
+      "partial_refund": "Hoàn tiền một phần",
+      "none": "Không"
+    },
+    "empty": "Chưa có lượt đặt sân nào"
+  },
+  "AdminRefunds": {
+    "metaTitle": "Hàng đợi hoàn tiền",
+    "metaDescription": "Hoàn tiền thủ công đang chờ xử lý, trên toàn hệ thống",
+    "title": "Hàng đợi hoàn tiền",
+    "subtitle": "SePay không có API hoàn tiền — mọi khoản hoàn tiền ở đây đều chuyển khoản thủ công",
+    "pct": "Hoàn {pct}%",
+    "settle": {
+      "button": "Đánh dấu đã xử lý",
+      "title": "Đánh dấu khoản hoàn tiền này đã xử lý?",
+      "description": "Ghi lại mã giao dịch chuyển khoản sau khi đã hoàn tiền thủ công.",
+      "refLabel": "Mã giao dịch chuyển khoản",
+      "refPlaceholder": "VD: mã giao dịch ngân hàng",
+      "cancel": "Quay lại",
+      "confirm": "Đánh dấu đã xử lý"
+    },
+    "empty": "Không có khoản hoàn tiền nào đang chờ"
+  },
+  "AdminApprovals": {
+    "metaTitle": "Phê duyệt",
+    "metaDescription": "Venue mới đang chờ quản trị viên duyệt",
+    "title": "Phê duyệt",
+    "subtitle": "Venue mới tạo sẽ không thể nhận đặt sân cho đến khi được duyệt",
+    "approve": "Duyệt",
+    "reject": {
+      "button": "Từ chối",
+      "title": "Từ chối venue này?",
+      "description": "Chủ venue sẽ thấy lý do này. Họ vẫn có thể chỉnh sửa và được xét duyệt lại sau.",
+      "reasonLabel": "Lý do",
+      "reasonPlaceholder": "VD: Thiếu giấy phép kinh doanh…",
+      "cancel": "Quay lại",
+      "confirm": "Từ chối"
+    },
+    "empty": "Không có venue nào đang chờ duyệt",
+    "table": {
+      "venue": "Venue",
+      "district": "Quận/Huyện",
+      "city": "Tỉnh/Thành phố",
+      "actions": "Hành động"
+    }
   }
 }

@@ -10,6 +10,13 @@ import type {
   Seed,
   VenueSeed,
 } from "@/lib/shared"
+import type {
+  AdminApprovalRow,
+  AdminBookingRow,
+  AdminBrandGroup,
+  AdminOverview,
+  AdminRefundRow,
+} from "@/features/admin/admin-types"
 
 // Where the Hono API lives. Server-side fetch only (no CORS concerns); override
 // with API_URL in deployment. Single source of truth — server actions import it
@@ -47,6 +54,30 @@ const sharedFetchConfig = {
 }
 
 export const apiFetch = createFetch({ ...sharedFetchConfig, throw: true })
+
+/**
+ * `apiFetch`, but unwrapping a non-2xx response into a plain `Error` instead
+ * of the raw `BetterFetchError`. The API's exception filter maps every thrown
+ * error to `{ error: message }`; better-fetch surfaces that parsed body as
+ * `BetterFetchError.error`, so this is the one place that peels it back to a
+ * message string. Used by server actions (venue-actions.ts, admin-actions.ts)
+ * so their mutations can `catch` a `.message` without each re-implementing
+ * the unwrap.
+ */
+export async function apiAction<T>(
+  path: string,
+  init?: Parameters<typeof apiFetch>[1]
+): Promise<T> {
+  try {
+    return await apiFetch<T>(path, init)
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "error" in err
+        ? ((err as { error?: { error?: string } }).error?.error ?? undefined)
+        : undefined
+    throw new Error(message ?? "Request failed")
+  }
+}
 
 /**
  * Same instance without `throw: true`, for the one caller (`fetchVenueBundle`)
@@ -169,4 +200,30 @@ export async function fetchVenueBundle(venueId: string): Promise<VenueSeed> {
   }
 
   return data
+}
+
+// ── Admin workspace (role-gated: /api/admin/* 403s a non-admin caller) ───────
+// Each admin route page fetches its own section's data directly (no shared
+// provider — unlike the venue workspace, admin sections don't need optimistic
+// cross-navigation state) and calls the matching action in admin-actions.ts to
+// mutate; those revalidate the admin subtree so the next render is fresh.
+
+export async function fetchAdminOverview(): Promise<AdminOverview> {
+  return apiFetch<AdminOverview>("/api/admin/overview")
+}
+
+export async function fetchAdminVenuesAndBrands(): Promise<AdminBrandGroup[]> {
+  return apiFetch<AdminBrandGroup[]>("/api/admin/venues")
+}
+
+export async function fetchAdminBookings(): Promise<AdminBookingRow[]> {
+  return apiFetch<AdminBookingRow[]>("/api/admin/bookings")
+}
+
+export async function fetchAdminRefunds(): Promise<AdminRefundRow[]> {
+  return apiFetch<AdminRefundRow[]>("/api/admin/refunds")
+}
+
+export async function fetchAdminApprovals(): Promise<AdminApprovalRow[]> {
+  return apiFetch<AdminApprovalRow[]>("/api/admin/approvals")
 }
