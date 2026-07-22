@@ -65,10 +65,6 @@ import { useData } from "@/features/dashboard/data-provider"
 import { useBooking } from "@/features/booking/booking"
 import { CourtImage } from "@/features/dashboard/shared"
 
-/** Shared surface styling for each step's card(s). */
-const CARD =
-  "rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 sm:p-6 dark:ring-foreground/10"
-
 /** Segmented single-select chips (same pattern as the Quick Join filters). */
 function Segmented<T extends string>({
   value,
@@ -102,6 +98,26 @@ function Label({ children }: { children: React.ReactNode }) {
     <span className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
       {children}
     </span>
+  )
+}
+
+/**
+ * The court-hold countdown — a time-limited reservation urging the player to
+ * pay before it expires. Styled as a standout amber pill (warm against the
+ * emerald theme) and placed at the top of the confirm/pay steps.
+ */
+function HoldBadge({
+  time,
+  t,
+}: {
+  time: string
+  t: ReturnType<typeof useTranslations>
+}) {
+  return (
+    <div className="inline-flex w-fit items-center gap-2 rounded-full bg-amber-500/12 px-3.5 py-1.5 text-sm font-medium text-amber-700 tabular-nums ring-1 ring-amber-500/25 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20">
+      <Clock className="size-4 shrink-0" />
+      {t("pay.holdCountdown", { time })}
+    </div>
   )
 }
 
@@ -348,15 +364,8 @@ export function BookView() {
           <ArrowLeft />
           {t("close")}
         </Button>
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
-            {title}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-
         {/* Stepper */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 py-2 sm:gap-3 sm:py-4">
           {steps.map((s, i) => (
             <React.Fragment key={s}>
               <span
@@ -388,6 +397,13 @@ export function BookView() {
               ) : null}
             </React.Fragment>
           ))}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
+            {title}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
       </div>
 
@@ -431,9 +447,9 @@ export function BookView() {
 
         {/* SLOT */}
         {stepName === "slot" ? (
-          <div className="grid w-full gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-            {/* Calendar — its own card, stretched across the left column */}
-            <div className={cn(CARD, "flex flex-col gap-4")}>
+          <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
+            {/* Calendar — stretched across the left column */}
+            <div className="flex flex-col gap-4">
               <CourtCalendar
                 courtId={courtId}
                 slot={draft.slot}
@@ -447,7 +463,7 @@ export function BookView() {
             </div>
 
             {/* Specific time — right column */}
-            <div className={cn(CARD, "flex flex-col gap-4")}>
+            <div className="flex flex-col gap-4 lg:border-l lg:border-border lg:pl-8">
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
                 <div className="flex flex-col gap-1.5">
                   <Label>{t("startTime")}</Label>
@@ -538,199 +554,182 @@ export function BookView() {
 
         {/* CONFIRM */}
         {stepName === "confirm" && court && draft.slot ? (
-          <div className={cn(CARD, "flex flex-col gap-6")}>
-            {/* Court name + location */}
-            <div className="flex flex-col gap-1.5">
-              <p className="font-heading text-2xl leading-tight font-bold">
-                {court.name}
-              </p>
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <MapPin className="size-3.5 shrink-0" />
-                <span className="truncate">
-                  {court.district} · {t("distance", { km: court.distanceKm })}
-                </span>
-              </p>
+          <div className="flex w-full flex-col gap-6">
+            {holdCountdown ? <HoldBadge time={holdCountdown} t={t} /> : null}
+
+            <div className="grid w-full gap-x-12 gap-y-8 lg:grid-cols-2">
+              {/* Booking details */}
+              <div className="flex flex-col gap-3.5">
+                <p className="font-heading text-lg leading-tight font-semibold">
+                  {t("summary")}
+                </p>
+                {[
+                  {
+                    label: t("where"),
+                    value: `${court.district} · ${t("distance", { km: court.distanceKm })}`,
+                  },
+                  {
+                    label: t("when"),
+                    value: `${locStr(dayLabelFor(draft.dayKey), locale)} · ${slotRange(draft.slot, draft.durationMin)}`,
+                  },
+                  {
+                    label: t("durationLabel"),
+                    value: formatDuration(draft.durationMin),
+                  },
+                  { label: t("players"), value: playersLine },
+                ].map(({ label, value }) => (
+                  <div
+                    key={label}
+                    className="flex items-center justify-between gap-3 text-base"
+                  >
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="text-right font-medium">{value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Price */}
+              <div className="flex flex-col gap-4 lg:border-l lg:border-border lg:pl-12">
+                <PriceBreakdown
+                  subtotal={total}
+                  finalTotal={finalTotal}
+                  appliedDiscount={activeDiscount}
+                  t={t}
+                />
+
+                {conflict ? (
+                  <p className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
+                    <TriangleAlert className="size-4 shrink-0" />
+                    {conflict === "self-overlap"
+                      ? t("conflictSelf")
+                      : t("conflictCourt")}
+                  </p>
+                ) : null}
+              </div>
             </div>
-
-            <div className="h-px bg-border" />
-
-            {/* Booking details */}
-            <div className="flex flex-col gap-3.5">
-              <p className="font-heading text-lg leading-tight font-semibold">
-                {t("summary")}
-              </p>
-              {[
-                {
-                  label: t("when"),
-                  value: `${locStr(dayLabelFor(draft.dayKey), locale)} · ${slotRange(draft.slot, draft.durationMin)}`,
-                },
-                {
-                  label: t("durationLabel"),
-                  value: formatDuration(draft.durationMin),
-                },
-                { label: t("players"), value: playersLine },
-              ].map(({ label, value }) => (
-                <div
-                  key={label}
-                  className="flex items-center justify-between gap-3 text-base"
-                >
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="text-right font-medium">{value}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="h-px bg-border" />
-
-            {/* Price */}
-            <PriceBreakdown
-              subtotal={total}
-              finalTotal={finalTotal}
-              appliedDiscount={activeDiscount}
-              t={t}
-            />
-
-            {holdCountdown ? (
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Clock className="size-4 shrink-0" />
-                {t("pay.holdCountdown", { time: holdCountdown })}
-              </p>
-            ) : null}
-
-            {conflict ? (
-              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
-                <TriangleAlert className="size-4 shrink-0" />
-                {conflict === "self-overlap"
-                  ? t("conflictSelf")
-                  : t("conflictCourt")}
-              </p>
-            ) : null}
           </div>
         ) : null}
 
         {/* PAY — real SePay checkout (a redirect); no card/QR entry in-app */}
         {stepName === "pay" && court && draft.slot ? (
-          <div className={cn(CARD, "flex flex-col gap-6")}>
-            {/* Court name + location */}
-            <div className="flex flex-col gap-1.5">
-              <p className="font-heading text-2xl leading-tight font-bold">
-                {court.name}
-              </p>
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <MapPin className="size-3.5 shrink-0" />
-                <span className="truncate">
-                  {court.district} · {t("distance", { km: court.distanceKm })}
-                </span>
-              </p>
-            </div>
+          <div className="flex w-full flex-col gap-6">
+            {holdCountdown ? <HoldBadge time={holdCountdown} t={t} /> : null}
 
-            {/* Date + time slot */}
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-muted-foreground">{t("when")}</span>
-              <span className="text-right font-medium">
-                {locStr(dayLabelFor(draft.dayKey), locale)} ·{" "}
-                {slotRange(draft.slot, draft.durationMin)}
-              </span>
-            </div>
+            <div className="grid w-full gap-x-12 gap-y-8 lg:grid-cols-2">
+              {/* LEFT — booking summary + total */}
+              <div className="flex flex-col gap-4">
+                {/* Where + when */}
+                <div className="flex flex-col gap-3.5">
+                  <div className="flex items-center justify-between gap-3 text-base">
+                    <span className="text-muted-foreground">{t("where")}</span>
+                    <span className="text-right font-medium">
+                      {court.district} ·{" "}
+                      {t("distance", { km: court.distanceKm })}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-base">
+                    <span className="text-muted-foreground">{t("when")}</span>
+                    <span className="text-right font-medium">
+                      {locStr(dayLabelFor(draft.dayKey), locale)} ·{" "}
+                      {slotRange(draft.slot, draft.durationMin)}
+                    </span>
+                  </div>
+                </div>
 
-            {holdCountdown ? (
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Clock className="size-4 shrink-0" />
-                {t("pay.holdCountdown", { time: holdCountdown })}
-              </p>
-            ) : null}
+                <div className="h-px bg-border" />
 
-            <div className="h-px bg-border" />
+                {/* Price breakdown */}
+                <PriceBreakdown
+                  subtotal={total}
+                  finalTotal={finalTotal}
+                  appliedDiscount={activeDiscount}
+                  onRemoveDiscount={removeDiscount}
+                  removable
+                  t={t}
+                />
+              </div>
 
-            {/* Price breakdown */}
-            <PriceBreakdown
-              subtotal={total}
-              finalTotal={finalTotal}
-              appliedDiscount={activeDiscount}
-              onRemoveDiscount={removeDiscount}
-              removable
-              t={t}
-            />
+              {/* RIGHT — discount + checkout */}
+              <div className="flex flex-col gap-5 lg:border-l lg:border-border lg:pl-12">
+                {/* Discount code */}
+                <div className="flex flex-col gap-1.5">
+                  <Label>{t("pay.discountLabel")}</Label>
+                  {activeDiscount ? (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl bg-brand/8 px-3.5 py-2.5 ring-1 ring-brand/15">
+                      <p className="inline-flex items-center gap-1.5 text-sm text-brand">
+                        <Check className="size-4 shrink-0" />
+                        {activeDiscount.description}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-2">
+                        <Input
+                          value={discountInput}
+                          onChange={(e) => {
+                            setDiscountInput(e.target.value.toUpperCase())
+                            setDiscountError(null)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault()
+                              void applyDiscount()
+                            }
+                          }}
+                          placeholder={t("pay.discountPlaceholder")}
+                          aria-label={t("pay.discountLabel")}
+                          disabled={paying || discountLoading}
+                          className="h-9 flex-1 font-mono tracking-wider uppercase"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 shrink-0 rounded-full"
+                          disabled={
+                            !discountInput.trim() || paying || discountLoading
+                          }
+                          onClick={() => void applyDiscount()}
+                        >
+                          {discountLoading ? (
+                            <Loader2 className="animate-spin" />
+                          ) : (
+                            t("pay.applyDiscount")
+                          )}
+                        </Button>
+                      </div>
+                      {discountError ? (
+                        <p className="inline-flex items-center gap-1.5 text-xs font-medium text-destructive">
+                          <TriangleAlert className="size-3.5 shrink-0" />
+                          {discountError}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
+                </div>
 
-            {/* Discount code */}
-            <div className="flex flex-col gap-1.5">
-              <Label>{t("pay.discountLabel")}</Label>
-              {activeDiscount ? (
-                <div className="flex items-center justify-between gap-3 rounded-2xl bg-brand/8 px-3.5 py-2.5 ring-1 ring-brand/15">
-                  <p className="inline-flex items-center gap-1.5 text-sm text-brand">
-                    <Check className="size-4 shrink-0" />
-                    {activeDiscount.description}
+                {/* SePay hosts the actual checkout (VietQR/card) — this button
+                  submits a hidden, HMAC-signed form there (see session.tsx#pay). */}
+                <div className="flex flex-col items-center gap-3 rounded-3xl bg-muted/40 px-4 py-5 text-center">
+                  <div className="grid size-14 place-items-center rounded-full bg-brand/10 text-brand">
+                    <ShieldCheck className="size-6" />
+                  </div>
+                  <p className="max-w-sm text-sm text-muted-foreground">
+                    {t("pay.redirectNotice")}
                   </p>
                 </div>
-              ) : (
-                <>
-                  <div className="flex gap-2">
-                    <Input
-                      value={discountInput}
-                      onChange={(e) => {
-                        setDiscountInput(e.target.value.toUpperCase())
-                        setDiscountError(null)
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault()
-                          void applyDiscount()
-                        }
-                      }}
-                      placeholder={t("pay.discountPlaceholder")}
-                      aria-label={t("pay.discountLabel")}
-                      disabled={paying || discountLoading}
-                      className="h-9 flex-1 font-mono tracking-wider uppercase"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-9 shrink-0 rounded-full"
-                      disabled={
-                        !discountInput.trim() || paying || discountLoading
-                      }
-                      onClick={() => void applyDiscount()}
-                    >
-                      {discountLoading ? (
-                        <Loader2 className="animate-spin" />
-                      ) : (
-                        t("pay.applyDiscount")
-                      )}
-                    </Button>
+
+                {checkoutError ? (
+                  <div className="flex items-center gap-2.5 rounded-2xl bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+                    <TriangleAlert className="size-4 shrink-0" />
+                    <span>{checkoutError}</span>
                   </div>
-                  {discountError ? (
-                    <p className="inline-flex items-center gap-1.5 text-xs font-medium text-destructive">
-                      <TriangleAlert className="size-3.5 shrink-0" />
-                      {discountError}
-                    </p>
-                  ) : null}
-                </>
-              )}
-            </div>
+                ) : null}
 
-            <div className="h-px bg-border" />
-
-            {/* SePay hosts the actual checkout (VietQR/card) — this button
-                submits a hidden, HMAC-signed form there (see session.tsx#pay). */}
-            <div className="flex flex-col items-center gap-3 py-2 text-center">
-              <div className="grid size-14 place-items-center rounded-full bg-brand/10 text-brand">
-                <ShieldCheck className="size-6" />
+                <p className="text-center text-xs text-muted-foreground">
+                  {t("pay.refundPolicy")}
+                </p>
               </div>
-              <p className="max-w-sm text-sm text-muted-foreground">
-                {t("pay.redirectNotice")}
-              </p>
             </div>
-
-            {checkoutError ? (
-              <div className="flex items-center gap-2.5 rounded-2xl bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
-                <TriangleAlert className="size-4 shrink-0" />
-                <span>{checkoutError}</span>
-              </div>
-            ) : null}
-
-            <p className="border-t border-border pt-3 text-center text-xs text-muted-foreground">
-              {t("pay.refundPolicy")}
-            </p>
           </div>
         ) : null}
       </div>

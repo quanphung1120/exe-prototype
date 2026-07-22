@@ -42,6 +42,7 @@ import {
   createBookingHold,
 } from "@/features/play/booking-actions"
 import { startPaymentCheckout } from "@/features/play/payment-actions"
+import { savePreferredLocale } from "@/lib/locale-preference"
 import {
   decideRoomRequest,
   leaveRoomMembership,
@@ -2020,6 +2021,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           setCheckoutError(tb("pay.checkoutFailed"))
           return
         }
+        // SePay's return `successUrl` is a single static URL (always the
+        // default locale), so stash the active locale before leaving — the
+        // return screen reads it back to restore `en` players' locale.
+        savePreferredLocale(locale)
         submitSepayCheckoutForm(result.data.fields, result.data.checkoutUrl)
         // The line above navigates the browser away — nothing left to do.
       } catch (err) {
