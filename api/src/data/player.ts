@@ -400,7 +400,6 @@ export const BOOKINGS: Booking[] = [
   {
     id: "b1",
     sport: "badminton",
-    format: "Doubles",
     venue: "Shuttle Republic",
     court: "Court 3",
     day: "Today",
@@ -415,7 +414,6 @@ export const BOOKINGS: Booking[] = [
   {
     id: "b2",
     sport: "badminton",
-    format: "Singles",
     venue: "Ace Badminton Club",
     court: "Court 1",
     day: "Tomorrow",
@@ -427,7 +425,6 @@ export const BOOKINGS: Booking[] = [
   {
     id: "b3",
     sport: "badminton",
-    format: "Doubles",
     venue: "Smash Badminton",
     court: "Court 2",
     day: "Sat, 21 Jun",
@@ -442,7 +439,6 @@ export const BOOKINGS: Booking[] = [
   {
     id: "b4",
     sport: "badminton",
-    format: "Doubles",
     venue: "Rally Point Club",
     court: "Court 5",
     day: "Mon, 16 Jun",
@@ -459,7 +455,6 @@ export const BOOKINGS: Booking[] = [
   {
     id: "b5",
     sport: "badminton",
-    format: "Singles",
     venue: "Ace Badminton Club",
     court: "Court 2",
     day: "Fri, 13 Jun",

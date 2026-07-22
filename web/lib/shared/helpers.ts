@@ -646,7 +646,6 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
   return {
     id: s.id,
     sport: s.sport,
-    format: s.format,
     venue: s.venue,
     court: s.courtLabel ?? (s.courtId ? courtNumberFor(courts, s.courtId) : ""),
     day: s.dayLabel,
@@ -701,7 +700,9 @@ function bookingToSession(
     id: b.id,
     title: `${sportLabel(b.sport)} · ${b.venue}`,
     sport: b.sport,
-    format: b.format,
+    // Bookings no longer carry a singles/doubles format; a booked session
+    // defaults to a full (doubles-sized) court so rooms/invites still fit.
+    format: "Doubles",
     courtId: court?.id ?? null,
     dayKey: (SEED_BOOKING_DAYKEY[b.id] ?? ((t: string) => t))(todayIso),
     dayLabel: b.day,
@@ -709,7 +710,7 @@ function bookingToSession(
     durationMin: durationOf(b.time),
     courtLabel: b.court,
     host: { name: user.name, initials: user.initials },
-    capacity: capacityFor(b.format),
+    capacity: capacityFor("Doubles"),
     roster: [host, ...others],
     level: user.level,
     status,

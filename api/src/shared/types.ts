@@ -139,7 +139,6 @@ export interface BookingPlayer {
 export interface Booking {
   id: string
   sport: SportKey
-  format: "Singles" | "Doubles"
   venue: string
   court: string
   day: string

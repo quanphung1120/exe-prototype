@@ -174,7 +174,6 @@ function PriceBreakdown({
  */
 export function BookView() {
   const t = useTranslations("Booking")
-  const tc = useTranslations("Common")
   const locale = useLocale()
   const {
     open,
@@ -569,14 +568,6 @@ export function BookView() {
                   label: t("durationLabel"),
                   value: formatDuration(draft.durationMin),
                 },
-                ...(roomId
-                  ? [
-                      {
-                        label: t("format"),
-                        value: tc(`format.${draft.format.toLowerCase()}`),
-                      },
-                    ]
-                  : []),
                 { label: t("players"), value: playersLine },
               ].map(({ label, value }) => (
                 <div

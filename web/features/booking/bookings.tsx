@@ -519,9 +519,6 @@ function CalendarEvent({
 
             <div className="flex items-center gap-2">
               <SportTag sport={booking.sport} />
-              <span className="text-xs text-muted-foreground">
-                · {tc(`format.${booking.format.toLowerCase()}`)}
-              </span>
             </div>
 
             <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 px-3 py-2">
@@ -773,9 +770,6 @@ function BookingCard({ booking }: { booking: Booking }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <SportTag sport={booking.sport} />
-          <span className="text-xs text-muted-foreground">
-            · {tc(`format.${booking.format.toLowerCase()}`)}
-          </span>
         </div>
         <p className="mt-0.5 font-heading text-lg font-semibold">
           {booking.venue}

@@ -86,10 +86,15 @@ interface BookingDraft {
   slot: string | null
   /** Free-form session length in minutes (not tied to the hour). */
   durationMin: number
-  format: "Singles" | "Doubles"
   fillMode: FillMode
   invitees: string[]
 }
+
+/**
+ * Seats a booked court holds (host + up to 3 invitees). Bookings no longer pick
+ * singles/doubles, so team size is a fixed cap rather than derived from a format.
+ */
+const BOOKING_CAPACITY = 4
 
 /** The faked Quick Match search shown in the floating dock. */
 export interface PartnerSearch {
@@ -209,7 +214,6 @@ interface SessionContextValue {
   steps: string[]
   step: number
   draft: BookingDraft
-  capacityFor: (format: "Singles" | "Doubles") => number
   openBooking: (
     courtId: string | null,
     opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
@@ -231,7 +235,6 @@ interface SessionContextValue {
   setSlot: (slot: string) => void
   setDuration: (durationMin: number) => void
   pickSlot: (slot: string, durationMin: number) => void
-  setFormat: (format: "Singles" | "Doubles") => void
   setFillMode: (mode: FillMode) => void
   toggleInvite: (initials: string) => void
   /** Creating the booking hold and/or opening the SePay checkout (drives the Pay button + spinner). */
@@ -273,7 +276,6 @@ function emptyDraft(todayIso: string): BookingDraft {
     dayKey: todayIso,
     slot: null,
     durationMin: 60,
-    format: "Doubles",
     fillMode: "court",
     invitees: [],
   }
@@ -1612,7 +1614,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // any conflict on that exact slot) instead of silently blanking it.
       slot: linked ? linked.slot : null,
       durationMin: linked ? linked.durationMin : 60,
-      format: linked?.format ?? "Doubles",
       fillMode: linked ? "court" : (opts?.fillMode ?? "court"),
       invitees: linked
         ? activeRoster(linked)
@@ -1653,7 +1654,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     const cid = s.courtId ?? courtByVenue(s.venue)?.id ?? null
     openBooking(cid)
-    setDraft((d) => ({ ...d, format: s.format }))
   }
 
   /** Open a booked solo session to add a team (decision 5). */
@@ -1743,19 +1743,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       slot: slot || null,
       durationMin: Math.max(15, Math.min(300, durationMin)),
     }))
-  const setFormat = (format: "Singles" | "Doubles") =>
-    setDraft((d) => ({
-      ...d,
-      format,
-      invitees: d.invitees.slice(0, capacityFor(format) - 1),
-    }))
   const setFillMode = (fillMode: FillMode) =>
     setDraft((d) => ({ ...d, fillMode }))
   const toggleInvite = (initials: string) =>
     setDraft((d) => {
       if (d.invitees.includes(initials))
         return { ...d, invitees: d.invitees.filter((i) => i !== initials) }
-      if (d.invitees.length >= capacityFor(d.format) - 1) return d
+      if (d.invitees.length >= BOOKING_CAPACITY - 1) return d
       return { ...d, invitees: [...d.invitees, initials] }
     })
 
@@ -1838,7 +1832,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         court: court.name,
       }),
       sport,
-      format: draft.format,
+      format: "Doubles",
       courtId: court.id,
       dayKey: draft.dayKey,
       dayLabel,
@@ -1846,7 +1840,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       durationMin: draft.durationMin,
       courtLabel,
       host: { name: userName, initials: USER.initials },
-      capacity: capacityFor(draft.format),
+      capacity: BOOKING_CAPACITY,
       roster: [host],
       level: userLevelForSport(sport),
       status: "forming",
@@ -1963,7 +1957,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         court: court.name,
       }),
       sport,
-      format: draft.format,
+      format: "Doubles",
       courtId: court.id,
       dayKey: draft.dayKey,
       dayLabel,
@@ -1971,7 +1965,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       durationMin: draft.durationMin,
       courtLabel,
       host: { name: userName, initials: USER.initials },
-      capacity: capacityFor(draft.format),
+      capacity: BOOKING_CAPACITY,
       roster: [host],
       level: userLevelForSport(sport),
       status: "booked",
@@ -2152,7 +2146,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     steps,
     step,
     draft,
-    capacityFor,
     openBooking,
     armBooking,
     bookCourtForSession,
@@ -2167,7 +2160,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSlot,
     setDuration,
     pickSlot,
-    setFormat,
     setFillMode,
     toggleInvite,
     paying,
