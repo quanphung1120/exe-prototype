@@ -50,7 +50,9 @@ function ThemeHotkey() {
         return
       }
 
-      if (event.key.toLowerCase() !== "l") {
+      // Browser autofill (e.g. picking a suggested email) can dispatch a
+      // synthetic keydown with no `key`, so guard before lower-casing.
+      if (event.key?.toLowerCase() !== "l") {
         return
       }
 

@@ -7,6 +7,8 @@ import {
   LogOut,
   Plus,
   Search,
+  Settings,
+  ShieldCheck,
   UserCog,
   UserRound,
 } from "lucide-react"
@@ -57,7 +59,8 @@ export function AppSidebar() {
   const { signOut, openUserProfile } = useClerk()
   const { isMobile, setOpenMobile } = useSidebar()
   const { userName } = useMatchmaking()
-  const { user: USER, venues: VENUES } = useData()
+  const { user: USER, brand: BRAND, venues: VENUES, accountType } = useData()
+  const venueOnly = accountType === "venue"
   // Live unread total from Stream (0 when chat is degraded); drives the chat badge.
   const unreadCount = useStreamUnreadCount()
 
@@ -69,6 +72,7 @@ export function AppSidebar() {
 
   const { workspace, ns, items, active, venueId } = navContext(pathname)
   const isVenue = workspace === "venue"
+  const isAdmin = workspace === "admin"
 
   // The active venue is derived from the URL's [venueId] (per-venue workspace).
   // In the player workspace there's no active venue, so fall back to the
@@ -113,16 +117,35 @@ export function AppSidebar() {
     handleNavigate()
   }
 
-  // Switch to the venue workspace — the account's single venue.
-  const switchToVenue = () => {
-    const targetId = activeVenueId ?? VENUES[0]?.id
-    if (targetId) router.push(venueBase(targetId))
+  // Switch to the admin workspace — only reachable when the sidebar renders
+  // the entry below, which is itself gated on the Clerk role.
+  const switchToAdmin = () => {
+    router.push("/dashboard/admin")
+    handleNavigate()
+  }
+
+  // Open a specific branch (chi nhánh) of the operator's brand.
+  const goToBranch = (id: string) => {
+    router.push(venueBase(id))
     handleNavigate()
   }
 
   // No venue provisioned yet — the switcher's only way into the setup wizard.
   const switchToAddVenue = () => {
     router.push("/setup")
+    handleNavigate()
+  }
+
+  // Add another branch (chi nhánh) to an existing brand — the wizard again, but
+  // `?branch=1` tells the setup gate to allow it past the one-shot first-run.
+  const addBranch = () => {
+    router.push("/setup?branch=1")
+    handleNavigate()
+  }
+
+  // Venue-only accounts opt into the player role via the skills assessment.
+  const becomePlayer = () => {
+    router.push("/assessment")
     handleNavigate()
   }
 
@@ -141,11 +164,13 @@ export function AppSidebar() {
                     <div
                       className={cn(
                         "flex aspect-square size-10 items-center justify-center rounded-xl",
-                        isVenue &&
+                        (isVenue || isAdmin) &&
                           "bg-secondary text-xs font-bold text-secondary-foreground"
                       )}
                     >
-                      {isVenue && VENUE ? (
+                      {isAdmin ? (
+                        <ShieldCheck className="size-5" />
+                      ) : isVenue && VENUE ? (
                         VENUE.initials
                       ) : (
                         <LogoMark className="size-9! text-primary" />
@@ -153,7 +178,11 @@ export function AppSidebar() {
                     </div>
                     <div className="grid flex-1 text-left leading-tight">
                       <span className="truncate font-heading text-sm font-bold tracking-tight">
-                        {isVenue && VENUE ? VENUE.name : "SportMatch AI"}
+                        {isAdmin
+                          ? t("adminWorkspace")
+                          : isVenue && VENUE
+                            ? VENUE.name
+                            : "SportMatch AI"}
                       </span>
                       {isVenue && VENUE ? (
                         <span className="truncate text-xs text-sidebar-foreground/60">
@@ -173,34 +202,86 @@ export function AppSidebar() {
               >
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>{t("workspaces")}</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={switchToPlayer}>
-                    <LogoMark className="size-6 text-primary" />
-                    <span className="flex-1">{t("playerWorkspace")}</span>
-                    {!isVenue ? <Check className="size-4 text-brand" /> : null}
-                  </DropdownMenuItem>
-                  {VENUE ? (
-                    <DropdownMenuItem onClick={switchToVenue}>
-                      <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
-                        {VENUE.initials}
+                  {venueOnly ? (
+                    <DropdownMenuItem onClick={becomePlayer}>
+                      <div className="flex size-6 items-center justify-center rounded-lg border border-dashed border-sidebar-border text-secondary-foreground">
+                        <Plus className="size-4" />
                       </div>
-                      <span className="flex-1 truncate">
-                        {`${VENUE.name} · ${t("venueTag")}`}
-                      </span>
-                      {isVenue ? (
+                      <span className="flex-1">{t("becomePlayer")}</span>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={switchToPlayer}>
+                      <LogoMark className="size-6 text-primary" />
+                      <span className="flex-1">{t("playerWorkspace")}</span>
+                      {workspace === "player" ? (
                         <Check className="size-4 text-brand" />
                       ) : null}
                     </DropdownMenuItem>
+                  )}
+                  {sUser.role === "admin" ? (
+                    <DropdownMenuItem onClick={switchToAdmin}>
+                      <ShieldCheck className="size-6 text-primary" />
+                      <span className="flex-1">{t("adminWorkspace")}</span>
+                      {isAdmin ? <Check className="size-4 text-brand" /> : null}
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  {/* The brand (thương hiệu) and its branches (chi nhánh). */}
+                  <DropdownMenuLabel className="truncate">
+                    {BRAND ? BRAND.name : t("venueTag")}
+                  </DropdownMenuLabel>
+                  {VENUES.length > 0 ? (
+                    <>
+                      {VENUES.map((v) => (
+                        <DropdownMenuItem
+                          key={v.id}
+                          onClick={() => goToBranch(v.id)}
+                        >
+                          <div className="flex size-7 items-center justify-center rounded-lg bg-secondary text-xs font-semibold text-secondary-foreground">
+                            {v.initials}
+                          </div>
+                          <span className="flex-1 truncate">{v.name}</span>
+                          {isVenue && v.id === activeVenueId ? (
+                            <Check className="size-4 text-brand" />
+                          ) : null}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuItem onClick={addBranch}>
+                        <div className="flex size-7 items-center justify-center rounded-lg border border-dashed border-sidebar-border text-secondary-foreground">
+                          <Plus className="size-4" />
+                        </div>
+                        <span className="flex-1 truncate">
+                          {t("addBranch")}
+                        </span>
+                      </DropdownMenuItem>
+                    </>
                   ) : (
                     <DropdownMenuItem onClick={switchToAddVenue}>
                       <div className="flex size-7 items-center justify-center rounded-lg border border-dashed border-sidebar-border text-secondary-foreground">
                         <Plus className="size-4" />
                       </div>
-                      <span className="flex-1 truncate">
-                        {t("addVenue")}
-                      </span>
+                      <span className="flex-1 truncate">{t("addVenue")}</span>
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuGroup>
+                {isVenue && VENUE ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          router.push(`${venueBase(VENUE.id)}/manage`)
+                          handleNavigate()
+                        }}
+                      >
+                        <Settings className="size-4" />
+                        <span className="flex-1">{t("manageVenue")}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           </SidebarMenuItem>

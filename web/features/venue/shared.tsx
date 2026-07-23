@@ -4,6 +4,17 @@ import * as React from "react"
 import { ArrowDownRight, ArrowUpRight } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Field, FieldLabel } from "@/components/ui/field"
+import { Textarea } from "@/components/ui/textarea"
 
 /**
  * Shared venue-workspace primitives. Intentionally text-free (everything comes
@@ -306,5 +317,85 @@ export function VenueEmpty({ text }: { text: string }) {
     <p className="rounded-3xl bg-muted/50 px-4 py-8 text-center text-sm text-muted-foreground">
       {text}
     </p>
+  )
+}
+
+/**
+ * A required-reason prompt for any reservation action the API rejects without
+ * one (decline, cancel). Shared by the reservations table and the schedule
+ * event popover so both flows send the same shape of reason back to the API.
+ */
+export function ReasonDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  reasonLabel,
+  reasonPlaceholder,
+  cancelLabel,
+  confirmLabel,
+  reason,
+  onReasonChange,
+  onConfirm,
+  // Default preserves prior behavior for the reject/cancel flows (server DTOs
+  // there allow up to 300 chars, so 200 was already a safe, stricter cap).
+  // Callers whose server DTO enforces a *tighter* limit than 200 (e.g. a
+  // bank-transfer reference) must pass it here — otherwise the client would
+  // accept input the server rejects with a 400.
+  maxLength = 200,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: React.ReactNode
+  description: React.ReactNode
+  reasonLabel: React.ReactNode
+  reasonPlaceholder: string
+  cancelLabel: React.ReactNode
+  confirmLabel: React.ReactNode
+  reason: string
+  onReasonChange: (reason: string) => void
+  onConfirm: () => void
+  maxLength?: number
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        <Field className="my-2">
+          <FieldLabel htmlFor="reason-dialog-reason">{reasonLabel}</FieldLabel>
+          <Textarea
+            id="reason-dialog-reason"
+            value={reason}
+            onChange={(e) => onReasonChange(e.target.value)}
+            placeholder={reasonPlaceholder}
+            rows={3}
+            maxLength={maxLength}
+            autoFocus
+          />
+        </Field>
+        <DialogFooter className="flex-row justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full"
+            onClick={() => onOpenChange(false)}
+          >
+            {cancelLabel}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            className="rounded-full"
+            disabled={reason.trim().length < 3}
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

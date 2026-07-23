@@ -13,7 +13,14 @@ import { AppModule } from "./app.module.js"
 const JSON_BODY_LIMIT = "100kb"
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule)
+  // `rawBody: true` makes every body-parser call below also stash the exact
+  // request bytes on `req.rawBody` — needed by `POST /api/payments/ipn`
+  // (`PaymentsController#ipn`), whose HMAC signature is computed over SePay's
+  // raw bytes and would silently break if verified against a re-serialized
+  // parsed body instead (whitespace/key-order can differ).
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+  })
   const config = app.get(ConfigService)
 
   app.useBodyParser("json", { limit: JSON_BODY_LIMIT })

@@ -16,7 +16,7 @@ import { usePathname } from "@/i18n/navigation"
  */
 export function PlayerChrome() {
   const pathname = usePathname()
-  if (workspaceForPath(pathname) === "venue") return null
+  if (workspaceForPath(pathname) !== "player") return null
   return (
     <>
       <MatchmakingDock />

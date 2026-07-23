@@ -1,7 +1,7 @@
 # SportMatch AI
 
 A prototype for an AI-powered court-booking and player-matchmaking app for racquet
-sports (pickleball, cầu lông/badminton). `web` and `api` are two
+sports (cầu lông/badminton). `web` and `api` are two
 **dedicated, standalone projects** (own `package.json`, own pnpm lockfile) —
 there is no Turborepo, no pnpm workspace, and no shared package linking them.
 
@@ -43,6 +43,13 @@ pnpm typecheck   # tsc --noEmit
 ```
 
 `pnpm format` runs prettier — run it inside `api/` or `web/`; each app owns its own Prettier config.
+
+## Release checklist
+
+See `RELEASE.md` for the pre-release checklist: environment variables
+(including planned `SEPAY_*` for the SePay gateway), IPN tunnel + sandbox
+test procedure, the reseed procedure, the full build/lint/typecheck/test
+matrix, and Clerk test-mode E2E notes.
 
 ## Adding shadcn/ui components
 

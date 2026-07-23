@@ -27,7 +27,7 @@ export const VENUE: Venue = {
   initials: "SR",
   district: "Quận Cầu Giấy",
   city: "Hà Nội",
-  sports: ["badminton", "pickleball"],
+  sports: ["badminton"],
   openFrom: "06:00",
   openTo: "22:00",
   rating: 4.8,
@@ -83,7 +83,7 @@ export const VENUE_COURTS: VenueCourt[] = [
   {
     id: "vc5",
     name: "Sân 5",
-    sport: "pickleball",
+    sport: "badminton",
     surface: "Acrylic đệm",
     state: "in-play",
     until: "18:45",
@@ -94,7 +94,7 @@ export const VENUE_COURTS: VenueCourt[] = [
   {
     id: "vc6",
     name: "Sân 6",
-    sport: "pickleball",
+    sport: "badminton",
     surface: "Acrylic đệm",
     state: "available",
     utilToday: 52,
@@ -135,7 +135,7 @@ export const RESERVATIONS: Reservation[] = [
   {
     id: "rv2",
     customer: { name: "Trịnh Long", initials: "TL" },
-    sport: "pickleball",
+    sport: "badminton",
     courtId: "vc6",
     court: "Sân 6",
     day: { en: "Today", vi: "Hôm nay" },
@@ -165,7 +165,7 @@ export const RESERVATIONS: Reservation[] = [
   {
     id: "rv4",
     customer: { name: "Lê Lan", initials: "LL" },
-    sport: "pickleball",
+    sport: "badminton",
     courtId: "vc5",
     court: "Sân 5",
     day: { en: "Today", vi: "Hôm nay" },
@@ -195,7 +195,7 @@ export const RESERVATIONS: Reservation[] = [
   {
     id: "rv6",
     customer: { name: "Đỗ Anh", initials: "ĐA" },
-    sport: "pickleball",
+    sport: "badminton",
     courtId: "vc6",
     court: "Sân 6",
     day: { en: "Tomorrow", vi: "Ngày mai" },
@@ -240,7 +240,7 @@ export const RESERVATIONS: Reservation[] = [
   {
     id: "rv9",
     customer: { name: "Ngô Sơn", initials: "NS" },
-    sport: "pickleball",
+    sport: "badminton",
     courtId: "vc5",
     court: "Sân 5",
     day: { en: "Sun, 15 Jun", vi: "CN, 15/6" },
@@ -286,7 +286,7 @@ export const VENUE_CUSTOMERS: VenueCustomer[] = [
     id: "0901234502",
     name: "Lê Lan",
     initials: "LL",
-    favoriteSport: "pickleball",
+    favoriteSport: "badminton",
     visits: 48,
     lastVisit: { en: "Today", vi: "Hôm nay" },
     ltv: 14200000,
@@ -334,7 +334,7 @@ export const VENUE_CUSTOMERS: VenueCustomer[] = [
     id: "0901234506",
     name: "Đỗ Anh",
     initials: "ĐA",
-    favoriteSport: "pickleball",
+    favoriteSport: "badminton",
     visits: 14,
     lastVisit: { en: "1 week ago", vi: "1 tuần trước" },
     ltv: 3300000,
@@ -346,7 +346,7 @@ export const VENUE_CUSTOMERS: VenueCustomer[] = [
     id: "0901234507",
     name: "Ngô Sơn",
     initials: "NS",
-    favoriteSport: "pickleball",
+    favoriteSport: "badminton",
     visits: 5,
     lastVisit: { en: "Yesterday", vi: "Hôm qua" },
     ltv: 1100000,
@@ -380,8 +380,7 @@ export const REVENUE_SERIES: RevenuePoint[] = [
 ]
 
 export const SPORT_MIX: SportMixPoint[] = [
-  { sport: "badminton", bookings: 412, pct: 68 },
-  { sport: "pickleball", bookings: 194, pct: 32 },
+  { sport: "badminton", bookings: 606, pct: 100 },
 ]
 
 export const CHANNEL_MIX: ChannelMixPoint[] = [
@@ -407,19 +406,19 @@ export const VENUE_INSIGHTS: VenueInsight[] = [
       vi: "Sân 5 & 6 trống khung 14:00–16:00",
     },
     detail: {
-      en: "Weekday afternoons on the pickleball courts run at 22% utilization — well below the 71% house average.",
-      vi: "Chiều các ngày trong tuần ở sân pickleball chỉ đạt 22% công suất — thấp hơn nhiều so với mức trung bình 71%.",
+      en: "Weekday afternoons on the badminton courts run at 22% utilization — well below the 71% house average.",
+      vi: "Chiều các ngày trong tuần ở sân cầu lông chỉ đạt 22% công suất — thấp hơn nhiều so với mức trung bình 71%.",
     },
     reasoning: {
       en: [
         "Compared the last 30 afternoons against the venue average",
-        "Found pickleball 14:00–16:00 booked 22% of the time",
+        "Found badminton 14:00–16:00 booked 22% of the time",
         "Demand model: a 15% off-peak price would lift fill to ~58%",
         "Net revenue still rises despite the lower rate",
       ],
       vi: [
         "So sánh 30 buổi chiều gần nhất với mức trung bình của sân",
-        "Phát hiện pickleball 14:00–16:00 chỉ kín 22% thời lượng",
+        "Phát hiện cầu lông 14:00–16:00 chỉ kín 22% thời lượng",
         "Mô hình cầu: giảm 15% giờ thấp điểm nâng tỷ lệ lấp đầy ~58%",
         "Doanh thu thuần vẫn tăng dù đơn giá thấp hơn",
       ],
@@ -680,7 +679,7 @@ export const VENUE_3: Venue = {
   initials: "AP",
   district: "Quận Tây Hồ",
   city: "Hà Nội",
-  sports: ["pickleball"],
+  sports: ["badminton"],
   openFrom: "05:30",
   openTo: "22:30",
   rating: 4.7,
@@ -695,7 +694,7 @@ export const VENUE_3_COURTS: VenueCourt[] = [
   {
     id: "v3c1",
     name: "Sân 1",
-    sport: "pickleball",
+    sport: "badminton",
     surface: "Acrylic đệm",
     state: "available",
     utilToday: 0,
@@ -704,7 +703,7 @@ export const VENUE_3_COURTS: VenueCourt[] = [
   {
     id: "v3c2",
     name: "Sân 2",
-    sport: "pickleball",
+    sport: "badminton",
     surface: "Acrylic đệm",
     state: "available",
     utilToday: 0,
@@ -759,7 +758,9 @@ export function emptyOps(courts: VenueCourt[] = []): VenueOps {
     stats: { ...EMPTY_STATS },
     courts,
     reservations: [],
+    refundQueue: [],
     customers: [],
+    blocks: [],
     revenueSeries: EMPTY_REVENUE_SERIES.map((p) => ({ ...p })),
     sportMix: sports.map((sport) => ({ sport, bookings: 0, pct: 0 })),
     channelMix: EMPTY_CHANNEL_MIX.map((p) => ({ ...p })),
@@ -776,7 +777,12 @@ export const INITIAL_VENUES: VenueRecord[] = [
       stats: VENUE_STATS,
       courts: VENUE_COURTS,
       reservations: RESERVATIONS,
+      // Seed venue docs carry no manual refunds — real ones only ever
+      // appear via `composeBundle`'s live `listRefundQueue` projection,
+      // same as `reservations` above (see the comment on `composeBundle`).
+      refundQueue: [],
       customers: VENUE_CUSTOMERS,
+      blocks: [],
       revenueSeries: REVENUE_SERIES,
       sportMix: SPORT_MIX,
       channelMix: CHANNEL_MIX,

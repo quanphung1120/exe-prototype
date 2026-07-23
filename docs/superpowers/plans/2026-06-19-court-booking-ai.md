@@ -195,9 +195,9 @@ export const BOOKINGS: Booking[] = [
   },
   {
     id: "b3",
-    sport: "pickleball",
+    sport: "badminton",
     format: "Doubles",
-    venue: "Smash Pickleball",
+    venue: "Smash Badminton",
     court: "Court 2",
     day: "Sat, 21 Jun",
     time: "09:30 – 10:30",

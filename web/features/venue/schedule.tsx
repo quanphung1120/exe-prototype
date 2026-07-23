@@ -8,6 +8,7 @@ import {
   Ban,
   CalendarClock,
   CalendarRange,
+  Clock,
   Footprints,
   Lock,
   Phone,
@@ -34,7 +35,17 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  COURT_BLOCK_REASONS,
   slotKindAccent,
+  type CourtBlock,
+  type CourtBlockReason,
   type Reservation,
   type ScheduleEvent,
   type SlotKind,
@@ -73,14 +84,17 @@ import {
 } from "@/features/venue/shared"
 import { useVenue } from "@/features/venue/venue-provider"
 import {
+  addCourtBlock,
   addWalkInReservation,
   cancelReservation,
   rescheduleReservation,
+  removeCourtBlock,
 } from "@/features/venue/venue-actions"
 
 const LEGEND_KINDS: Exclude<SlotKind, "free">[] = [
   "booked",
   "walk-in",
+  "held",
   "blocked",
 ]
 const LEGEND_ICON: Record<
@@ -89,13 +103,23 @@ const LEGEND_ICON: Record<
 > = {
   booked: Users,
   "walk-in": Footprints,
+  held: Clock,
   blocked: Wrench,
 }
 
+// The generic booking-overlap 409 thrown by `POST /api/venues/reservations/walk-in`
+// (see api/src/features/bookings/bookings.service.ts#writeWithOverlapGuard) —
+// matched verbatim so the walk-in dialog can swap in the operator-facing copy.
+const WALK_IN_OVERLAP_MESSAGE = "Selected time overlaps an existing reservation"
+
 export function VenueScheduleView({
   embedded = false,
+  initialDay,
 }: {
   embedded?: boolean
+  /** Land the day view on this ISO date instead of today (e.g. a deep link
+   * from the Insights cold-slot panel to a specific weekday). */
+  initialDay?: string
 } = {}) {
   const locale = useLocale()
   const t = useTranslations("VenueSchedule")
@@ -108,8 +132,11 @@ export function VenueScheduleView({
     venue: VENUE,
     venueCourts: VENUE_COURTS,
     reservations: RESERVATIONS,
+    blocks: BLOCKS,
     addReservation,
     updateReservation,
+    addBlock,
+    removeBlock,
     courtDayEvents,
     venueScheduleFor,
   } = useVenueData()
@@ -121,14 +148,39 @@ export function VenueScheduleView({
     () => new Set(RESERVATIONS.map((r) => r.id)),
     [RESERVATIONS]
   )
+  // Same idea for blocked events: only ones backed by a real `CourtBlock`
+  // (as opposed to a court's static `maintenance` state) can be reopened.
+  const blockIds = React.useMemo(
+    () => new Set(BLOCKS.map((b) => b.id)),
+    [BLOCKS]
+  )
 
   const now = useNow()
   const [view, setView] = React.useState<CalendarView>("day")
-  const [cursor, setCursor] = React.useState<string>(todayIso)
+  const [cursor, setCursor] = React.useState<string>(initialDay ?? todayIso)
+  // Honor an `initialDay` deep link even after mount: a soft nav to this page
+  // with a new `?day=` (e.g. re-clicking Insights' cold-slot link) keeps the
+  // client component mounted, so a mount-only initial value would be stale.
+  // Adjust during render (not an effect) per the repo's no-sync-setState rule.
+  const [prevInitialDay, setPrevInitialDay] = React.useState(initialDay)
+  if (initialDay !== prevInitialDay) {
+    setPrevInitialDay(initialDay)
+    if (initialDay) {
+      setCursor(initialDay)
+      setView("day")
+    }
+  }
   const [weekCourtId, setWeekCourtId] = React.useState<string>(
     VENUE_COURTS[0]?.id ?? ""
   )
   const [walkInDialog, setWalkInDialog] = React.useState<{
+    courtId: string
+    courtName: string
+    dayKey: string
+    start: string
+    durationMin: number
+  } | null>(null)
+  const [blockDialog, setBlockDialog] = React.useState<{
     courtId: string
     courtName: string
     dayKey: string
@@ -143,6 +195,7 @@ export function VenueScheduleView({
     durationMin: number
   } | null>(null)
   const [, startCancel] = React.useTransition()
+  const [, startReopen] = React.useTransition()
   // The API requires a reason for any cancellation, so Cancel opens this
   // dialog to collect one instead of firing straight from the popover.
   const [cancelTarget, setCancelTarget] = React.useState<ScheduleEvent | null>(
@@ -172,6 +225,26 @@ export function VenueScheduleView({
       }
     })
   }, [cancelTarget, cancelReason, venueId, updateReservation, t])
+
+  // "Mở lại khung giờ" — reopen a real CourtBlock (no reason needed, unlike
+  // cancelling a booking). Only wired for blocked events backed by a real
+  // block id; the schedule-filler `maintenance` block isn't addressable here.
+  const reopenBlock = React.useCallback(
+    (event: ScheduleEvent, courtName: string) => {
+      startReopen(async () => {
+        try {
+          await removeCourtBlock(venueId, event.id)
+          removeBlock(event.id)
+          toast.success(t("toast.reopened"), { description: courtName })
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : "Failed to reopen slot"
+          )
+        }
+      })
+    },
+    [venueId, removeBlock, t]
+  )
 
   const monthsShort = tcal.raw("monthsShort") as string[]
   const months = tcal.raw("months") as string[]
@@ -243,6 +316,7 @@ export function VenueScheduleView({
             durationMin={g.durationMin}
             t={t}
             onAddWalkIn={(input) => setWalkInDialog(input)}
+            onBlockCourt={(input) => setBlockDialog(input)}
           />
         ))}
         {events.map((ev) => (
@@ -250,11 +324,16 @@ export function VenueScheduleView({
             key={ev.id}
             event={ev}
             courtName={court.name}
-            persisted={reservationIds.has(ev.id)}
+            persisted={
+              ev.kind === "blocked"
+                ? blockIds.has(ev.id)
+                : reservationIds.has(ev.id)
+            }
             locale={locale}
             t={t}
             tc={tc}
             onCancel={requestCancel}
+            onReopen={() => reopenBlock(ev, court.name)}
             onReschedule={() =>
               setRescheduleDialog({
                 reservationId: ev.id,
@@ -582,6 +661,15 @@ export function VenueScheduleView({
         t={t}
       />
 
+      <BlockDialog
+        locale={locale}
+        venueId={venueId}
+        target={blockDialog}
+        onClose={() => setBlockDialog(null)}
+        onCreated={addBlock}
+        t={t}
+      />
+
       <RescheduleDialog
         locale={locale}
         venueId={venueId}
@@ -631,23 +719,35 @@ function EventBlock({
   tc,
   onCancel,
   onReschedule,
+  onReopen,
 }: {
   event: ScheduleEvent
   courtName: string
-  /** True when the event is a real reservation (so Cancel/Reschedule persist). */
+  /**
+   * True when the event is backed by a real record (a reservation for
+   * booked/walk-in kinds, a `CourtBlock` for blocked ones) — so the live
+   * Cancel / Reschedule / Reopen actions persist. False for the seed-filler
+   * events `courtDayEvents` synthesizes and the static `maintenance` block.
+   */
   persisted: boolean
   locale: string
   t: ReturnType<typeof useTranslations>
   tc: ReturnType<typeof useTranslations>
   onCancel: (event: ScheduleEvent) => void
   onReschedule: (event: ScheduleEvent) => void
+  onReopen: (event: ScheduleEvent) => void
 }) {
   const top = toMin(event.start) * PX_PER_MIN
   const height = Math.max(18, event.durationMin * PX_PER_MIN - 2)
   const end = addMinutes(event.start, event.durationMin)
   const compact = height < 46
   const blocked = event.kind === "blocked"
-  const Icon = event.kind === "walk-in" ? Footprints : Users
+  const Icon =
+    event.kind === "walk-in"
+      ? Footprints
+      : event.kind === "held"
+        ? Clock
+        : Users
   const infoCopy =
     locale === "vi"
       ? {
@@ -729,17 +829,33 @@ function EventBlock({
             </div>
 
             {blocked ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full justify-start rounded-full"
-                onClick={() =>
-                  toast.success(t("toast.reopened"), { description: courtName })
-                }
-              >
-                <Wrench />
-                {t("event.reopen")}
-              </Button>
+              <div className="flex flex-col gap-1.5">
+                {event.blockReason ? (
+                  <div className="rounded-2xl bg-muted/50 px-3 py-2 text-sm">
+                    <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                      {t("blockDialog.reasonLabel")}
+                    </div>
+                    <div className="mt-1 font-medium">
+                      {t(`blockReasons.${event.blockReason}`)}
+                    </div>
+                    {event.blockNote ? (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {event.blockNote}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full justify-start rounded-full"
+                  disabled={!persisted}
+                  onClick={() => onReopen(event)}
+                >
+                  <Wrench />
+                  {t("event.reopen")}
+                </Button>
+              </div>
             ) : (
               <div className="flex flex-col gap-1.5">
                 <div className="rounded-2xl bg-muted/50 px-3 py-2 text-sm">
@@ -834,7 +950,8 @@ function WalkInDialog({
   const [durationMin, setDurationMin] = React.useState("60")
   const [isPending, startTransition] = React.useTransition()
 
-  const [prevReservation, setPrevReservation] = React.useState<typeof reservation>(null)
+  const [prevReservation, setPrevReservation] =
+    React.useState<typeof reservation>(null)
 
   if (reservation !== prevReservation) {
     setPrevReservation(reservation)
@@ -865,15 +982,26 @@ function WalkInDialog({
         })
         onClose()
       } catch (error) {
-        toast.error(
+        // The API's generic overlap 409 ("Selected time overlaps an existing
+        // reservation") almost always means a pending/confirmed app booking
+        // already sits on this slot — surface the operator-facing explanation
+        // instead of the raw API string.
+        const message =
           error instanceof Error ? error.message : "Failed to add walk-in"
+        toast.error(
+          message === WALK_IN_OVERLAP_MESSAGE
+            ? t("toast.walkInConflict")
+            : message
         )
       }
     })
   }
 
   return (
-    <Dialog open={reservation !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={reservation !== null}
+      onOpenChange={(open) => !open && onClose()}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{copy.title}</DialogTitle>
@@ -938,6 +1066,169 @@ function WalkInDialog({
   )
 }
 
+/**
+ * Close off a free slot with a required reason (VienTD-Review decision #12) —
+ * "maintenance/internal/vip/break", never inferred. Reopening is a direct
+ * action on the blocked `EventBlock` popover, no dialog needed.
+ */
+function BlockDialog({
+  locale,
+  venueId,
+  target,
+  onClose,
+  onCreated,
+  t,
+}: {
+  locale: string
+  venueId: string
+  target: {
+    courtId: string
+    courtName: string
+    dayKey: string
+    start: string
+    durationMin: number
+  } | null
+  onClose: () => void
+  onCreated: (block: CourtBlock) => void
+  t: ReturnType<typeof useTranslations>
+}) {
+  const copy =
+    locale === "vi"
+      ? {
+          start: "Giờ bắt đầu",
+          duration: "Thời lượng (phút)",
+          cancel: "Hủy",
+          submit: "Khóa sân",
+          saving: "Đang lưu...",
+        }
+      : {
+          start: "Start time",
+          duration: "Duration (minutes)",
+          cancel: "Cancel",
+          submit: "Block slot",
+          saving: "Saving...",
+        }
+  const [reason, setReason] = React.useState<CourtBlockReason>("maintenance")
+  const [note, setNote] = React.useState("")
+  const [start, setStart] = React.useState("06:00")
+  const [durationMin, setDurationMin] = React.useState("60")
+  const [isPending, startTransition] = React.useTransition()
+
+  const [prevTarget, setPrevTarget] = React.useState<typeof target>(null)
+  if (target !== prevTarget) {
+    setPrevTarget(target)
+    if (target) {
+      setReason("maintenance")
+      setNote("")
+      setStart(target.start)
+      setDurationMin(String(Math.max(15, target.durationMin)))
+    }
+  }
+
+  const handleSubmit = (event: React.SubmitEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!target) return
+    startTransition(async () => {
+      try {
+        const created = await addCourtBlock(venueId, {
+          courtId: target.courtId,
+          dateKey: target.dayKey,
+          start,
+          durationMin: Number(durationMin),
+          reason,
+          note: note.trim() || undefined,
+        })
+        onCreated(created)
+        toast.success(t("toast.blockTitle"), {
+          description: `${target.courtName} · ${start}`,
+        })
+        onClose()
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to block slot"
+        )
+      }
+    })
+  }
+
+  return (
+    <Dialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("blockDialog.title")}</DialogTitle>
+          <DialogDescription>{t("blockDialog.description")}</DialogDescription>
+        </DialogHeader>
+        {target ? (
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="rounded-2xl bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              {target.courtName} · {start}
+            </div>
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              {t("blockDialog.reasonLabel")}
+              <Select
+                value={reason}
+                onValueChange={(v) => setReason(v as CourtBlockReason)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(v) => t(`blockReasons.${v as CourtBlockReason}`)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {COURT_BLOCK_REASONS.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {t(`blockReasons.${r}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1.5 text-sm font-medium">
+                {copy.start}
+                <Input
+                  required
+                  type="time"
+                  step={900}
+                  value={start}
+                  onChange={(event) => setStart(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-sm font-medium">
+                {copy.duration}
+                <Input
+                  required
+                  min={15}
+                  step={15}
+                  type="number"
+                  value={durationMin}
+                  onChange={(event) => setDurationMin(event.target.value)}
+                />
+              </label>
+            </div>
+            <label className="flex flex-col gap-1.5 text-sm font-medium">
+              {t("blockDialog.noteLabel")}
+              <Input
+                value={note}
+                placeholder={t("blockDialog.notePlaceholder")}
+                onChange={(event) => setNote(event.target.value)}
+              />
+            </label>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
+                {copy.cancel}
+              </Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? copy.saving : copy.submit}
+              </Button>
+            </DialogFooter>
+          </form>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function RescheduleDialog({
   locale,
   venueId,
@@ -973,7 +1264,8 @@ function RescheduleDialog({
         }
       : {
           title: "Reschedule booking",
-          description: "Pick a new day, start time and duration for this booking.",
+          description:
+            "Pick a new day, start time and duration for this booking.",
           day: "Day",
           start: "Start time",
           duration: "Duration (minutes)",
@@ -1098,6 +1390,7 @@ function FreeBand({
   start,
   durationMin,
   onAddWalkIn,
+  onBlockCourt,
   t,
 }: {
   courtId: string
@@ -1106,6 +1399,13 @@ function FreeBand({
   start: string
   durationMin: number
   onAddWalkIn: (input: {
+    courtId: string
+    courtName: string
+    dayKey: string
+    start: string
+    durationMin: number
+  }) => void
+  onBlockCourt: (input: {
     courtId: string
     courtName: string
     dayKey: string
@@ -1156,7 +1456,13 @@ function FreeBand({
                 variant="outline"
                 className="w-full justify-start rounded-full"
                 onClick={() =>
-                  toast(t("toast.blockTitle"), { description: slotLabel })
+                  onBlockCourt({
+                    courtId,
+                    courtName,
+                    dayKey,
+                    start,
+                    durationMin,
+                  })
                 }
               >
                 <Wrench />

@@ -15,7 +15,6 @@ import { usePathname } from "@/i18n/navigation"
 export function DashboardTopbar() {
   const pathname = usePathname()
   const { ns, active, workspace } = navContext(pathname)
-  const isVenue = workspace === "venue"
   const tNav = useTranslations(ns)
 
   return (
@@ -30,7 +29,7 @@ export function DashboardTopbar() {
           {tNav(`${active.key}.caption`)}
         </p>
       </div>
-      {isVenue ? null : <ActiveRoomPill />}
+      {workspace === "player" ? <ActiveRoomPill /> : null}
       <NotificationsButton />
       <LocaleSwitcher />
       <ThemeToggle />

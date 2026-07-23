@@ -4,7 +4,19 @@ import { auth } from "@clerk/nextjs/server"
 import { notFound } from "next/navigation"
 import { createFetch } from "@better-fetch/fetch"
 
-import type { PlayerAssessment, Seed, VenueSeed } from "@/lib/shared"
+import type {
+  AccountType,
+  PlayerAssessment,
+  Seed,
+  VenueSeed,
+} from "@/lib/shared"
+import type {
+  AdminApprovalRow,
+  AdminBookingRow,
+  AdminBrandGroup,
+  AdminOverview,
+  AdminRefundRow,
+} from "@/features/admin/admin-types"
 
 // Where the Hono API lives. Server-side fetch only (no CORS concerns); override
 // with API_URL in deployment. Single source of truth — server actions import it
@@ -42,6 +54,30 @@ const sharedFetchConfig = {
 }
 
 export const apiFetch = createFetch({ ...sharedFetchConfig, throw: true })
+
+/**
+ * `apiFetch`, but unwrapping a non-2xx response into a plain `Error` instead
+ * of the raw `BetterFetchError`. The API's exception filter maps every thrown
+ * error to `{ error: message }`; better-fetch surfaces that parsed body as
+ * `BetterFetchError.error`, so this is the one place that peels it back to a
+ * message string. Used by server actions (venue-actions.ts, admin-actions.ts)
+ * so their mutations can `catch` a `.message` without each re-implementing
+ * the unwrap.
+ */
+export async function apiAction<T>(
+  path: string,
+  init?: Parameters<typeof apiFetch>[1]
+): Promise<T> {
+  try {
+    return await apiFetch<T>(path, init)
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "error" in err
+        ? ((err as { error?: { error?: string } }).error?.error ?? undefined)
+        : undefined
+    throw new Error(message ?? "Request failed")
+  }
+}
 
 /**
  * Same instance without `throw: true`, for the one caller (`fetchVenueBundle`)
@@ -107,9 +143,27 @@ export async function fetchAssessment(): Promise<PlayerAssessment | null> {
 }
 
 /**
- * Fetch the caller's own venue bundle, or null when they haven't provisioned one
- * yet (404). Used by the bare-venue redirect and the setup-page gate to decide
- * between the workspace and the setup wizard.
+ * Fetch the signed-in account's effective account type (null until chosen).
+ * Used by the standalone `/onboarding` and `/assessment` routes, which live
+ * outside the dashboard layout and so don't receive the seed. The dashboard
+ * itself reads it from the seed (`Seed.accountType`) instead.
+ */
+export async function fetchAccountType(): Promise<AccountType | null> {
+  try {
+    const { accountType } = await apiFetch<{ accountType: AccountType | null }>(
+      "/api/account"
+    )
+    return accountType
+  } catch {
+    throw new Error(`Failed to load account type. Is the API running?`)
+  }
+}
+
+/**
+ * Fetch the account's default (first) branch bundle, or null when it has
+ * provisioned none yet (404). Used by the bare-venue redirect and the setup-page
+ * gate to decide between the workspace and the setup wizard — the presence of
+ * *any* branch is the "has a venue" signal.
  */
 export async function fetchMyVenue(): Promise<VenueSeed | null> {
   const { data, error } = await apiFetchSafe<VenueSeed>("/api/venue/bundle")
@@ -123,18 +177,21 @@ export async function fetchMyVenue(): Promise<VenueSeed | null> {
 }
 
 /**
- * Fetch the caller's own venue-operator bundle for the venue workspace. Each
- * account owns exactly one venue, resolved server-side from the Clerk id — the
- * `[venueId]` in the URL is not sent. An account with no venue gets 404 → the
- * not-found page (the dashboard layout redirects new accounts to setup first).
+ * Fetch one branch's full venue-operator bundle for the venue workspace. The
+ * branch is the `[venueId]` segment of the `/dashboard/venue/[venueId]` URL; the
+ * API authorizes the caller owns it. A 404 (unknown venue) or 403 (another
+ * account's) both surface the not-found page — the dashboard layout redirects
+ * fresh accounts to setup first, and the switcher only ever offers owned branches.
  */
-export async function fetchVenueBundle(): Promise<VenueSeed> {
+export async function fetchVenueBundle(venueId: string): Promise<VenueSeed> {
   // One aggregate request — the API assembles the whole VenueSeed server-side
   // (mirroring /api/seed), so a partial failure can't silently render a venue
   // with empty courts/reservations/analytics.
-  const { data, error } = await apiFetchSafe<VenueSeed>("/api/venue/bundle")
+  const { data, error } = await apiFetchSafe<VenueSeed>(
+    `/api/venue/${venueId}/bundle`
+  )
 
-  if (error?.status === 404) notFound()
+  if (error?.status === 404 || error?.status === 403) notFound()
 
   if (error) {
     throw new Error(
@@ -143,4 +200,30 @@ export async function fetchVenueBundle(): Promise<VenueSeed> {
   }
 
   return data
+}
+
+// ── Admin workspace (role-gated: /api/admin/* 403s a non-admin caller) ───────
+// Each admin route page fetches its own section's data directly (no shared
+// provider — unlike the venue workspace, admin sections don't need optimistic
+// cross-navigation state) and calls the matching action in admin-actions.ts to
+// mutate; those revalidate the admin subtree so the next render is fresh.
+
+export async function fetchAdminOverview(): Promise<AdminOverview> {
+  return apiFetch<AdminOverview>("/api/admin/overview")
+}
+
+export async function fetchAdminVenuesAndBrands(): Promise<AdminBrandGroup[]> {
+  return apiFetch<AdminBrandGroup[]>("/api/admin/venues")
+}
+
+export async function fetchAdminBookings(): Promise<AdminBookingRow[]> {
+  return apiFetch<AdminBookingRow[]>("/api/admin/bookings")
+}
+
+export async function fetchAdminRefunds(): Promise<AdminRefundRow[]> {
+  return apiFetch<AdminRefundRow[]>("/api/admin/refunds")
+}
+
+export async function fetchAdminApprovals(): Promise<AdminApprovalRow[]> {
+  return apiFetch<AdminApprovalRow[]>("/api/admin/approvals")
 }

@@ -10,7 +10,7 @@ sport and auto-picking the nearest court.
 
 In `components/dashboard/views/match-maker.tsx` (`MatchMakerView`):
 
-- **Sport** — `FilterChips`: *All · Badminton · Tennis · Pickleball*. New
+- **Sport** — `FilterChips`: *All · Badminton · Tennis*. New
   `quickSport` state (`SportKey | "all"`, default `"all"`).
 - **Court** — a `Select`: *Any court* + courts whose `sports` include
   `quickSport` (when `quickSport === "all"`, all courts). New `quickCourt` state

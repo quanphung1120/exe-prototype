@@ -83,7 +83,7 @@ const PLAYER_FIXTURES: Record<string, ProfileFixture> = {
     preferredArea: "Binh Thanh",
     availability: ["Tonight 20:00-22:00", "Weekend mornings"],
     availabilityTags: ["tonight", "weekend", "this-weekend"],
-    sportPreferences: ["pickleball", "badminton"],
+    sportPreferences: ["badminton"],
     playStyle: "Steady doubles builder, patient in transition points",
     completedMatches: 67,
     rating: 4.9,
@@ -99,7 +99,7 @@ const PLAYER_FIXTURES: Record<string, ProfileFixture> = {
     preferredArea: "Thu Duc",
     availability: ["Saturday 17:00-21:00", "Sunday 08:00-11:00"],
     availabilityTags: ["saturday", "weekend", "this-weekend"],
-    sportPreferences: ["pickleball"],
+    sportPreferences: ["badminton"],
     playStyle: "All-court singles player who also anchors doubles defense",
     completedMatches: 49,
     rating: 4.6,
@@ -115,7 +115,7 @@ const PLAYER_FIXTURES: Record<string, ProfileFixture> = {
     preferredArea: "District 7",
     availability: ["Tonight 18:30-21:00", "Tomorrow after work"],
     availabilityTags: ["tonight", "tomorrow"],
-    sportPreferences: ["pickleball", "badminton"],
+    sportPreferences: ["badminton"],
     playStyle: "Social rally player, likes casual doubles and rotation drills",
     completedMatches: 21,
     rating: 4.4,
@@ -131,7 +131,7 @@ const PLAYER_FIXTURES: Record<string, ProfileFixture> = {
     preferredArea: "Phu Nhuan",
     availability: ["Weekend evenings", "Saturday 19:00-22:00"],
     availabilityTags: ["saturday", "weekend", "this-weekend"],
-    sportPreferences: ["pickleball"],
+    sportPreferences: ["badminton"],
     playStyle: "Competitive finisher with strong net pressure",
     completedMatches: 73,
     rating: 4.7,
@@ -161,7 +161,6 @@ const PLAYER_FIXTURES: Record<string, ProfileFixture> = {
 
 const SPORT_ALIASES: Record<SportKey, string[]> = {
   badminton: ["badminton", "cau long", "cau-long"],
-  pickleball: ["pickleball", "pickle"],
 }
 
 const LEVEL_ALIASES: Record<Level, string[]> = {

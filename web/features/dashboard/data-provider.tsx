@@ -30,6 +30,7 @@ import {
   type RosterEntry,
   type Seed,
   type Stats,
+  type Brand,
   type Streak,
   type User,
   type Venue,
@@ -68,7 +69,9 @@ interface DataContextValue {
   stats: Stats
   activity: ActivityItem[]
   notifications: NotificationItem[]
-  /** Every venue the operator manages (profiles), for the switcher/manager. */
+  /** The operator's brand (thương hiệu), or null when unprovisioned / player-only. */
+  brand: Brand | null
+  /** Every branch (chi nhánh) the operator manages (profiles), for the switcher/manager. */
   venues: Venue[]
   /** Effective account type (stored choice ∪ inferred facts). */
   accountType: AccountType | null
@@ -139,7 +142,8 @@ export function DataProvider({
       stats: seed.stats,
       activity: seed.activity,
       notifications: seed.notifications,
-      // Operator's venue profiles (account-level list)
+      // Operator's brand + branch profiles (account-level)
+      brand: seed.brand,
       venues: seed.venues,
       accountType: seed.accountType,
       // Bound helpers (original signatures preserved)

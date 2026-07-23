@@ -9,7 +9,7 @@ import type { PlayerAssessment as PlayerAssessmentData } from "../../shared/inde
 // the web feature (shared types PlayerAssessment).
 @Schema({ timestamps: true, minimize: false })
 export class PlayerAssessment {
-  @Prop({ required: true, unique: true, index: true }) 
+  @Prop({ required: true, unique: true, index: true })
   userId: string
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })
   data: PlayerAssessmentData

@@ -3,6 +3,7 @@ import { Type } from "class-transformer"
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -13,12 +14,14 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from "class-validator"
 
-import type { SportKey } from "../../shared/index.js"
+import { COURT_BLOCK_REASONS } from "../../shared/index.js"
+import type { CourtBlockReason, SportKey } from "../../shared/index.js"
 
-const SPORTS = ["pickleball", "badminton"] as const
+const SPORTS = ["badminton"] as const
 const COURT_STATES = [
   "available",
   "in-play",
@@ -75,7 +78,12 @@ export class VenueInputDto {
   managerName: string
 }
 
-export class VenuePatchDto extends PartialType(VenueInputDto) {}
+export class VenuePatchDto extends PartialType(VenueInputDto) {
+  /** Archive (decision #11) or `false` to restore; guarded on future bookings. */
+  @IsOptional()
+  @IsBoolean()
+  archived?: boolean
+}
 
 /** The guided setup-wizard payload: the venue profile plus its initial courts. */
 export class VenueSetupDto extends VenueInputDto {
@@ -108,7 +116,12 @@ export class CourtInputDto {
   state?: (typeof COURT_STATES)[number]
 }
 
-export class CourtPatchDto extends PartialType(CourtInputDto) {}
+export class CourtPatchDto extends PartialType(CourtInputDto) {
+  /** Archive (decision #11) or `false` to restore; guarded on future bookings. */
+  @IsOptional()
+  @IsBoolean()
+  archived?: boolean
+}
 
 export class WalkInInputDto {
   @IsString()
@@ -140,10 +153,10 @@ export class ReservationStatusDto {
   @IsIn(RESERVATION_STATUSES)
   status: (typeof RESERVATION_STATUSES)[number]
 
-  /** Required by the operator UI when declining (status "cancelled"). */
-  @IsOptional()
+  /** Required whenever the operator moves a reservation to "cancelled". */
+  @ValidateIf((o: ReservationStatusDto) => o.status === "cancelled")
   @IsString()
-  @Length(1, 200)
+  @Length(3, 200)
   reason?: string
 }
 
@@ -174,41 +187,70 @@ export class CustomerDto {
   favoriteSport: SportKey
 }
 
-export class IdParamDto {
+// ── Court blocks (decision #12) ─────────────────────────────────────────────
+
+export class CourtBlockInputDto {
   @IsString()
   @IsNotEmpty()
-  id: string
+  courtId: string
+
+  @IsString()
+  @IsNotEmpty()
+  dateKey: string
+
+  @Matches(HHMM, { message: "start: Expected HH:MM" })
+  start: string
+
+  @IsInt()
+  @Min(15)
+  @Max(MAX_DURATION_MIN)
+  durationMin: number
+
+  /** Always required — never inferred (VienTD-Review decision #12). */
+  @IsIn(COURT_BLOCK_REASONS)
+  reason: CourtBlockReason
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  note?: string
 }
 
-export class CourtParamDto {
+// Branch-scoped params: the venue (branch) id is carried in the path now that
+// an account's brand may own many venues (chi nhánh), plus the nested resource
+// id where the route targets one.
+export class VenueIdParamDto {
   @IsString()
   @IsNotEmpty()
-  id: string
+  venueId: string
+}
+
+export class VenueCourtParamDto {
+  @IsString()
+  @IsNotEmpty()
+  venueId: string
 
   @IsString()
   @IsNotEmpty()
   courtId: string
 }
 
-export class ReservationParamDto {
+export class VenueReservationParamDto {
   @IsString()
   @IsNotEmpty()
-  id: string
+  venueId: string
 
   @IsString()
   @IsNotEmpty()
   reservationId: string
 }
 
-// Owner-scoped params (the venue is resolved from the caller, not the path).
-export class CourtIdParamDto {
+export class VenueBlockParamDto {
   @IsString()
   @IsNotEmpty()
-  courtId: string
-}
+  venueId: string
 
-export class ReservationIdParamDto {
   @IsString()
   @IsNotEmpty()
-  reservationId: string
+  blockId: string
 }

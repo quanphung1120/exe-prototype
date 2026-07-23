@@ -17,7 +17,8 @@ export class PlaySession {
   @Prop({ required: true, index: true, type: String }) userId: string
   // The client PlaySession.id this document mirrors.
   @Prop({ required: true, type: String }) sessionId: string
-  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) data: PlaySessionData
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true })
+  data: PlaySessionData
 }
 
 export type PlaySessionDocument = HydratedDocument<PlaySession>
@@ -26,3 +27,9 @@ export const PlaySessionSchema = SchemaFactory.createForClass(PlaySession)
 // One row per (user, session): upserts target this pair, so a user can't hold
 // two copies of the same session.
 PlaySessionSchema.index({ userId: 1, sessionId: 1 }, { unique: true })
+
+// Backs `GET /api/rooms` (Phase 9 G2) — the cross-user scan for listed,
+// browsable rooms filters on both fields together (`listed: true` and an
+// active `status`), so a compound index serves it directly instead of a full
+// collection scan.
+PlaySessionSchema.index({ "data.listed": 1, "data.status": 1 })

@@ -422,7 +422,7 @@ function AddCustomerDialog({ isOpen, onClose, onAdd, venueId, customersList }: A
   const tc = useTranslations("Common")
   const [name, setName] = React.useState("")
   const [phone, setPhone] = React.useState("")
-  const [sport, setSport] = React.useState<"pickleball" | "badminton">("badminton")
+  const [sport, setSport] = React.useState<"badminton">("badminton")
   const [isPending, startTransition] = React.useTransition()
   const [error, setError] = React.useState("")
 
@@ -495,16 +495,15 @@ function AddCustomerDialog({ isOpen, onClose, onAdd, venueId, customersList }: A
             <span>{t("addDialog.sport")}</span>
             <Select
               value={sport}
-              onValueChange={(v) => setSport(v as "pickleball" | "badminton")}
+              onValueChange={(v) => setSport(v as "badminton")}
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {(v) => tc(`sports.${v as "pickleball" | "badminton"}`)}
+                  {(v) => tc(`sports.${v as "badminton"}`)}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="badminton">{tc("sports.badminton")}</SelectItem>
-                <SelectItem value="pickleball">{tc("sports.pickleball")}</SelectItem>
               </SelectContent>
             </Select>
           </div>

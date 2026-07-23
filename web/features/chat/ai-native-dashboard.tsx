@@ -31,7 +31,6 @@ import {
 import { toast } from "sonner"
 import { useLocale, useTranslations } from "next-intl"
 
-import { ensureRoomChannel } from "@/features/chat/stream-actions"
 import { useBooking } from "@/features/booking/booking"
 import {
   activeRoster,
@@ -44,7 +43,6 @@ import {
 } from "@/features/dashboard/data"
 import { useData } from "@/features/dashboard/data-provider"
 import { useSession } from "@/features/play/session"
-import { useMatchmaking } from "@/features/play/matchmaking"
 import {
   CourtImage,
   LevelChip,
@@ -155,7 +153,7 @@ function toolResult(output: unknown): ToolResult | null {
     return { kind: "booking", value: output as BookingToolResult }
   if (
     typeof o.sport === "string" &&
-    (o.sport === "badminton" || o.sport === "pickleball") &&
+    o.sport === "badminton" &&
     !("courts" in o) &&
     !("players" in o) &&
     !("rooms" in o)
@@ -170,8 +168,8 @@ function trustTone(trust: number) {
   return "bg-amber-500/10 text-amber-700 dark:text-amber-300"
 }
 
-function buildInviteTitle(intent: PlayerMatchIntent, sport: SportKey) {
-  const label = sport === "badminton" ? "Badminton" : "Pickleball"
+function buildInviteTitle(intent: PlayerMatchIntent) {
+  const label = "Badminton"
   if (intent.timeLabel) return `${label} ${intent.timeLabel} group`
   if (intent.locationLabel) return `${label} ${intent.locationLabel} group`
   return `${label} teammate group`
@@ -190,7 +188,6 @@ export function AiNativeDashboardView() {
   const { courts, user: USER } = useData()
   const { openBooking } = useBooking()
   const { createInviteRoom, addPlayersToSession, sessions, joinedIds, joinRoom, userLevelForSport, userLevels } = useSession()
-  const { joinedRooms } = useMatchmaking()
   const router = useRouter()
 
   const [input, setInput] = React.useState("")
@@ -411,9 +408,6 @@ export function AiNativeDashboardView() {
     if (assessment?.results?.badminton) {
       activeUserLevels.badminton = userLevels.badminton
     }
-    if (assessment?.results?.pickleball) {
-      activeUserLevels.pickleball = userLevels.pickleball
-    }
     void sendMessage(
       { text: trimmed },
       { body: { userLevels: activeUserLevels, userLocation, locale } }
@@ -428,23 +422,12 @@ export function AiNativeDashboardView() {
     )
   }
 
-  const openGroupChat = async () => {
+  const openGroupChat = () => {
     if (!inviteState.roomId) return
-    // The channel was already created by inviteToChat; re-ensure (idempotent)
-    // from the joined room so a deep-link never lands on a missing channel.
-    const room = joinedRooms.find((r) => r.id === inviteState.roomId)
-    try {
-      await ensureRoomChannel({
-        roomId: inviteState.roomId,
-        name: room?.title ?? t("groupChatCreated"),
-        memberInitials: (room?.players ?? []).filter(
-          (i) => i !== USER.initials
-        ),
-      })
-      router.push(`/dashboard/chat?channel=room-${inviteState.roomId}`)
-    } catch {
-      toast.error(t("inviteFailed"))
-    }
+    // The channel was already created host-only by `createInviteRoom` (via
+    // `session.tsx`'s `openRoomChat`) the moment the room was — just deep-link
+    // into it.
+    router.push(`/dashboard/chat?channel=room-${inviteState.roomId}`)
   }
 
   const inviteToChat = () => {
@@ -461,7 +444,7 @@ export function AiNativeDashboardView() {
     )
     const schedule = summarizeInviteDay(lastPlayerResult.intent.timeKey)
 
-    const inviteTitle = buildInviteTitle(lastPlayerResult.intent, inviteSport)
+    const inviteTitle = buildInviteTitle(lastPlayerResult.intent)
     setInviteState({ status: "sending", roomId: null })
     inviteTimerRef.current = setTimeout(() => {
       try {
@@ -488,14 +471,9 @@ export function AiNativeDashboardView() {
           invitees: selectedPlayers.map((p) => p.initials),
         })
         if (!roomId) throw new Error("Unable to create group chat")
-        // Create the Stream channel for the invitees now (fire-and-forget) so
-        // it exists by the time the user opens the group chat. openGroupChat
-        // re-ensures it, so a failure here is non-fatal.
-        void ensureRoomChannel({
-          roomId,
-          name: inviteTitle,
-          memberInitials: selectedPlayers.map((p) => p.initials),
-        }).catch(() => {})
+        // `createInviteRoom` already created the room's chat (host-only,
+        // fire-and-forget) as part of making the room — nothing left to do
+        // here before `openGroupChat` deep-links into it.
         setInviteState({ status: "sent", roomId })
         toast.success(t("inviteSent"), {
           description: t("groupChatCreated"),
@@ -1423,6 +1401,7 @@ function RoomCard({
   onJoin: (room: MatchRoom) => void
 }) {
   const t = useTranslations("AiDashboard")
+  const tm = useTranslations("MatchMaker")
   const { joinedIds, requestedIds } = useSession()
   const open = room.capacity - room.joined
   const isJoined = joinedIds.has(room.id)
@@ -1432,7 +1411,17 @@ function RoomCard({
     <div className="flex flex-col gap-3 rounded-3xl border border-border bg-background p-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate font-heading font-semibold text-sm">{room.title}</p>
+          <p className="flex min-w-0 items-center gap-1.5 truncate font-heading font-semibold text-sm">
+            <span className="truncate">{room.title}</span>
+            {room.demo ? (
+              <span
+                className="shrink-0 rounded-full bg-muted px-2 py-0.5 font-mono text-[10px] font-medium tracking-wider text-muted-foreground uppercase"
+                title={tm("demoJoin")}
+              >
+                {tm("demoBadge")}
+              </span>
+            ) : null}
+          </p>
           <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
             <MapPin className="size-3 shrink-0" />
             {room.venue} · {room.district} · {room.distanceKm} km
@@ -1472,8 +1461,9 @@ function RoomCard({
         <Button
           size="sm"
           className="rounded-full"
-          variant={isJoined ? "secondary" : "default"}
-          disabled={isRequested}
+          variant={isJoined ? "secondary" : room.demo ? "outline" : "default"}
+          disabled={isRequested || room.demo}
+          title={room.demo ? tm("demoJoin") : undefined}
           onClick={() => onJoin(room)}
         >
           {isJoined ? (
@@ -1483,6 +1473,8 @@ function RoomCard({
             </>
           ) : isRequested ? (
             t("requested")
+          ) : room.demo ? (
+            tm("demoBadge")
           ) : (
             <>
               <LogIn className="size-3.5" />

@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
-import type { NotificationItem } from "../../shared/index.js"
+import type { AccountType } from "../../shared/index.js"
 
 import {
   ACTIVITY,
@@ -41,6 +41,7 @@ export class ProfileService {
       bookings: BOOKINGS,
       activity: ACTIVITY,
       notifications: NOTIFICATIONS,
+      accountType: null,
     }
   }
 
@@ -67,20 +68,17 @@ export class ProfileService {
     return this.seedData()
   }
 
-  /**
-   * Prepend a notification to the user's feed (newest first), seeding the profile
-   * first if needed and de-duping by id so a repeated operator decision doesn't
-   * stack. Used by the cross-surface reconciliation (approve/decline flow-back).
-   */
-  async addNotification(userId: string, item: NotificationItem): Promise<void> {
+  /** Total signed-in accounts with a dashboard profile — the admin overview KPI. */
+  async countUsers(): Promise<number> {
+    return this.profileModel.countDocuments()
+  }
+
+  /** Set the user's self-declared account type, seeding their profile first if needed. */
+  async setAccountType(
+    userId: string,
+    accountType: AccountType
+  ): Promise<void> {
     await this.getProfile(userId)
-    await this.profileModel.updateOne(
-      { userId },
-      { $pull: { notifications: { id: item.id } } }
-    )
-    await this.profileModel.updateOne(
-      { userId },
-      { $push: { notifications: { $each: [item], $position: 0 } } }
-    )
+    await this.profileModel.updateOne({ userId }, { $set: { accountType } })
   }
 }

@@ -94,3 +94,15 @@ Flow này phục vụ chủ sân khi cần:
 3. Court name có phải unique trong venue không.
 4. Court sport có phải thuộc `venue.sports` không.
 5. Workspace venue có cần RBAC nhiều cấp hay không.
+
+## Quyết định đã chốt (2026-07-13)
+
+1. **Venue/court dùng hard delete hay archive** → **archive** (quyết định #11), thay cho hard delete hiện tại.
+2. **Có cho xóa court có reservation tương lai không** → **không** — guard: còn `pending`/`confirmed` **tương lai** (theo `startAt` thật, có từ Phase 1) → chặn (`ConflictException`, copy gợi ý "…cancel và refund trước"). Phải cancel + refund hết trước khi archive.
+3. **Court name unique trong venue** → **có** (default quick-win, đã trong Phase 0).
+4. **Court sport thuộc `venue.sports`** → **có** (default quick-win, đã trong Phase 0), cùng với `openFrom < openTo`.
+5. **Workspace venue có cần RBAC nhiều cấp không** → **chưa nằm trong 16 quyết định đã chốt lần này** — giữ nguyên mô hình 1 owner/venue (không chốt multi-staff RBAC ở vòng này).
+
+**Flag cho product** (ghi nhận từ rủi ro #5 trong `FIX_REVIEW_VIENTD.md`): venue đã archive vẫn chiếm slot trong ràng buộc "one-venue-per-owner" (unique index `ownerId`) — UI màn quản lý sẽ cần nút "Khôi phục" thay vì cho tạo venue mới khi owner đã có venue archived.
+
+**Trạng thái triển khai**: mục 3–4 (integrity CRUD) **đã DONE ở Phase 0**. Mục 1–2 (archive thay delete + guard cascade) thuộc roadmap **Phase 6**, **chưa triển khai** tại 2026-07-20 — venue/court hiện vẫn hard delete, không chặn khi còn reservation tương lai (reservation mồ côi là hành vi được chấp nhận, ghi rõ trong comment code).

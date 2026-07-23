@@ -34,6 +34,9 @@ const viTranslations: Record<string, string> = {
   "{{ commaSeparatedUsers }}, and {{ lastUser }}": "{{ commaSeparatedUsers }} và {{ lastUser }}",
   "🏙 Attachment...": "🏙 Tệp đính kèm...",
   "New Messages!": "Tin nhắn mới!",
+  // Our own Composer (composer.tsx) — not a stock stream-chat-react string —
+  // shown once a room's chat is frozen (host/venue cancel, quyết định #13).
+  "This room has ended": "Phòng đã kết thúc",
 }
 
 // One Streami18n per language, built lazily and cached at module scope so we

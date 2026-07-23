@@ -62,7 +62,6 @@
     "allSports": "Tất cả",
     "filterSport": "Lọc theo môn",
     "sports": {
-      "pickleball": "Pickleball",
       "badminton": "Cầu lông"
     },
     "format": {
@@ -134,7 +133,10 @@
     "searchVenue": "Tìm lượt đặt, khách…",
     "venues": "Địa điểm của bạn",
     "addVenue": "Thêm địa điểm",
-    "becomePlayer": "Trở thành người chơi"
+    "addBranch": "Thêm chi nhánh",
+    "becomePlayer": "Trở thành người chơi",
+    "manageVenue": "Quản lý địa điểm",
+    "adminWorkspace": "Trang quản trị"
   },
   "WorkspaceSettings": {
     "title": "Cài đặt không gian",
@@ -234,7 +236,7 @@
   "Meta": {
     "titleDefault": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
     "titleTemplate": "%s · SportMatch AI",
-    "description": "SportMatch AI là trợ lý đặt sân bằng AI cho các môn thể thao vợt. Đặt sân pickleball và cầu lông chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
+    "description": "SportMatch AI là trợ lý đặt sân bằng AI cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
     "ogTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
     "ogDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký truy cập sớm.",
     "twitterTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
@@ -242,7 +244,6 @@
     "keywords": [
       "đặt sân",
       "ghép người chơi",
-      "pickleball",
       "cầu lông",
       "trợ lý AI",
       "thể thao vợt"
@@ -267,8 +268,7 @@
     "scrollNext": "Thêm sân",
     "suggestions": {
       "badminton": "Sân cầu lông gần tôi tối nay",
-      "cheapest": "Sân rẻ nhất",
-      "pickleball": "Pickleball tối nay"
+      "cheapest": "Sân rẻ nhất"
     },
     "steps": {
       "location": "Đang đọc vị trí của bạn (Hà Nội)",
@@ -324,7 +324,6 @@
     "anyDay": "Ngày",
     "slotsFor": "Khung giờ trống",
     "taken": "Đã đặt",
-    "format": "Hình thức",
     "fillMode": "Bạn lấp đầy sân thế nào?",
     "teamGate": "Bạn đã có đội chưa?",
     "gateHint": {
@@ -345,6 +344,7 @@
     "host": "Chủ phòng",
     "roster": "Người chơi",
     "summary": "Tóm tắt",
+    "where": "Địa điểm",
     "when": "Thời gian",
     "players": "Người chơi",
     "price": "Giá",
@@ -362,7 +362,13 @@
     "confirm": "Xác nhận đặt sân",
     "toPayment": "Tiếp tục thanh toán",
     "pay": {
-      "amountDue": "Số tiền cần trả",
+      "amountDue": "Tổng thanh toán",
+      "subtotal": "Tạm tính",
+      "discount": "Giảm giá",
+      "discountLabel": "Mã giảm giá",
+      "discountPlaceholder": "Nhập mã giảm giá",
+      "applyDiscount": "Áp dụng",
+      "removeDiscount": "Bỏ mã",
       "holdCountdown": "Sân đang được giữ trong {time} — thanh toán để giữ sân",
       "holdFeePercent": "Phí giữ chỗ (5%)",
       "fullNote": "Thanh toán toàn bộ để xác nhận đặt sân.",
@@ -376,9 +382,7 @@
       "expiry": "Hết hạn",
       "cvc": "CVC",
       "cardName": "Tên trên thẻ",
-      "qrAccount": "CÔNG TY CP SPORTMATCH AI",
       "qrOnly": "Chúng tôi chỉ nhận chuyển khoản qua QR.",
-      "qrHint": "Quét bằng ứng dụng ngân hàng của bạn để trả",
       "ewalletHint": "Bạn sẽ được chuyển sang {wallet} để duyệt thanh toán.",
       "wallets": {
         "momo": "MoMo",
@@ -386,25 +390,18 @@
       },
       "collectHint": "Bạn sẽ thu lại {amount}/người từ đội của mình sau đó",
       "payNow": "Trả {amount}",
-      "processing": "Đang xử lý…",
-      "secure": "Thanh toán demo — không trừ tiền thẻ",
-      "result": {
-        "successTitle": "Thanh toán thành công",
-        "successBody": "Hệ thống đã nhận {amount}. Xác nhận để hoàn tất đặt sân và giữ chỗ.",
-        "successHint": "Khung giờ của bạn đã sẵn sàng để chốt.",
-        "successCta": "Hoàn tất đặt sân",
-        "failedTitle": "Thanh toán thất bại",
-        "failedBody": "Giao dịch {amount} chưa hoàn tất. Vui lòng thử lại.",
-        "failedConflict": "Khung giờ này vừa có người khác đặt trong lúc bạn thanh toán. Hãy chọn giờ khác rồi thử lại.",
-        "failedHint": "Chưa có booking nào được tạo.",
-        "failedCta": "Thử lại"
-      }
+      "processing": "Đang chuyển đến trang thanh toán…",
+      "redirectNotice": "Quý khách sẽ được chuyển đến trang thanh toán của SePay (VietQR hoặc thẻ) để hoàn tất giao dịch.",
+      "refundPolicy": "Nếu lượt đặt bị huỷ hoặc bị từ chối, khoản hoàn tiền (nếu có) sẽ được chuyển khoản thủ công trong vòng 24–48 giờ làm việc — chúng tôi không hoàn tiền tức thì.",
+      "checkoutFailed": "Không thể mở trang thanh toán — vui lòng thử lại.",
+      "secure": "Thanh toán được bảo mật bởi SePay."
     },
     "roomTitle": "{sport} tại {court}",
     "toast": {
       "booked": "Đã đặt sân",
       "pending": "Đã gửi yêu cầu — chờ chủ sân duyệt",
       "cancelled": "Đã hủy đặt sân",
+      "cancelFailed": "Không thể hủy lượt đặt này — vui lòng thử lại.",
       "conflict": "Khung giờ này vừa có người đặt — hãy chọn giờ khác.",
       "holdExpired": "Thời gian giữ sân đã hết và sân đã được thả"
     },
@@ -429,19 +426,19 @@
       "activeNow": "Đang hiển thị {title}",
       "activeNone": "Không có phòng nào",
       "disbanded": "Đã giải tán phòng",
-      "rsvpGoing": "Đã tham gia",
-      "rsvpDeclined": "Không tham gia được",
       "addTeam": "Mời người chơi chia sân",
       "requested": "Đã gửi yêu cầu — đang chờ duyệt",
-      "requestApproved": "Bạn đã được duyệt!",
-      "joinRequest": "Muốn tham gia phòng của bạn",
       "approved": "Đã thêm vào phòng",
       "declined": "Đã từ chối yêu cầu",
       "full": "Phòng đã đầy",
       "overlapTitle": "Trùng giờ",
       "overlapBody": "Quý khách đã tham gia \"{title}\" vào khung giờ đó",
       "requestExpired": "Yêu cầu tham gia đã hết hạn — chủ phòng chưa phản hồi",
-      "inviteExpired": "Lời mời đã hết hạn — chưa có phản hồi"
+      "inviteExpired": "Lời mời đã hết hạn — chưa có phản hồi",
+      "requestFailed": "Không thể gửi yêu cầu tham gia",
+      "approveFailed": "Không thể duyệt yêu cầu tham gia",
+      "declineFailed": "Không thể từ chối yêu cầu tham gia",
+      "leaveFailed": "Không thể rời phòng"
     }
   },
   "Shared": {
@@ -567,11 +564,29 @@
       }
     }
   },
+  "PaymentReturn": {
+    "metaTitle": "Xác nhận thanh toán",
+    "waitingTitle": "Đang xác nhận thanh toán…",
+    "waitingBody": "Vui lòng chờ trong giây lát — chúng tôi đang xác nhận giao dịch với SePay.",
+    "paidTitle": "Thanh toán thành công",
+    "paidBody": "Đã nhận {amount}. Sân của bạn đang chờ chủ sân duyệt.",
+    "paidBodyGeneric": "Đã nhận thanh toán. Sân của bạn đang chờ chủ sân duyệt.",
+    "subtotal": "Tạm tính",
+    "discountApplied": "Mã giảm giá {code}",
+    "totalPaid": "Đã thanh toán",
+    "cancelledTitle": "Giao dịch chưa hoàn tất",
+    "cancelledBody": "Thanh toán đã bị huỷ hoặc chưa hoàn tất. Sân vẫn được giữ đến khi hết thời gian giữ chỗ — quý khách có thể thử thanh toán lại từ Đặt sân của tôi.",
+    "timeoutTitle": "Chưa nhận được xác nhận",
+    "timeoutBody": "Việc xác nhận đang mất nhiều thời gian hơn dự kiến. Vui lòng kiểm tra lại trong Đặt sân của tôi sau ít phút.",
+    "errorTitle": "Không thể kiểm tra trạng thái",
+    "errorBody": "Đã có lỗi khi kiểm tra thanh toán. Vui lòng kiểm tra lại trong Đặt sân của tôi.",
+    "viewBookings": "Xem đặt sân của tôi"
+  },
   "Landing": {
     "hero": {
       "titleLine1": "Tìm sân",
       "titleLine2": "Tìm đối thủ phù hợp.",
-      "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân pickleball và cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
+      "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
       "cta": "Bắt đầu ngay",
       "socialProof": "1.000+ người chơi đã tham gia",
       "sportsLabel": "Dành cho:"
@@ -580,7 +595,7 @@
       "eyebrow": "Về SportMatch AI",
       "titleStrong": "Một trợ lý thông minh phía sau mỗi trận đấu —",
       "titleMuted": "đặt sân, ghép người chơi và lấp đầy mọi khung giờ trống cho Quý khách.",
-      "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. SportMatch AI lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để pickleball và cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân."
+      "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. SportMatch AI lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân."
     },
     "pricingSection": {
       "eyebrow": "Bảng giá",
@@ -655,7 +670,7 @@
     "steps": {
       "0": {
         "title": "Nói cho AI biết Quý khách muốn gì",
-        "body": "Gõ như đang nhắn tin cho bạn bè: “Pickleball đánh đôi, sáng thứ Bảy, trình độ trung cấp.”"
+        "body": "Gõ như đang nhắn tin cho bạn bè: “Cầu lông đánh đôi, sáng thứ Bảy, trình độ trung cấp.”"
       },
       "1": {
         "title": "AI tìm sân + người chơi",
@@ -736,7 +751,7 @@
       },
       "1": {
         "quote": "Khả năng ghép trình độ chính xác đến đáng kinh ngạc. Trận nào cũng cân sức — điều chưa từng có với những trận đánh ngẫu hứng trước đây.",
-        "role": "Pickleball · 4.0"
+        "role": "Cầu lông · 4.0"
       },
       "2": {
         "quote": "Là một câu lạc bộ, khung 2–5 giờ chiều các ngày trong tuần của chúng tôi từng vắng tanh. Giờ tính năng ghép trận âm thầm lấp đầy chúng. Mọi thứ tự chạy trong nền.",
@@ -750,7 +765,7 @@
     "faq": {
       "0": {
         "question": "SportMatch AI hỗ trợ những môn thể thao nào?",
-        "answer": "Chúng tôi ra mắt với nhóm các môn thể thao vợt: pickleball và cầu lông. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất."
+        "answer": "Chúng tôi ra mắt với môn cầu lông — môn thể thao vợt đang phát triển nhanh nhất trong cộng đồng của chúng tôi. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất."
       },
       "1": {
         "question": "Trợ lý AI thực sự đặt sân như thế nào?",
@@ -849,6 +864,8 @@
     "full": "Đã đầy",
     "timeClash": "Trùng giờ",
     "join": "Tham gia",
+    "demoBadge": "Demo",
+    "demoJoin": "Phòng demo — không thể tham gia",
     "selectCourt": "Chọn sân",
     "players": "{count, plural, other {# người chơi}}",
     "matchmadeTitle": "Trận {sport} {format} đã ghép",
@@ -857,19 +874,19 @@
         "title": "Cầu lông buổi tối, đánh đôi vui vẻ"
       },
       "r2": {
-        "title": "Pickleball đơn thi đấu"
+        "title": "Cầu lông đơn thi đấu"
       },
       "r3": {
-        "title": "Pickleball giao lưu nhẹ nhàng"
+        "title": "Cầu lông giao lưu nhẹ nhàng"
       },
       "r4": {
-        "title": "Pickleball đôi trình độ cao"
+        "title": "Cầu lông đôi trình độ cao"
       },
       "r5": {
         "title": "Đêm cầu lông đánh đôi"
       },
       "r6": {
-        "title": "Pickleball đôi, chào đón tất cả"
+        "title": "Cầu lông đôi, chào đón tất cả"
       }
     },
     "timeSlots": {
@@ -920,6 +937,7 @@
       "left": "Bạn đã rời phòng",
       "searchingPartner": "Đang tìm người chơi đầu tiên cho bạn…",
       "requested": "Đã gửi yêu cầu",
+      "demoRoom": "Phòng demo — không thể tham gia",
       "limitTitle": "Đã đạt giới hạn phòng",
       "limitBody": "Bạn chỉ có thể mở tối đa {max} phòng cùng lúc. Hãy huỷ một phòng để mở phòng mới."
     },
@@ -969,7 +987,7 @@
         "time": "3 ngày trước"
       },
       "a4": {
-        "text": "Đã đặt Court 1 tại Ace Pickleball Club",
+        "text": "Đã đặt Court 1 tại Ace Badminton Club",
         "time": "4 ngày trước"
       },
       "a5": {
@@ -1207,6 +1225,31 @@
       "courtCreated": "Đã thêm {name}",
       "courtUpdated": "Đã cập nhật {name}",
       "courtDeleted": "Đã xóa {name}"
+    },
+    "manageTitle": "Quản lý địa điểm",
+    "manageSubtitle": "Thông tin địa điểm và các thao tác quan trọng.",
+    "archive": "Lưu trữ",
+    "dangerZone": {
+      "title": "Vùng nguy hiểm",
+      "archiveLabel": "Lưu trữ địa điểm này",
+      "archiveDescription": "Ẩn địa điểm khỏi hoạt động mới. Lượt đặt sân hiện có vẫn được giữ nguyên và có thể khôi phục bất cứ lúc nào."
+    },
+    "archiveVenue": {
+      "title": "Lưu trữ địa điểm này?",
+      "description": "{name} sẽ ngừng nhận đặt sân mới. Bạn có thể khôi phục lại bất cứ lúc nào từ màn hình này.",
+      "confirm": "Xác nhận lưu trữ",
+      "pending": "Đang lưu trữ...",
+      "done": "Đã lưu trữ {name}",
+      "viewReservations": "Xem lượt đặt sân"
+    },
+    "restoreVenue": {
+      "button": "Khôi phục",
+      "pending": "Đang khôi phục...",
+      "done": "Đã khôi phục {name}"
+    },
+    "archivedBanner": {
+      "title": "Địa điểm này đang được lưu trữ",
+      "description": "Địa điểm không nhận đặt sân mới cho đến khi được khôi phục. Địa điểm vẫn chiếm vị trí duy nhất của tài khoản — hãy khôi phục thay vì tạo mới."
     }
   },
   "VenuePricing": {
@@ -1264,7 +1307,13 @@
     "emptyArrivals": "Hôm nay không còn khách đến dự kiến.",
     "revenueWeek": "Doanh thu tuần này",
     "today": "Hôm nay",
-    "revenueCaption": "Công suất trung bình 7 ngày gần nhất đạt {util}%."
+    "revenueCaption": "Công suất trung bình 7 ngày gần nhất đạt {util}%.",
+    "approvalBanner": {
+      "pendingTitle": "Đang chờ quản trị viên duyệt",
+      "pendingDescription": "Venue này chưa thể nhận đặt sân cho đến khi được duyệt.",
+      "rejectedTitle": "Đã bị từ chối duyệt",
+      "rejectedDescription": "Lý do: {reason}"
+    }
   },
   "VenueSchedule": {
     "metaTitle": "Lịch sân",
@@ -1290,6 +1339,7 @@
       "title": "Chú thích",
       "booked": "Đã đặt",
       "walk-in": "Khách vãng lai",
+      "held": "Đang giữ chỗ",
       "free": "Trống",
       "blocked": "Đã khóa"
     },
@@ -1302,19 +1352,33 @@
     },
     "toast": {
       "walkInTitle": "Đã thêm khách vãng lai",
+      "walkInConflict": "Khung giờ đang giữ bởi đặt sân qua app — từ chối (kèm lý do, tự hoàn tiền) trước.",
       "blockTitle": "Đã khóa sân",
       "suggestTitle": "Đang tìm người chơi để lấp khung này",
       "messaged": "Đã gửi tin nhắn",
       "rescheduled": "Bắt đầu đổi giờ",
       "cancelledEvent": "Đã hủy đặt sân",
-      "reopened": "Đã mở lại sân"
+      "reopened": "Đã mở lại khung giờ"
     },
     "event": {
       "maintenance": "Bảo trì",
       "message": "Nhắn khách",
       "reschedule": "Đổi giờ",
       "cancel": "Hủy đặt sân",
-      "reopen": "Mở lại sân"
+      "reopen": "Mở lại khung giờ"
+    },
+    "blockDialog": {
+      "title": "Khóa khung giờ",
+      "description": "Chọn lý do khóa khung giờ này — khách sẽ không thể đặt cho đến khi mở lại.",
+      "reasonLabel": "Lý do",
+      "noteLabel": "Ghi chú (không bắt buộc)",
+      "notePlaceholder": "Ví dụ: thay lưới, sự kiện nội bộ…"
+    },
+    "blockReasons": {
+      "maintenance": "Bảo trì",
+      "internal": "Nội bộ",
+      "vip": "Khách VIP",
+      "break": "Giờ nghỉ"
     },
     "cancelDialog": {
       "title": "Hủy đặt sân",
@@ -1346,6 +1410,11 @@
       "cancel": "Huỷ",
       "confirm": "Xác nhận từ chối"
     },
+    "refundQueue": {
+      "title": "Hàng đợi hoàn tiền thủ công",
+      "hint": "SePay không hỗ trợ hoàn tiền tự động — vui lòng chuyển khoản thủ công cho các lượt dưới đây trong vòng 24–48 giờ làm việc.",
+      "pct": "Hoàn {pct}%"
+    },
     "summary": {
       "pending": "Chờ duyệt",
       "pendingHint": "Yêu cầu cần quyết định",
@@ -1375,12 +1444,15 @@
       "walk-in": "Khách vãng lai"
     },
     "status": {
+      "awaiting_payment": "Chờ thanh toán",
+      "held": "Đang giữ chỗ",
       "pending": "Chờ duyệt",
       "confirmed": "Đã xác nhận",
       "checked-in": "Đã nhận sân",
       "completed": "Hoàn tất",
       "cancelled": "Đã hủy",
-      "no-show": "Vắng mặt"
+      "no-show": "Vắng mặt",
+      "expired": "Hết hạn giữ chỗ"
     },
     "approve": "Duyệt",
     "decidedApproved": "Đã duyệt · đã báo khách",
@@ -1392,7 +1464,7 @@
   },
   "VenueAnalytics": {
     "metaTitle": "Phân tích · Sân",
-    "metaDescription": "Xu hướng doanh thu, công suất và nhu cầu của sân — doanh thu tuần, bản đồ nhiệt công suất theo giờ, cơ cấu môn, kênh đặt sân và khung giờ cao điểm.",
+    "metaDescription": "Xu hướng doanh thu, công suất và nhu cầu của sân — doanh thu tuần, bản đồ nhiệt công suất theo giờ × thứ, cơ cấu môn, kênh đặt sân và khung giờ trống.",
     "title": "Phân tích",
     "subtitle": "Doanh thu, công suất và nhu cầu trong 7 ngày gần nhất.",
     "kpi": {
@@ -1407,11 +1479,20 @@
       "today": "Hôm nay",
       "peakDay": "Cao nhất {day} · {amount}"
     },
+    "coverage": {
+      "title": "Độ phủ theo khung giờ",
+      "caption": "Trung bình nhiều tuần gần đây",
+      "toggleHour": "Theo giờ",
+      "toggleWeekday": "Theo thứ",
+      "note": "Khung cao nhất hết chỗ trước tiên — khung tô cam là khung vắng, cân nhắc xử lý bên dưới."
+    },
     "heatmap": {
       "title": "Bản đồ nhiệt công suất",
-      "caption": "Theo giờ × ngày",
+      "caption": "Theo giờ × thứ trong tuần",
+      "explain": "Mỗi ô là % sân được đặt vào khung giờ đó, tính trung bình qua các tuần gần đây — càng đậm càng đông, viền cam là khung trống nên xử lý.",
       "low": "Thấp",
       "high": "Cao",
+      "coldMarker": "Khung trống",
       "unit": "% lấp đầy"
     },
     "sportMix": {
@@ -1426,10 +1507,40 @@
       },
       "note": "{pct}% lượt đặt hiện đến từ ứng dụng."
     },
-    "peak": {
-      "title": "Khung giờ cao điểm",
-      "caption": "Khung bận nhất",
-      "note": "Những khung này hết chỗ trước tiên — hãy định giá và bố trí nhân sự phù hợp."
+    "coldSlots": {
+      "title": "Khung giờ trống",
+      "caption": "Công suất thấp nhất",
+      "subtitle": "Những khung giờ này thường vắng khách trong nhiều tuần qua — chọn cách xử lý bên dưới.",
+      "empty": "Chưa đủ dữ liệu đặt sân để phát hiện khung giờ trống.",
+      "allHealthy": "Mọi khung giờ đều ổn — hiện không có khung trống cần xử lý.",
+      "actionsTitle": "Xử lý khung này",
+      "reason": {
+        "veryLow": "Công suất chỉ {pct}% — gần như trống, nên xử lý sớm.",
+        "low": "Công suất {pct}%, thấp hơn nhiều so với mức trung bình của sân."
+      },
+      "actions": {
+        "block": "Tạo lịch chặn",
+        "openSchedule": "Mở lịch tại khung này",
+        "promo": "Gợi ý khuyến mãi",
+        "invite": "Mời người chơi"
+      },
+      "toast": {
+        "promoTitle": "Gợi ý khuyến mãi (minh hoạ)",
+        "promoDesc": "Giảm {pct}% cho khung {slot} có thể nâng tỷ lệ lấp đầy — thử áp dụng trong 2 tuần rồi so sánh.",
+        "inviteTitle": "Mời người chơi (minh hoạ)",
+        "inviteDesc": "Gửi thông báo mời khách quen đang rảnh khung {slot} — ưu tiên nhóm lâu chưa quay lại."
+      },
+      "dialog": {
+        "title": "Chặn khung giờ trống",
+        "court": "Sân",
+        "cancel": "Huỷ",
+        "submit": "Tạo lịch chặn"
+      }
+    },
+    "insights": {
+      "title": "Gợi ý AI",
+      "demoChip": "AI minh hoạ",
+      "subtitle": "Gợi ý minh hoạ mang tính demo — chưa được tạo từ dữ liệu đặt sân thật của sân này."
     }
   },
   "VenueInsights": {
@@ -1617,8 +1728,6 @@
       "badmintonTeammatesDesc": "Kết nối với người chơi địa phương đang tìm trận tối nay",
       "sameLevelPlayers": "Ghép tôi với người chơi cùng trình độ",
       "sameLevelPlayersDesc": "Tìm đối thủ và bạn chơi có trình độ tương đương bạn",
-      "assessPickleball": "Đánh giá trình độ pickleball",
-      "assessPickleballDesc": "Làm bài kiểm tra ngắn để mở khóa ghép cặp và lịch đặt",
       "categories": {
         "courts": "Sân bãi",
         "teammates": "Người chơi",
@@ -1672,10 +1781,6 @@
       "badminton": {
         "title": "Badminton",
         "description": "Cầu lông - môn thể thao tốc độ cao, rèn luyện phản xạ nhanh nhạy và di chuyển linh hoạt trên sân."
-      },
-      "pickleball": {
-        "title": "Pickleball",
-        "description": "Pickleball - xu hướng thể thao mới cực kỳ thịnh hành, dễ làm quen và mang lại nhiều niềm vui."
       }
     },
     "badminton": {
@@ -1747,87 +1852,6 @@
         "r5": "Chuyên nghiệp"
       }
     },
-    "pickleball": {
-      "title": "Pickleball",
-      "description": "Mỗi câu trả lời được chấm từ 1-8 điểm theo đáp án A-H trong Bộ câu hỏi.",
-      "questions": {
-        "q1": {
-          "text": "Khả năng đánh bóng bằng tay thuận của bạn như thế nào?",
-          "answers": {
-            "A": "Mới tập, thường đánh hụt hoặc bóng đi sai hướng",
-            "B": "Đánh qua lưới được nhưng chưa kiểm soát tốt",
-            "C": "Đánh được ở tốc độ vừa phải nhưng chưa ổn định",
-            "D": "Đánh khá ổn trong đa số tình huống",
-            "E": "Kiểm soát tốt hướng bóng và lực đánh",
-            "F": "Có thể thay đổi lực đánh, tốc độ và điểm rơi",
-            "G": "Đánh chính xác, có mục đích rõ khi thi đấu",
-            "H": "Có khả năng thi đấu ở trình độ rất cao/chuyên nghiệp"
-          }
-        },
-        "q2": {
-          "text": "Khả năng đánh bóng bằng tay trái / bên không thuận của bạn như thế nào?",
-          "answers": {
-            "A": "Hầu như không dùng được",
-            "B": "Dùng được nhưng rất yếu và dễ lỗi",
-            "C": "Đánh được cơ bản nhưng chưa ổn định",
-            "D": "Đánh tương đối ổn trong tình huống đơn giản",
-            "E": "Kiểm soát khá tốt hướng bóng và lực đánh",
-            "F": "Có thể xử lý nhiều kiểu bóng khác nhau",
-            "G": "Đánh ổn định, chính xác trong thi đấu",
-            "H": "Có khả năng thi đấu ở trình độ rất cao/chuyên nghiệp"
-          }
-        },
-        "q3": {
-          "text": "Khả năng đánh bóng nhẹ gần lưới của bạn như thế nào?",
-          "answers": {
-            "A": "Chưa biết hoặc rất ít khi thực hiện",
-            "B": "Thực hiện được nhưng bóng thường quá cao hoặc lỗi",
-            "C": "Đánh được vài pha ngắn nhưng chưa giữ bóng lâu",
-            "D": "Có thể duy trì qua lại gần lưới ở mức cơ bản",
-            "E": "Biết đánh nhẹ, giữ bóng thấp và hạn chế lỗi",
-            "F": "Biết dùng cú đánh nhẹ để tạo lợi thế",
-            "G": "Kiên nhẫn, kiểm soát tốt các pha bóng gần lưới",
-            "H": "Xử lý bóng gần lưới ở trình độ rất cao/chuyên nghiệp"
-          }
-        },
-        "q4": {
-          "text": "Khả năng xử lý cú đánh quan trọng để tiến lên lưới của bạn như thế nào?",
-          "answers": {
-            "A": "Chưa biết cách thực hiện",
-            "B": "Biết nhưng thường đánh lỗi hoặc bóng quá cao",
-            "C": "Đôi lúc thực hiện thành công",
-            "D": "Có thể dùng để đưa bóng qua và tiến lên lưới",
-            "E": "Biết chọn lúc đánh nhẹ hoặc đánh mạnh tùy tình huống",
-            "F": "Thực hiện khá ổn định và có mục đích rõ ràng",
-            "G": "Thành thạo cả bên thuận tay và không thuận tay",
-            "H": "Thực hiện ở trình độ rất cao/chuyên nghiệp"
-          }
-        },
-        "q5": {
-          "text": "Khi chơi trận, bạn thường xử lý chiến thuật như thế nào?",
-          "answers": {
-            "A": "Chủ yếu đánh cho qua lưới, chưa có chiến thuật",
-            "B": "Đánh theo phản xạ, chưa biết chọn vị trí",
-            "C": "Hiểu cơ bản mình nên đứng đâu và di chuyển thế nào",
-            "D": "Biết chọn vị trí hợp lý khi đánh đôi hoặc đánh đơn",
-            "E": "Biết phối hợp với đồng đội và tạo khoảng trống trên sân",
-            "F": "Biết quan sát điểm yếu của đối thủ để khai thác",
-            "G": "Có thể thay đổi cách chơi tùy đối thủ và tình huống trận",
-            "H": "Có khả năng thi đấu chiến thuật ở trình độ rất cao/chuyên nghiệp"
-          }
-        }
-      },
-      "ranges": {
-        "r0": "Level 1.0-2.0",
-        "r1": "Level 2.5",
-        "r2": "Level 3.0",
-        "r3": "Level 3.5",
-        "r4": "Level 4.0",
-        "r5": "Level 4.5",
-        "r6": "Level 5.0",
-        "r7": "Level 5.5+"
-      }
-    },
     "actions": {
       "continue": "Tiếp tục",
       "back": "Quay lại",
@@ -1875,5 +1899,156 @@
       "description": "Đăng sân của bạn và quản lý lượt đặt."
     },
     "continue": "Tiếp tục"
+  },
+  "AdminNav": {
+    "group": "Quản trị",
+    "overview": {
+      "label": "Tổng quan",
+      "caption": "Chỉ số toàn hệ thống"
+    },
+    "venues": {
+      "label": "Venue & thương hiệu",
+      "caption": "Mọi thương hiệu và chi nhánh"
+    },
+    "bookings": {
+      "label": "Đặt sân & thanh toán",
+      "caption": "Giao dịch gần đây trên toàn hệ thống"
+    },
+    "refunds": {
+      "label": "Hàng đợi hoàn tiền",
+      "caption": "Hoàn tiền thủ công đang chờ xử lý"
+    },
+    "approvals": {
+      "label": "Phê duyệt",
+      "caption": "Venue mới đang chờ duyệt"
+    }
+  },
+  "AdminOverview": {
+    "metaTitle": "Tổng quan quản trị",
+    "metaDescription": "Chỉ số toàn hệ thống trên mọi venue",
+    "greeting": "Bảng điều khiển quản trị",
+    "subtitle": "Góc nhìn toàn hệ thống, xuyên suốt mọi tài khoản",
+    "kpi": {
+      "users": "Người dùng",
+      "brands": "Thương hiệu",
+      "venues": "Venue",
+      "venuesPending": "Chờ duyệt",
+      "bookings": "Lượt đặt sân",
+      "grossRevenue": "Tổng doanh thu",
+      "activeSessions": "Phiên đang hoạt động",
+      "pendingRefunds": "Hoàn tiền chờ xử lý",
+      "pendingApprovals": "Chờ phê duyệt"
+    }
+  },
+  "AdminVenues": {
+    "metaTitle": "Venue & thương hiệu",
+    "metaDescription": "Mọi thương hiệu và chi nhánh venue, toàn hệ thống",
+    "title": "Venue & thương hiệu",
+    "subtitle": "Mọi thương hiệu và chi nhánh, kèm tổng lượt đặt/doanh thu",
+    "noBrand": "Không có thương hiệu",
+    "table": {
+      "venue": "Venue",
+      "district": "Quận/Huyện",
+      "approval": "Phê duyệt",
+      "status": "Trạng thái",
+      "bookings": "Lượt đặt",
+      "revenue": "Doanh thu",
+      "actions": "Hành động"
+    },
+    "approval": {
+      "pending": "Chờ duyệt",
+      "approved": "Đã duyệt",
+      "rejected": "Đã từ chối"
+    },
+    "status": {
+      "active": "Hoạt động",
+      "archived": "Đã lưu trữ"
+    },
+    "suspend": "Tạm ngưng",
+    "restore": "Khôi phục",
+    "empty": "Chưa có venue nào"
+  },
+  "AdminBookings": {
+    "metaTitle": "Đặt sân & thanh toán",
+    "metaDescription": "Giao dịch gần đây trên toàn hệ thống",
+    "title": "Đặt sân & thanh toán",
+    "subtitle": "{count} lượt đặt sân gần nhất, trên toàn hệ thống",
+    "table": {
+      "booking": "Mã đặt sân",
+      "venue": "Venue",
+      "court": "Sân",
+      "when": "Thời gian",
+      "price": "Giá",
+      "status": "Trạng thái",
+      "payment": "Thanh toán",
+      "actions": "Hành động"
+    },
+    "cancel": {
+      "button": "Huỷ",
+      "title": "Buộc huỷ lượt đặt sân này?",
+      "description": "Khách sẽ được hoàn tiền toàn bộ (nếu đã thanh toán) và khung giờ sẽ được mở lại. Không thể hoàn tác.",
+      "reasonLabel": "Lý do",
+      "reasonPlaceholder": "VD: Đặt trùng, gian lận, venue yêu cầu…",
+      "cancel": "Quay lại",
+      "confirm": "Buộc huỷ"
+    },
+    "status": {
+      "awaiting_payment": "Chờ thanh toán",
+      "pending": "Chờ duyệt",
+      "confirmed": "Đã xác nhận",
+      "checked-in": "Đã nhận sân",
+      "completed": "Hoàn tất",
+      "cancelled": "Đã hủy",
+      "no-show": "Vắng mặt",
+      "expired": "Hết hạn giữ chỗ"
+    },
+    "paymentStatus": {
+      "awaiting": "Đang chờ",
+      "paid": "Đã thanh toán",
+      "refunded": "Đã hoàn tiền",
+      "partial_refund": "Hoàn tiền một phần",
+      "none": "Không"
+    },
+    "empty": "Chưa có lượt đặt sân nào"
+  },
+  "AdminRefunds": {
+    "metaTitle": "Hàng đợi hoàn tiền",
+    "metaDescription": "Hoàn tiền thủ công đang chờ xử lý, trên toàn hệ thống",
+    "title": "Hàng đợi hoàn tiền",
+    "subtitle": "SePay không có API hoàn tiền — mọi khoản hoàn tiền ở đây đều chuyển khoản thủ công",
+    "pct": "Hoàn {pct}%",
+    "settle": {
+      "button": "Đánh dấu đã xử lý",
+      "title": "Đánh dấu khoản hoàn tiền này đã xử lý?",
+      "description": "Ghi lại mã giao dịch chuyển khoản sau khi đã hoàn tiền thủ công.",
+      "refLabel": "Mã giao dịch chuyển khoản",
+      "refPlaceholder": "VD: mã giao dịch ngân hàng",
+      "cancel": "Quay lại",
+      "confirm": "Đánh dấu đã xử lý"
+    },
+    "empty": "Không có khoản hoàn tiền nào đang chờ"
+  },
+  "AdminApprovals": {
+    "metaTitle": "Phê duyệt",
+    "metaDescription": "Venue mới đang chờ quản trị viên duyệt",
+    "title": "Phê duyệt",
+    "subtitle": "Venue mới tạo sẽ không thể nhận đặt sân cho đến khi được duyệt",
+    "approve": "Duyệt",
+    "reject": {
+      "button": "Từ chối",
+      "title": "Từ chối venue này?",
+      "description": "Chủ venue sẽ thấy lý do này. Họ vẫn có thể chỉnh sửa và được xét duyệt lại sau.",
+      "reasonLabel": "Lý do",
+      "reasonPlaceholder": "VD: Thiếu giấy phép kinh doanh…",
+      "cancel": "Quay lại",
+      "confirm": "Từ chối"
+    },
+    "empty": "Không có venue nào đang chờ duyệt",
+    "table": {
+      "venue": "Venue",
+      "district": "Quận/Huyện",
+      "city": "Tỉnh/Thành phố",
+      "actions": "Hành động"
+    }
   }
 }

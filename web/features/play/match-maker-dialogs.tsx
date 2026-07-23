@@ -316,7 +316,7 @@ function CreateRoomDialog() {
         .string()
         .min(5, t("validation.titleMin"))
         .max(40, t("validation.titleMax")),
-      sport: z.enum(["pickleball", "badminton"]),
+      sport: z.enum(["badminton"]),
       format: z.enum(["Singles", "Doubles"]),
       maxPlayers: z.number().int().min(2).max(8),
       courtId: z.string().min(1, t("validation.court")),
@@ -352,7 +352,7 @@ function CreateRoomDialog() {
   const form = useForm({
     defaultValues: {
       title: "",
-      sport: "badminton" as SportKey,
+      sport: "badminton" as const,
       format: "Doubles" as "Singles" | "Doubles",
       maxPlayers: 4,
       courtId: "c1",

@@ -62,7 +62,6 @@
     "allSports": "All",
     "filterSport": "Filter by sport",
     "sports": {
-      "pickleball": "Pickleball",
       "badminton": "Badminton"
     },
     "format": {
@@ -134,7 +133,10 @@
     "searchVenue": "Search bookings, players…",
     "venues": "Your venues",
     "addVenue": "Add venue",
-    "becomePlayer": "Become a player"
+    "addBranch": "Add branch",
+    "becomePlayer": "Become a player",
+    "manageVenue": "Manage venue",
+    "adminWorkspace": "Admin console"
   },
   "WorkspaceSettings": {
     "title": "Workspace settings",
@@ -234,7 +236,7 @@
   "Meta": {
     "titleDefault": "SportMatch AI — Find a court. Find your match.",
     "titleTemplate": "%s · SportMatch AI",
-    "description": "SportMatch AI is your AI-powered court-booking assistant for racquet sports. Book pickleball and badminton in seconds and get matched with players at your level. Early access is now open.",
+    "description": "SportMatch AI is your AI-powered court-booking assistant for racquet sports. Book badminton in seconds and get matched with players at your level. Early access is now open.",
     "ogTitle": "SportMatch AI — Find a court. Find your match.",
     "ogDescription": "AI-powered court booking and player matchmaking for racquet sports. Sign up for early access.",
     "twitterTitle": "SportMatch AI — Find a court. Find your match.",
@@ -242,7 +244,6 @@
     "keywords": [
       "court booking",
       "player matchmaking",
-      "pickleball",
       "badminton",
       "AI assistant",
       "racquet sports"
@@ -267,8 +268,7 @@
     "scrollNext": "More courts",
     "suggestions": {
       "badminton": "Badminton courts near me tonight",
-      "cheapest": "Cheapest courts",
-      "pickleball": "Pickleball this evening"
+      "cheapest": "Cheapest courts"
     },
     "steps": {
       "location": "Reading your location (Hà Nội)",
@@ -324,7 +324,6 @@
     "anyDay": "Day",
     "slotsFor": "Open slots",
     "taken": "Taken",
-    "format": "Format",
     "fillMode": "How are you filling the court?",
     "teamGate": "Do you have a team yet?",
     "gateHint": {
@@ -345,6 +344,7 @@
     "host": "Host",
     "roster": "Players",
     "summary": "Summary",
+    "where": "Where",
     "when": "When",
     "players": "Players",
     "price": "Price",
@@ -362,7 +362,13 @@
     "confirm": "Confirm booking",
     "toPayment": "Continue to payment",
     "pay": {
-      "amountDue": "Amount due",
+      "amountDue": "Total due",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "discountLabel": "Discount code",
+      "discountPlaceholder": "Enter discount code",
+      "applyDiscount": "Apply",
+      "removeDiscount": "Remove code",
       "holdCountdown": "Court held for {time} — pay to keep it",
       "holdFeePercent": "Holding fee (5%)",
       "fullNote": "Pay in full to confirm your booking.",
@@ -376,9 +382,7 @@
       "expiry": "Expiry",
       "cvc": "CVC",
       "cardName": "Name on card",
-      "qrAccount": "SPORTMATCH AI JSC",
       "qrOnly": "We accept bank transfer via QR only.",
-      "qrHint": "Scan with your banking app to pay",
       "ewalletHint": "You'll be redirected to {wallet} to approve the payment.",
       "wallets": {
         "momo": "MoMo",
@@ -386,25 +390,18 @@
       },
       "collectHint": "You'll collect {amount}/player from your team afterward",
       "payNow": "Pay {amount}",
-      "processing": "Processing…",
-      "secure": "Demo payment — no card is charged",
-      "result": {
-        "successTitle": "Payment successful",
-        "successBody": "We received {amount}. Confirm to finish the booking and lock the court.",
-        "successHint": "Your slot is ready to be confirmed.",
-        "successCta": "Finish booking",
-        "failedTitle": "Payment failed",
-        "failedBody": "The payment for {amount} did not go through. Please try again.",
-        "failedConflict": "That time slot was taken while you were paying. Pick another slot and try again.",
-        "failedHint": "No booking was created.",
-        "failedCta": "Try again"
-      }
+      "processing": "Redirecting to checkout…",
+      "redirectNotice": "You'll be redirected to SePay's checkout (VietQR or card) to complete payment.",
+      "refundPolicy": "If a booking is cancelled or declined, any refund is sent by manual bank transfer within 24–48 business hours — we never refund instantly.",
+      "checkoutFailed": "Couldn't open checkout — please try again.",
+      "secure": "Payment is secured by SePay."
     },
     "roomTitle": "{sport} at {court}",
     "toast": {
       "booked": "Court booked",
       "pending": "Request sent — waiting for operator approval",
       "cancelled": "Booking cancelled",
+      "cancelFailed": "Couldn't cancel this booking — please try again.",
       "conflict": "That slot was just taken — choose another time.",
       "holdExpired": "Your court hold expired and was released"
     },
@@ -429,19 +426,19 @@
       "activeNow": "Now showing {title}",
       "activeNone": "No active room",
       "disbanded": "Room disbanded",
-      "rsvpGoing": "Is in",
-      "rsvpDeclined": "Can't make it",
       "addTeam": "Invite players to share this court",
       "requested": "Request sent — awaiting approval",
-      "requestApproved": "You're approved!",
-      "joinRequest": "Wants to join your room",
       "approved": "Added to your room",
       "declined": "Request declined",
       "full": "Room is full",
       "overlapTitle": "Time conflict",
       "overlapBody": "You're already in \"{title}\" at that time",
       "requestExpired": "Join request expired — the host never answered",
-      "inviteExpired": "Invite expired — they never answered"
+      "inviteExpired": "Invite expired — they never answered",
+      "requestFailed": "Couldn't send the join request",
+      "approveFailed": "Couldn't approve the request",
+      "declineFailed": "Couldn't decline the request",
+      "leaveFailed": "Couldn't leave the room"
     }
   },
   "Shared": {
@@ -567,11 +564,29 @@
       }
     }
   },
+  "PaymentReturn": {
+    "metaTitle": "Confirming payment",
+    "waitingTitle": "Confirming your payment…",
+    "waitingBody": "Hang tight — we're confirming the transaction with SePay.",
+    "paidTitle": "Payment successful",
+    "paidBody": "We received {amount}. Your court is now waiting on the venue's approval.",
+    "paidBodyGeneric": "Payment received. Your court is now waiting on the venue's approval.",
+    "subtotal": "Subtotal",
+    "discountApplied": "Discount code {code}",
+    "totalPaid": "Total paid",
+    "cancelledTitle": "Transaction not completed",
+    "cancelledBody": "The payment was cancelled or didn't complete. Your court stays held until the hold expires — you can retry payment from My Bookings.",
+    "timeoutTitle": "Still waiting for confirmation",
+    "timeoutBody": "Confirming is taking longer than expected. Please check back in My Bookings in a few minutes.",
+    "errorTitle": "Couldn't check status",
+    "errorBody": "Something went wrong checking your payment. Please check back in My Bookings.",
+    "viewBookings": "View my bookings"
+  },
   "Landing": {
     "hero": {
       "titleLine1": "Find a court.",
       "titleLine2": "Find your match.",
-      "subtitle": "Your AI booking assistant for racquet sports. Book pickleball and badminton in seconds — and get matched with players at your level.",
+      "subtitle": "Your AI booking assistant for racquet sports. Book badminton in seconds — and get matched with players at your level.",
       "cta": "Get started",
       "socialProof": "1,000+ players joined",
       "sportsLabel": "Built for:"
@@ -580,7 +595,7 @@
       "eyebrow": "About SportMatch AI",
       "titleStrong": "An intelligent assistant behind every match —",
       "titleMuted": "booking courts, matching players, and filling every empty slot for you.",
-      "body": "We believe playing should be the easy part. SportMatch AI handles the logistics — finding open courts near you, matching you with players at your level, and keeping your group in sync — so pickleball and badminton are always one message away. From first-timers to club regulars, we're building the fastest way to get on court."
+      "body": "We believe playing should be the easy part. SportMatch AI handles the logistics — finding open courts near you, matching you with players at your level, and keeping your group in sync — so badminton is always one message away. From first-timers to club regulars, we're building the fastest way to get on court."
     },
     "pricingSection": {
       "eyebrow": "Pricing",
@@ -655,7 +670,7 @@
     "steps": {
       "0": {
         "title": "Tell the AI what you want",
-        "body": "Type it like you'd text a friend: “Pickleball doubles, Saturday morning, intermediate level.”"
+        "body": "Type it like you'd text a friend: “Badminton doubles, Saturday morning, intermediate level.”"
       },
       "1": {
         "title": "AI finds courts + players",
@@ -736,7 +751,7 @@
       },
       "1": {
         "quote": "The skill matching is uncannily accurate. Every match is competitive — something I never got with random pickup games.",
-        "role": "Pickleball · 4.0"
+        "role": "Badminton · 4.0"
       },
       "2": {
         "quote": "As a club, our weekday 2–5pm slots used to sit empty. Now matchmaking quietly fills them. It all just runs in the background.",
@@ -750,7 +765,7 @@
     "faq": {
       "0": {
         "question": "Which sports does SportMatch AI support?",
-        "answer": "We're launching with the racquet sports family: pickleball and badminton. More will be added based on where our community plays most."
+        "answer": "We're launching with badminton — the fastest-growing racquet sport in our community. More will be added based on where our community plays most."
       },
       "1": {
         "question": "How does the AI assistant actually book a court?",
@@ -849,6 +864,8 @@
     "full": "Full",
     "timeClash": "Time clash",
     "join": "Join",
+    "demoBadge": "Demo",
+    "demoJoin": "Demo room — can't join",
     "selectCourt": "Select a court",
     "players": "{count, plural, one {# player} other {# players}}",
     "matchmadeTitle": "Matchmade {sport} {format}",
@@ -857,19 +874,19 @@
         "title": "Evening badminton, friendly doubles"
       },
       "r2": {
-        "title": "Competitive pickleball singles"
+        "title": "Competitive badminton singles"
       },
       "r3": {
-        "title": "Casual pickleball rally"
+        "title": "Casual badminton rally"
       },
       "r4": {
-        "title": "Advanced pickleball doubles"
+        "title": "Advanced badminton doubles"
       },
       "r5": {
         "title": "Badminton doubles night"
       },
       "r6": {
-        "title": "Pickleball doubles, all welcome"
+        "title": "Badminton doubles, all welcome"
       }
     },
     "timeSlots": {
@@ -920,6 +937,7 @@
       "left": "You left the room",
       "searchingPartner": "Finding your first partner…",
       "requested": "Request sent",
+      "demoRoom": "Demo room — can't join",
       "limitTitle": "Room limit reached",
       "limitBody": "You can host up to {max} open rooms at once. Cancel one to open another."
     },
@@ -969,7 +987,7 @@
         "time": "3 days ago"
       },
       "a4": {
-        "text": "Booked Court 1 at Ace Pickleball Club",
+        "text": "Booked Court 1 at Ace Badminton Club",
         "time": "4 days ago"
       },
       "a5": {
@@ -1207,6 +1225,31 @@
       "courtCreated": "{name} added",
       "courtUpdated": "{name} updated",
       "courtDeleted": "{name} removed"
+    },
+    "manageTitle": "Manage venue",
+    "manageSubtitle": "Venue details and important actions.",
+    "archive": "Archive",
+    "dangerZone": {
+      "title": "Danger zone",
+      "archiveLabel": "Archive this venue",
+      "archiveDescription": "Hide the venue from new activity. Existing bookings are kept as-is and you can restore it anytime."
+    },
+    "archiveVenue": {
+      "title": "Archive this venue?",
+      "description": "{name} will stop taking new bookings. You can restore it anytime from this screen.",
+      "confirm": "Confirm archive",
+      "pending": "Archiving...",
+      "done": "{name} archived",
+      "viewReservations": "View reservations"
+    },
+    "restoreVenue": {
+      "button": "Restore",
+      "pending": "Restoring...",
+      "done": "{name} restored"
+    },
+    "archivedBanner": {
+      "title": "This venue is archived",
+      "description": "It won't take new bookings until restored. It still occupies the account's single venue slot — restore it instead of creating a new one."
     }
   },
   "VenuePricing": {
@@ -1264,7 +1307,13 @@
     "emptyArrivals": "No more arrivals expected today.",
     "revenueWeek": "Revenue this week",
     "today": "Today",
-    "revenueCaption": "Trailing 7-day average utilization is {util}%."
+    "revenueCaption": "Trailing 7-day average utilization is {util}%.",
+    "approvalBanner": {
+      "pendingTitle": "Awaiting admin approval",
+      "pendingDescription": "This venue can't take bookings until an admin reviews it.",
+      "rejectedTitle": "Approval rejected",
+      "rejectedDescription": "Reason: {reason}"
+    }
   },
   "VenueSchedule": {
     "metaTitle": "Schedule",
@@ -1290,6 +1339,7 @@
       "title": "Legend",
       "booked": "Booked",
       "walk-in": "Walk-in",
+      "held": "On hold",
       "free": "Free",
       "blocked": "Blocked"
     },
@@ -1302,19 +1352,33 @@
     },
     "toast": {
       "walkInTitle": "Walk-in added",
+      "walkInConflict": "This slot is held by an in-app booking — decline it (with a reason, auto-refunded) first.",
       "blockTitle": "Court blocked",
       "suggestTitle": "Finding players to fill this slot",
       "messaged": "Message sent",
       "rescheduled": "Reschedule started",
       "cancelledEvent": "Booking cancelled",
-      "reopened": "Court reopened"
+      "reopened": "Time slot reopened"
     },
     "event": {
       "maintenance": "Maintenance",
       "message": "Message customer",
       "reschedule": "Reschedule",
       "cancel": "Cancel booking",
-      "reopen": "Reopen court"
+      "reopen": "Reopen time slot"
+    },
+    "blockDialog": {
+      "title": "Block time slot",
+      "description": "Pick a reason for blocking this slot — it won't be bookable until reopened.",
+      "reasonLabel": "Reason",
+      "noteLabel": "Note (optional)",
+      "notePlaceholder": "e.g. re-stringing nets, internal event…"
+    },
+    "blockReasons": {
+      "maintenance": "Maintenance",
+      "internal": "Internal use",
+      "vip": "VIP guest",
+      "break": "Break"
     },
     "cancelDialog": {
       "title": "Cancel booking",
@@ -1346,6 +1410,11 @@
       "cancel": "Cancel",
       "confirm": "Confirm decline"
     },
+    "refundQueue": {
+      "title": "Manual refund queue",
+      "hint": "SePay has no automatic refund — please wire the refund by hand for these within 24–48 business hours.",
+      "pct": "{pct}% refund"
+    },
     "summary": {
       "pending": "Awaiting approval",
       "pendingHint": "Requests needing a decision",
@@ -1375,12 +1444,15 @@
       "walk-in": "Walk-in"
     },
     "status": {
+      "awaiting_payment": "Awaiting payment",
+      "held": "On hold",
       "pending": "Pending",
       "confirmed": "Confirmed",
       "checked-in": "Checked in",
       "completed": "Completed",
       "cancelled": "Cancelled",
-      "no-show": "No-show"
+      "no-show": "No-show",
+      "expired": "Expired"
     },
     "approve": "Approve",
     "decidedApproved": "Approved · customer notified",
@@ -1392,7 +1464,7 @@
   },
   "VenueAnalytics": {
     "metaTitle": "Analytics · Venue",
-    "metaDescription": "Revenue, utilization and demand trends for your venue — weekly revenue, an hourly utilization heatmap, sport mix, booking channels and peak hours.",
+    "metaDescription": "Revenue, utilization and demand trends for your venue — weekly revenue, a weekday × hour utilization heatmap, sport mix, booking channels and cold slots.",
     "title": "Analytics",
     "subtitle": "Revenue, utilization and demand across the last 7 days.",
     "kpi": {
@@ -1407,11 +1479,20 @@
       "today": "Today",
       "peakDay": "Peak {day} · {amount}"
     },
+    "coverage": {
+      "title": "Coverage by window",
+      "caption": "Averaged over recent weeks",
+      "toggleHour": "By hour",
+      "toggleWeekday": "By weekday",
+      "note": "The busiest windows sell out first — amber bars are quiet windows worth addressing below."
+    },
     "heatmap": {
       "title": "Utilization heatmap",
-      "caption": "By hour × day",
+      "caption": "By hour × weekday",
+      "explain": "Each cell is the % of courts booked in that window, averaged across recent weeks — darker means busier, an amber ring flags a cold slot worth addressing.",
       "low": "Low",
       "high": "High",
+      "coldMarker": "Cold slot",
       "unit": "% booked"
     },
     "sportMix": {
@@ -1426,10 +1507,40 @@
       },
       "note": "{pct}% of bookings now come through the app."
     },
-    "peak": {
-      "title": "Peak hours",
-      "caption": "Busiest windows",
-      "note": "These windows sell out first — price and staff them accordingly."
+    "coldSlots": {
+      "title": "Cold slots",
+      "caption": "Lowest utilization",
+      "subtitle": "These windows have run quiet for weeks — pick how to handle them below.",
+      "empty": "Not enough booking history yet to detect cold slots.",
+      "allHealthy": "Every window is holding up — no cold slots to address right now.",
+      "actionsTitle": "Handle this window",
+      "reason": {
+        "veryLow": "Only {pct}% booked — nearly empty, worth acting on soon.",
+        "low": "Only {pct}% booked, well below the venue average."
+      },
+      "actions": {
+        "block": "Create a block",
+        "openSchedule": "Open schedule at this window",
+        "promo": "Suggest a promo",
+        "invite": "Invite players"
+      },
+      "toast": {
+        "promoTitle": "Promo suggestion (demo)",
+        "promoDesc": "A {pct}% discount on {slot} could lift fill rate — try it for 2 weeks and compare.",
+        "inviteTitle": "Invite players (demo)",
+        "inviteDesc": "Send a nudge to regulars free during {slot} — prioritize the ones who haven't been back in a while."
+      },
+      "dialog": {
+        "title": "Block this cold slot",
+        "court": "Court",
+        "cancel": "Cancel",
+        "submit": "Create block"
+      }
+    },
+    "insights": {
+      "title": "AI insights",
+      "demoChip": "Demo AI",
+      "subtitle": "Sample recommendations for demo purposes — not generated from this venue's real bookings."
     }
   },
   "VenueInsights": {
@@ -1617,8 +1728,6 @@
       "badmintonTeammatesDesc": "Connect with local players looking for a game tonight",
       "sameLevelPlayers": "Match me with same-level players",
       "sameLevelPlayersDesc": "Find partners that match your current skill assessment",
-      "assessPickleball": "Assess pickleball skill level",
-      "assessPickleballDesc": "Take a short quiz to unlock matches and scheduling",
       "categories": {
         "courts": "Courts",
         "teammates": "Players",
@@ -1672,10 +1781,6 @@
       "badminton": {
         "title": "Badminton",
         "description": "Badminton - a high-speed sport that requires quick reflexes and agile court movement."
-      },
-      "pickleball": {
-        "title": "Pickleball",
-        "description": "Pickleball - a highly trendy new sport, easy to learn and brings lots of fun."
       }
     },
     "badminton": {
@@ -1747,87 +1852,6 @@
         "r5": "Professional"
       }
     },
-    "pickleball": {
-      "title": "Pickleball",
-      "description": "Each answer is scored from 1-8 points according to answers A-H in the Questionnaire.",
-      "questions": {
-        "q1": {
-          "text": "How is your forehand shot?",
-          "answers": {
-            "A": "Just starting, often miss or hit in wrong direction",
-            "B": "Can get it over the net but with little control",
-            "C": "Can hit at moderate speed but inconsistent",
-            "D": "Fairly consistent in most situations",
-            "E": "Good control over direction and pace",
-            "F": "Can vary pace, depth, and placement",
-            "G": "Hit with high precision and clear intent in match play",
-            "H": "Capable of playing at a very high / professional level"
-          }
-        },
-        "q2": {
-          "text": "How is your backhand shot?",
-          "answers": {
-            "A": "Rarely use it",
-            "B": "Can use it but very weak and error-prone",
-            "C": "Basic hit but inconsistent",
-            "D": "Relatively stable in simple situations",
-            "E": "Good control over direction and pace",
-            "F": "Can handle various spin/ball types",
-            "G": "Consistent and precise in match play",
-            "H": "Capable of playing at a very high / professional level"
-          }
-        },
-        "q3": {
-          "text": "How is your dink shot (play near the net)?",
-          "answers": {
-            "A": "Not yet familiar or rarely execute",
-            "B": "Can execute but often too high or make errors",
-            "C": "Can sustain a few short rallies but cannot keep it up",
-            "D": "Can sustain basic dink rallies",
-            "E": "Know how to hit soft, keep it low and minimize errors",
-            "F": "Use soft game to create advantage",
-            "G": "Patient, excellent control of net play",
-            "H": "Net play at a very high / professional level"
-          }
-        },
-        "q4": {
-          "text": "How is your third shot drop (transitioning to net)?",
-          "answers": {
-            "A": "Do not know how to execute yet",
-            "B": "Know but often hit error or too high",
-            "C": "Succeed occasionally",
-            "D": "Can use it to get ball over and advance to net",
-            "E": "Know when to play soft drop or hard drive depending on situation",
-            "F": "Execute with good consistency and clear intent",
-            "G": "Proficient on both forehand and backhand sides",
-            "H": "Execute at a very high / professional level"
-          }
-        },
-        "q5": {
-          "text": "When playing matches, what is your tactical awareness?",
-          "answers": {
-            "A": "Mainly hitting to get ball over, no strategy",
-            "B": "Play on reflex, don't know where to position",
-            "C": "Understand basic positioning and movement",
-            "D": "Position correctly in singles or doubles",
-            "E": "Coordinate with partner to create court openings",
-            "F": "Observe and exploit opponent's weaknesses",
-            "G": "Vary style based on opponent and match situations",
-            "H": "Capable of tactical play at a very high / professional level"
-          }
-        }
-      },
-      "ranges": {
-        "r0": "Level 1.0-2.0",
-        "r1": "Level 2.5",
-        "r2": "Level 3.0",
-        "r3": "Level 3.5",
-        "r4": "Level 4.0",
-        "r5": "Level 4.5",
-        "r6": "Level 5.0",
-        "r7": "Level 5.5+"
-      }
-    },
     "actions": {
       "continue": "Continue",
       "back": "Back",
@@ -1875,5 +1899,156 @@
       "description": "List your courts and manage bookings."
     },
     "continue": "Continue"
+  },
+  "AdminNav": {
+    "group": "Admin",
+    "overview": {
+      "label": "Overview",
+      "caption": "System-wide KPIs"
+    },
+    "venues": {
+      "label": "Venues & brands",
+      "caption": "Every brand and its branches"
+    },
+    "bookings": {
+      "label": "Bookings & payments",
+      "caption": "Recent transactions across every venue"
+    },
+    "refunds": {
+      "label": "Refund queue",
+      "caption": "Manual refunds awaiting settlement"
+    },
+    "approvals": {
+      "label": "Approvals",
+      "caption": "New venues awaiting review"
+    }
+  },
+  "AdminOverview": {
+    "metaTitle": "Admin overview",
+    "metaDescription": "System-wide KPIs across every venue",
+    "greeting": "Admin console",
+    "subtitle": "A cross-tenant view of the whole system",
+    "kpi": {
+      "users": "Users",
+      "brands": "Brands",
+      "venues": "Venues",
+      "venuesPending": "Pending review",
+      "bookings": "Bookings",
+      "grossRevenue": "Gross revenue",
+      "activeSessions": "Active sessions",
+      "pendingRefunds": "Pending refunds",
+      "pendingApprovals": "Pending approvals"
+    }
+  },
+  "AdminVenues": {
+    "metaTitle": "Venues & brands",
+    "metaDescription": "Every brand and its venue branches, system-wide",
+    "title": "Venues & brands",
+    "subtitle": "Every brand and its branches, with booking/revenue totals",
+    "noBrand": "No brand",
+    "table": {
+      "venue": "Venue",
+      "district": "District",
+      "approval": "Approval",
+      "status": "Status",
+      "bookings": "Bookings",
+      "revenue": "Revenue",
+      "actions": "Actions"
+    },
+    "approval": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "status": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "suspend": "Suspend",
+    "restore": "Restore",
+    "empty": "No venues yet"
+  },
+  "AdminBookings": {
+    "metaTitle": "Bookings & payments",
+    "metaDescription": "Recent transactions across every venue",
+    "title": "Bookings & payments",
+    "subtitle": "The {count} most recent bookings, across every venue",
+    "table": {
+      "booking": "Booking",
+      "venue": "Venue",
+      "court": "Court",
+      "when": "When",
+      "price": "Price",
+      "status": "Status",
+      "payment": "Payment",
+      "actions": "Actions"
+    },
+    "cancel": {
+      "button": "Cancel",
+      "title": "Force-cancel this booking?",
+      "description": "This refunds the customer in full (if paid) and frees the slot. This cannot be undone.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "e.g. Duplicate booking, fraud, venue request…",
+      "cancel": "Back",
+      "confirm": "Force cancel"
+    },
+    "status": {
+      "awaiting_payment": "Awaiting payment",
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "checked-in": "Checked in",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "no-show": "No-show",
+      "expired": "Expired"
+    },
+    "paymentStatus": {
+      "awaiting": "Awaiting",
+      "paid": "Paid",
+      "refunded": "Refunded",
+      "partial_refund": "Partially refunded",
+      "none": "None"
+    },
+    "empty": "No bookings yet"
+  },
+  "AdminRefunds": {
+    "metaTitle": "Refund queue",
+    "metaDescription": "Manual refunds awaiting settlement, across every venue",
+    "title": "Refund queue",
+    "subtitle": "SePay has no refund API — every refund here is a manual bank transfer",
+    "pct": "{pct}% refund",
+    "settle": {
+      "button": "Mark settled",
+      "title": "Mark this refund settled?",
+      "description": "Record the bank-transfer reference once you've sent the refund by hand.",
+      "refLabel": "Transfer reference",
+      "refPlaceholder": "e.g. bank transaction id",
+      "cancel": "Back",
+      "confirm": "Mark settled"
+    },
+    "empty": "No refunds awaiting settlement"
+  },
+  "AdminApprovals": {
+    "metaTitle": "Approvals",
+    "metaDescription": "New venues awaiting admin review",
+    "title": "Approvals",
+    "subtitle": "A freshly provisioned venue can't take bookings until approved",
+    "approve": "Approve",
+    "reject": {
+      "button": "Reject",
+      "title": "Reject this venue?",
+      "description": "The operator will see this reason. They can still fix and be re-reviewed later.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "e.g. Missing business license…",
+      "cancel": "Back",
+      "confirm": "Reject"
+    },
+    "empty": "Nothing pending review",
+    "table": {
+      "venue": "Venue",
+      "district": "District",
+      "city": "City",
+      "actions": "Actions"
+    }
   }
 }

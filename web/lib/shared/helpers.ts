@@ -4,6 +4,7 @@
 // these to the fetched data in its `DataProvider`.
 
 import {
+  COLD_SLOT_THRESHOLD,
   COURT_OPEN_FROM,
   COURT_OPEN_TO,
   HEATMAP_DAYS,
@@ -16,19 +17,24 @@ import {
 import type {
   Booking,
   BookingPlayer,
+  BookingRecordStatus,
+  BookingSource,
   BookingStatus,
+  ChannelMixPoint,
   Conflict,
   ConflictQuery,
   Court,
+  CourtBlock,
   InviteStatus,
   Level,
   Localized,
   LocalizedList,
   MatchRoom,
+  PeakHourPoint,
   Player,
   PlaySession,
   Reservation,
-  ReservationStatus,
+  RevenuePoint,
   RoomLevel,
   RosterEntry,
   Rsvp,
@@ -37,10 +43,12 @@ import type {
   SessionPlayer,
   SessionStatus,
   SportKey,
+  SportMixPoint,
   TrustTier,
   User,
   Venue,
   VenueCourt,
+  VenueCustomer,
   VenueStats,
 } from "./types"
 
@@ -180,7 +188,7 @@ export function rangesOverlap(
 }
 
 /** Tiny deterministic FNV-1a-style hash; stable across server and client. */
-function hashStr(s: string): number {
+export function hashStr(s: string): number {
   let h = 2166136261
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i)
@@ -219,6 +227,16 @@ function vnIsoOf(epochMs: number): string {
   const vn = new Date(epochMs + VN_OFFSET_MS)
   const time = `${pad2(vn.getUTCHours())}:${pad2(vn.getUTCMinutes())}:${pad2(vn.getUTCSeconds())}`
   return `${vn.getUTCFullYear()}-${pad2(vn.getUTCMonth() + 1)}-${pad2(vn.getUTCDate())}T${time}+07:00`
+}
+
+/**
+ * `iso` shifted by `mins` (may be negative), formatted the same as
+ * `vnNowIso`/`combineDateTime` (fixed `+07:00` offset). Used for server-computed
+ * deadlines derived from a real instant — e.g. a booking hold's
+ * `now + 20min` (api's `bookings.service.ts#createHold`).
+ */
+export function addMinutesToIso(iso: string, mins: number): string {
+  return vnIsoOf(new Date(iso).getTime() + mins * 60_000)
 }
 
 /** "YYYY-MM-DD" (Asia/Ho_Chi_Minh) for an arbitrary epoch-ms instant. */
@@ -260,7 +278,7 @@ export function combineDateTime(dateIso: string, hhmm: string): string {
 }
 
 /** Mon-first weekday short label (reuses the heatmap's localized weekday names). */
-function weekdayLabel(dateIso: string): Localized {
+export function weekdayLabel(dateIso: string): Localized {
   const mondayIndex = (weekdayOf(dateIso) + 6) % 7
   return HEATMAP_DAYS[mondayIndex]
 }
@@ -620,6 +638,7 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
     pricePerHour: s.pricePerHour,
     durationMin: s.durationMin,
     bookingId: s.status === "booked" ? s.id : undefined,
+    demo: s.demo,
   }
 }
 
@@ -628,7 +647,6 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
   return {
     id: s.id,
     sport: s.sport,
-    format: s.format,
     venue: s.venue,
     court: s.courtLabel ?? (s.courtId ? courtNumberFor(courts, s.courtId) : ""),
     day: s.dayLabel,
@@ -683,7 +701,9 @@ function bookingToSession(
     id: b.id,
     title: `${sportLabel(b.sport)} · ${b.venue}`,
     sport: b.sport,
-    format: b.format,
+    // Bookings no longer carry a singles/doubles format; a booked session
+    // defaults to a full (doubles-sized) court so rooms/invites still fit.
+    format: "Doubles",
     courtId: court?.id ?? null,
     dayKey: (SEED_BOOKING_DAYKEY[b.id] ?? ((t: string) => t))(todayIso),
     dayLabel: b.day,
@@ -691,7 +711,7 @@ function bookingToSession(
     durationMin: durationOf(b.time),
     courtLabel: b.court,
     host: { name: user.name, initials: user.initials },
-    capacity: capacityFor(b.format),
+    capacity: capacityFor("Doubles"),
     roster: [host, ...others],
     level: user.level,
     status,
@@ -743,6 +763,7 @@ function roomToSession(
     district: r.district,
     distanceKm: r.distanceKm,
     pricePerHour: r.pricePerHour,
+    demo: r.demo,
   }
 }
 
@@ -818,13 +839,20 @@ export const courtById = (courts: VenueCourt[], id: string) =>
  * with gaps and off-the-hour starts, denser toward the evening peak. A
  * maintenance court is a single all-day block. Same court + day → same schedule
  * (no Date/random), so server and client renders agree.
+ *
+ * `fillerEnabled` (default true) gates only the fabricated busy blocks below —
+ * a real court's `maintenance` status still renders (it's genuine operator
+ * data, not filler). Venues with a real operator (`info.ownerId`) pass `false`
+ * so the schedule shows an honest empty grid instead of invented bookings; the
+ * caller still overlays real reservations on top regardless.
  */
 export function courtDayEvents(
   venue: Venue,
   courts: VenueCourt[],
   courtId: string,
   dayKey: string,
-  todayIso: string
+  todayIso: string,
+  fillerEnabled = true
 ): ScheduleEvent[] {
   const court = courtById(courts, courtId)
   const sport: SportKey = court?.sport ?? "badminton"
@@ -846,6 +874,8 @@ export function courtDayEvents(
       },
     ]
   }
+
+  if (!fillerEnabled) return []
 
   const events: ScheduleEvent[] = []
   let cursor = open
@@ -875,7 +905,7 @@ export function courtDayEvents(
       kind: walkIn ? "walk-in" : "booked",
       customer: SCHED_NAMES[(h >>> 5) % SCHED_NAMES.length],
       sport,
-      party: sport === "pickleball" ? 4 : 2 + (h % 3),
+      party: 2 + (h % 3),
       past: isToday && cursor + dur <= now,
     })
     cursor += dur + (h % 4 === 0 ? 15 : 0) // occasional turnover buffer
@@ -890,7 +920,9 @@ export function venueEventsFor(
   dayKey: string,
   todayIso: string
 ): ScheduleEvent[][] {
-  return courts.map((c) => courtDayEvents(venue, courts, c.id, dayKey, todayIso))
+  return courts.map((c) =>
+    courtDayEvents(venue, courts, c.id, dayKey, todayIso)
+  )
 }
 
 /**
@@ -993,32 +1025,37 @@ export function venueCourtToCourt(venue: Venue, court: VenueCourt): Court {
   }
 }
 
-// ── Reservation state machine ──────────────────────────────────────────────
+// ── Booking state machine ────────────────────────────────────────────────────
 
 /**
- * Legal reservation status transitions. `completed`/`cancelled`/`no-show` are
- * terminal (no outgoing edges) — enforced server-side in
- * `venues.service.ts#updateReservationStatus` and mirrored client-side to hide
- * actions that would be rejected.
+ * Legal {@link BookingRecordStatus} transitions — one table drives both the API
+ * guard (`bookings.service.ts#updateStatus`) and web button states (reservation
+ * actions, hold/status badges). `completed`/`cancelled`/`no-show`/`expired` are
+ * terminal (no outgoing edges). Replaces the Phase-0 `RESERVATION_TRANSITIONS`
+ * table now that reservations are a projection of `BookingRecord`s.
  */
-export const RESERVATION_TRANSITIONS: Record<
-  ReservationStatus,
-  ReservationStatus[]
+export const BOOKING_TRANSITIONS: Record<
+  BookingRecordStatus,
+  BookingRecordStatus[]
 > = {
+  // "pending" here means paid, awaiting venue approval; a sweeper auto-confirm
+  // (silence = consent) also lands on "confirmed" through this same edge.
+  awaiting_payment: ["pending", "expired", "cancelled"],
   pending: ["confirmed", "cancelled"],
   confirmed: ["checked-in", "cancelled", "no-show"],
   "checked-in": ["completed", "cancelled"],
   completed: [],
+  expired: [],
   cancelled: [],
   "no-show": [],
 }
 
 /** A same-status transition is always allowed (idempotent no-op). */
-export function canTransitionReservation(
-  from: ReservationStatus,
-  to: ReservationStatus
+export function canTransitionBooking(
+  from: BookingRecordStatus,
+  to: BookingRecordStatus
 ): boolean {
-  return from === to || RESERVATION_TRANSITIONS[from].includes(to)
+  return from === to || BOOKING_TRANSITIONS[from].includes(to)
 }
 
 // ── Venue: analytics computed from real reservations (hybrid) ─────────────────
@@ -1064,7 +1101,10 @@ export function computeVenueStats(
   const bookedMinutes = today
     .filter((r) => CONFIRMED.has(r.status))
     .reduce((sum, r) => sum + reservationMinutes(r), 0)
-  const utilization = Math.min(100, Math.round((bookedMinutes / openMinutes) * 100))
+  const utilization = Math.min(
+    100,
+    Math.round((bookedMinutes / openMinutes) * 100)
+  )
 
   const counted = reservations.filter(
     (r) =>
@@ -1092,4 +1132,396 @@ export function computeVenueStats(
     noShowRate,
     newCustomers: newIds.size,
   }
+}
+
+// ── Venue: full analytics computed from real reservations (owned venues) ────
+//
+// `computeVenueStats` above overrides just the four hybrid KPIs. The
+// functions below go further and recompute the *chart series* themselves —
+// used only for venues with a real operator (`info.ownerId`); demo venues
+// keep their curated, hardcoded series (see `VenuesService.withComputedStats`).
+
+/** A reservation's "HH:MM" start, falling back to parsing the legacy `time` range. */
+function reservationStart(reservation: Reservation): string | null {
+  if (reservation.start) return reservation.start
+  const [start] = reservation.time.match(/(\d{2}:\d{2})/g) ?? []
+  return start ?? null
+}
+
+/** A reservation that actually happened (or is still live) — excludes declines. */
+function isLiveBooking(reservation: Reservation): boolean {
+  return reservation.status !== "cancelled"
+}
+
+const BOOKING_SOURCES: BookingSource[] = ["app", "walk-in"]
+
+/** The last 7 calendar dates ending `todayIso` (oldest → today), "YYYY-MM-DD". */
+function last7DaysIso(todayIso: string): string[] {
+  return Array.from({ length: 7 }, (_, i) => addDaysIso(todayIso, i - 6))
+}
+
+/**
+ * Real weekday labels (oldest → today) for the last-7-day window ending
+ * `todayIso` — labels {@link computeUtilizationHeatmap}'s rows so a real
+ * venue's heatmap reads its actual weekdays instead of the demo's fixed
+ * Mon–Sun axis (which isn't anchored to real dates).
+ */
+export function heatmapRowLabels(todayIso: string): Localized[] {
+  return last7DaysIso(todayIso).map(weekdayLabel)
+}
+
+/** Real last-7-day revenue (oldest → today), VND, from a venue's own reservations. */
+export function computeRevenueSeries(
+  reservations: Reservation[],
+  todayIso: string
+): RevenuePoint[] {
+  return last7DaysIso(todayIso).map((dateIso) => {
+    const value = reservations
+      .filter(
+        (r) =>
+          reservationDay(r) === dateIso &&
+          (r.status === "confirmed" || r.status === "completed")
+      )
+      .reduce((sum, r) => sum + r.price, 0)
+    return { label: weekdayLabel(dateIso), value }
+  })
+}
+
+/** Real share of live bookings per sport, from a venue's own reservations. */
+export function computeSportMix(reservations: Reservation[]): SportMixPoint[] {
+  const live = reservations.filter(isLiveBooking)
+  const bySport = new Map<SportKey, number>()
+  for (const r of live) bySport.set(r.sport, (bySport.get(r.sport) ?? 0) + 1)
+  const total = live.length
+  return [...bySport.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([sport, bookings]) => ({
+      sport,
+      bookings,
+      pct: total ? Math.round((bookings / total) * 100) : 0,
+    }))
+}
+
+/** Real app-vs-walk-in split of live bookings, from a venue's own reservations. */
+export function computeChannelMix(reservations: Reservation[]): ChannelMixPoint[] {
+  const live = reservations.filter(isLiveBooking)
+  const total = live.length
+  return BOOKING_SOURCES.map((source) => {
+    const count = live.filter((r) => r.source === source).length
+    return { source, pct: total ? Math.round((count / total) * 100) : 0 }
+  })
+}
+
+/**
+ * Real busiest hours: for each hour on the schedule grid, the share of the
+ * venue's courts with a live, non-cancelled reservation overlapping it — the
+ * top 4, busiest first. From a venue's own reservations, no fabrication.
+ */
+export function computePeakHours(
+  courts: VenueCourt[],
+  reservations: Reservation[]
+): PeakHourPoint[] {
+  const live = reservations.filter(isLiveBooking)
+  const totalCourts = Math.max(1, courts.length)
+  return SCHEDULE_HOURS.map((hour) => {
+    const occupiedCourts = new Set<string>()
+    for (const r of live) {
+      const start = reservationStart(r)
+      if (!start) continue
+      if (rangesOverlap(hour, 60, start, reservationMinutes(r))) {
+        occupiedCourts.add(r.courtId ?? r.court)
+      }
+    }
+    return { hour, util: Math.round((occupiedCourts.size / totalCourts) * 100) }
+  })
+    .sort((a, b) => b.util - a.util)
+    .slice(0, 4)
+}
+
+/**
+ * Real 7-day × {@link HEATMAP_HOURS} utilization grid (oldest → today; pair
+ * with {@link heatmapRowLabels} for row labels) — share of the venue's courts
+ * with a live reservation overlapping each 2-hour column, from the venue's
+ * own reservations. Counterpart to the seeded, hash-based
+ * {@link utilizationHeatmap} used for demo venues.
+ */
+export function computeUtilizationHeatmap(
+  courts: VenueCourt[],
+  reservations: Reservation[],
+  todayIso: string
+): number[][] {
+  const live = reservations.filter(isLiveBooking)
+  const totalCourts = Math.max(1, courts.length)
+  return last7DaysIso(todayIso).map((dateIso) => {
+    const dayReservations = live.filter((r) => reservationDay(r) === dateIso)
+    return HEATMAP_HOURS.map((hh) => {
+      const hour = `${hh}:00`
+      const occupiedCourts = new Set<string>()
+      for (const r of dayReservations) {
+        const start = reservationStart(r)
+        if (!start) continue
+        if (rangesOverlap(hour, 120, start, reservationMinutes(r))) {
+          occupiedCourts.add(r.courtId ?? r.court)
+        }
+      }
+      return Math.round((occupiedCourts.size / totalCourts) * 100)
+    })
+  })
+}
+
+/**
+ * Real day-of-week × hour utilization grid — occupancy averaged across every
+ * distinct calendar date on record for that weekday (Mon-first row order), so
+ * a recurring quiet Tuesday morning reads as quiet even if last Tuesday alone
+ * happened to be busy. Complements {@link computeUtilizationHeatmap}'s rolling
+ * 7-day window (anchored to specific dates) with a repeating weekly pattern.
+ */
+/**
+ * Group live reservations by their ISO date once, so the occupancy math below
+ * doesn't re-scan the whole list for every hour column.
+ */
+function reservationsByDate(live: Reservation[]): Map<string, Reservation[]> {
+  const byDate = new Map<string, Reservation[]>()
+  for (const r of live) {
+    const dateIso = reservationDay(r)
+    if (!dateIso) continue
+    const list = byDate.get(dateIso)
+    if (list) list.push(r)
+    else byDate.set(dateIso, [r])
+  }
+  return byDate
+}
+
+/** % of courts occupied during the 2-hour window at `hour` on a single date. */
+function hourOccupancyPct(
+  dayReservations: Reservation[],
+  hour: string,
+  totalCourts: number
+): number {
+  const occupiedCourts = new Set<string>()
+  for (const r of dayReservations) {
+    const start = reservationStart(r)
+    if (!start) continue
+    if (rangesOverlap(hour, 120, start, reservationMinutes(r))) {
+      occupiedCourts.add(r.courtId ?? r.court)
+    }
+  }
+  return (occupiedCourts.size / totalCourts) * 100
+}
+
+export function computeWeekdayHeatmap(
+  courts: VenueCourt[],
+  reservations: Reservation[],
+  hours: string[] = HEATMAP_HOURS
+): number[][] {
+  const live = reservations.filter(isLiveBooking)
+  const totalCourts = Math.max(1, courts.length)
+  const byDate = reservationsByDate(live)
+  const datesByWeekday: string[][] = Array.from({ length: 7 }, () => [])
+  for (const dateIso of byDate.keys()) {
+    datesByWeekday[(weekdayOf(dateIso) + 6) % 7].push(dateIso)
+  }
+  return datesByWeekday.map((dates) =>
+    hours.map((hh) => {
+      if (!dates.length) return 0
+      const hour = `${hh}:00`
+      const total = dates.reduce(
+        (sum, dateIso) =>
+          sum + hourOccupancyPct(byDate.get(dateIso) ?? [], hour, totalCourts),
+        0
+      )
+      return Math.round(total / dates.length)
+    })
+  )
+}
+
+export interface WeekdayCoveragePoint {
+  weekdayIdx: number
+  util: number
+}
+
+/**
+ * Real hour-of-day coverage — occupancy for each hour column averaged across
+ * every distinct calendar date on record, collapsing the day dimension
+ * entirely (companion bar-chart view to {@link computeWeekdayHeatmap}).
+ */
+export function computeHourCoverage(
+  courts: VenueCourt[],
+  reservations: Reservation[],
+  hours: string[] = HEATMAP_HOURS
+): PeakHourPoint[] {
+  const live = reservations.filter(isLiveBooking)
+  const totalCourts = Math.max(1, courts.length)
+  const byDate = reservationsByDate(live)
+  const dates = [...byDate.keys()]
+  if (!dates.length) return hours.map((hh) => ({ hour: `${hh}:00`, util: 0 }))
+  return hours.map((hh) => {
+    const hour = `${hh}:00`
+    const total = dates.reduce(
+      (sum, dateIso) =>
+        sum + hourOccupancyPct(byDate.get(dateIso) ?? [], hour, totalCourts),
+      0
+    )
+    return { hour, util: Math.round(total / dates.length) }
+  })
+}
+
+/**
+ * Real weekday coverage — each row of {@link computeWeekdayHeatmap} averaged
+ * across its hour columns (companion toggle to {@link computeHourCoverage}).
+ */
+/**
+ * Average each weekday row of an already-computed heatmap across its hour
+ * columns — lets a caller that already holds the heatmap (e.g. the analytics
+ * view's memoized grid) derive coverage without rebuilding it.
+ */
+export function weekdayCoverageFromHeatmap(
+  heatmap: number[][]
+): WeekdayCoveragePoint[] {
+  return heatmap.map((row, weekdayIdx) => ({
+    weekdayIdx,
+    util: row.length
+      ? Math.round(row.reduce((sum, v) => sum + v, 0) / row.length)
+      : 0,
+  }))
+}
+
+export function computeWeekdayCoverage(
+  courts: VenueCourt[],
+  reservations: Reservation[],
+  hours: string[] = HEATMAP_HOURS
+): WeekdayCoveragePoint[] {
+  return weekdayCoverageFromHeatmap(
+    computeWeekdayHeatmap(courts, reservations, hours)
+  )
+}
+
+export interface ColdSlot {
+  weekdayIdx: number
+  hour: string
+  util: number
+}
+
+/**
+ * The quietest cells of a weekday × hour heatmap, lowest first — candidates
+ * for the operator to fill (block, discount, invite). `hours` must be the
+ * same axis the heatmap was built with, so the `hour` labels line up.
+ */
+export function computeColdSlots(
+  heatmap: number[][],
+  hours: string[],
+  {
+    threshold = COLD_SLOT_THRESHOLD,
+    limit = 6,
+  }: { threshold?: number; limit?: number } = {}
+): ColdSlot[] {
+  const slots: ColdSlot[] = []
+  heatmap.forEach((row, weekdayIdx) => {
+    row.forEach((util, i) => {
+      if (util <= threshold) slots.push({ weekdayIdx, hour: hours[i], util })
+    })
+  })
+  return slots.sort((a, b) => a.util - b.util).slice(0, limit)
+}
+
+/** Nearest upcoming ISO date (today counts) matching a Mon-first weekday index. */
+export function nextDateForWeekday(
+  weekdayIdxMonFirst: number,
+  todayIso: string
+): string {
+  const todayMonFirst = (weekdayOf(todayIso) + 6) % 7
+  const delta = (weekdayIdxMonFirst - todayMonFirst + 7) % 7
+  return addDaysIso(todayIso, delta)
+}
+
+// ── Venue: CRM customer stats computed from real bookings (Phase 6) ───────────
+
+/** A CRM customer matches a reservation by linked account, else by phone. */
+function reservationMatchesCustomer(
+  reservation: Reservation,
+  customer: VenueCustomer
+): boolean {
+  if (customer.userId) return reservation.userId === customer.userId
+  return (
+    !!reservation.customer.phone && reservation.customer.phone === customer.id
+  )
+}
+
+/**
+ * Tier purely from completion history — no time dimension (no "last visit"
+ * clock), so this stays a pure function of the customer's own record: a
+ * sharply declining `trend` (kept at whatever value the caller last set,
+ * itself out of scope for this derivation) reads as "at-risk" ahead of the
+ * visit-count bands, mirroring the flagship seed's Vũ Hà (27 visits, trend
+ * -34 → "at-risk" despite a "regular"-sized visit count).
+ */
+function tierFor(visits: number, trend: number): VenueCustomer["tier"] {
+  if (trend <= -20) return "at-risk"
+  if (visits >= 40) return "vip"
+  if (visits >= 10) return "regular"
+  return "new"
+}
+
+/**
+ * Recompute each customer's `visits`/`ltv`/`noShowRate`/`tier` from the venue's
+ * real reservations — VienTD-Review decision #15/default: "visits/LTV recompute
+ * từ reservation completed". Pure and read-time-only (no write hook), so a
+ * customer created by `upsertWalkInCustomer`/`upsertAppCustomer` at zeroed
+ * stats is always consistent with its bookings without any completion-time
+ * mutation. `lastVisit`/`trend` are left as stored — this only touches the
+ * four fields with a real derivation.
+ */
+export function computeCustomerStats(
+  customers: VenueCustomer[],
+  reservations: Reservation[]
+): VenueCustomer[] {
+  return customers.map((customer) => {
+    const own = reservations.filter((r) =>
+      reservationMatchesCustomer(r, customer)
+    )
+    const completed = own.filter((r) => r.status === "completed")
+    const visits = completed.length
+    const ltv = completed.reduce((sum, r) => sum + r.price, 0)
+    const counted = own.filter(
+      (r) =>
+        r.status === "completed" ||
+        r.status === "checked-in" ||
+        r.status === "no-show"
+    )
+    const noShows = counted.filter((r) => r.status === "no-show").length
+    const noShowRate = counted.length
+      ? Math.round((noShows / counted.length) * 100)
+      : 0
+    return {
+      ...customer,
+      visits,
+      ltv,
+      noShowRate,
+      tier: tierFor(visits, customer.trend),
+    }
+  })
+}
+
+// ── Venue: court blocks (Phase 6, decision #12) ────────────────────────────────
+
+/**
+ * True when a proposed slot on `courtId`/`dateKey` overlaps any block in
+ * `blocks` — a real `CourtBlock` entity, not the old per-court `maintenance`
+ * flag. Pure so both the API's booking/walk-in creation guards and the web's
+ * schedule-grid block overlay (`blockDayEvents`) share one definition of
+ * "blocked".
+ */
+export function overlapsBlock(
+  blocks: CourtBlock[],
+  courtId: string,
+  dateKey: string,
+  start: string,
+  durationMin: number
+): boolean {
+  return blocks.some(
+    (b) =>
+      b.courtId === courtId &&
+      b.dateKey === dateKey &&
+      rangesOverlap(start, durationMin, b.start, b.durationMin)
+  )
 }

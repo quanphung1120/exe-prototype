@@ -29,12 +29,12 @@ import { Parallax } from "@/features/landing/scroll/parallax"
 import { SiteHeader } from "@/features/landing/site-header"
 import { Link } from "@/i18n/navigation"
 
-const SPORT_KEYS = ["pickleball", "badminton"]
+const SPORT_KEYS = ["badminton"]
 
 const TRUST_LOGOS = [
-  "Ace Pickleball Club",
+  "Ace Badminton Club",
   "Shuttle Republic",
-  "Smash Pickleball",
+  "Smash Badminton",
   "Baseline Athletic",
   "Courtside Collective",
   "Net Gain Sports",

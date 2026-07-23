@@ -5,7 +5,7 @@
 
 // ── Sports ───────────────────────────────────────────────────────────────────
 
-export type SportKey = "pickleball" | "badminton"
+export type SportKey = "badminton"
 
 export interface Sport {
   key: SportKey
@@ -51,6 +51,8 @@ export interface Player {
   trust: number
   online: boolean
   blurb: string
+  /** Seed-only mock suggestion — never a real player, never enters a real booking. */
+  demo?: boolean
 }
 
 /** A participant resolvable from a match room's `players` initials. */
@@ -118,6 +120,8 @@ export interface MatchRoom {
   durationMin?: number
   /** Set once a court has been booked for this room. */
   bookingId?: string
+  /** Seed liquidity, not a real room — browsable but never joinable/bookable. */
+  demo?: boolean
 }
 
 // ── Bookings ─────────────────────────────────────────────────────────────────
@@ -135,7 +139,6 @@ export interface BookingPlayer {
 export interface Booking {
   id: string
   sport: SportKey
-  format: "Singles" | "Doubles"
   venue: string
   court: string
   day: string
@@ -171,6 +174,14 @@ export interface SessionPlayer {
   rsvp: Rsvp
   /** Epoch ms when the current `requested`/`pending` rsvp was set (expiry). */
   rsvpAt?: number
+  /**
+   * Clerk user id of a real cross-user roster member (Phase 9 G2 rooms) — set
+   * on entries the `/api/rooms` endpoints write (join request/approve).
+   * Absent on the host's own entry and on legacy client-only roster members
+   * (mock invitees, pre-G2 sessions), which are only ever addressed by
+   * `initials` within the owning user's own session doc.
+   */
+  userId?: string
 }
 
 export type SessionStatus = "forming" | "booked" | "completed" | "cancelled"
@@ -219,7 +230,7 @@ export interface PlaySession {
   holdExpiresAt?: number
   /** Owning venue of the held court — set when a booking cross-writes a reservation. */
   venueId?: string
-  /** Linked venue Reservation id (idempotency key for the cross-write). */
+  /** Linked BookingRecord id (idempotency key for the cross-write; also the id a Reservation projects). */
   reservationId?: string
   /** Operator's decline reason, surfaced to the player once cancelled. */
   cancelReason?: string
@@ -234,6 +245,8 @@ export interface PlaySession {
   pricePerHour: number
   result?: "W" | "L"
   score?: string
+  /** Seed liquidity (from the demo ROOMS catalog) — browsable but never joinable/bookable. */
+  demo?: boolean
 }
 
 export type Conflict = "court-taken" | "self-overlap" | null
@@ -288,12 +301,14 @@ export interface ActivityItem {
 
 // ── Notifications ────────────────────────────────────────────────────────────
 
-export type NotificationKind =
-  | "match"
-  | "chat"
-  | "booking"
-  | "rating"
-  | "streak"
+export const NOTIFICATION_KINDS = [
+  "match",
+  "chat",
+  "booking",
+  "rating",
+  "streak",
+] as const
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
 
 export interface NotificationItem {
   id: string
@@ -306,6 +321,29 @@ export interface NotificationItem {
   href?: string
   /** Chat to select when clicked (paired with an href to `/dashboard/chat`). */
   chatId?: string
+  /**
+   * ISO datetime this notification was created — present only on items
+   * sourced from the `notifications` collection (Phase 7). The web
+   * notification centre recomputes `time` as a relative string from this on
+   * every poll instead of trusting a stale `time`; seed/demo and client-only
+   * matchmaking items have no `createdAt` and keep a fixed/localized `time`.
+   */
+  createdAt?: string
+}
+
+/**
+ * A transactional notification as persisted server-side (Phase 7,
+ * `api/src/features/notifications/`) and returned by `GET /api/notifications`.
+ * `id` is the dedupe key (`notifId`) so the web client can merge server- and
+ * client-origin items into one `NotificationItem[]` list by id.
+ */
+export interface NotificationRecord {
+  id: string
+  kind: NotificationKind
+  text: string
+  href?: string
+  read: boolean
+  createdAt: string
 }
 
 // ── Venue: localized content ─────────────────────────────────────────────────
@@ -322,10 +360,17 @@ export interface LocalizedList {
 // ── Venue: the venue itself ──────────────────────────────────────────────────
 
 export interface Venue {
-  /** Stable id. Each account owns at most one venue (see `ownerId`). */
+  /** Stable id. A venue is one physical location (a branch) under a {@link Brand}. */
   id: string
-  /** Clerk account that owns this venue (absent on ownerless demo seeds). */
+  /**
+   * Clerk account that owns this venue's brand — denormalized from
+   * {@link Brand.ownerId} so booking/notification auth needs no brand join.
+   * Absent on ownerless demo seeds. No longer unique: one account's brand may
+   * own many venues (branches).
+   */
   ownerId?: string
+  /** The {@link Brand} this venue is a branch of (absent on ownerless demo seeds). */
+  brandId?: string
   name: string
   initials: string
   /** Optional profile photo URL (operator-set; the UI falls back to initials). */
@@ -346,6 +391,52 @@ export interface Venue {
   /** Geographic position for the Find Courts map (WGS84); courts inherit it. */
   lat?: number
   lng?: number
+  /**
+   * Archived (soft-deleted) — VienTD-Review decision #11. Set by `DELETE
+   * /api/venues` in place of a hard delete, guarded on future pending/confirmed
+   * bookings; cleared via `updateVenue({ archived: false })` to restore. An
+   * archived venue stays a branch of its {@link Brand} — the manage UI offers
+   * "Khôi phục", not a fresh setup, until this is cleared.
+   */
+  archived?: boolean
+  /**
+   * Manual admin approval gate: a freshly provisioned venue starts `"pending"`
+   * and isn't bookable until an admin approves it in the admin workspace
+   * (auto-approval is a later concern). Absent on venues seeded before this
+   * field existed / hardcoded demo venues — treated as `"approved"`
+   * everywhere this is read (see `withApproval` in `venues.service.ts`).
+   */
+  approval?: VenueApprovalStatus
+  /** Admin's reason when rejecting (mirrors `Venue.declineReason` elsewhere). */
+  approvalReason?: string
+  /** ISO datetime of the admin's approve/reject decision. */
+  approvedAt?: string
+}
+
+export type VenueApprovalStatus = "pending" | "approved" | "rejected"
+
+// ── Brand: the account-owned parent of one or more venues (branches) ──────────
+
+/**
+ * A venue operator's brand / system (thương hiệu) — the account-owned root that
+ * groups one or more {@link Venue} branches (chi nhánh). Each Clerk account owns
+ * at most one Brand (enforced by a unique index on `ownerId`); a Brand has many
+ * Venues, and each Venue is a single physical location under it. Ownerless demo
+ * seeds may be grouped under a demo Brand or have none.
+ */
+export interface Brand {
+  /** Stable id (e.g. "b1"). */
+  id: string
+  /** Clerk account that owns this brand — unique, one Brand per account. */
+  ownerId: string
+  name: string
+  initials: string
+  /** Optional brand logo URL (the UI falls back to initials). */
+  image?: string
+  /** Optional short description shown on the brand profile. */
+  description?: string
+  /** Archived (soft-deleted) brand — mirrors {@link Venue.archived}. */
+  archived?: boolean
 }
 
 // ── Venue: physical courts ───────────────────────────────────────────────────
@@ -367,6 +458,48 @@ export interface VenueCourt {
   /** Share of today's open hours this court is booked, 0–100. */
   utilToday: number
   pricePerHour: number
+  /**
+   * Archived (soft-deleted) — VienTD-Review decision #11. Set by `DELETE
+   * /api/venues/courts/:courtId` in place of a hard delete, guarded on future
+   * pending/confirmed bookings; cleared via `updateCourt({ archived: false })`
+   * to restore. Excluded from the discovery catalog (`catalogCourts`), the
+   * walk-in picker and new court blocks; `findVenueByCourtId` deliberately does
+   * NOT filter on it, so a historical booking still resolves its venue.
+   */
+  archived?: boolean
+}
+
+// ── Venue: court blocks ──────────────────────────────────────────────────────
+
+/**
+ * Why a court is closed off to booking for a slot (VienTD-Review decision
+ * #12) — always required, never inferred.
+ */
+export const COURT_BLOCK_REASONS = [
+  "maintenance",
+  "internal",
+  "vip",
+  "break",
+] as const
+export type CourtBlockReason = (typeof COURT_BLOCK_REASONS)[number]
+
+/**
+ * A real entity (not the old per-court `maintenance` flag) reserving a
+ * court/day/time window against both app bookings and walk-ins — created via
+ * `POST /api/venues/blocks`, lifted via `DELETE /api/venues/blocks/:blockId`.
+ * Stored on the venue doc's `ops.blocks` (a `blockSeq` high-water counter
+ * mints `id`, mirroring `VenueCourt.id`'s `courtSeq`); older persisted venue
+ * docs predate this array, so every internal read defaults it with `?? []`.
+ */
+export interface CourtBlock {
+  id: string
+  courtId: string
+  /** ISO date ("YYYY-MM-DD"), Asia/Ho_Chi_Minh. */
+  dateKey: string
+  start: string
+  durationMin: number
+  reason: CourtBlockReason
+  note?: string
 }
 
 // ── Venue: headline KPIs ─────────────────────────────────────────────────────
@@ -391,7 +524,7 @@ export interface VenueStats {
 
 // ── Venue: schedule grid ─────────────────────────────────────────────────────
 
-export type SlotKind = "free" | "booked" | "blocked" | "walk-in"
+export type SlotKind = "free" | "booked" | "blocked" | "walk-in" | "held"
 
 export interface ScheduleSlot {
   courtId: string
@@ -422,6 +555,10 @@ export interface ScheduleEvent {
   party?: number
   /** True once the event has fully passed (today only). */
   past?: boolean
+  /** Set on `kind === "blocked"` events overlaid from a real `CourtBlock`. */
+  blockReason?: CourtBlockReason
+  /** Operator note on the underlying `CourtBlock`, if any. */
+  blockNote?: string
 }
 
 // ── Venue: reservations ──────────────────────────────────────────────────────
@@ -434,6 +571,11 @@ export type ReservationStatus =
   | "completed"
   | "cancelled"
   | "no-show"
+  // An active, unpaid `awaiting_payment` hold — not a real 6-value operator
+  // status, but a distinct, non-actionable projection so the schedule/list
+  // views can render "someone is holding this slot" without offering
+  // approve/decline (payment, not the operator, gates that transition).
+  | "held"
 
 export interface Reservation {
   id: string
@@ -467,6 +609,131 @@ export interface Reservation {
 }
 
 export type RiskTier = "low" | "medium" | "high"
+
+// ── Bookings: the canonical entity (booking ≡ reservation, one record) ────────
+
+/**
+ * Lifecycle of a {@link BookingRecord}. `awaiting_payment`/`expired` are the
+ * payment-gate states a future phase (SePay checkout) will drive; today's write
+ * paths (app cross-write, walk-in) skip straight to `pending`/`confirmed` since
+ * no real payment gate exists yet — the states exist now so the schema and the
+ * transition table don't need to change shape when that phase lands.
+ */
+export type BookingRecordStatus =
+  | "awaiting_payment"
+  | "pending"
+  | "confirmed"
+  | "checked-in"
+  | "completed"
+  | "expired"
+  | "cancelled"
+  | "no-show"
+
+/**
+ * Pre-paid settlement state of a {@link BookingRecord}. `none` is walk-ins (cash
+ * at the venue, never gated on payment); the rest describe an app booking's
+ * SePay checkout lifecycle (a future phase).
+ */
+export type PaymentStatus =
+  "awaiting" | "paid" | "refunded" | "partial_refund" | "none"
+
+export interface BookingCustomer {
+  name: string
+  initials: string
+  phone?: string
+}
+
+/**
+ * A refund SePay can't issue itself (no refund API — only `voidTransaction`/
+ * `cancel` for a not-yet-settled transaction/order). Recording one here queues
+ * it onto the operator's manual-refund worklist (a bank transfer done by
+ * hand); `status` is always `"manual"` today — the field exists so a future
+ * phase that adds a real payout rail doesn't need to reshape this type.
+ */
+export interface BookingRefund {
+  /** Percent of the price refunded (100/50/0 per the cancellation policy). */
+  pct: number
+  amount: number
+  /** ISO datetime the refund was recorded. */
+  at: string
+  /**
+   * How the refund is settled — always starts `"manual"` (bank transfer by an
+   * operator/admin); flips to `"settled"` once `ref` is recorded (admin's
+   * "mark settled" action), which is what drops it off `listRefundQueue`.
+   */
+  status: "manual" | "settled"
+  /** Manual transfer reference, once an operator/admin completes it. */
+  ref?: string
+}
+
+export interface BookingStatusEvent {
+  status: BookingRecordStatus
+  /** ISO datetime (+07:00). */
+  at: string
+  reason?: string
+}
+
+/**
+ * The canonical booking — the single record a court hold, a player's app
+ * booking and a venue's operator-facing reservation all converge on (one court-
+ * time slot, one row). `api/src/features/bookings/` owns the collection; the
+ * venue operator's `Reservation[]` (see {@link Reservation}) is a read-time
+ * projection of these, and a player's `PlaySession` derives its booking-facing
+ * status/hold/refund fields from whichever record its `reservationId` points at.
+ */
+export interface BookingRecord {
+  bookingId: string
+  venueId: string
+  courtId: string
+  /** Denormalized so a Reservation projection never needs a courts join. */
+  courtName: string
+  sport: SportKey
+  source: BookingSource
+  /** Clerk account of the app booker (absent for walk-ins). */
+  userId?: string
+  /** Linked player PlaySession id (absent for walk-ins). */
+  sessionId?: string
+  customer: BookingCustomer
+  /** ISO datetime (+07:00) — combineDateTime(dateKey, start). */
+  startAt: string
+  /** ISO datetime (+07:00), startAt + durationMin. */
+  endAt: string
+  /** ISO date ("YYYY-MM-DD"), Asia/Ho_Chi_Minh — the source of truth for the day. */
+  dateKey: string
+  start: string
+  durationMin: number
+  price: number
+  status: BookingRecordStatus
+  paymentStatus: PaymentStatus
+  /** Epoch-free ISO deadline for an unpaid court hold (awaiting_payment → expired). */
+  holdExpiresAt?: string
+  /** ISO deadline for the venue's 30-minute approval SLA (pending → auto-confirmed). */
+  confirmDeadlineAt?: string
+  /** ISO datetime the venue checked the customer in. */
+  checkedInAt?: string
+  /** Operator's reason when declined (status "cancelled" from "pending"). */
+  declineReason?: string
+  /** Player's or operator's reason for a post-confirm cancellation. */
+  cancelReason?: string
+  refund?: BookingRefund
+  statusHistory: BookingStatusEvent[]
+}
+
+/**
+ * One booking still owing a manual refund — SePay has no refund API (see
+ * {@link BookingRefund}), so every computed refund lands here for a venue
+ * operator to settle by hand (bank transfer) instead of automatically.
+ * Distinct from {@link Reservation} (frozen to the pre-existing venue UI
+ * contract) since no other reservation view needs `refund`.
+ */
+export interface RefundQueueItem {
+  bookingId: string
+  customer: BookingCustomer
+  court: string
+  day: Localized
+  time: string
+  refund: BookingRefund
+}
 
 // ── Venue: customers (CRM) ───────────────────────────────────────────────────
 
@@ -569,7 +836,7 @@ export type AccountType = (typeof ACCOUNT_TYPES)[number]
 // ── Player skills assessment ─────────────────────────────────────────────────
 
 /** The sports a player can self-assess (the app's racquet sports). */
-export type AssessmentSport = Extract<SportKey, "badminton" | "pickleball">
+export type AssessmentSport = Extract<SportKey, "badminton">
 
 /** A player's computed result for one sport. */
 export interface SportAssessmentResult {
@@ -602,7 +869,10 @@ export interface VenueSeed {
   stats: VenueStats
   courts: VenueCourt[]
   reservations: Reservation[]
+  /** Bookings still owing a manual refund — the operator's settle-by-hand worklist. */
+  refundQueue: RefundQueueItem[]
   customers: VenueCustomer[]
+  blocks: CourtBlock[]
   revenueSeries: RevenuePoint[]
   sportMix: SportMixPoint[]
   channelMix: ChannelMixPoint[]
@@ -625,7 +895,9 @@ export interface Seed {
   stats: Stats
   activity: ActivityItem[]
   notifications: NotificationItem[]
-  /** Every venue the operator manages (profiles only — for the switcher/manager). */
+  /** The operator's brand (thương hiệu), or null for a player-only / unprovisioned account. */
+  brand: Brand | null
+  /** Every branch (chi nhánh) the operator manages (profiles only — for the switcher/manager). */
   venues: Venue[]
   /** Which venue {@link Seed.venue} is the bundle for. */
   activeVenueId: string

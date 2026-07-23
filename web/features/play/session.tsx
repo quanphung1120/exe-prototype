@@ -13,10 +13,8 @@ import {
   durationOf,
   levelMatches,
   locStr,
-  priceFor,
   rangesOverlap,
   sessionToRoom,
-  slotRange,
   type Booking,
   type Conflict,
   type Court,
@@ -39,16 +37,29 @@ import {
   type AssessmentSport,
 } from "@/features/assessment/player-assessment"
 import { saveSession } from "@/features/play/session-actions"
+import {
+  cancelBookingRecord,
+  createBookingHold,
+} from "@/features/play/booking-actions"
+import { startPaymentCheckout } from "@/features/play/payment-actions"
+import { savePreferredLocale } from "@/lib/locale-preference"
+import {
+  decideRoomRequest,
+  leaveRoomMembership,
+  listRooms,
+  requestJoinRoom,
+} from "@/features/play/rooms-actions"
+import {
+  createRoomChat,
+  freezeRoomChat,
+  removeRoomMember,
+} from "@/features/chat/stream-actions"
 
 /** The dedicated booking-wizard route the Play / book actions navigate to. */
 const BOOK_PATH = "/dashboard/book"
-/** Where a finished or abandoned booking lands when there's no history. */
-const BOOKINGS_PATH = "/dashboard/bookings"
 
 // How long the faked partner search runs before it finds someone.
 const SEARCH_MS = 1800
-// How long the faked payment "processes" before the court is booked.
-const PAY_MS = 1700
 // Largest room a host can grow to.
 const MAX_CAPACITY = 8
 // Most open rooms one player may host at once. Speculative rooms (Quick Match
@@ -57,8 +68,6 @@ const MAX_CAPACITY = 8
 // opening your own booking to friends (addTeamToSession) are exempt because a
 // real, paid court already backs them.
 const MAX_HOSTED_ROOMS = 3
-// How long a host (faked) takes to review + approve the user's join request.
-const APPROVE_MS = 1600
 // Once a court+slot is picked (still forming, not yet paid), the slot is held
 // this long before it's released back for others to book.
 const HOLD_MS = 20 * 60 * 1000
@@ -66,6 +75,9 @@ const HOLD_MS = 20 * 60 * 1000
 const REQUEST_EXPIRY_MS = 2 * 60 * 60 * 1000
 // An invite a player hasn't responded to auto-expires after this long.
 const INVITE_EXPIRY_MS = 6 * 60 * 60 * 1000
+// How often `GET /api/rooms` (every other user's listed rooms) is repolled —
+// mirrors `NotificationsProvider`'s POLL_MS.
+const ROOMS_POLL_MS = 30_000
 
 /** Fill mode chosen at the "do you have a team yet?" gate. */
 export type FillMode = "court" | "invite" | "find"
@@ -75,21 +87,15 @@ interface BookingDraft {
   slot: string | null
   /** Free-form session length in minutes (not tied to the hour). */
   durationMin: number
-  format: "Singles" | "Doubles"
   fillMode: FillMode
   invitees: string[]
 }
 
-type PaymentResult =
-  | {
-      status: "success"
-      amount: number
-    }
-  | {
-      status: "failed"
-      amount: number
-      reason: "declined" | "conflict"
-    }
+/**
+ * Seats a booked court holds (host + up to 3 invitees). Bookings no longer pick
+ * singles/doubles, so team size is a fixed cap rather than derived from a format.
+ */
+const BOOKING_CAPACITY = 4
 
 /** The faked Quick Match search shown in the floating dock. */
 export interface PartnerSearch {
@@ -209,7 +215,6 @@ interface SessionContextValue {
   steps: string[]
   step: number
   draft: BookingDraft
-  capacityFor: (format: "Singles" | "Doubles") => number
   openBooking: (
     courtId: string | null,
     opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
@@ -231,17 +236,22 @@ interface SessionContextValue {
   setSlot: (slot: string) => void
   setDuration: (durationMin: number) => void
   pickSlot: (slot: string, durationMin: number) => void
-  setFormat: (format: "Singles" | "Doubles") => void
   setFillMode: (mode: FillMode) => void
   toggleInvite: (initials: string) => void
-  /** Faked payment is processing (drives the Pay button + spinner). */
+  /** Creating the booking hold and/or opening the SePay checkout (drives the Pay button + spinner). */
   paying: boolean
-  paymentResult: PaymentResult | null
-  /** Run the faked payment, then finalize the booking on success. */
-  pay: () => void
-  acknowledgePaymentSuccess: () => void
-  dismissPaymentResult: () => void
-  confirmBooking: () => void
+  /** Set when starting checkout fails (a 409 conflict, or SePay unreachable) — cleared on retry. */
+  checkoutError: string | null
+  clearCheckoutError: () => void
+  /**
+   * Reserve the court (if not already held) and redirect to SePay's real
+   * checkout — a hidden-form POST, so this actually navigates the browser
+   * away. Payment confirmation happens out-of-band (SePay's IPN); the player
+   * lands back on `/dashboard/bookings/[bookingId]`, which polls
+   * `GET /api/payments/by-booking/:id` for the result. An optional applied
+   * discount code is forwarded to `startPaymentCheckout` unchanged.
+   */
+  pay: (discountCode?: string) => void
   cancelBooking: (id: string) => void
   // ── Conflict (decision 2) ──
   slotBlocked: (slot: string) => boolean
@@ -267,7 +277,6 @@ function emptyDraft(todayIso: string): BookingDraft {
     dayKey: todayIso,
     slot: null,
     durationMin: 60,
-    format: "Doubles",
     fillMode: "court",
     invitees: [],
   }
@@ -287,14 +296,30 @@ function clampSlot(slot: string): string | null {
   return slot
 }
 
-/** Tiny FNV-1a hash — deterministic RSVP timing without Date/random. */
-function hash(s: string): number {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619)
+/**
+ * Build the HMAC-signed SePay checkout form (`PaymentsService#checkout`'s
+ * `fields`) and submit it as a real, hidden `<form>` POST to `checkoutUrl` —
+ * this is a genuine full-page navigation away from the app to SePay's
+ * hosted checkout, not a fetch, so nothing runs after this call.
+ */
+function submitSepayCheckoutForm(
+  fields: Record<string, string | number | undefined>,
+  checkoutUrl: string
+): void {
+  const form = document.createElement("form")
+  form.method = "POST"
+  form.action = checkoutUrl
+  form.style.display = "none"
+  for (const [name, value] of Object.entries(fields)) {
+    if (value === undefined) continue
+    const input = document.createElement("input")
+    input.type = "hidden"
+    input.name = name
+    input.value = String(value)
+    form.appendChild(input)
   }
-  return h >>> 0
+  document.body.appendChild(form)
+  form.submit()
 }
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -348,12 +373,25 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   const [sessions, setSessions] = React.useState<PlaySession[]>(SEED_SESSIONS)
-  const [joinedIds, setJoinedIds] = React.useState<Set<string>>(() => new Set())
+  // Own-doc bookkeeping only — which of *my* sessions I consider "joined" for
+  // Match Maker purposes (hosting a room, or approved into my own solo hold
+  // via `addTeamToSession`). A room I've joined that someone *else* hosts
+  // never lives here — see `crossRooms`/the unified `joinedIds` memo below.
+  const [localJoinedIds, setLocalJoinedIds] = React.useState<Set<string>>(
+    () => new Set()
+  )
+  // Every other signed-in user's listed, active room (Phase 9 G2,
+  // `GET /api/rooms`) — the cross-user browse pool, and the only place a room
+  // I've joined but don't host is discoverable (the mutation that adds me
+  // lands on *their* doc, never mine). Polled below; refreshed immediately
+  // after request/approve/decline/leave for snappier consistency.
+  const [crossRooms, setCrossRooms] = React.useState<PlaySession[]>([])
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     null
   )
-  const [fallbackUserLevel, setFallbackUserLevel] =
-    React.useState<Level>(USER.level)
+  const [fallbackUserLevel, setFallbackUserLevel] = React.useState<Level>(
+    USER.level
+  )
   const [assessmentLevels, setAssessmentLevels] = React.useState<
     Record<AssessmentSport, Level>
   >(() => levelsBySport(null, USER.level))
@@ -377,9 +415,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     emptyDraft(todayIso)
   )
   const [paying, setPaying] = React.useState(false)
-  const [paymentResult, setPaymentResult] =
-    React.useState<PaymentResult | null>(null)
-  const [payAttempts, setPayAttempts] = React.useState(0)
+  const [checkoutError, setCheckoutError] = React.useState<string | null>(null)
 
   // Cross-surface flow-back: the provider seeds its `sessions` once, so an
   // operator's approve/decline (persisted to the same DB) wouldn't otherwise
@@ -415,6 +451,81 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     )
   }, [SEED_SESSIONS])
 
+  // ── Cross-user rooms (Phase 9 G2) ───────────────────────────────────────
+  // `GET /api/rooms` is the only place a room I've joined but don't host is
+  // discoverable — see the `localJoinedIds`/`crossRooms` doc comments above.
+  //
+  // A join request lands directly on the *host's* doc server-side (see
+  // `RoomsService#requestJoin`) — never routed through this client's own
+  // `setSessions`. Surface a fresh one on a room I host by folding any
+  // `requested` roster entry the latest `GET /api/rooms` snapshot has that my
+  // local copy doesn't, additively only (never removes/mutates an entry) so
+  // it can't clobber an in-flight optimistic approve/decline. There's a small
+  // eventual-consistency window where a stale snapshot could re-add an entry
+  // a decline just removed locally — every mutation below re-fetches right
+  // after deciding, which supersedes it almost immediately; acceptable for a
+  // coordination-only layer with no money on the line (same tolerance the
+  // API side documents for concurrent join requests).
+  const mergeIncomingRequests = (remote: PlaySession[]) => {
+    setSessions((prev) => {
+      let changed = false
+      const next = prev.map((s) => {
+        const r = remote.find((x) => x.id === s.id)
+        if (!r) return s
+        const localInitials = new Set(s.roster.map((p) => p.initials))
+        const incoming = (r.roster ?? []).filter(
+          (p) => p.rsvp === "requested" && !localInitials.has(p.initials)
+        )
+        if (!incoming.length) return s
+        changed = true
+        return { ...s, roster: [...s.roster, ...incoming] }
+      })
+      return changed ? next : prev
+    })
+  }
+
+  /** Refetch every listed cross-user room — called after request/approve/decline/leave. */
+  const refreshRooms = React.useCallback(async () => {
+    try {
+      const remote = await listRooms()
+      setCrossRooms(remote)
+      mergeIncomingRequests(remote)
+    } catch (err) {
+      console.error("Failed to load cross-user rooms", err)
+    }
+  }, [])
+
+  // Polled on an interval (mirroring `NotificationsProvider`) plus on
+  // focus/visibility, so a host picks up a fresh join request — and a
+  // requester picks up the host's decision — without a hard reload.
+  React.useEffect(() => {
+    let cancelled = false
+    const poll = async () => {
+      try {
+        const remote = await listRooms()
+        if (cancelled) return
+        setCrossRooms(remote)
+        mergeIncomingRequests(remote)
+      } catch (err) {
+        // Transient poll failure (offline, API blip) — the next tick retries.
+        console.error("Failed to load cross-user rooms", err)
+      }
+    }
+    void poll()
+    const interval = setInterval(() => void poll(), ROOMS_POLL_MS)
+    const onFocusOrVisible = () => {
+      if (document.visibilityState === "visible") void poll()
+    }
+    document.addEventListener("visibilitychange", onFocusOrVisible)
+    window.addEventListener("focus", onFocusOrVisible)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", onFocusOrVisible)
+      window.removeEventListener("focus", onFocusOrVisible)
+    }
+  }, [])
+
   // A per-mount base keeps generated ids unique across reloads: the counter
   // resets to 0 on every mount, so without a base a new session could reuse an
   // old counter value and clobber a persisted session sharing that id. Seeded
@@ -435,8 +546,60 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // optimistic source of truth, so a failed write only forfeits durability and
   // never blocks or reverts the UI.
   const persist = (session: PlaySession) => {
-    void saveSession(session).catch((err: unknown) => {
+    void persistNow(session)
+  }
+
+  /**
+   * Awaited variant of {@link persist}, used by the terminal booking writes
+   * (`reserveHold`/`cancelBooking`) that already awaited the real
+   * server-side booking mutation and want the session's linkage
+   * (venueId/reservationId) durably saved before moving on — still swallows
+   * its own error (a failed *persist* shouldn't undo an already-succeeded
+   * booking mutation the player has seen confirmed).
+   */
+  const persistNow = async (session: PlaySession): Promise<void> => {
+    try {
+      await saveSession(session)
+    } catch (err: unknown) {
       console.error("Failed to persist session", err)
+    }
+  }
+
+  // ── Real room-chat lifecycle (quyết định #13) ──────────────────────────
+  // Every call here is fire-and-forget: a Stream hiccup must never block a
+  // matchmaking/booking action, so failures are swallowed (logged) rather
+  // than surfaced — the UI already reflects the session change optimistically.
+
+  /** Create the room's real chat (host-only, no mocks) right when it's made. */
+  const openRoomChat = (sessionId: string, title: string) => {
+    void createRoomChat({ roomId: sessionId, name: title }).catch(
+      (err: unknown) => {
+        console.error("Failed to create room chat", err)
+      }
+    )
+  }
+
+  /**
+   * Remove a member from a room's chat — host-initiated kick of an already-
+   * approved (by initials) roster member. Cross-user join/approve/decline/
+   * leave (Phase 9 G2) no longer call this: `RoomsService` adds/removes real
+   * members server-side as part of deciding a request or a member leaving —
+   * see `rooms-actions.ts`. Mock players (the entire `MATCH_SUGGESTIONS`
+   * pool) aren't Stream users, so the guard below skips them.
+   */
+  const removeRealRoomMember = (sessionId: string, memberId: string) => {
+    if (MATCH_SUGGESTIONS.some((p) => p.initials === memberId)) return
+    void removeRoomMember({ roomId: sessionId, memberId }).catch(
+      (err: unknown) => {
+        console.error("Failed to remove room member", err)
+      }
+    )
+  }
+
+  /** Host freezes a room's chat on cancel — keeps history, blocks sends. */
+  const freezeRoomChatBestEffort = (sessionId: string) => {
+    void freezeRoomChat(sessionId).catch((err: unknown) => {
+      console.error("Failed to freeze room chat", err)
     })
   }
 
@@ -585,40 +748,85 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, [sweepExpirations])
 
   // ── Derived projections ──
-  const rooms = React.useMemo(
-    () =>
-      sessions
-        .filter((s) => s.listed && s.status !== "cancelled")
-        .map(sessionToRoom),
+  // My own session ids — anything NOT in this set that shows up in
+  // `crossRooms` is, by construction, someone else's room (`RoomsService`
+  // only ever writes a request/decision onto the *host's* doc, so an id that
+  // round-trips back into my own `/api/seed` sessions is always mine).
+  const ownSessionIds = React.useMemo(
+    () => new Set(sessions.map((s) => s.id)),
     [sessions]
   )
-  const joinedSessions = React.useMemo(
+  // Other users' listed, active rooms — the cross-user half of the browse
+  // pool, and the only place a room I've joined without hosting shows up.
+  const otherRoomsRaw = React.useMemo(
+    () => crossRooms.filter((r) => !ownSessionIds.has(r.id)),
+    [crossRooms, ownSessionIds]
+  )
+  // Cross-user rooms where I hold a confirmed (non-host) seat.
+  const remoteJoinedIds = React.useMemo(
     () =>
-      sessions.filter(
+      new Set(
+        otherRoomsRaw
+          .filter((r) =>
+            r.roster.some((p) => p.userId === authUser.id && p.rsvp === "going")
+          )
+          .map((r) => r.id)
+      ),
+    [otherRoomsRaw, authUser.id]
+  )
+  // The room-membership semantic change of Phase 9 G2: "joined" is no longer
+  // just local bookkeeping over my own session doc — it's my own doc's rooms
+  // UNION whichever of *other* users' rooms `GET /api/rooms` currently shows
+  // me as an approved member of.
+  const joinedIds = React.useMemo(
+    () => new Set([...localJoinedIds, ...remoteJoinedIds]),
+    [localJoinedIds, remoteJoinedIds]
+  )
+  const rooms = React.useMemo(
+    () => [
+      ...sessions
+        .filter((s) => s.listed && s.status !== "cancelled")
+        .map(sessionToRoom),
+      ...otherRoomsRaw.map(sessionToRoom),
+    ],
+    [sessions, otherRoomsRaw]
+  )
+  const joinedSessions = React.useMemo(
+    () => [
+      ...sessions.filter(
         (s) =>
-          joinedIds.has(s.id) &&
+          localJoinedIds.has(s.id) &&
           s.status !== "cancelled" &&
           s.status !== "completed"
       ),
-    [sessions, joinedIds]
+      ...otherRoomsRaw.filter(
+        (r) =>
+          remoteJoinedIds.has(r.id) &&
+          r.status !== "cancelled" &&
+          r.status !== "completed"
+      ),
+    ],
+    [sessions, localJoinedIds, otherRoomsRaw, remoteJoinedIds]
   )
   const joinedRooms = React.useMemo(
     () => joinedSessions.map(sessionToRoom),
     [joinedSessions]
   )
-  // Sessions the user has requested to join but isn't approved into yet.
+  // Rooms (mine or someone else's) I've asked to join and am still awaiting
+  // the host's approval on. My own doc never carries a `requested` entry for
+  // myself (I'm always the host there), so this is cross-user rooms only.
   const requestedIds = React.useMemo(
     () =>
       new Set(
-        sessions
-          .filter(
-            (s) =>
-              s.roster.find((p) => p.initials === USER.initials)?.rsvp ===
-              "requested"
+        otherRoomsRaw
+          .filter((r) =>
+            r.roster.some(
+              (p) => p.userId === authUser.id && p.rsvp === "requested"
+            )
           )
-          .map((s) => s.id)
+          .map((r) => r.id)
       ),
-    [sessions, USER.initials]
+    [otherRoomsRaw, authUser.id]
   )
   // Sessions the user is already committed to at a real time — hosting, going,
   // or a still-pending request all reserve (or aim to reserve) a seat in a
@@ -626,10 +834,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // these back the overlap guard below: joining a second room whose slot clashes
   // with one of these would let one player hoard seats across rooms — a seat they
   // could never use, denied to real players. Cancelled/completed rooms and slots
-  // that aren't set yet (no time to clash with) are excluded.
+  // that aren't set yet (no time to clash with) are excluded. Spans both my own
+  // sessions and cross-user rooms I've joined/requested.
   const committedSessions = React.useMemo(
-    () =>
-      sessions.filter(
+    () => [
+      ...sessions.filter(
         (s) =>
           s.status !== "cancelled" &&
           s.status !== "completed" &&
@@ -638,14 +847,26 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
             (p) => p.initials === USER.initials && p.rsvp !== "declined"
           )
       ),
-    [sessions, USER.initials]
+      ...otherRoomsRaw.filter(
+        (s) =>
+          s.status !== "cancelled" &&
+          s.status !== "completed" &&
+          s.slot != null &&
+          s.roster.some(
+            (p) => p.userId === authUser.id && p.rsvp !== "declined"
+          )
+      ),
+    ],
+    [sessions, otherRoomsRaw, USER.initials, authUser.id]
   )
   // The already-committed session whose time overlaps `room` (same day + range),
   // or null when joining `room` wouldn't double-book the player. The target room
   // itself is skipped so re-opening a room you're already in never "conflicts."
   const overlappingCommitment = React.useCallback(
     (room: MatchRoom): PlaySession | null => {
-      const target = sessions.find((s) => s.id === room.id)
+      const target =
+        sessions.find((s) => s.id === room.id) ??
+        otherRoomsRaw.find((s) => s.id === room.id)
       if (!target || target.slot == null) return null
       return (
         committedSessions.find(
@@ -661,7 +882,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         ) ?? null
       )
     },
-    [sessions, committedSessions]
+    [sessions, otherRoomsRaw, committedSessions]
   )
   // Open rooms the user hosts right now — the anti-spam cap counts these. Solo
   // court holds (listed:false) and finished/cancelled rooms are excluded, so the
@@ -713,7 +934,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   const dropJoined = (sessionId: string) => {
-    setJoinedIds((prev) => {
+    setLocalJoinedIds((prev) => {
       const next = new Set(prev)
       next.delete(sessionId)
       return next
@@ -722,8 +943,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   // ── Match Maker actions ──
+  // Demo (seed) rooms are browsable but never joinable — they never back a
+  // real booking, so mocks can never enter a real transaction through them.
   const isSuitable = (room: MatchRoom) =>
-    room.joined < room.capacity && !joinedIds.has(room.id)
+    room.joined < room.capacity && !joinedIds.has(room.id) && !room.demo
 
   const matchesQuickFilters = (room: MatchRoom, f: QuickJoinFilters) => {
     if (f.sport !== "all" && room.sport !== f.sport) return false
@@ -752,101 +975,64 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     tm.has(`rooms.${room.id}.title`) ? tm(`rooms.${room.id}.title`) : room.title
 
   /**
-   * Faked host review of the user's join request: after a beat the host
-   * reviews the user's reliability, clears them, and the seat confirms.
+   * Ask to join someone else's room — `POST /api/rooms/:id/requests`. The
+   * host approves before the requester is in; the server checks capacity and
+   * writes the `requested` roster entry onto the *host's* doc, so this
+   * client only ever sees it back via `crossRooms`.
    */
-  const scheduleHostApproval = (sessionId: string, hostName: string) => {
-    const key = `approve:${sessionId}:${USER.initials}`
-    const handle = setTimeout(() => {
-      timers.current.delete(key)
-      let approved = false
-      let full = false
-      setSessions((prev) => {
-        const s = prev.find((x) => x.id === sessionId)
-        if (!s || s.status === "cancelled") return prev
-        const me = s.roster.find((p) => p.initials === USER.initials)
-        if (!me || me.rsvp !== "requested") return prev
-        // Re-check capacity at approval time, not just request time — the room
-        // can fill between the request and this timer firing. Mirrors the manual
-        // approveRequest guard so both paths enforce the same invariant. When the
-        // room filled first, drop the request (like a host decline) rather than
-        // confirm an over-capacity seat or leave a stuck "requested" pill.
-        if (activeRoster(s).length >= s.capacity) {
-          full = true
-          return prev.map((x) =>
-            x.id === sessionId
-              ? {
-                  ...x,
-                  roster: x.roster.filter((p) => p.initials !== USER.initials),
-                }
-              : x
-          )
-        }
-        approved = true
-        return prev.map((x) =>
-          x.id === sessionId
-            ? {
-                ...x,
-                roster: x.roster.map((p) =>
-                  p.initials === USER.initials
-                    ? { ...p, rsvp: "going" }
-                    : p
-                ),
-              }
-            : x
-        )
-      })
-      if (approved) {
-        // Now (and only now) the user is a real member — grant joinedIds so the
-        // team chat, notification, and active-room pill appear post-approval.
-        setJoinedIds((prev) => new Set(prev).add(sessionId))
-        toast.success(ts("toast.requestApproved"), { description: hostName })
-      } else if (full) toast.error(ts("toast.full"))
-    }, APPROVE_MS)
-    timers.current.set(key, handle)
-  }
-
-  /** Ask to join someone else's room — the host approves before you're in. */
   const requestJoin = (room: MatchRoom) => {
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === room.id &&
-        activeRoster(s).length < s.capacity &&
-        !s.roster.some((p) => p.initials === USER.initials)
-          ? {
-              ...s,
-              roster: [
-                ...s.roster,
-                {
-                  name: userName,
-                  initials: USER.initials,
-                  rsvp: "requested",
-                  rsvpAt: Date.now(),
-                },
-              ],
-            }
-          : s
+    void (async () => {
+      const result = await requestJoinRoom(room.id)
+      if (!result.ok) {
+        toast.error(ts("toast.requestFailed"), { description: result.message })
+        return
+      }
+      // Optimistic: fold the pending request into the local mirror of
+      // `crossRooms` right away — `requestedIds`/`isSuitable` (and everything
+      // downstream) read off it — instead of waiting for the next poll tick.
+      // Don't grant membership yet — the user is only "requested", not
+      // "joined". `joinedIds` (and everything derived from it: the team
+      // chat, the active-room pill) is granted once the real host calls
+      // `approveRequest`, which the requester learns about via the
+      // notification poll — there's no faked auto-approval here.
+      setCrossRooms((prev) =>
+        prev.map((r) =>
+          r.id === room.id
+            ? {
+                ...r,
+                roster: [
+                  ...r.roster,
+                  {
+                    name: userName,
+                    initials: USER.initials,
+                    rsvp: "requested",
+                    rsvpAt: Date.now(),
+                    userId: authUser.id,
+                  },
+                ],
+              }
+            : r
+        )
       )
-    )
-    // Don't grant membership yet — the user is only "requested", not "joined".
-    // joinedIds (and everything derived from it: the team chat, the "new chat"
-    // notification, the active-room pill) is set in scheduleHostApproval once the
-    // host actually approves. The "requested" state surfaces via requestedIds.
-    setActiveSessionId(room.id)
-    toast(tm("toast.requested"), {
-      description: `${roomTitle(room)} · ${room.venue}`,
-    })
-    scheduleHostApproval(room.id, room.host.name)
+      setActiveSessionId(room.id)
+      toast(tm("toast.requested"), {
+        description: `${roomTitle(room)} · ${room.venue}`,
+      })
+    })()
   }
 
   const joinRoom = (room: MatchRoom) => {
+    if (room.demo) {
+      toast.error(tm("toast.demoRoom"))
+      return
+    }
     if (joinedIds.has(room.id)) {
       setActiveSessionId(room.id)
       setManagerOpen(true)
       return
     }
     // Already asked and awaiting the host — don't fire a second request (which
-    // would re-toast and schedule a duplicate approval timer).
+    // would re-toast).
     if (requestedIds.has(room.id)) return
     // Don't let one player hold seats in overlapping rooms. If this room's slot
     // clashes with a game they're already committed to, block the join and point
@@ -861,139 +1047,145 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     requestJoin(room)
   }
 
-  /** Host approves a join request → the requester takes a confirmed seat. */
+  /**
+   * Host approves a join request — `PUT /api/rooms/:id/requests/:userId`
+   * `{decision:"approve"}`. The server re-checks capacity, flips the
+   * roster entry to a confirmed seat, adds the requester to the room's real
+   * Stream chat, and notifies them (they learn the outcome via the
+   * notification poll) — this only needs to mirror the roster flip locally.
+   */
   const approveRequest = (sessionId: string, initials: string) => {
     const s = sessions.find((x) => x.id === sessionId)
-    if (!s) return
+    const target = s?.roster.find(
+      (p) => p.initials === initials && p.rsvp === "requested"
+    )
+    if (!s || !target?.userId) return
     if (activeRoster(s).length >= s.capacity) {
       toast.error(ts("toast.full"))
       return
     }
-    setSessions((prev) =>
-      prev.map((x) => {
-        if (x.id !== sessionId) return x
-        const m = x.roster.find((p) => p.initials === initials)
-        if (
-          !m ||
-          m.rsvp !== "requested" ||
-          activeRoster(x).length >= x.capacity
+    const targetUserId = target.userId
+    void (async () => {
+      const result = await decideRoomRequest(sessionId, targetUserId, "approve")
+      if (!result.ok) {
+        toast.error(ts("toast.approveFailed"), { description: result.message })
+        return
+      }
+      setSessions((prev) =>
+        prev.map((x) =>
+          x.id === sessionId
+            ? {
+                ...x,
+                roster: x.roster.map((p) =>
+                  p.initials === initials ? { ...p, rsvp: "going" } : p
+                ),
+              }
+            : x
         )
-          return x
-        return {
-          ...x,
-          roster: x.roster.map((p) =>
-            p.initials === initials ? { ...p, rsvp: "going" } : p
-          ),
-        }
-      })
-    )
-    toast.success(ts("toast.approved"), {
-      description: playerByInitials(initials).name,
-    })
-  }
-
-  /** Host declines a join request → the requester is dropped from the room. */
-  const declineRequest = (sessionId: string, initials: string) => {
-    setSessions((prev) =>
-      prev.map((x) =>
-        x.id === sessionId
-          ? { ...x, roster: x.roster.filter((p) => p.initials !== initials) }
-          : x
       )
-    )
-    toast(ts("toast.declined"), {
-      description: playerByInitials(initials).name,
-    })
+      toast.success(ts("toast.approved"), {
+        description: playerByInitials(initials).name,
+      })
+      void refreshRooms()
+    })()
   }
 
   /**
-   * Faked "live" discovery: a couple of nearby players spot the user's open
-   * room and ask to join, arriving staggered over a few seconds. They land as
-   * `requested` so the host (the user) reviews their reliability and approves.
+   * Host declines a join request — `PUT /api/rooms/:id/requests/:userId`
+   * `{decision:"decline"}`. The server drops the roster entry, best-effort
+   * removes them from the room's chat, and notifies them.
    */
-  const scheduleJoinRequests = (session: PlaySession) => {
-    const openSeats = session.capacity - activeRoster(session).length
-    if (openSeats <= 0) return
-    const exclude = session.roster.map((p) => p.initials)
-    const askers = pickPartners(
-      session.sport,
-      userLevelForSport(session.sport),
-      Math.min(openSeats, 2),
-      exclude
+  const declineRequest = (sessionId: string, initials: string) => {
+    const s = sessions.find((x) => x.id === sessionId)
+    const target = s?.roster.find(
+      (p) => p.initials === initials && p.rsvp === "requested"
     )
-    askers.forEach((p, i) => {
-      const key = `req:${session.id}:${p.initials}`
-      const h = hash(`${session.id}:${p.initials}`)
-      const delay = 2200 + i * 1600 + (h % 2200)
-      const handle = setTimeout(() => {
-        timers.current.delete(key)
-        let asked = false
-        setSessions((prev) => {
-          const s = prev.find((x) => x.id === session.id)
-          if (!s || s.status === "cancelled") return prev
-          if (
-            activeRoster(s).length >= s.capacity ||
-            s.roster.some((r) => r.initials === p.initials)
-          )
-            return prev
-          asked = true
-          return prev.map((x) =>
-            x.id === session.id
-              ? {
-                  ...x,
-                  roster: [
-                    ...x.roster,
-                    {
-                      name: p.name,
-                      initials: p.initials,
-                      rsvp: "requested",
-                      rsvpAt: Date.now(),
-                    },
-                  ],
-                }
-              : x
-          )
-        })
-        if (asked) toast(ts("toast.joinRequest"), { description: p.name })
-      }, delay)
-      timers.current.set(key, handle)
-    })
+    if (!s || !target?.userId) return
+    const targetUserId = target.userId
+    void (async () => {
+      const result = await decideRoomRequest(sessionId, targetUserId, "decline")
+      if (!result.ok) {
+        toast.error(ts("toast.declineFailed"), { description: result.message })
+        return
+      }
+      setSessions((prev) =>
+        prev.map((x) =>
+          x.id === sessionId
+            ? { ...x, roster: x.roster.filter((p) => p.initials !== initials) }
+            : x
+        )
+      )
+      toast(ts("toast.declined"), {
+        description: playerByInitials(initials).name,
+      })
+      void refreshRooms()
+    })()
   }
 
+  /**
+   * Leave a room. My own doc is always one I host — leaving there cancels a
+   * booked room's court hold or disbands a still-forming one, purely local
+   * (the existing session-persist/cancel-booking machinery already covers
+   * it). Someone *else's* room is a real server mutation instead —
+   * `DELETE /api/rooms/:id/members/me` — which pulls my roster entry from
+   * their doc and best-effort removes me from the room's Stream chat
+   * server-side (see `RoomsService#leaveRoom`).
+   */
   const leaveRoom = (sessionId: string) => {
-    const s = sessions.find((x) => x.id === sessionId)
-    if (!s) return
-    const hosting = s.host.initials === USER.initials
-    clearTimersFor(sessionId)
-    setSessions((prev) =>
-      prev.flatMap((x) => {
-        if (x.id !== sessionId) return [x]
-        if (!hosting) {
-          return [
-            {
-              ...x,
-              roster: x.roster.filter((p) => p.initials !== USER.initials),
-            },
-          ]
+    const own = sessions.find((x) => x.id === sessionId)
+    if (own) {
+      clearTimersFor(sessionId)
+      setSessions((prev) =>
+        prev.flatMap((x) => {
+          if (x.id !== sessionId) return [x]
+          // Booked room cancels its hold; a forming room disbands outright.
+          if (x.status === "booked")
+            return [{ ...x, status: "cancelled" as const, listed: false }]
+          return []
+        })
+      )
+      // Cancelling a booked room freezes its chat (keeps history, blocks
+      // new sends) rather than deleting it.
+      if (own.status === "booked") freezeRoomChatBestEffort(sessionId)
+      dropJoined(sessionId)
+      const title = tm.has(`rooms.${sessionId}.title`)
+        ? tm(`rooms.${sessionId}.title`)
+        : (own.title ?? "")
+      toast(
+        own.status === "booked" ? ts("toast.disbanded") : tm("toast.left"),
+        {
+          description: title,
         }
-        // Host leaves: a booked room cancels its hold; a forming room disbands.
-        if (x.status === "booked")
-          return [{ ...x, status: "cancelled" as const, listed: false }]
-        return []
-      })
-    )
-    dropJoined(sessionId)
+      )
+      return
+    }
+
+    const remote = otherRoomsRaw.find((x) => x.id === sessionId)
+    if (!remote) return
+    clearTimersFor(sessionId)
     const title = tm.has(`rooms.${sessionId}.title`)
       ? tm(`rooms.${sessionId}.title`)
-      : (s.title ?? "")
-    toast(
-      hosting && s.status === "booked"
-        ? ts("toast.disbanded")
-        : tm("toast.left"),
-      {
-        description: title,
+      : remote.title
+    void (async () => {
+      const result = await leaveRoomMembership(sessionId)
+      if (!result.ok) {
+        toast.error(ts("toast.leaveFailed"), { description: result.message })
+        return
       }
-    )
+      setCrossRooms((prev) =>
+        prev.map((r) =>
+          r.id === sessionId
+            ? {
+                ...r,
+                roster: r.roster.filter((p) => p.userId !== authUser.id),
+              }
+            : r
+        )
+      )
+      dropJoined(sessionId)
+      toast(tm("toast.left"), { description: title })
+      void refreshRooms()
+    })()
   }
 
   /** Convert a freshly-built MatchRoom (Create Room dialog) into a session. */
@@ -1022,7 +1214,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       roster: room.players.map((init) => ({
         name: playerByInitials(init).name,
         initials: init,
-        rsvp: (init === room.host.initials ? "host" : "going"),
+        rsvp: init === room.host.initials ? "host" : "going",
       })),
       level: room.level,
       status: "forming",
@@ -1034,10 +1226,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       pricePerHour: room.pricePerHour,
     }
     setSessions((prev) => [next, ...prev])
-    setJoinedIds((prev) => new Set(prev).add(room.id))
+    setLocalJoinedIds((prev) => new Set(prev).add(room.id))
     setActiveSessionId(room.id)
     persist(next)
-    scheduleJoinRequests(next)
+    openRoomChat(next.id, next.title)
   }
 
   const createInviteRoom = ({
@@ -1106,21 +1298,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       ...next,
       roster: [
         ...next.roster,
-        ...invitees.map(
-          (initials): SessionPlayer => ({
-            name: playerByInitials(initials).name,
-            initials,
-            rsvp: "pending",
-            rsvpAt: Date.now(),
-          })
-        ),
+        ...invitees.map((initials): SessionPlayer => ({
+          name: playerByInitials(initials).name,
+          initials,
+          rsvp: "pending",
+          rsvpAt: Date.now(),
+        })),
       ],
     }
     setSessions((prev) => [full, ...prev])
-    setJoinedIds((prev) => new Set(prev).add(id))
+    setLocalJoinedIds((prev) => new Set(prev).add(id))
     setActiveSessionId(id)
     persist(full)
-    scheduleRsvp(id, invitees)
+    openRoomChat(id, title)
     return id
   }
 
@@ -1144,48 +1334,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       )
     )
   }
-
-  /** Schedule the faked RSVP flips for freshly-invited members. */
-  const scheduleRsvp = React.useCallback(
-    (sessionId: string, inits: string[]) => {
-      inits.forEach((init) => {
-        const h = hash(`${sessionId}:${init}`)
-        const declined = h % 5 === 0
-        const delay = 1500 + (h % 4800)
-        const key = `rsvp:${sessionId}:${init}`
-        const handle = setTimeout(() => {
-          timers.current.delete(key)
-          setSessions((prev) => {
-            const s = prev.find((x) => x.id === sessionId)
-            if (!s || s.status === "cancelled") return prev
-            const m = s.roster.find((p) => p.initials === init)
-            if (!m || m.rsvp !== "pending") return prev
-            return prev.map((x) =>
-              x.id === sessionId
-                ? {
-                    ...x,
-                    roster: x.roster.map((p) =>
-                      p.initials === init
-                        ? {
-                            ...p,
-                            rsvp: (declined ? "declined" : "going"),
-                          }
-                        : p
-                    ),
-                  }
-                : x
-            )
-          })
-          const name = playerByInitials(init).name
-          toast(declined ? ts("toast.rsvpDeclined") : ts("toast.rsvpGoing"), {
-            description: name,
-          })
-        }, delay)
-        timers.current.set(key, handle)
-      })
-    },
-    [ts, playerByInitials]
-  )
 
   const invitePlayer = (sessionId: string, initials: string) => {
     const s = sessions.find((x) => x.id === sessionId)
@@ -1213,7 +1361,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           : x
       )
     )
-    scheduleRsvp(sessionId, [initials])
   }
 
   const kickPlayer = (sessionId: string, initials: string) => {
@@ -1226,6 +1373,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           : s
       )
     )
+    removeRealRoomMember(sessionId, initials)
   }
 
   /**
@@ -1271,22 +1419,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
                 ...x,
                 roster: [
                   ...x.roster,
-                  ...partners.map(
-                    (p): SessionPlayer => ({
-                      name: p.name,
-                      initials: p.initials,
-                      rsvp: "pending",
-                      rsvpAt: Date.now(),
-                    })
-                  ),
+                  ...partners.map((p): SessionPlayer => ({
+                    name: p.name,
+                    initials: p.initials,
+                    rsvp: "pending",
+                    rsvpAt: Date.now(),
+                  })),
                 ],
               }
             : x
         )
-      )
-      scheduleRsvp(
-        session.id,
-        partners.map((p) => p.initials)
       )
       setSearch((cur) =>
         cur
@@ -1344,10 +1486,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       pricePerHour: c.pricePerHour,
     }
     setSessions((prev) => [next, ...prev])
-    setJoinedIds((prev) => new Set(prev).add(id))
+    setLocalJoinedIds((prev) => new Set(prev).add(id))
     setActiveSessionId(id)
     setManagerOpen(true)
-    scheduleJoinRequests(next)
+    openRoomChat(id, next.title)
     return id
   }
 
@@ -1466,15 +1608,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setCourtless(cid === null)
     setStep(0)
     setPaying(false)
-    setPaymentResult(null)
-    setPayAttempts(0)
+    setCheckoutError(null)
     setDraft({
       dayKey: linked ? linked.dayKey : todayIso,
       // Carry the room's proposed start so the wizard pre-fills it (and surfaces
       // any conflict on that exact slot) instead of silently blanking it.
       slot: linked ? linked.slot : null,
       durationMin: linked ? linked.durationMin : 60,
-      format: linked?.format ?? "Doubles",
       fillMode: linked ? "court" : (opts?.fillMode ?? "court"),
       invitees: linked
         ? activeRoster(linked)
@@ -1515,7 +1655,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     const cid = s.courtId ?? courtByVenue(s.venue)?.id ?? null
     openBooking(cid)
-    setDraft((d) => ({ ...d, format: s.format }))
   }
 
   /** Open a booked solo session to add a team (decision 5). */
@@ -1525,7 +1664,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         s.id === sessionId ? { ...s, listed: true, fillIntent: "invite" } : s
       )
     )
-    setJoinedIds((prev) => new Set(prev).add(sessionId))
+    setLocalJoinedIds((prev) => new Set(prev).add(sessionId))
     setActiveSessionId(sessionId)
     setManagerOpen(true)
     toast(ts("toast.addTeam"))
@@ -1534,7 +1673,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // Atomically grow capacity + add players in one setState so the stale-closure
   // guard in invitePlayer (which reads the pre-update sessions) is bypassed.
   // Returns the count actually added (may be < initials.length when at cap 8).
-  const addPlayersToSession = (sessionId: string, initials: string[]): number => {
+  const addPlayersToSession = (
+    sessionId: string,
+    initials: string[]
+  ): number => {
     const s = sessions.find((x) => x.id === sessionId)
     if (!s) return 0
     const fresh = initials.filter(
@@ -1555,31 +1697,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
               capacity: newCapacity,
               roster: [
                 ...x.roster,
-                ...toAdd.map(
-                  (init): SessionPlayer => ({
-                    name: playerByInitials(init).name,
-                    initials: init,
-                    rsvp: "pending",
-                    rsvpAt: Date.now(),
-                  })
-                ),
+                ...toAdd.map((init): SessionPlayer => ({
+                  name: playerByInitials(init).name,
+                  initials: init,
+                  rsvp: "pending",
+                  rsvpAt: Date.now(),
+                })),
               ],
             }
       )
     )
-    scheduleRsvp(sessionId, toAdd)
     return toAdd.length
   }
 
   const closeBooking = () => {
-    // Abandon any in-flight faked payment so a stale timer can't fire.
-    const handle = timers.current.get("pay:new:run")
-    if (handle) {
-      clearTimeout(handle)
-      timers.current.delete("pay:new:run")
-    }
     setPaying(false)
-    setPaymentResult(null)
+    setCheckoutError(null)
     setOpen(false)
     // Return to wherever the wizard was opened from.
     router.back()
@@ -1611,19 +1744,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       slot: slot || null,
       durationMin: Math.max(15, Math.min(300, durationMin)),
     }))
-  const setFormat = (format: "Singles" | "Doubles") =>
-    setDraft((d) => ({
-      ...d,
-      format,
-      invitees: d.invitees.slice(0, capacityFor(format) - 1),
-    }))
   const setFillMode = (fillMode: FillMode) =>
     setDraft((d) => ({ ...d, fillMode }))
   const toggleInvite = (initials: string) =>
     setDraft((d) => {
       if (d.invitees.includes(initials))
         return { ...d, invitees: d.invitees.filter((i) => i !== initials) }
-      if (d.invitees.length >= capacityFor(d.format) - 1) return d
+      if (d.invitees.length >= BOOKING_CAPACITY - 1) return d
       return { ...d, invitees: [...d.invitees, initials] }
     })
 
@@ -1665,7 +1792,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    * doesn't lock the slot forever. Creates a fresh solo `forming` hold if this
    * booking isn't tied to an existing room, else stamps the linked room's
    * hold — either way `linkedId` ends up pointing at the held session, so
-   * {@link confirmBooking} finalizes that same record on payment success.
+   * {@link reserveHold} finalizes that same record when checkout starts.
    */
   const startCourtHold = () => {
     if (!court || !draft.slot || draftConflict) return
@@ -1688,9 +1815,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         pricePerHour: court.pricePerHour,
         holdExpiresAt,
       }
-      setSessions((prev) =>
-        prev.map((s) => (s.id === existing.id ? held : s))
-      )
+      setSessions((prev) => prev.map((s) => (s.id === existing.id ? held : s)))
       persist(held)
       return
     }
@@ -1708,7 +1833,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         court: court.name,
       }),
       sport,
-      format: draft.format,
+      format: "Doubles",
       courtId: court.id,
       dayKey: draft.dayKey,
       dayLabel,
@@ -1716,7 +1841,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       durationMin: draft.durationMin,
       courtLabel,
       host: { name: userName, initials: USER.initials },
-      capacity: capacityFor(draft.format),
+      capacity: BOOKING_CAPACITY,
       roster: [host],
       level: userLevelForSport(sport),
       status: "forming",
@@ -1730,11 +1855,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     setSessions((prev) => [next, ...prev])
     persist(next)
+    openRoomChat(id, next.title)
     setLinkedId(id)
   }
 
-  const confirmBooking = () => {
-    if (!court || !draft.slot) return
+  /**
+   * Ensure a real, server-validated `awaiting_payment` hold exists for the
+   * current draft — `createBookingHold` (`POST /api/bookings`) is the
+   * server-side reservation; `conflictFor` above is only a client-side UX
+   * pre-check (catches the common case instantly, no round trip). Reuses the
+   * linked session's `reservationId` on a retry (e.g. a first checkout
+   * attempt that failed after the hold had already been created) instead of
+   * creating a second, overlapping hold. The server derives the exact same
+   * `booked`/`hold:"pending"` session view for both `awaiting_payment` and
+   * `pending` bookings (see the API's `mapBookingStatus`), so setting that
+   * locally here — before the SePay redirect, before payment is actually
+   * confirmed — doesn't drift once the real payment/venue-approval land.
+   * Returns the bookingId `pay()` starts a SePay checkout for, or null on
+   * failure (already toasted).
+   */
+  const reserveHold = async (): Promise<string | null> => {
+    if (!court || !draft.slot) return null
+    const linked = linkedId ? sessions.find((s) => s.id === linkedId) : null
+    if (linked?.reservationId) return linked.reservationId
+
     const q = {
       courtId: court.id,
       dayKey: draft.dayKey,
@@ -1744,19 +1888,40 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     if (conflictFor(sessions, q)) {
       toast.error(tb("toast.conflict"))
-      return
+      return null
     }
     const dayLabel = locStr(dayLabelFor(draft.dayKey), locale)
-    const time = slotRange(draft.slot, draft.durationMin)
-    const linked = linkedId ? sessions.find((s) => s.id === linkedId) : null
     const sport = linked?.sport ?? court.sports[0]
     const courtLabel = courtNumberFor(court.id)
+    // Resolved up front (not after the server call) so a brand-new booking's
+    // hold links to the same session id it's about to be created under.
+    const roomId = linked?.id ?? newId("bk")
+
+    const result = await createBookingHold({
+      courtId: court.id,
+      dateKey: draft.dayKey,
+      start: draft.slot,
+      durationMin: draft.durationMin,
+      sessionId: roomId,
+    })
+    if (!result.ok) {
+      if (result.status !== 409) {
+        console.error("Failed to create booking hold", result.message)
+      }
+      // A 409 here is the same race conflictFor's pre-check above already
+      // guards against — any other failure degrades to the same message
+      // rather than leaving the player stuck with no feedback.
+      toast.error(tb("toast.conflict"))
+      return null
+    }
+    const summary = result.data
 
     if (linked) {
-      // Transition an existing forming room into a booked one. It arrives
-      // `pending` — the venue operator approves it (or declines with a reason),
-      // which flows back to this session via the seed reconcile.
-      const booked: PlaySession = {
+      // Transition an existing forming room into a held booking. It arrives
+      // `awaiting_payment` — the SePay checkout that follows, then the
+      // venue's approval, both flow back to this session via the seed
+      // reconcile.
+      const held: PlaySession = {
         ...linked,
         status: "booked",
         hold: "pending",
@@ -1771,36 +1936,29 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         district: court.district,
         distanceKm: court.distanceKm,
         pricePerHour: court.pricePerHour,
+        venueId: summary.venueId,
+        reservationId: summary.bookingId,
       }
-      setSessions((prev) =>
-        prev.map((s) => (s.id === linked.id ? booked : s))
-      )
-      persist(booked)
-      toast.success(tb("toast.pending"), {
-        description: `${court.name} · ${dayLabel} · ${time}`,
-      })
-      setOpen(false)
-      setManagerOpen(true)
-      router.push(BOOKINGS_PATH)
-      return
+      setSessions((prev) => prev.map((s) => (s.id === linked.id ? held : s)))
+      await persistNow(held)
+      return summary.bookingId
     }
 
     // New session, court-first — always a solo court hold. The host grows it
     // into a room (and invites players) afterward from the booking.
-    const id = newId("bk")
     const host: SessionPlayer = {
       name: userName,
       initials: USER.initials,
       rsvp: "host",
     }
     const next: PlaySession = {
-      id,
+      id: roomId,
       title: tb("roomTitle", {
         sport: tc(`sports.${sport}`),
         court: court.name,
       }),
       sport,
-      format: draft.format,
+      format: "Doubles",
       courtId: court.id,
       dayKey: draft.dayKey,
       dayLabel,
@@ -1808,7 +1966,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       durationMin: draft.durationMin,
       courtLabel,
       host: { name: userName, initials: USER.initials },
-      capacity: capacityFor(draft.format),
+      capacity: BOOKING_CAPACITY,
       roster: [host],
       level: userLevelForSport(sport),
       status: "booked",
@@ -1819,75 +1977,92 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       district: court.district,
       distanceKm: court.distanceKm,
       pricePerHour: court.pricePerHour,
+      venueId: summary.venueId,
+      reservationId: summary.bookingId,
     }
     setSessions((prev) => [next, ...prev])
-    persist(next)
-    toast.success(tb("toast.pending"), {
-      description: `${court.name} · ${dayLabel} · ${time}`,
-    })
-    setOpen(false)
-    router.push(BOOKINGS_PATH)
+    openRoomChat(roomId, next.title)
+    // A retry after this branch (e.g. checkout failed) needs to find the same
+    // held session again via `linkedId` — see the `linked?.reservationId`
+    // early-return above.
+    setLinkedId(roomId)
+    await persistNow(next)
+    return summary.bookingId
+  }
+
+  const clearCheckoutError = () => setCheckoutError(null)
+
+  /**
+   * Reserve the court (creating the DB hold on the first call; reusing it on
+   * a retry), then hand off to SePay's real checkout — `startPaymentCheckout`
+   * (`POST /api/payments/checkout`) returns an HMAC-signed set of form fields
+   * the SDK expects POSTed to `checkoutUrl`, so a hidden `<form>` is built and
+   * submitted here, navigating the browser away from the app entirely.
+   * Payment confirmation happens out-of-band (SePay's IPN → the API's
+   * `BookingsService#confirmPayment`); this function never sees a "success" —
+   * the player lands back on `/dashboard/bookings/[bookingId]`
+   * (`payment-return.tsx`), which polls for the result.
+   */
+  const pay = (discountCode?: string) => {
+    if (!court || !draft.slot || paying) return
+    if (draftConflict) {
+      toast.error(tb("toast.conflict"))
+      return
+    }
+    setCheckoutError(null)
+    setPaying(true)
+    void (async () => {
+      try {
+        const bookingId = await reserveHold()
+        if (!bookingId) return // reserveHold already toasted the failure
+        const result = await startPaymentCheckout(bookingId, discountCode)
+        if (!result.ok) {
+          console.error("Failed to start SePay checkout", result.message)
+          setCheckoutError(tb("pay.checkoutFailed"))
+          return
+        }
+        // SePay's return `successUrl` is a single static URL (always the
+        // default locale), so stash the active locale before leaving — the
+        // return screen reads it back to restore `en` players' locale.
+        savePreferredLocale(locale)
+        submitSepayCheckoutForm(result.data.fields, result.data.checkoutUrl)
+        // The line above navigates the browser away — nothing left to do.
+      } catch (err) {
+        console.error("Payment checkout failed", err)
+        setCheckoutError(tb("pay.checkoutFailed"))
+      } finally {
+        setPaying(false)
+      }
+    })()
   }
 
   /**
-   * Faked card/QR payment: spin for a beat, then run the real booking
-   * finalize. The court is only held once "payment" clears.
+   * Cancel a booking. When it's linked to a real reservation, awaits
+   * `cancelBookingRecord` (`POST /api/bookings/:id/cancel`) first — the
+   * server computes the ≥24h/<24h/after-start refund and is the source of
+   * truth for `refunded`/`cancelReason`. A session that never made it past a
+   * client-only draft (no `reservationId`) has nothing to cancel server-side
+   * and reverts purely locally, same as before.
    */
-  const pay = () => {
-    if (!court || !draft.slot || paying) return
-    const amount = Math.round(priceFor(court.pricePerHour, draft.durationMin) * 0.05)
-    // Never charge for a slot that was taken in the meantime.
-    if (draftConflict) {
-      setPaymentResult({
-        status: "failed",
-        amount,
-        reason: "conflict",
-      })
-      return
-    }
-    setPaying(true)
-    const key = "pay:new:run"
-    const currentAttempt = payAttempts
-    setPayAttempts((prev) => prev + 1)
-    const handle = setTimeout(() => {
-      timers.current.delete(key)
-      setPaying(false)
-      const shouldFail =
-        currentAttempt === 0 &&
-        hash(
-          `${court.id}:${draft.dayKey}:${draft.slot}:${draft.durationMin}:${linkedId ?? "new"}`
-        ) %
-          5 ===
-        0
-      setPaymentResult(
-        shouldFail
-          ? {
-              status: "failed",
-              amount,
-              reason: "declined",
-            }
-          : {
-              status: "success",
-              amount,
-            }
-      )
-    }, PAY_MS)
-    timers.current.set(key, handle)
-  }
-
-  const dismissPaymentResult = () => {
-    setPaymentResult(null)
-  }
-
-  const acknowledgePaymentSuccess = () => {
-    if (paymentResult?.status !== "success") return
-    setPaymentResult(null)
-    confirmBooking()
-  }
-
-  const cancelBooking = (id: string) => {
+  const cancelBooking = async (id: string) => {
     const s = sessions.find((x) => x.id === id)
     if (!s) return
+
+    let refunded: boolean | undefined
+    let cancelReason: string | undefined
+    if (s.reservationId) {
+      const result = await cancelBookingRecord(s.reservationId)
+      if (!result.ok) {
+        console.error("Failed to cancel booking", result.message)
+        toast.error(tb("toast.cancelFailed"))
+        return
+      }
+      refunded =
+        result.data.paymentStatus === "refunded" ||
+        result.data.paymentStatus === "partial_refund"
+      cancelReason = result.data.cancelReason
+    }
+
     if (s.listed) {
       // Keep the team's room open, drop the court hold (revert to forming).
       const reverted: PlaySession = {
@@ -1896,15 +2071,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         hold: undefined,
         courtLabel: null,
         slot: null,
+        venueId: undefined,
+        reservationId: undefined,
       }
       setSessions((prev) => prev.map((x) => (x.id === id ? reverted : x)))
       persist(reverted)
     } else {
       clearTimersFor(id)
-      const cancelled: PlaySession = { ...s, status: "cancelled" }
+      const cancelled: PlaySession = {
+        ...s,
+        status: "cancelled",
+        refunded,
+        cancelReason,
+      }
       setSessions((prev) => prev.map((x) => (x.id === id ? cancelled : x)))
       dropJoined(id)
       persist(cancelled)
+      freezeRoomChatBestEffort(id)
     }
     toast(tb("toast.cancelled"), { description: s.venue })
   }
@@ -1968,7 +2151,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     steps,
     step,
     draft,
-    capacityFor,
     openBooking,
     armBooking,
     bookCourtForSession,
@@ -1983,16 +2165,19 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSlot,
     setDuration,
     pickSlot,
-    setFormat,
     setFillMode,
     toggleInvite,
     paying,
-    paymentResult,
+    checkoutError,
+    clearCheckoutError,
     pay,
-    acknowledgePaymentSuccess,
-    dismissPaymentResult,
-    confirmBooking,
-    cancelBooking,
+    // Awaits a real server action internally (cancelBookingRecord) — wrapped
+    // here so the exposed signature stays the void-returning event-handler
+    // shape the rest of the UI expects; it handles/toasts its own failure,
+    // so there's nothing for the caller to await.
+    cancelBooking: (id: string) => {
+      void cancelBooking(id)
+    },
     slotBlocked,
     draftConflict,
     courtBusy,

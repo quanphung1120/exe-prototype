@@ -10,24 +10,21 @@ import {
   Lock,
   MapPin,
   Plus,
-  QrCode,
   Search,
   ShieldCheck,
   Star,
   TriangleAlert,
+  X,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import {
+  validateDiscountCode,
+  type DiscountValidation,
+} from "@/features/play/payment-actions"
 import {
   COURT_OPEN_FROM,
   COURT_OPEN_TO,
@@ -68,74 +65,6 @@ import { useData } from "@/features/dashboard/data-provider"
 import { useBooking } from "@/features/booking/booking"
 import { CourtImage } from "@/features/dashboard/shared"
 
-/** Shared surface styling for each step's card(s). */
-const CARD =
-  "rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 sm:p-6 dark:ring-foreground/10"
-
-/**
- * A deterministic, decorative QR-like glyph — NOT a scannable code. Modules are
- * derived from a string seed (no Date/random) so SSR and client renders agree.
- */
-function FakeQr({ seed }: { seed: string }) {
-  const N = 21
-  const inFinder = (x: number, y: number) => {
-    const box = (bx: number, by: number) =>
-      x >= bx && x <= bx + 6 && y >= by && y <= by + 6
-    return box(0, 0) || box(N - 7, 0) || box(0, N - 7)
-  }
-  let h = 2166136261 >>> 0
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i)
-    h = Math.imul(h, 16777619) >>> 0
-  }
-  const cells: { x: number; y: number }[] = []
-  for (let y = 0; y < N; y++) {
-    for (let x = 0; x < N; x++) {
-      if (inFinder(x, y)) continue
-      h ^= (x + 1) * 374761393 + (y + 1) * 668265263
-      h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0
-      if (h % 100 < 48) cells.push({ x, y })
-    }
-  }
-  const finder = (bx: number, by: number) => (
-    <g key={`f-${bx}-${by}`}>
-      <rect x={bx} y={by} width={7} height={7} rx={1.4} fill="currentColor" />
-      <rect x={bx + 1} y={by + 1} width={5} height={5} rx={1} fill="white" />
-      <rect
-        x={bx + 2}
-        y={by + 2}
-        width={3}
-        height={3}
-        rx={0.6}
-        fill="currentColor"
-      />
-    </g>
-  )
-  return (
-    <svg
-      viewBox="0 0 21 21"
-      className="size-40 text-neutral-900"
-      role="img"
-      aria-hidden
-      shapeRendering="crispEdges"
-    >
-      {cells.map((c) => (
-        <rect
-          key={`${c.x}-${c.y}`}
-          x={c.x}
-          y={c.y}
-          width={1}
-          height={1}
-          fill="currentColor"
-        />
-      ))}
-      {finder(0, 0)}
-      {finder(N - 7, 0)}
-      {finder(0, N - 7)}
-    </svg>
-  )
-}
-
 /** Segmented single-select chips (same pattern as the Quick Join filters). */
 function Segmented<T extends string>({
   value,
@@ -173,14 +102,94 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * The court-hold countdown — a time-limited reservation urging the player to
+ * pay before it expires. Styled as a standout amber pill (warm against the
+ * emerald theme) and placed at the top of the confirm/pay steps.
+ */
+function HoldBadge({
+  time,
+  t,
+}: {
+  time: string
+  t: ReturnType<typeof useTranslations>
+}) {
+  return (
+    <div className="inline-flex w-fit items-center gap-2 rounded-full bg-amber-500/12 px-3.5 py-1.5 text-sm font-medium text-amber-700 tabular-nums ring-1 ring-amber-500/25 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20">
+      <Clock className="size-4 shrink-0" />
+      {t("pay.holdCountdown", { time })}
+    </div>
+  )
+}
+
+/**
+ * The order's price lines — subtotal, an optional discount (as a removable
+ * code chip) and the bold final total. Shared by the confirm and pay steps
+ * so a code applied on Pay still shows correctly if the player steps back.
+ */
+function PriceBreakdown({
+  subtotal,
+  finalTotal,
+  appliedDiscount,
+  onRemoveDiscount,
+  removable,
+  t,
+}: {
+  subtotal: number
+  finalTotal: number
+  appliedDiscount: DiscountValidation | null
+  onRemoveDiscount?: () => void
+  removable?: boolean
+  t: ReturnType<typeof useTranslations>
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="text-muted-foreground">{t("pay.subtotal")}</span>
+        <span className="tabular-nums">{formatVndFull(subtotal)}</span>
+      </div>
+      {appliedDiscount ? (
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            {t("pay.discount")}
+            <Badge
+              variant="secondary"
+              className="gap-1 font-mono text-[10px] tracking-wide"
+            >
+              {appliedDiscount.code}
+              {removable && onRemoveDiscount ? (
+                <button
+                  type="button"
+                  onClick={onRemoveDiscount}
+                  aria-label={t("pay.removeDiscount")}
+                  className="-mr-0.5 ml-0.5 rounded-full hover:opacity-70"
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </Badge>
+          </span>
+          <span className="text-brand tabular-nums">
+            −{formatVndFull(appliedDiscount.discountAmount)}
+          </span>
+        </div>
+      ) : null}
+      <div className="h-px bg-border" />
+      <div className="flex items-center justify-between gap-3 text-lg font-semibold">
+        <span>{t("pay.amountDue")}</span>
+        <span className="tabular-nums">{formatVndFull(finalTotal)}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
  * The court-booking wizard, rendered as a full dashboard page (it used to live
  * in a small dialog, which left no room for the day calendar — especially on
- * phones). The flow, steps and faked payment are unchanged; only the chrome
- * around them is now a page with a sticky action bar and a roomy calendar.
+ * phones). The flow/steps are unchanged; the pay step now hands off to a real
+ * SePay checkout instead of a faked QR (see `pay` in `session.tsx`).
  */
 export function BookView() {
   const t = useTranslations("Booking")
-  const tc = useTranslations("Common")
   const locale = useLocale()
   const {
     open,
@@ -202,10 +211,9 @@ export function BookView() {
     setDuration,
     pickSlot,
     paying,
-    paymentResult,
+    checkoutError,
+    clearCheckoutError,
     pay,
-    acknowledgePaymentSuccess,
-    dismissPaymentResult,
   } = useBooking()
   const { courts: COURTS, dayLabelFor } = useData()
 
@@ -249,6 +257,49 @@ export function BookView() {
 
   // Free-form booking: a start + end time (any minute), priced pro-rata.
   const total = court ? priceFor(court.pricePerHour, draft.durationMin) : 0
+
+  // Discount code (mã giảm giá) — validated server-side against `total`
+  // before it's ever sent to checkout; applying it just narrates the
+  // resulting `finalAmount`/`discountAmount` here, the real deduction
+  // happens again on the server when `pay()` calls `startPaymentCheckout`.
+  const [discountInput, setDiscountInput] = React.useState("")
+  const [discountLoading, setDiscountLoading] = React.useState(false)
+  const [discountError, setDiscountError] = React.useState<string | null>(null)
+  const [appliedDiscount, setAppliedDiscount] =
+    React.useState<DiscountValidation | null>(null)
+  // The `total` a code was validated against — a changed total (duration
+  // edited, different court, …) can invalidate a code (min-order thresholds,
+  // different caps), so a stale basis is treated as "not applied" below
+  // rather than eagerly cleared from an effect.
+  const [discountBasis, setDiscountBasis] = React.useState<number | null>(null)
+
+  const applyDiscount = async () => {
+    const code = discountInput.trim().toUpperCase()
+    if (!code || discountLoading) return
+    setDiscountLoading(true)
+    setDiscountError(null)
+    const result = await validateDiscountCode(code, total)
+    setDiscountLoading(false)
+    if (!result.ok) {
+      setAppliedDiscount(null)
+      setDiscountBasis(null)
+      setDiscountError(result.message)
+      return
+    }
+    setAppliedDiscount(result.data)
+    setDiscountBasis(total)
+  }
+
+  const removeDiscount = () => {
+    setAppliedDiscount(null)
+    setDiscountBasis(null)
+    setDiscountInput("")
+    setDiscountError(null)
+  }
+
+  const activeDiscount =
+    appliedDiscount && discountBasis === total ? appliedDiscount : null
+  const finalTotal = activeDiscount ? activeDiscount.finalAmount : total
 
   const endTime = draft.slot ? addMinutes(draft.slot, draft.durationMin) : ""
   const setEnd = (end: string) => {
@@ -313,15 +364,8 @@ export function BookView() {
           <ArrowLeft />
           {t("close")}
         </Button>
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
-            {title}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
-        </div>
-
         {/* Stepper */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 py-2 sm:gap-3 sm:py-4">
           {steps.map((s, i) => (
             <React.Fragment key={s}>
               <span
@@ -353,6 +397,13 @@ export function BookView() {
               ) : null}
             </React.Fragment>
           ))}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
+            {title}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
       </div>
 
@@ -396,9 +447,9 @@ export function BookView() {
 
         {/* SLOT */}
         {stepName === "slot" ? (
-          <div className="grid w-full gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
-            {/* Calendar — its own card, stretched across the left column */}
-            <div className={cn(CARD, "flex flex-col gap-4")}>
+          <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
+            {/* Calendar — stretched across the left column */}
+            <div className="flex flex-col gap-4">
               <CourtCalendar
                 courtId={courtId}
                 slot={draft.slot}
@@ -412,7 +463,7 @@ export function BookView() {
             </div>
 
             {/* Specific time — right column */}
-            <div className={cn(CARD, "flex flex-col gap-4")}>
+            <div className="flex flex-col gap-4 lg:border-l lg:border-border lg:pl-8">
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
                 <div className="flex flex-col gap-1.5">
                   <Label>{t("startTime")}</Label>
@@ -503,195 +554,196 @@ export function BookView() {
 
         {/* CONFIRM */}
         {stepName === "confirm" && court && draft.slot ? (
-          <div className={cn(CARD, "flex flex-col gap-6")}>
-            {/* Court name + location */}
-            <div className="flex flex-col gap-1.5">
-              <p className="font-heading text-2xl leading-tight font-bold">
-                {court.name}
-              </p>
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <MapPin className="size-3.5 shrink-0" />
-                <span className="truncate">
-                  {court.district} · {t("distance", { km: court.distanceKm })}
-                </span>
-              </p>
+          <div className="flex w-full flex-col gap-6">
+            {holdCountdown ? <HoldBadge time={holdCountdown} t={t} /> : null}
+
+            <div className="grid w-full gap-x-12 gap-y-8 lg:grid-cols-2">
+              {/* Booking details */}
+              <div className="flex flex-col gap-3.5">
+                <p className="font-heading text-lg leading-tight font-semibold">
+                  {t("summary")}
+                </p>
+                {[
+                  {
+                    label: t("where"),
+                    value: `${court.district} · ${t("distance", { km: court.distanceKm })}`,
+                  },
+                  {
+                    label: t("when"),
+                    value: `${locStr(dayLabelFor(draft.dayKey), locale)} · ${slotRange(draft.slot, draft.durationMin)}`,
+                  },
+                  {
+                    label: t("durationLabel"),
+                    value: formatDuration(draft.durationMin),
+                  },
+                  { label: t("players"), value: playersLine },
+                ].map(({ label, value }) => (
+                  <div
+                    key={label}
+                    className="flex items-center justify-between gap-3 text-base"
+                  >
+                    <span className="text-muted-foreground">{label}</span>
+                    <span className="text-right font-medium">{value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Price */}
+              <div className="flex flex-col gap-4 lg:border-l lg:border-border lg:pl-12">
+                <PriceBreakdown
+                  subtotal={total}
+                  finalTotal={finalTotal}
+                  appliedDiscount={activeDiscount}
+                  t={t}
+                />
+
+                {conflict ? (
+                  <p className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
+                    <TriangleAlert className="size-4 shrink-0" />
+                    {conflict === "self-overlap"
+                      ? t("conflictSelf")
+                      : t("conflictCourt")}
+                  </p>
+                ) : null}
+              </div>
             </div>
-
-            <div className="h-px bg-border" />
-
-            {/* Booking details */}
-            <div className="flex flex-col gap-3.5">
-              <p className="font-heading text-lg font-semibold leading-tight">
-                {t("summary")}
-              </p>
-              {[
-                {
-                  label: t("when"),
-                  value: `${locStr(dayLabelFor(draft.dayKey), locale)} · ${slotRange(draft.slot, draft.durationMin)}`,
-                },
-                { label: t("durationLabel"), value: formatDuration(draft.durationMin) },
-                ...(roomId
-                  ? [{ label: t("format"), value: tc(`format.${draft.format.toLowerCase()}`) }]
-                  : []),
-                { label: t("players"), value: playersLine },
-              ].map(({ label, value }) => (
-                <div key={label} className="flex items-center justify-between gap-3 text-base">
-                  <span className="text-muted-foreground">{label}</span>
-                  <span className="text-right font-medium">{value}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="h-px bg-border" />
-
-            {/* Price */}
-            <div className="flex items-center justify-between gap-3 text-lg font-semibold">
-              <span>{t("pay.amountDue")}</span>
-              <span className="tabular-nums">{formatVndFull(total)}</span>
-            </div>
-
-            {holdCountdown ? (
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Clock className="size-4 shrink-0" />
-                {t("pay.holdCountdown", { time: holdCountdown })}
-              </p>
-            ) : null}
-
-            {conflict ? (
-              <p className="inline-flex items-center gap-1.5 text-sm font-medium text-destructive">
-                <TriangleAlert className="size-4 shrink-0" />
-                {conflict === "self-overlap"
-                  ? t("conflictSelf")
-                  : t("conflictCourt")}
-              </p>
-            ) : null}
           </div>
         ) : null}
 
-        {/* PAY — bank transfer via QR only */}
+        {/* PAY — real SePay checkout (a redirect); no card/QR entry in-app */}
         {stepName === "pay" && court && draft.slot ? (
-          <div className={cn(CARD, "flex flex-col gap-6")}>
-            {/* Court name + location */}
-            <div className="flex flex-col gap-1.5">
-              <p className="font-heading text-2xl leading-tight font-bold">
-                {court.name}
-              </p>
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <MapPin className="size-3.5 shrink-0" />
-                <span className="truncate">
-                  {court.district} · {t("distance", { km: court.distanceKm })}
-                </span>
-              </p>
-            </div>
+          <div className="flex w-full flex-col gap-6">
+            {holdCountdown ? <HoldBadge time={holdCountdown} t={t} /> : null}
 
-            <div className="h-px bg-border" />
+            <div className="grid w-full gap-x-12 gap-y-8 lg:grid-cols-2">
+              {/* LEFT — booking summary + total */}
+              <div className="flex flex-col gap-4">
+                {/* Where + when */}
+                <div className="flex flex-col gap-3.5">
+                  <div className="flex items-center justify-between gap-3 text-base">
+                    <span className="text-muted-foreground">{t("where")}</span>
+                    <span className="text-right font-medium">
+                      {court.district} ·{" "}
+                      {t("distance", { km: court.distanceKm })}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-base">
+                    <span className="text-muted-foreground">{t("when")}</span>
+                    <span className="text-right font-medium">
+                      {locStr(dayLabelFor(draft.dayKey), locale)} ·{" "}
+                      {slotRange(draft.slot, draft.durationMin)}
+                    </span>
+                  </div>
+                </div>
 
-            {/* Amount due */}
-            <div className="flex items-center justify-between gap-3 text-lg font-semibold">
-              <span>{t("pay.amountDue")}</span>
-              <span className="tabular-nums">{formatVndFull(total)}</span>
-            </div>
+                <div className="h-px bg-border" />
 
-            {holdCountdown ? (
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Clock className="size-4 shrink-0" />
-                {t("pay.holdCountdown", { time: holdCountdown })}
-              </p>
-            ) : null}
-
-            <div className="h-px bg-border" />
-
-            {/* QR */}
-            <div className="flex flex-col items-center gap-4">
-              <div className="rounded-2xl bg-white p-4 ring-1 ring-black/5">
-                <FakeQr seed={`${court.id}:${draft.dayKey}:${draft.slot}`} />
+                {/* Price breakdown */}
+                <PriceBreakdown
+                  subtotal={total}
+                  finalTotal={finalTotal}
+                  appliedDiscount={activeDiscount}
+                  onRemoveDiscount={removeDiscount}
+                  removable
+                  t={t}
+                />
               </div>
-              <div className="text-center">
-                <p className="text-base font-medium">{t("pay.qrAccount")}</p>
-                <p className="font-mono text-sm text-muted-foreground tabular-nums">
-                  {formatVndFull(total)}
+
+              {/* RIGHT — discount + checkout */}
+              <div className="flex flex-col gap-5 lg:border-l lg:border-border lg:pl-12">
+                {/* Discount code */}
+                <div className="flex flex-col gap-1.5">
+                  <Label>{t("pay.discountLabel")}</Label>
+                  {activeDiscount ? (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl bg-brand/8 px-3.5 py-2.5 ring-1 ring-brand/15">
+                      <p className="inline-flex items-center gap-1.5 text-sm text-brand">
+                        <Check className="size-4 shrink-0" />
+                        {activeDiscount.description}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-2">
+                        <Input
+                          value={discountInput}
+                          onChange={(e) => {
+                            setDiscountInput(e.target.value.toUpperCase())
+                            setDiscountError(null)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault()
+                              void applyDiscount()
+                            }
+                          }}
+                          placeholder={t("pay.discountPlaceholder")}
+                          aria-label={t("pay.discountLabel")}
+                          disabled={paying || discountLoading}
+                          className="h-9 flex-1 font-mono tracking-wider uppercase"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 shrink-0 rounded-full"
+                          disabled={
+                            !discountInput.trim() || paying || discountLoading
+                          }
+                          onClick={() => void applyDiscount()}
+                        >
+                          {discountLoading ? (
+                            <Loader2 className="animate-spin" />
+                          ) : (
+                            t("pay.applyDiscount")
+                          )}
+                        </Button>
+                      </div>
+                      {discountError ? (
+                        <p className="inline-flex items-center gap-1.5 text-xs font-medium text-destructive">
+                          <TriangleAlert className="size-3.5 shrink-0" />
+                          {discountError}
+                        </p>
+                      ) : null}
+                    </>
+                  )}
+                </div>
+
+                {/* SePay hosts the actual checkout (VietQR/card) — this button
+                  submits a hidden, HMAC-signed form there (see session.tsx#pay). */}
+                <div className="flex flex-col items-center gap-3 rounded-3xl bg-muted/40 px-4 py-5 text-center">
+                  <div className="grid size-14 place-items-center rounded-full bg-brand/10 text-brand">
+                    <ShieldCheck className="size-6" />
+                  </div>
+                  <p className="max-w-sm text-sm text-muted-foreground">
+                    {t("pay.redirectNotice")}
+                  </p>
+                </div>
+
+                {checkoutError ? (
+                  <div className="flex items-center gap-2.5 rounded-2xl bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive">
+                    <TriangleAlert className="size-4 shrink-0" />
+                    <span>{checkoutError}</span>
+                  </div>
+                ) : null}
+
+                <p className="text-center text-xs text-muted-foreground">
+                  {t("pay.refundPolicy")}
                 </p>
               </div>
-              <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                <QrCode className="size-4 shrink-0" />
-                {t("pay.qrHint")}
-              </p>
             </div>
-
-            <p className="inline-flex items-center justify-center gap-1.5 border-t border-border pt-2 text-sm text-muted-foreground">
-              <ShieldCheck className="size-4 shrink-0" />
-              {t("pay.secure")}
-            </p>
           </div>
         ) : null}
       </div>
 
       {/* Action bar — sticky on phones so the primary action stays reachable. */}
-      <Dialog
-        open={paymentResult !== null}
-        onOpenChange={(open) => {
-          if (!open) dismissPaymentResult()
-        }}
-      >
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {paymentResult?.status === "success"
-                ? t("pay.result.successTitle")
-                : t("pay.result.failedTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              {paymentResult?.status === "success"
-                ? t("pay.result.successBody", {
-                    amount: formatVndFull(paymentResult.amount),
-                  })
-                : t(
-                    paymentResult?.reason === "conflict"
-                      ? "pay.result.failedConflict"
-                      : "pay.result.failedBody",
-                    { amount: formatVndFull(paymentResult?.amount ?? 0) }
-                  )}
-            </DialogDescription>
-          </DialogHeader>
-          <div
-            className={cn(
-              "flex items-center gap-3 rounded-3xl px-4 py-3 text-sm",
-              paymentResult?.status === "success"
-                ? "bg-brand/10 text-brand"
-                : "bg-destructive/10 text-destructive"
-            )}
-          >
-            {paymentResult?.status === "success" ? (
-              <Check className="size-5 shrink-0" />
-            ) : (
-              <TriangleAlert className="size-5 shrink-0" />
-            )}
-            <span>
-              {paymentResult?.status === "success"
-                ? t("pay.result.successHint")
-                : t("pay.result.failedHint")}
-            </span>
-          </div>
-          <DialogFooter>
-            {paymentResult?.status === "success" ? (
-              <Button className="rounded-full" onClick={acknowledgePaymentSuccess}>
-                {t("pay.result.successCta")}
-              </Button>
-            ) : (
-              <Button className="rounded-full" onClick={dismissPaymentResult}>
-                {t("pay.result.failedCta")}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between gap-2 border-t border-border bg-background/90 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
         {step > 0 ? (
           <Button
             variant="outline"
             className="rounded-full"
-            onClick={back}
+            onClick={() => {
+              if (stepName === "pay") clearCheckoutError()
+              back()
+            }}
             disabled={paying}
           >
             {t("back")}
@@ -700,7 +752,11 @@ export function BookView() {
           <span />
         )}
         {stepName === "pay" ? (
-          <Button className="h-11 rounded-full px-5 text-base" disabled={!canPay} onClick={pay}>
+          <Button
+            className="h-11 rounded-full px-5 text-base"
+            disabled={!canPay}
+            onClick={() => pay(activeDiscount?.code)}
+          >
             {paying ? (
               <>
                 <Loader2 className="animate-spin" />
@@ -709,7 +765,9 @@ export function BookView() {
             ) : (
               <>
                 <Lock />
-                {t("pay.payNow", { amount: court ? formatVnd(total) : "" })}
+                {t("pay.payNow", {
+                  amount: court ? formatVnd(finalTotal) : "",
+                })}
               </>
             )}
           </Button>
@@ -722,7 +780,11 @@ export function BookView() {
             {t("toPayment")}
           </Button>
         ) : (
-          <Button className="h-11 rounded-full px-5 text-base" disabled={!canNext} onClick={next}>
+          <Button
+            className="h-11 rounded-full px-5 text-base"
+            disabled={!canNext}
+            onClick={next}
+          >
             {t("next")}
           </Button>
         )}
@@ -1043,4 +1105,3 @@ function CourtPickCard({
     </div>
   )
 }
-

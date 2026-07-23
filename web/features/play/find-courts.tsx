@@ -297,7 +297,7 @@ function CourtCard({
             <SportTag key={s} sport={s} />
           ))}
           <span className="text-xs text-muted-foreground">
-            · {t(`courts.${court.id}.surface`)}
+            · {court.surface}
           </span>
         </div>
 

@@ -98,3 +98,13 @@ Flow này phục vụ việc người chơi:
 3. Self-overlap là block hay warning.
 4. Booking có được edit hay chỉ cancel + rebook.
 5. Payment hiện đang đại diện cho cọc hay thanh toán đủ.
+
+## Quyết định đã chốt (2026-07-13)
+
+1. **Booking thành công sau payment hay sau venue approve** → cả hai, theo thứ tự: **trả tiền trước (payment thành công) → vào `pending` → venue duyệt** (quyết định #2). Im lặng 30 phút = tự động confirm (quyết định #5, chi tiết ở doc 05).
+2. **Slot giữ tối đa bao lâu lúc thanh toán** → hold 20 phút do **server** cấp (`holdExpiresAt = now + 20min`), thay cho `HOLD_MS` client hiện tại — booking vào `awaiting_payment` cho tới khi IPN xác nhận hoặc hold hết hạn (roadmap Phase 3, sweeper Phase 5).
+3. **Self-overlap** → **hard block, enforce server-side** (quyết định #8) — không còn chỉ là pre-check client.
+4. **Booking có được edit hay chỉ cancel + rebook** → chưa nằm trong 16 quyết định đã chốt lần này; giữ nguyên **cancel + rebook**, không hỗ trợ edit tại chỗ cho tới khi có quyết định riêng.
+5. **Payment hiện đại diện cho cọc hay đủ** → chốt **100% pre-paid**, bỏ hẳn mô hình cọc 5% (quyết định #3). Cổng thanh toán là **SePay/VietQR** qua SDK `sepay-pg-node` (IPN xác nhận, sandbox thật `pgapi-sandbox.sepay.vn`; refund **không có API** → xử lý thủ công qua hàng đợi operator, copy nói rõ "hoàn tiền trong 24–48h làm việc") (quyết định #9). Refund tính theo policy huỷ 24h/50%/0% — xem doc 03.
+
+**Trạng thái triển khai**: `awaiting_payment`/hold server-side, self-overlap hard-block server-side, và SePay gateway đều thuộc roadmap **Phase 3–4**, **chưa triển khai** — hiện tại (2026-07-20) payment vẫn là fake QR + timer client (`PAY_MS`) với decline giả ~20% lần đầu, thu 5% cọc (`session.tsx`).

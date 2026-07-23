@@ -1,111 +1,171 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  NotFoundException,
-  Param,
-  Post,
-  Put,
-} from "@nestjs/common"
+import { Body, Controller, Delete, Param, Post, Put } from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
 import {
-  CourtIdParamDto,
+  CourtBlockInputDto,
   CourtInputDto,
   CourtPatchDto,
   CustomerDto,
   RescheduleDto,
-  ReservationIdParamDto,
   ReservationStatusDto,
+  VenueBlockParamDto,
+  VenueCourtParamDto,
+  VenueIdParamDto,
   VenuePatchDto,
+  VenueReservationParamDto,
   WalkInInputDto,
 } from "./venues.dto.js"
 import { VenuesService } from "./venues.service.js"
 
-// Venue management (operator-owned CRUD), mounted at /api/venues. Each account
-// owns exactly one venue, so every route resolves the caller's venue from their
-// Clerk id (no `:id` in the path) — there is no cross-venue access. The service
-// throws domain exceptions the central filter maps to the right status.
+// Venue management (operator-owned CRUD), mounted at /api/venues/:venueId. An
+// account's brand may own many venue branches, so the target branch is carried
+// in the path and `assertOwnsVenue` authorizes the caller against it (404 for an
+// unknown venue, 403 for another account's). The service throws domain
+// exceptions the central filter maps to the right status.
 @Controller("venues")
 export class VenuesController {
   constructor(private readonly venues: VenuesService) {}
 
-  /** The caller's own venueId, or 404 when they haven't provisioned one. */
-  private async myVenueId(userId: string): Promise<string> {
-    const id = await this.venues.myVenueId(userId)
-    if (!id) throw new NotFoundException("No venue for this account")
-    return id
+  /** Authorize the caller owns `venueId`, then hand it back for the mutation. */
+  private async ownedVenueId(userId: string, venueId: string): Promise<string> {
+    await this.venues.assertOwnsVenue(userId, venueId)
+    return venueId
   }
 
-  @Put()
-  async update(@UserId() userId: string, @Body() body: VenuePatchDto) {
-    return this.venues.updateVenue(await this.myVenueId(userId), body)
+  @Put(":venueId")
+  async update(
+    @UserId() userId: string,
+    @Param() param: VenueIdParamDto,
+    @Body() body: VenuePatchDto
+  ) {
+    return this.venues.updateVenue(
+      await this.ownedVenueId(userId, param.venueId),
+      body
+    )
+  }
+
+  /** Archive one of the caller's branches (decision #11) — replaces a delete. */
+  @Delete(":venueId")
+  async archive(@UserId() userId: string, @Param() param: VenueIdParamDto) {
+    await this.venues.archiveVenue(
+      await this.ownedVenueId(userId, param.venueId)
+    )
+    return { ok: true }
   }
 
   // ── Courts ──
-  @Post("courts")
-  async addCourt(@UserId() userId: string, @Body() body: CourtInputDto) {
-    return this.venues.addCourt(await this.myVenueId(userId), body)
+  @Post(":venueId/courts")
+  async addCourt(
+    @UserId() userId: string,
+    @Param() param: VenueIdParamDto,
+    @Body() body: CourtInputDto
+  ) {
+    return this.venues.addCourt(
+      await this.ownedVenueId(userId, param.venueId),
+      body
+    )
   }
 
-  @Put("courts/:courtId")
+  @Put(":venueId/courts/:courtId")
   async updateCourt(
     @UserId() userId: string,
-    @Param() param: CourtIdParamDto,
+    @Param() param: VenueCourtParamDto,
     @Body() body: CourtPatchDto
   ) {
     return this.venues.updateCourt(
-      await this.myVenueId(userId),
+      await this.ownedVenueId(userId, param.venueId),
       param.courtId,
       body
     )
   }
 
-  @Delete("courts/:courtId")
+  @Delete(":venueId/courts/:courtId")
   async removeCourt(
     @UserId() userId: string,
-    @Param() param: CourtIdParamDto
+    @Param() param: VenueCourtParamDto
   ) {
-    await this.venues.removeCourt(await this.myVenueId(userId), param.courtId)
+    await this.venues.removeCourt(
+      await this.ownedVenueId(userId, param.venueId),
+      param.courtId
+    )
     return { ok: true }
   }
 
   // ── Reservations ──
-  @Post("reservations/walk-in")
-  async addWalkIn(@UserId() userId: string, @Body() body: WalkInInputDto) {
-    return this.venues.addWalkInReservation(await this.myVenueId(userId), body)
+  @Post(":venueId/reservations/walk-in")
+  async addWalkIn(
+    @UserId() userId: string,
+    @Param() param: VenueIdParamDto,
+    @Body() body: WalkInInputDto
+  ) {
+    return this.venues.addWalkInReservation(
+      await this.ownedVenueId(userId, param.venueId),
+      body
+    )
   }
 
-  @Put("reservations/:reservationId/status")
+  @Put(":venueId/reservations/:reservationId/status")
   async updateReservationStatus(
     @UserId() userId: string,
-    @Param() param: ReservationIdParamDto,
+    @Param() param: VenueReservationParamDto,
     @Body() body: ReservationStatusDto
   ) {
     return this.venues.updateReservationStatus(
-      await this.myVenueId(userId),
+      await this.ownedVenueId(userId, param.venueId),
       param.reservationId,
       body.status,
       body.reason
     )
   }
 
-  @Put("reservations/:reservationId")
+  @Put(":venueId/reservations/:reservationId")
   async rescheduleReservation(
     @UserId() userId: string,
-    @Param() param: ReservationIdParamDto,
+    @Param() param: VenueReservationParamDto,
     @Body() body: RescheduleDto
   ) {
     return this.venues.rescheduleReservation(
-      await this.myVenueId(userId),
+      await this.ownedVenueId(userId, param.venueId),
       param.reservationId,
       body
     )
   }
 
   // ── Customers ──
-  @Post("customers")
-  async addCustomer(@UserId() userId: string, @Body() body: CustomerDto) {
-    return this.venues.addCustomer(await this.myVenueId(userId), body)
+  @Post(":venueId/customers")
+  async addCustomer(
+    @UserId() userId: string,
+    @Param() param: VenueIdParamDto,
+    @Body() body: CustomerDto
+  ) {
+    return this.venues.addCustomer(
+      await this.ownedVenueId(userId, param.venueId),
+      body
+    )
+  }
+
+  // ── Court blocks (decision #12) ──
+  @Post(":venueId/blocks")
+  async addBlock(
+    @UserId() userId: string,
+    @Param() param: VenueIdParamDto,
+    @Body() body: CourtBlockInputDto
+  ) {
+    return this.venues.addBlock(
+      await this.ownedVenueId(userId, param.venueId),
+      body
+    )
+  }
+
+  @Delete(":venueId/blocks/:blockId")
+  async removeBlock(
+    @UserId() userId: string,
+    @Param() param: VenueBlockParamDto
+  ) {
+    await this.venues.removeBlock(
+      await this.ownedVenueId(userId, param.venueId),
+      param.blockId
+    )
+    return { ok: true }
   }
 }

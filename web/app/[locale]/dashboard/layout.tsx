@@ -44,6 +44,14 @@ export default async function DashboardLayout({
     fetchStreamCredentials(session.user),
   ])
 
+  // No account type chosen or inferred yet — send fresh accounts (email and
+  // Google SSO alike) through the onboarding choice point before anything else.
+  // An admin never picks player/venue — they may have neither — so this skips
+  // for them; the admin subtree has its own role guard (dashboard/admin/layout.tsx).
+  if (seed.accountType === null && session.user.role !== "admin") {
+    redirect("/" + locale + "/onboarding")
+  }
+
   return (
     <TooltipProvider>
       <AuthUserProvider user={session.user}>
@@ -57,7 +65,11 @@ export default async function DashboardLayout({
                 userImage={session.user.image}
               >
                 <SportFilterProvider>
-                  <PlayerAssessmentGate serverAssessment={seed.assessment}>
+                  <PlayerAssessmentGate
+                    serverAssessment={seed.assessment}
+                    accountType={seed.accountType}
+                    isAdmin={session.user.role === "admin"}
+                  >
                     <SidebarProvider className="font-geist">
                       <AppSidebar />
                       <SidebarInset className="overflow-hidden">

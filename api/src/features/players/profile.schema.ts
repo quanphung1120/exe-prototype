@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose"
 import { Schema as MongooseSchema, type HydratedDocument } from "mongoose"
 
 import type {
+  AccountType,
   ActivityItem,
   Booking,
   MatchRoom,
@@ -20,16 +21,25 @@ import type {
 // intentionally-empty arrays (e.g. no notifications).
 @Schema({ timestamps: true, minimize: false })
 export class Profile {
-  @Prop({ required: true, unique: true, index: true }) userId: string
+  // Explicit `type: String` (not inferred from the TS annotation) since
+  // esbuild-based runners like tsx don't emit the design:type metadata @Prop()
+  // needs — see test/sessions-service.test.ts (this schema wasn't reachable
+  // from any test's import graph until BookingsService started depending on
+  // ProfileService, which is what surfaced this).
+  @Prop({ type: String, required: true, unique: true, index: true })
+  userId: string
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) user: User
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) streak: Streak
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) stats: Stats
   @Prop({ type: MongooseSchema.Types.Mixed, required: true }) rooms: MatchRoom[]
-  @Prop({ type: MongooseSchema.Types.Mixed, required: true }) bookings: Booking[]
+  @Prop({ type: MongooseSchema.Types.Mixed, required: true })
+  bookings: Booking[]
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })
   activity: ActivityItem[]
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })
   notifications: NotificationItem[]
+  /** Self-declared account type, chosen once on the onboarding page. */
+  @Prop({ type: String, default: null }) accountType: AccountType | null
 }
 
 // The personal-data payload the profile carries (everything but `userId` and the
@@ -42,6 +52,7 @@ export interface ProfileData {
   bookings: Booking[]
   activity: ActivityItem[]
   notifications: NotificationItem[]
+  accountType: AccountType | null
 }
 
 export type ProfileDocument = HydratedDocument<Profile>
@@ -57,5 +68,6 @@ export function toProfileData(doc: Profile): ProfileData {
     bookings: doc.bookings,
     activity: doc.activity,
     notifications: doc.notifications,
+    accountType: doc.accountType ?? null,
   }
 }

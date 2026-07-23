@@ -2,16 +2,24 @@ import { Module } from "@nestjs/common"
 import { APP_FILTER, APP_GUARD } from "@nestjs/core"
 import { ConfigModule, ConfigService } from "@nestjs/config"
 import { MongooseModule } from "@nestjs/mongoose"
+import { ScheduleModule } from "@nestjs/schedule"
 import { TerminusModule } from "@nestjs/terminus"
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler"
 
 import { AllExceptionsFilter } from "./common/all-exceptions.filter.js"
 import { ClerkAuthGuard } from "./common/clerk-auth.guard.js"
 import { validateEnv } from "./env.validation.js"
+import { AccountModule } from "./features/account/account.module.js"
+import { AdminModule } from "./features/admin/admin.module.js"
 import { AssessmentModule } from "./features/assessment/assessment.module.js"
+import { BookingsModule } from "./features/bookings/bookings.module.js"
 import { CourtsModule } from "./features/courts/courts.module.js"
+import { DiscountsModule } from "./features/discounts/discounts.module.js"
 import { HealthController } from "./features/health/health.controller.js"
+import { NotificationsModule } from "./features/notifications/notifications.module.js"
+import { PaymentsModule } from "./features/payments/payments.module.js"
 import { PlayersModule } from "./features/players/players.module.js"
+import { RoomsModule } from "./features/rooms/rooms.module.js"
 import { SeedModule } from "./features/seed/seed.module.js"
 import { SessionsModule } from "./features/sessions/sessions.module.js"
 import { StreamModule } from "./features/stream/stream.module.js"
@@ -42,13 +50,24 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     }),
     // Backs the /health/ready readiness probe (MongooseHealthIndicator).
     TerminusModule,
+    // Drives the Phase 5 booking sweeper (expire unpaid holds, auto-confirm
+    // past the SLA, auto-complete finished checked-in bookings) — see
+    // `features/payments/bookings-sweeper.service.ts`.
+    ScheduleModule.forRoot(),
+    BookingsModule,
     CourtsModule,
     PlayersModule,
     SessionsModule,
+    RoomsModule,
     AssessmentModule,
     VenuesModule,
+    AccountModule,
     StreamModule,
+    NotificationsModule,
+    DiscountsModule,
+    PaymentsModule,
     SeedModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [

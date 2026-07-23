@@ -7,7 +7,9 @@ import {
   courtById as courtByIdFn,
   courtDayEvents as courtDayEventsFn,
   type ChannelMixPoint,
+  type CourtBlock,
   type PeakHourPoint,
+  type RefundQueueItem,
   type Reservation,
   type RevenuePoint,
   type ScheduleEvent,
@@ -33,7 +35,10 @@ interface VenueDataContextValue {
   venueStats: VenueStats
   venueCourts: VenueCourt[]
   reservations: Reservation[]
+  /** Bookings still owing a manual refund (SePay has no refund API) — read-only. */
+  refundQueue: RefundQueueItem[]
   venueCustomers: VenueCustomer[]
+  blocks: CourtBlock[]
   revenueSeries: RevenuePoint[]
   sportMix: SportMixPoint[]
   channelMix: ChannelMixPoint[]
@@ -42,6 +47,10 @@ interface VenueDataContextValue {
   addReservation: (reservation: Reservation) => void
   updateReservation: (id: string, patch: Partial<Reservation>) => void
   addCustomer: (customer: VenueCustomer) => void
+  /** Overlay a freshly created court block onto the schedule. */
+  addBlock: (block: CourtBlock) => void
+  /** Drop a reopened block from the overlay ("Mở lại khung giờ"). */
+  removeBlock: (blockId: string) => void
   courtById: (id: string) => VenueCourt | undefined
   courtDayEvents: (courtId: string, dayKey: string) => ScheduleEvent[]
   courtDaySlots: (courtId: string, dayKey: string) => ScheduleSlot[]
@@ -73,6 +82,9 @@ const ACTIVE_SCHEDULE_STATUSES = new Set<string>([
   "confirmed",
   "checked-in",
   "completed",
+  // An unpaid `held` hold still occupies its slot — surface it on the grid so
+  // the operator doesn't read a held slot as free and try to walk-in over it.
+  "held",
 ] as const)
 
 function toMinutes(hhmm: string): number {
@@ -128,6 +140,17 @@ export function VenueDataProvider({
   const [customers, setCustomers] = React.useState<VenueCustomer[]>(
     seed.customers
   )
+  const [blocks, setBlocks] = React.useState<CourtBlock[]>(seed.blocks ?? [])
+
+  const addBlock = React.useCallback((block: CourtBlock) => {
+    setBlocks((current) =>
+      current.some((b) => b.id === block.id) ? current : [...current, block]
+    )
+  }, [])
+
+  const removeBlock = React.useCallback((blockId: string) => {
+    setBlocks((current) => current.filter((b) => b.id !== blockId))
+  }, [])
 
   const addCustomer = React.useCallback((customer: VenueCustomer) => {
     setCustomers((current) => {
@@ -194,9 +217,41 @@ export function VenueDataProvider({
   const value = React.useMemo<VenueDataContextValue>(() => {
     const venue = seed.info
     const courts = seed.courts
+    // A venue with a real operator gets an honest schedule — no fabricated
+    // filler bookings, only real reservations (overlaid below) and genuine
+    // court state (e.g. a maintenance block, which the helper still returns).
+    const isOwned = Boolean(venue.ownerId)
+
+    /** Real `CourtBlock` records for a court/day, projected to `ScheduleEvent`s. */
+    const blockDayEvents = (courtId: string, dayKey: string): ScheduleEvent[] =>
+      blocks
+        .filter(
+          (block) => block.courtId === courtId && block.dateKey === dayKey
+        )
+        .map((block): ScheduleEvent => ({
+          id: block.id,
+          courtId,
+          start: block.start,
+          durationMin: block.durationMin,
+          kind: "blocked",
+          sport: courtByIdFn(courts, courtId)?.sport ?? "badminton",
+          blockReason: block.reason,
+          blockNote: block.note,
+          past:
+            dayKey === todayIso &&
+            toMinutes(block.start) + block.durationMin <= toMinutes(venue.now),
+        }))
+
     const courtDayEvents = (courtId: string, dayKey: string) => {
-      const base = courtDayEventsFn(venue, courts, courtId, dayKey, todayIso)
-      const overlays = reservations
+      const base = courtDayEventsFn(
+        venue,
+        courts,
+        courtId,
+        dayKey,
+        todayIso,
+        !isOwned
+      )
+      const reservationOverlays = reservations
         .filter((reservation) => {
           if (!ACTIVE_SCHEDULE_STATUSES.has(reservation.status)) return false
           if (reservationDayKey(reservation) !== dayKey) return false
@@ -214,7 +269,12 @@ export function VenueDataProvider({
             courtId,
             start,
             durationMin,
-            kind: reservation.source === "walk-in" ? "walk-in" : "booked",
+            kind:
+              reservation.status === "held"
+                ? "held"
+                : reservation.source === "walk-in"
+                  ? "walk-in"
+                  : "booked",
             customer: reservation.customer.name,
             customerPhone: reservation.customer.phone,
             sport: reservation.sport,
@@ -227,7 +287,13 @@ export function VenueDataProvider({
         })
         .filter((event): event is ScheduleEvent => event !== null)
 
+      const blockOverlays = blockDayEvents(courtId, dayKey)
+      const overlays = [...reservationOverlays, ...blockOverlays]
       if (!overlays.length) return base
+
+      // A block always wins its slot over both the seed-filler base events and
+      // a reservation (the API already rejects a block over a live booking and
+      // vice versa, but the overlay stays defensive for stale/pre-blocks data).
       const filteredBase = base.filter((event) =>
         overlays.every(
           (overlay) =>
@@ -239,7 +305,21 @@ export function VenueDataProvider({
             )
         )
       )
-      return [...filteredBase, ...overlays].sort(
+      const filteredReservations = blockOverlays.length
+        ? reservationOverlays.filter((reservation) =>
+            blockOverlays.every(
+              (block) =>
+                !overlaps(
+                  reservation.start,
+                  reservation.durationMin,
+                  block.start,
+                  block.durationMin
+                )
+            )
+          )
+        : reservationOverlays
+
+      return [...filteredBase, ...filteredReservations, ...blockOverlays].sort(
         (a, b) => toMinutes(a.start) - toMinutes(b.start)
       )
     }
@@ -278,7 +358,9 @@ export function VenueDataProvider({
       venueStats: seed.stats,
       venueCourts: courts,
       reservations,
+      refundQueue: seed.refundQueue,
       venueCustomers: customers,
+      blocks,
       revenueSeries: seed.revenueSeries,
       sportMix: seed.sportMix,
       channelMix: seed.channelMix,
@@ -287,6 +369,8 @@ export function VenueDataProvider({
       addReservation,
       updateReservation,
       addCustomer,
+      addBlock,
+      removeBlock,
       courtById: (id) => courtByIdFn(courts, id),
       courtDayEvents,
       courtDaySlots,
@@ -297,8 +381,11 @@ export function VenueDataProvider({
     addReservation,
     updateReservation,
     addCustomer,
+    addBlock,
+    removeBlock,
     reservations,
     customers,
+    blocks,
     seed,
     venueId,
     todayIso,

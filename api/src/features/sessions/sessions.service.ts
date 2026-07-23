@@ -1,6 +1,6 @@
 import {
+  BadRequestException,
   ConflictException,
-  forwardRef,
   Inject,
   Injectable,
   NotFoundException,
@@ -9,44 +9,35 @@ import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
 import {
-  isoDateOf,
-  vnNowIso,
+  type BookingRecordStatus,
   type PlaySession as PlaySessionData,
-  type ReservationStatus,
   type SessionStatus,
 } from "../../shared/index.js"
 
-import type { Reservation } from "../../shared/index.js"
-
 import {
-  VenuesService,
-  type AppReservationInput,
-} from "../venues/venues.service.js"
+  BookingsService,
+  type BookingStatusInfo,
+} from "../bookings/bookings.service.js"
 import { PlaySession, type PlaySessionDocument } from "./session.schema.js"
 
 const ORDER = { createdAt: 1, _id: 1 } as const
 
+/** Largest a room's `capacity` may grow to (mirrors the web's MAX_CAPACITY). */
+const MAX_CAPACITY = 8
 /**
- * The venue cross-write surface Sessions depends on. Typing the injected param
- * as this interface (not the concrete VenuesService) keeps `emitDecoratorMetadata`
- * from baking the class into `design:paramtypes` — which, under the ESM Sessions↔
- * Venues import cycle, would be evaluated before VenuesService initializes and
- * throw. The `@Inject(forwardRef(...))` token still drives the real injection.
+ * Most open rooms one player may host at once (mirrors the web's
+ * MAX_HOSTED_ROOMS) — re-checked here as the server-side backstop since the
+ * client's own cap is only a UX pre-check.
  */
-interface VenueSyncPort {
-  findVenueByCourtId(courtId: string): Promise<string | null>
-  createOrSyncAppReservation(
-    venueId: string,
-    input: AppReservationInput
-  ): Promise<Reservation>
-}
+const MAX_HOSTED_ROOMS = 3
 
-/** Map a venue ReservationStatus onto the player's session status + hold. */
-function mapReservationStatus(status: ReservationStatus): {
+/** Map a linked booking's status onto the player's session status + hold. */
+function mapBookingStatus(status: BookingRecordStatus): {
   status: SessionStatus
   hold?: "confirmed" | "pending"
 } {
   switch (status) {
+    case "awaiting_payment":
     case "pending":
       return { status: "booked", hold: "pending" }
     case "confirmed":
@@ -54,8 +45,11 @@ function mapReservationStatus(status: ReservationStatus): {
       return { status: "booked", hold: "confirmed" }
     case "completed":
       return { status: "completed", hold: "confirmed" }
+    // An unpaid hold that timed out never became a real booking — same
+    // player-facing outcome as a cancel, just no refund to simulate.
     case "cancelled":
     case "no-show":
+    case "expired":
       return { status: "cancelled" }
   }
 }
@@ -63,109 +57,164 @@ function mapReservationStatus(status: ReservationStatus): {
 // MongoDB-backed service for players' persisted PlaySessions — the durable,
 // per-user mirror of the sessions a signed-in user creates or changes. Reads feed
 // the seed merge (SeedService); writes are driven by the web's session actions.
+//
+// A booked session's status/hold/refund is *derived* at read time from its
+// linked BookingRecord (see `listUserSessions`/`withBookingStatus`) rather than
+// pushed onto the session doc by the venue side — the operator decision only
+// ever touches the booking. Depending on BookingsService (for that read-side
+// derivation) instead of VenuesService is what dissolves the old
+// Sessions↔Venues forwardRef cycle.
+//
+// Phase 3 (VienTD-Review) demoted `PUT /api/sessions/:id` to pure room
+// coordination: it used to cross-write a `booked` session straight into a
+// BookingRecord (`syncBooking`/`createOrSyncAppBooking`); that now happens
+// explicitly via `POST /api/bookings` (`BookingsService#createHold`,
+// triggered from the web's `booking-actions.ts`), and this service just
+// persists the room (roster/capacity/listing) plus whatever linkage
+// (`venueId`/`reservationId`) the client already resolved from that call.
 @Injectable()
 export class SessionsService {
   constructor(
     @InjectModel(PlaySession.name)
     private readonly sessionModel: Model<PlaySessionDocument>,
-    // Cross-surface: a booked session mirrors into the owning venue's reservation.
-    // forwardRef breaks the Sessions ↔ Venues cycle; the param is typed as the
-    // VenueSyncPort interface (not VenuesService) so no class leaks into the
-    // eagerly-evaluated decorator metadata (see VenueSyncPort).
-    @Inject(forwardRef(() => VenuesService))
-    private readonly venues: VenueSyncPort
+    // Explicit token (not just the TS type) since esbuild-based runners like
+    // tsx don't emit the design:paramtypes metadata Nest's implicit
+    // constructor-injection would otherwise rely on — see
+    // test/sessions-service.test.ts.
+    @Inject(BookingsService) private readonly bookings: BookingsService
   ) {}
+
+  /**
+   * Count of PlaySessions still live (forming a lobby or holding a court) —
+   * the admin overview's "active sessions" KPI. Historical sessions
+   * (completed/cancelled) don't count.
+   */
+  async countActive(): Promise<number> {
+    return this.sessionModel.countDocuments({
+      "data.status": { $in: ["forming", "booked"] },
+    })
+  }
 
   /** Every PlaySession this user has persisted, oldest first. */
   async listUserSessions(userId: string): Promise<PlaySessionData[]> {
     const docs = await this.sessionModel.find({ userId }).sort(ORDER).lean()
-    return docs.map((d) => d.data)
+    const linkedIds = docs
+      .map((d) => d.data.reservationId)
+      .filter((id): id is string => Boolean(id))
+    const statuses = await this.bookings.statusFor(linkedIds)
+    return docs.map((d) => this.withBookingStatus(d.data, statuses))
   }
 
-  /** Insert or replace one of the user's sessions (keyed by the client id). */
+  /**
+   * Overlay a session with its linked booking's current status/hold/refund, if
+   * it has one. No-ops for sessions with no linked booking (forming, or a
+   * legacy record predating the bookings collection) — they keep whatever the
+   * client last wrote.
+   */
+  private withBookingStatus(
+    session: PlaySessionData,
+    statuses: Map<string, BookingStatusInfo>
+  ): PlaySessionData {
+    const info = session.reservationId
+      ? statuses.get(session.reservationId)
+      : undefined
+    if (!info) return session
+    const mapped = mapBookingStatus(info.status)
+    const next: PlaySessionData = { ...session, status: mapped.status }
+    if (mapped.hold) next.hold = mapped.hold
+    else delete next.hold
+    if (info.status === "cancelled") {
+      next.cancelReason = info.declineReason ?? info.cancelReason
+      next.refunded =
+        info.paymentStatus === "refunded" ||
+        info.paymentStatus === "partial_refund"
+    } else if (info.status === "no-show") {
+      next.cancelReason = "Không đến (no-show)"
+    }
+    return next
+  }
+
+  /**
+   * Insert or replace one of the user's sessions (keyed by the client id) —
+   * pure room coordination (roster/capacity/listing/court-hold draft state).
+   * Validates the room shape and the hosted-room cap, then strips the fields
+   * a linked booking now exclusively owns before persisting.
+   */
   async upsertSession(
     userId: string,
     session: PlaySessionData
   ): Promise<PlaySessionData> {
+    this.assertValidRoom(session)
+    await this.assertHostedRoomLimit(userId, session)
+    const toSave = this.stripBookingOwnedFields(session)
     await this.sessionModel.updateOne(
       { userId, sessionId: session.id },
-      { $set: { data: session } },
+      { $set: { data: toSave } },
       { upsert: true }
     )
-    // Mirror a booked session on a real venue court into a pending reservation,
-    // persisting the linkage back so the next PUT updates it in place.
-    return this.syncReservation(userId, session)
+    return toSave
   }
 
-  /**
-   * Cross-write a booked session into the owning venue as a pending reservation
-   * (the single shared record). No-ops for sessions that aren't a real dated
-   * booking on a venue court. A double-book surfaces as a ConflictException the
-   * player sees; other venue errors are swallowed so the session write still holds.
-   */
-  private async syncReservation(
-    userId: string,
-    session: PlaySessionData
-  ): Promise<PlaySessionData> {
-    if (session.status !== "booked" || !session.courtId || !session.slot)
-      return session
-    if (session.dayKey < isoDateOf(vnNowIso())) return session
-    try {
-      const venueId = await this.venues.findVenueByCourtId(session.courtId)
-      if (!venueId) return session
-      const reservation = await this.venues.createOrSyncAppReservation(venueId, {
-        courtId: session.courtId,
-        dayKey: session.dayKey,
-        start: session.slot,
-        durationMin: session.durationMin,
-        userId,
-        sessionId: session.id,
-        customerName: session.host.name,
-        reservationId: session.reservationId,
-      })
-      if (
-        session.venueId !== venueId ||
-        session.reservationId !== reservation.id
-      ) {
-        session.venueId = venueId
-        session.reservationId = reservation.id
-        await this.sessionModel.updateOne(
-          { userId, sessionId: session.id },
-          { $set: { data: session } }
-        )
-      }
-      return session
-    } catch (err) {
-      if (err instanceof ConflictException) throw err
-      return session
+  /** Reject a room whose capacity or roster size breaks the shape invariants. */
+  private assertValidRoom(session: PlaySessionData): void {
+    if (session.capacity > MAX_CAPACITY) {
+      throw new BadRequestException(
+        `Room capacity cannot exceed ${MAX_CAPACITY}`
+      )
+    }
+    if (session.roster.length > session.capacity) {
+      throw new BadRequestException("Roster cannot exceed room capacity")
     }
   }
 
   /**
-   * Apply an operator's reservation decision back onto the linked player session:
-   * map the venue status to the session status/hold and, on a decline, record the
-   * reason + a simulated refund. No-ops when the session no longer exists.
+   * A room counts against the hosted-room cap while it's actively advertised
+   * in the matchmaking pool — mirrors the web's `hostedRoomCount` memo
+   * exactly (listed, not cancelled/completed). Solo court holds
+   * (`listed: false`) are exempt, same as the client.
    */
-  async applyReservationStatus(
+  private isActiveHostedRoom(
+    s: Pick<PlaySessionData, "listed" | "status">
+  ): boolean {
+    return s.listed && s.status !== "cancelled" && s.status !== "completed"
+  }
+
+  /** Reject a write that would push the user past MAX_HOSTED_ROOMS active listed rooms. */
+  private async assertHostedRoomLimit(
     userId: string,
-    sessionId: string,
-    patch: { status: ReservationStatus; reason?: string }
+    incoming: PlaySessionData
   ): Promise<void> {
-    const doc = await this.sessionModel.findOne({ userId, sessionId })
-    if (!doc) return
-    const data = doc.data
-    const mapped = mapReservationStatus(patch.status)
-    data.status = mapped.status
-    if (mapped.hold) data.hold = mapped.hold
-    else delete data.hold
-    if (patch.status === "cancelled" && patch.reason) {
-      data.cancelReason = patch.reason
-      data.refunded = true
-    } else if (patch.status === "no-show") {
-      data.cancelReason = "Không đến (no-show)"
+    if (!this.isActiveHostedRoom(incoming)) return
+    const others = await this.sessionModel
+      .find({ userId, sessionId: { $ne: incoming.id } })
+      .select("data.listed data.status")
+      .lean<{ data: Pick<PlaySessionData, "listed" | "status"> }[]>()
+    const count = others.filter((o) => this.isActiveHostedRoom(o.data)).length
+    if (count + 1 > MAX_HOSTED_ROOMS) {
+      throw new ConflictException(
+        `Bạn chỉ có thể mở tối đa ${MAX_HOSTED_ROOMS} phòng cùng lúc`
+      )
     }
-    doc.markModified("data")
-    await doc.save()
+  }
+
+  /**
+   * `status`/`hold`/`cancelReason`/`refunded` are derived at read time from a
+   * linked booking (`withBookingStatus`, above) once `reservationId` is set —
+   * a client PUT can no longer set them directly (it could otherwise spoof a
+   * venue decision it never made, or just go stale next to the real booking).
+   * `status` still needs *a* value on the stored doc, so it's pinned to
+   * "booked" — read-side derivation immediately refines it from the linked
+   * booking's actual status. A session with no `reservationId` yet (still
+   * forming, or a plain solo court-hold draft) is untouched: there's no
+   * booking to derive from.
+   */
+  private stripBookingOwnedFields(session: PlaySessionData): PlaySessionData {
+    if (!session.reservationId) return session
+    const next: PlaySessionData = { ...session, status: "booked" }
+    delete next.hold
+    delete next.cancelReason
+    delete next.refunded
+    return next
   }
 
   /** Drop one of the user's sessions; throws NotFound when nothing matched. */

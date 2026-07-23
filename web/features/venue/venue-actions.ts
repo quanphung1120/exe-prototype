@@ -2,39 +2,25 @@
 
 import { revalidatePath } from "next/cache"
 import type {
+  CourtBlock,
+  CourtBlockReason,
   Reservation,
   ReservationStatus,
   SportKey,
   Venue,
   VenueCourt,
   VenueCustomer,
+  VenueSeed,
 } from "@/lib/shared"
 
-import { apiFetch } from "@/lib/api"
+import { apiAction as api } from "@/lib/api"
 
 // Server actions for venue management. They run on the server (so the Hono API
 // base stays off the client) and call the API's CRUD routes, then revalidate
 // the relevant venue path so the server-rendered seed refetches.
-// apiFetch (lib/api.ts) carries the shared base URL, timeout and Clerk bearer
-// token, so writes hit the same host/port and auth as reads.
-
-// The API's onError maps every AppError to `{ error: message }` (see
-// CLAUDE.md § API auth); better-fetch surfaces that parsed body as
-// `BetterFetchError.error`, so unwrap it one level to get the message string.
-async function api<T>(
-  path: string,
-  init?: Parameters<typeof apiFetch>[1]
-): Promise<T> {
-  try {
-    return await apiFetch<T>(path, init)
-  } catch (err) {
-    const message =
-      err && typeof err === "object" && "error" in err
-        ? ((err as { error?: { error?: string } }).error?.error ?? undefined)
-        : undefined
-    throw new Error(message ?? "Request failed")
-  }
-}
+// apiAction (lib/api.ts) carries the shared base URL, timeout and Clerk bearer
+// token, and unwraps a non-2xx response into a plain `Error`, so writes hit
+// the same host/port and auth as reads and callers can just `catch` a message.
 
 export interface VenueInput {
   name: string
@@ -69,27 +55,55 @@ export interface WalkInReservationInput {
   customerPhone: string
 }
 
-// Each account owns exactly one venue, resolved server-side from the caller's
-// Clerk id — so these routes carry no venue id in the path. The `venueId` args
-// (the caller's own venue) are kept only to target `revalidatePath` at the
-// venue subtree so the server-rendered bundle refetches after a write.
+// An account's brand may own many venue branches (chi nhánh), so every branch-
+// scoped route carries the target `venueId` in the path (`/api/venues/:venueId/…`)
+// and the API authorizes the caller owns it. The same id also targets
+// `revalidatePath` at that branch's subtree so its bundle refetches after a write.
 
-/** Provision the account's single venue from the guided setup wizard. */
-export async function provisionVenue(input: VenueSetupInput): Promise<void> {
-  await api("/api/venue/setup", {
+/**
+ * Provision a venue branch from the guided setup wizard (the first branch also
+ * mints the account's brand). Returns the new branch's id so the wizard can land
+ * the operator directly on it — even when it's their second or third branch.
+ */
+export async function provisionVenue(input: VenueSetupInput): Promise<string> {
+  const seed = await api<VenueSeed>("/api/venue/setup", {
     method: "POST",
     body: JSON.stringify(input),
   })
   revalidatePath("/dashboard", "layout")
+  return seed.info.id
 }
 
 export async function updateVenue(
   id: string,
   input: Partial<VenueInput>
 ): Promise<Venue> {
-  const venue = await api<Venue>("/api/venues", {
+  const venue = await api<Venue>(`/api/venues/${id}`, {
     method: "PUT",
     body: JSON.stringify(input),
+  })
+  revalidatePath(`/dashboard/venue/${id}`, "layout")
+  revalidatePath("/dashboard", "layout")
+  return venue
+}
+
+/**
+ * Archive (soft-delete) a branch — VienTD-Review decision #11.
+ * `DELETE /api/venues/:venueId` 409s with a Vietnamese message when the branch
+ * still has a pending/confirmed booking in the future; callers should surface
+ * that message and offer a link to the reservations screen rather than retry.
+ */
+export async function archiveVenue(id: string): Promise<void> {
+  await api(`/api/venues/${id}`, { method: "DELETE" })
+  revalidatePath(`/dashboard/venue/${id}`, "layout")
+  revalidatePath("/dashboard", "layout")
+}
+
+/** Restore a previously archived branch (clears `archived`). */
+export async function restoreVenue(id: string): Promise<Venue> {
+  const venue = await api<Venue>(`/api/venues/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ archived: false }),
   })
   revalidatePath(`/dashboard/venue/${id}`, "layout")
   revalidatePath("/dashboard", "layout")
@@ -100,7 +114,7 @@ export async function addCourt(
   venueId: string,
   input: CourtInput
 ): Promise<VenueCourt> {
-  const court = await api<VenueCourt>("/api/venues/courts", {
+  const court = await api<VenueCourt>(`/api/venues/${venueId}/courts`, {
     method: "POST",
     body: JSON.stringify(input),
   })
@@ -113,10 +127,13 @@ export async function updateCourt(
   courtId: string,
   input: Partial<CourtInput>
 ): Promise<VenueCourt> {
-  const court = await api<VenueCourt>(`/api/venues/courts/${courtId}`, {
-    method: "PUT",
-    body: JSON.stringify(input),
-  })
+  const court = await api<VenueCourt>(
+    `/api/venues/${venueId}/courts/${courtId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }
+  )
   revalidatePath(`/dashboard/venue/${venueId}`, "layout")
   return court
 }
@@ -125,7 +142,7 @@ export async function deleteCourt(
   venueId: string,
   courtId: string
 ): Promise<void> {
-  await api(`/api/venues/courts/${courtId}`, { method: "DELETE" })
+  await api(`/api/venues/${venueId}/courts/${courtId}`, { method: "DELETE" })
   revalidatePath(`/dashboard/venue/${venueId}`, "layout")
 }
 
@@ -134,7 +151,7 @@ export async function addWalkInReservation(
   input: WalkInReservationInput
 ): Promise<Reservation> {
   const reservation = await api<Reservation>(
-    "/api/venues/reservations/walk-in",
+    `/api/venues/${venueId}/reservations/walk-in`,
     {
       method: "POST",
       body: JSON.stringify(input),
@@ -156,7 +173,7 @@ async function setReservationStatus(
   reason?: string
 ): Promise<Reservation> {
   const reservation = await api<Reservation>(
-    `/api/venues/reservations/${reservationId}/status`,
+    `/api/venues/${venueId}/reservations/${reservationId}/status`,
     { method: "PUT", body: JSON.stringify({ status, reason }) }
   )
   revalidatePath(`/dashboard/venue/${venueId}`, "layout")
@@ -190,12 +207,17 @@ export async function checkInReservation(
   return setReservationStatus(venueId, reservationId, "checked-in")
 }
 
-/** Cancel a reservation (→ cancelled), e.g. from the schedule event popover. */
+/**
+ * Cancel a reservation (→ cancelled), e.g. from the schedule event popover.
+ * The API requires a reason for any cancellation; it flows back to the
+ * player as a refund notification.
+ */
 export async function cancelReservation(
   venueId: string,
-  reservationId: string
+  reservationId: string,
+  reason: string
 ): Promise<Reservation> {
-  return setReservationStatus(venueId, reservationId, "cancelled")
+  return setReservationStatus(venueId, reservationId, "cancelled", reason)
 }
 
 export interface RescheduleReservationInput {
@@ -211,7 +233,7 @@ export async function rescheduleReservation(
   input: RescheduleReservationInput
 ): Promise<Reservation> {
   const reservation = await api<Reservation>(
-    `/api/venues/reservations/${reservationId}`,
+    `/api/venues/${venueId}/reservations/${reservationId}`,
     { method: "PUT", body: JSON.stringify(input) }
   )
   revalidatePath(`/dashboard/venue/${venueId}`, "layout")
@@ -229,10 +251,48 @@ export async function createCustomer(
   venueId: string,
   input: CustomerInput
 ): Promise<VenueCustomer> {
-  const customer = await api<VenueCustomer>("/api/venues/customers", {
+  const customer = await api<VenueCustomer>(
+    `/api/venues/${venueId}/customers`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    }
+  )
+  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  return customer
+}
+
+// ── Court blocks (VienTD-Review decision #12) ────────────────────────────────
+// A block always carries a required `reason` — never inferred — and is
+// guarded server-side against a live (pending/confirmed/checked-in) booking on
+// the same court/slot.
+
+export interface CourtBlockInput {
+  courtId: string
+  dateKey: string
+  start: string
+  durationMin: number
+  reason: CourtBlockReason
+  note?: string
+}
+
+export async function addCourtBlock(
+  venueId: string,
+  input: CourtBlockInput
+): Promise<CourtBlock> {
+  const block = await api<CourtBlock>(`/api/venues/${venueId}/blocks`, {
     method: "POST",
     body: JSON.stringify(input),
   })
   revalidatePath(`/dashboard/venue/${venueId}`, "layout")
-  return customer
+  return block
+}
+
+/** Reopen a blocked slot ("Mở lại khung giờ"). */
+export async function removeCourtBlock(
+  venueId: string,
+  blockId: string
+): Promise<void> {
+  await api(`/api/venues/${venueId}/blocks/${blockId}`, { method: "DELETE" })
+  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
 }

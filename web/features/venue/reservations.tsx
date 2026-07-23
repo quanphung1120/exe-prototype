@@ -7,6 +7,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Banknote,
   CalendarClock,
   Check,
   Clock,
@@ -38,29 +39,22 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Textarea } from "@/components/ui/textarea"
-import { Field, FieldLabel } from "@/components/ui/field"
 import { SportTag } from "@/features/dashboard/shared"
 import {
   MicroLabel,
+  ReasonDialog,
   VenueEmpty,
   VenuePanel,
 } from "@/features/venue/shared"
 import { useVenueData } from "@/features/venue/venue-data-provider"
 import { decideReservation } from "@/features/venue/venue-actions"
 import {
+  BOOKING_TRANSITIONS,
   formatVnd,
   locStr,
   reservationStatusAccent,
   type BookingSource,
+  type RefundQueueItem,
   type Reservation,
   type ReservationStatus,
 } from "@/features/venue/data"
@@ -284,6 +278,7 @@ export function VenueReservationsView({
   const {
     venueId,
     reservations: RESERVATIONS,
+    refundQueue: REFUND_QUEUE,
     updateReservation,
   } = useVenueData()
 
@@ -518,57 +513,31 @@ export function VenueReservationsView({
         </Table>
       </VenuePanel>
 
+      {/* Manual refund queue — SePay has no refund API, so every computed
+          refund (decline/cancellation) waits here for a bank transfer by
+          hand. Read-only: settling one still happens outside the app. */}
+      {REFUND_QUEUE.length ? (
+        <RefundQueuePanel items={REFUND_QUEUE} t={t} locale={locale} />
+      ) : null}
+
       {/* Decline reason — required before the decline is sent to the player. */}
-      <Dialog
+      <ReasonDialog
         open={declineTarget !== null}
         onOpenChange={(o) => {
           if (!o) setDeclineTarget(null)
         }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("decline.title")}</DialogTitle>
-            <DialogDescription>
-              {t("decline.description", {
-                name: declineTarget?.customer.name ?? "",
-              })}
-            </DialogDescription>
-          </DialogHeader>
-          <Field className="my-2">
-            <FieldLabel htmlFor="decline-reason">
-              {t("decline.reasonLabel")}
-            </FieldLabel>
-            <Textarea
-              id="decline-reason"
-              value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
-              placeholder={t("decline.reasonPlaceholder")}
-              rows={3}
-              maxLength={200}
-              autoFocus
-            />
-          </Field>
-          <DialogFooter className="flex-row justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-full"
-              onClick={() => setDeclineTarget(null)}
-            >
-              {t("decline.cancel")}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              className="rounded-full"
-              disabled={declineReason.trim().length === 0}
-              onClick={confirmDecline}
-            >
-              {t("decline.confirm")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title={t("declineDialog.title")}
+        description={t("declineDialog.description", {
+          name: declineTarget?.customer.name ?? "",
+        })}
+        reasonLabel={t("declineDialog.reasonLabel")}
+        reasonPlaceholder={t("declineDialog.reasonPlaceholder")}
+        cancelLabel={t("declineDialog.cancel")}
+        confirmLabel={t("declineDialog.confirm")}
+        reason={declineReason}
+        onReasonChange={setDeclineReason}
+        onConfirm={confirmDecline}
+      />
     </div>
   )
 }
@@ -628,7 +597,20 @@ function ReservationActions({
     )
   }
 
-  if (r.status === "pending") {
+  // A "held" slot is payment-gated, not operator-actionable — it offers no
+  // decision surface (and isn't a `BOOKING_TRANSITIONS` key). Guard before the
+  // lookup so the six real operator statuses index cleanly below.
+  if (r.status === "held") return null
+
+  // Approve/decline is the pending-only decision surface: both target
+  // statuses ("confirmed"/"cancelled") must be legal transitions off the
+  // reservation's current status (see BOOKING_TRANSITIONS in
+  // shared/helpers.ts) — today that only holds for "pending" — so the row
+  // never offers an action the API would reject.
+  const legalTargets = BOOKING_TRANSITIONS[r.status]
+  const isPendingDecision =
+    legalTargets.includes("confirmed") && legalTargets.includes("cancelled")
+  if (isPendingDecision) {
     return (
       <div className="flex items-center justify-end gap-2">
         <Button
@@ -692,5 +674,65 @@ function SummaryStat({
         <p className="mt-1 truncate text-xs text-muted-foreground">{hint}</p>
       </div>
     </div>
+  )
+}
+
+// ── Manual refund queue ──────────────────────────────────────────────────────
+
+/**
+ * SePay has no refund API (decision #3/#9) — a decline or a player
+ * cancellation only *computes* the refund and stamps it `refund.status:
+ * "manual"` (see `BookingsService#applyRefund`). This surfaces every such
+ * booking as a read-only worklist so the operator can wire the money by
+ * hand; there's no "mark as settled" action yet (a future phase's `ref`
+ * field is where that would land).
+ */
+function RefundQueuePanel({
+  items,
+  t,
+  locale,
+}: {
+  items: RefundQueueItem[]
+  t: Translate
+  locale: string
+}) {
+  return (
+    <VenuePanel title={t("refundQueue.title")} icon={Banknote}>
+      <p className="-mt-1 text-sm text-muted-foreground">
+        {t("refundQueue.hint")}
+      </p>
+      <ul className="flex flex-col divide-y divide-border">
+        {items.map((item) => (
+          <li
+            key={item.bookingId}
+            className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar className="size-8 shrink-0">
+                <AvatarFallback className="text-xs">
+                  {item.customer.initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">
+                  {item.customer.name}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {item.court} · {locStr(item.day, locale)} · {item.time}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="font-mono text-sm font-semibold tabular-nums">
+                {formatVnd(item.refund.amount)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t("refundQueue.pct", { pct: item.refund.pct })}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </VenuePanel>
   )
 }
