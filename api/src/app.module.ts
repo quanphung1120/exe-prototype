@@ -11,6 +11,7 @@ import { ClerkAuthGuard } from "./common/clerk-auth.guard.js"
 import { validateEnv } from "./env.validation.js"
 import { AccountModule } from "./features/account/account.module.js"
 import { AdminModule } from "./features/admin/admin.module.js"
+import { AiModule } from "./features/ai/ai.module.js"
 import { AssessmentModule } from "./features/assessment/assessment.module.js"
 import { BookingsModule } from "./features/bookings/bookings.module.js"
 import { CourtsModule } from "./features/courts/courts.module.js"
@@ -54,6 +55,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     // past the SLA, auto-complete finished checked-in bookings) — see
     // `features/payments/bookings-sweeper.service.ts`.
     ScheduleModule.forRoot(),
+    AiModule,
     BookingsModule,
     CourtsModule,
     PlayersModule,

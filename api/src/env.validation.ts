@@ -29,6 +29,10 @@ const envSchema = z.object({
   // this window ("silence = consent"). Overridable so dev can shrink the
   // real 30-minute SLA to seconds/minutes when exercising the sweeper.
   BOOKING_CONFIRM_SLA_MINUTES: z.coerce.number().int().positive().default(30),
+  // OpenRouter (Vercel AI SDK provider) — powers POST /api/ai/chat. Required so a
+  // missing key crashes at boot instead of 500ing the first chat request.
+  OPENROUTER_API_KEY: z.string().min(1, "OPENROUTER_API_KEY is required"),
+  OPENROUTER_MODEL: z.string().min(1).default("anthropic/claude-haiku-4.5"),
 })
 
 export type Env = z.infer<typeof envSchema>

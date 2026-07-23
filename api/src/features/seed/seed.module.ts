@@ -20,5 +20,7 @@ import { SeedService } from "./seed.service.js"
   ],
   controllers: [SeedController],
   providers: [SeedService],
+  // AiModule injects SeedService in-process to build the seed for tool calls.
+  exports: [SeedService],
 })
 export class SeedModule {}
