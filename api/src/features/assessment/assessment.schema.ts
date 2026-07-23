@@ -9,7 +9,12 @@ import type { PlayerAssessment as PlayerAssessmentData } from "../../shared/inde
 // the web feature (shared types PlayerAssessment).
 @Schema({ timestamps: true, minimize: false })
 export class PlayerAssessment {
-  @Prop({ required: true, unique: true, index: true })
+  // Explicit `type: String` (not inferred from the TS annotation) since
+  // esbuild-based runners like tsx don't emit the design:type metadata @Prop()
+  // needs — see test/sessions-service.test.ts (this schema wasn't reachable
+  // from any test's import graph until SeedService started depending on
+  // AssessmentService, which is what surfaced this).
+  @Prop({ type: String, required: true, unique: true, index: true })
   userId: string
   @Prop({ type: MongooseSchema.Types.Mixed, required: true })
   data: PlayerAssessmentData

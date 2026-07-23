@@ -35,6 +35,7 @@ import {
   type VenueCourt,
   type VenueCustomer,
   type VenueSeed,
+  type VenueStats,
 } from "../../shared/index.js"
 
 import { emptyOps, INITIAL_VENUES, type VenueRecord } from "../../data/venue.js"
@@ -281,6 +282,58 @@ export class VenuesService {
         ops: doc.ops,
       })
     )
+  }
+
+  /**
+   * A zeroed `VenueSeed` for accounts with no venue yet (and anonymous
+   * callers) — no DB reads. The web redirects those accounts to setup before
+   * any venue UI mounts (`venues.length === 0`), so this only needs to be
+   * *shape*-correct, not meaningful. Runs through `withComputedStats` (itself
+   * pure — no queries) so the zeroed stats are shaped exactly like a real
+   * bundle's rather than hand-duplicating that logic.
+   */
+  emptyBundle(): VenueSeed {
+    const info: VenueInfo = {
+      id: "",
+      name: "",
+      initials: "",
+      district: "",
+      city: "",
+      sports: [],
+      openFrom: "00:00",
+      openTo: "24:00",
+      rating: 0,
+      reviews: 0,
+      manager: { name: "", initials: "" },
+      now: vnNowIso(),
+    }
+    const stats: VenueStats = {
+      occupancy: 0,
+      occupancyDelta: 0,
+      revenueToday: 0,
+      revenueDelta: 0,
+      bookingsToday: 0,
+      bookingsDelta: 0,
+      noShowRate: 0,
+      noShowDelta: 0,
+      newCustomers: 0,
+      newCustomersDelta: 0,
+      utilization: 0,
+    }
+    return this.withComputedStats({
+      info,
+      stats,
+      courts: [],
+      reservations: [],
+      refundQueue: [],
+      customers: [],
+      blocks: [],
+      revenueSeries: [],
+      sportMix: [],
+      channelMix: [],
+      peakHours: [],
+      insights: [],
+    })
   }
 
   /**
