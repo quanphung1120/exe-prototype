@@ -74,3 +74,8 @@ BookingSchema.index({ status: 1, confirmDeadlineAt: 1 })
 // booking by `createdAt` with no other filter — without this, that sort scans
 // and in-memory-sorts the entire collection on every admin bookings-page load.
 BookingSchema.index({ createdAt: -1 })
+// Operator reservation list (`listForVenue`): one venue's bookings ordered by
+// creation — lets the sort run off the index instead of in memory.
+BookingSchema.index({ venueId: 1, createdAt: 1 })
+// Manual-refund worklist (`listRefundQueue`), oldest refund first.
+BookingSchema.index({ venueId: 1, "refund.status": 1, "refund.at": 1 })

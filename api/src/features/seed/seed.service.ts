@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common"
+import { Inject, Injectable } from "@nestjs/common"
 
 import {
   buildSeedSessions,
@@ -22,12 +22,16 @@ import { VenuesService } from "../venues/venues.service.js"
 @Injectable()
 export class SeedService {
   constructor(
-    private readonly courts: CourtsService,
-    private readonly players: PlayerService,
-    private readonly profiles: ProfileService,
-    private readonly sessions: SessionsService,
-    private readonly venues: VenuesService,
-    private readonly assessment: AssessmentService
+    // Explicit `@Inject()` tokens (not just the TS type) since esbuild-based
+    // runners like tsx don't emit the design:paramtypes metadata implicit
+    // constructor injection would otherwise rely on — see the same note on
+    // PaymentsService's constructor.
+    @Inject(CourtsService) private readonly courts: CourtsService,
+    @Inject(PlayerService) private readonly players: PlayerService,
+    @Inject(ProfileService) private readonly profiles: ProfileService,
+    @Inject(SessionsService) private readonly sessions: SessionsService,
+    @Inject(VenuesService) private readonly venues: VenuesService,
+    @Inject(AssessmentService) private readonly assessment: AssessmentService
   ) {}
 
   /**
@@ -40,7 +44,7 @@ export class SeedService {
   async buildSeed(userId?: string): Promise<Seed> {
     const serverNow = vnNowIso()
     const todayIso = isoDateOf(serverNow)
-    const [courts, players, profile, userSessions, assessment] =
+    const [courts, players, profile, userSessions, assessment, workspace] =
       await Promise.all([
         this.courts.listCourts(),
         this.players.listPlayers(),
@@ -51,6 +55,11 @@ export class SeedService {
         userId
           ? this.assessment.getUserAssessment(userId)
           : Promise.resolve(null),
+        // `myWorkspace` depends only on `userId`, so it joins this batch too —
+        // only the venue bundle below stays dependent (it needs `venues[0]`).
+        userId
+          ? this.venues.myWorkspace(userId)
+          : Promise.resolve({ brand: null, venues: [] }),
       ])
 
     // The demo sessions are derived from *this user's* profile rooms/bookings, so
@@ -72,16 +81,15 @@ export class SeedService {
 
     // The caller's brand and its branches (chi nhánh), or none yet. When they
     // have none, `venues` is empty (the web redirects to setup) and `venue`
-    // carries a structural fallback bundle never rendered before that redirect.
+    // carries a zeroed, no-query fallback bundle never rendered before that
+    // redirect (`emptyBundle` — no player-surface component reads `seed.venue`).
     // `activeVenueId` defaults to the first branch; the web overrides it from the
     // `/dashboard/venue/[venueId]` URL segment.
-    const { brand, venues } = userId
-      ? await this.venues.myWorkspace(userId)
-      : { brand: null, venues: [] }
+    const { brand, venues } = workspace
     const activeVenueId = venues[0]?.id ?? null
     const venue = activeVenueId
       ? await this.venues.venueBundle(activeVenueId)
-      : await this.venues.activeBundle()
+      : this.venues.emptyBundle()
 
     const accountType = resolveAccountType(
       profile.accountType,
