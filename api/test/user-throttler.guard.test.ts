@@ -7,6 +7,7 @@ import { Reflector } from "@nestjs/core"
 import { ThrottlerException, ThrottlerStorageService } from "@nestjs/throttler"
 import type { ExecutionContext } from "@nestjs/common"
 
+import { IS_PUBLIC_KEY } from "../src/common/public.decorator.js"
 import { setRequestUserId } from "../src/common/request-auth.js"
 import {
   USER_THROTTLE_KEY,
@@ -90,12 +91,12 @@ void test("distinct userIds get independent quotas", async () => {
   assert.equal(await guard.canActivate(makeContext(handler, reqB)), true)
 })
 
-void test("falls back to the library default (10/60s) when no metadata is set", async () => {
+void test("falls back to the global per-user default (120/60s) when no metadata is set", async () => {
   const guard = await makeGuard()
   const handler = makeHandler()
   const req = makeReq("3.3.3.3", "user-default")
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 120; i++) {
     assert.equal(await guard.canActivate(makeContext(handler, req)), true)
   }
   await assert.rejects(guard.canActivate(makeContext(handler, req)))
@@ -122,4 +123,34 @@ void test("per-route isolation: a capped user on handler A is still allowed on h
   assert.equal(await guard.canActivate(makeContext(handlerA, req)), true)
   await assert.rejects(guard.canActivate(makeContext(handlerA, req)))
   assert.equal(await guard.canActivate(makeContext(handlerB, req)), true)
+})
+
+void test("global per-user bucket is shared across routes when no metadata is set", async () => {
+  const guard = await makeGuard()
+  const handlerA = makeHandler()
+  const handlerB = makeHandler()
+  // Fresh userId, unique to this test — the global bucket key is
+  // `user-global-user:<id>`, and all tests share one storage instance.
+  const req = makeReq("6.6.6.6", "user-global-shared")
+
+  for (let i = 0; i < 60; i++) {
+    assert.equal(await guard.canActivate(makeContext(handlerA, req)), true)
+  }
+  for (let i = 0; i < 60; i++) {
+    assert.equal(await guard.canActivate(makeContext(handlerB, req)), true)
+  }
+  // The 121st call, on either handler, draws from the same shared budget.
+  await assert.rejects(guard.canActivate(makeContext(handlerA, req)))
+  await assert.rejects(guard.canActivate(makeContext(handlerB, req)))
+})
+
+void test("@Public() routes are skipped entirely, no matter the call volume", async () => {
+  const guard = await makeGuard()
+  const handler = makeHandler()
+  Reflect.defineMetadata(IS_PUBLIC_KEY, true, handler)
+  const req = makeReq("7.7.7.7")
+
+  for (let i = 0; i < 130; i++) {
+    assert.equal(await guard.canActivate(makeContext(handler, req)), true)
+  }
 })
