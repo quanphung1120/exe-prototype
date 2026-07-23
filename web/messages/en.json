@@ -1713,7 +1713,8 @@
   },
   "AiDashboard": {
     "clearChat": "Reset the chat",
-    "welcomeTitle": "How can I help you today?",
+    "welcomeTitleLine1": "How can I help",
+    "welcomeTitleLine2": "<accent>you</accent> today?",
     "welcomeSubtitle": "Find a court or match with players instantly. Search for courts by district or sport, check real-time slot availability, book slots directly, or find players near your level and invite them to a group chat.",
     "inputPlaceholder": "Ask about courts or teammates…",
     "thinking": "Thinking…",
@@ -1770,7 +1771,11 @@
     "roomSpotsOpen": "{count, plural, one {# spot open} other {# spots open}}",
     "joinRoom": "Join",
     "joined": "Joined",
-    "requested": "Requested…"
+    "requested": "Requested…",
+    "recent": {
+      "title": "Recent",
+      "viewAll": "View all"
+    }
   },
   "Assessment": {
     "metaTitle": "Skill Assessment",

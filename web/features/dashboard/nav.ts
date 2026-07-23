@@ -2,8 +2,8 @@ import type { ComponentType } from "react"
 import {
   CalendarCheck,
   CalendarPlus,
-  LayoutDashboard,
   MessageSquare,
+  Search,
   Sparkles,
 } from "lucide-react"
 
@@ -31,14 +31,14 @@ export const NAV: NavItem<SectionKey>[] = [
     key: "dashboard",
     href: "/dashboard",
     label: "Dashboard",
-    icon: LayoutDashboard,
+    icon: Sparkles,
     caption: "Your court at a glance",
   },
   {
     key: "play",
     href: "/dashboard/play",
     label: "Play",
-    icon: Sparkles,
+    icon: Search,
     caption: "Browse open rooms or find a court",
   },
   {
