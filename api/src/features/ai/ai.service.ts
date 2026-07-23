@@ -7,9 +7,10 @@ import {
   hasToolCall,
   convertToModelMessages,
 } from "ai"
-import type { StreamTextResult, ToolSet, UIMessage } from "ai"
+import type { UIMessage } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { z } from "zod"
+import type { Response } from "express"
 
 import type { Court, Level, SportKey } from "../../shared/index.js"
 
@@ -179,13 +180,14 @@ export class AiService {
   ) {}
 
   async streamChat(args: {
+    res: Response
     userId: string
-    messages: unknown[]
+    messages: UIMessage[]
     userLevels?: SportLevels
     userLocation?: LatLng | null
     locale?: "en" | "vi"
-  }): Promise<StreamTextResult<ToolSet, never>> {
-    const { userId, userLevels, userLocation, locale } = args
+  }): Promise<void> {
+    const { res, userId, userLevels, userLocation, locale } = args
 
     const apiKey = this.config.getOrThrow<string>("OPENROUTER_API_KEY")
     const model =
@@ -200,7 +202,7 @@ export class AiService {
     let seedPromise: ReturnType<SeedService["buildSeed"]> | null = null
     const getSeed = () => (seedPromise ??= this.seed.buildSeed(userId))
 
-    const messages = await convertToModelMessages(args.messages as UIMessage[])
+    const messages = await convertToModelMessages(args.messages)
 
     const result = streamText({
       // `reasoning: { effort: "low" }` is passed through to the OpenRouter API
@@ -490,11 +492,9 @@ export class AiService {
       },
     })
 
-    // The specific tool-set literal type isn't structurally assignable to the
-    // generic `ToolSet`-typed return (StreamTextResult<ToolSet, never>) that
-    // keeps `Output` — an unexported type from "ai" — out of this method's
-    // public signature (TS4053). The narrowing is compile-time only; the
-    // runtime object and everything the controller calls on it is unchanged.
-    return result as unknown as StreamTextResult<ToolSet, never>
+    // `result`'s type is only ever inferred locally (never named in a public
+    // signature), so there's no TS4053 (the internal `Output` type from "ai"
+    // isn't exported) and no cast is needed here.
+    result.pipeUIMessageStreamToResponse(res, { sendReasoning: true })
   }
 }

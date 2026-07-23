@@ -10,6 +10,7 @@ import {
   Min,
   ValidateNested,
 } from "class-validator"
+import type { UIMessage } from "ai"
 
 // Skill level per sport. Closed enum — a crafted value can't smuggle text into
 // the system prompt (defence layer 1; the prompt also fences it as untrusted).
@@ -36,7 +37,7 @@ export class AiChatDto {
   // it's an array and cap its length; the controller adds a serialized-size cap.
   @IsArray()
   @ArrayMaxSize(50)
-  messages!: unknown[]
+  messages!: UIMessage[]
 
   @IsOptional()
   @IsObject()

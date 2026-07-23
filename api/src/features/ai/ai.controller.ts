@@ -18,13 +18,13 @@ export class AiController {
     @Body() dto: AiChatDto,
     @Res() res: Response
   ): Promise<void> {
-    const result = await this.ai.streamChat({
+    await this.ai.streamChat({
+      res,
       userId,
       messages: dto.messages,
       userLevels: dto.userLevels,
       userLocation: dto.userLocation ?? null,
       locale: dto.locale,
     })
-    result.pipeUIMessageStreamToResponse(res, { sendReasoning: true })
   }
 }
