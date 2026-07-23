@@ -144,6 +144,10 @@ interface Deps {
   confirmSlaMinutes?: number
   /** Whether `bookingModel.exists({ venueId })` reports a booking already on file. */
   bookingsExist?: boolean
+  /** What `bookingModel.findOneAndUpdate` resolves to — defaults to
+   * `bookingDoc` (the update "succeeded"); pass `null` to simulate a
+   * concurrent status transition making the filter no longer match. */
+  findOneAndUpdateResult?: FakeBookingDoc | null
 }
 
 async function makeService(deps: Deps = {}) {
@@ -152,6 +156,7 @@ async function makeService(deps: Deps = {}) {
   const notifications: { userId: string; item: unknown }[] = []
   const created: unknown[] = []
 
+  const findOneAndUpdateCalls: unknown[] = []
   const bookingModelMock = {
     findOne: () => makeQuery(bookingDoc),
     find: (filter: { dateKey?: string; venueId?: string }) =>
@@ -160,6 +165,14 @@ async function makeService(deps: Deps = {}) {
           ? (deps.overlapExisting ?? [])
           : (deps.ownBookings ?? [])
       ),
+    findOneAndUpdate: (filter: unknown) => {
+      findOneAndUpdateCalls.push(filter)
+      return makeQuery(
+        deps.findOneAndUpdateResult === undefined
+          ? bookingDoc
+          : deps.findOneAndUpdateResult
+      )
+    },
     create: (records: unknown[]) => {
       created.push(...records)
       return Promise.resolve(
@@ -217,6 +230,7 @@ async function makeService(deps: Deps = {}) {
     bookingDoc,
     notifications,
     created,
+    findOneAndUpdateCalls,
   }
 }
 
@@ -444,6 +458,78 @@ void test("createHold 404s when the court doesn't resolve to a venue", async () 
       }),
     NotFoundException
   )
+})
+
+// ── reschedule (atomic status re-check) ─────────────────────────────────────
+
+void test("reschedule moves a reschedulable booking to the new slot", async () => {
+  const bookingDoc = makeBookingDoc({ status: "confirmed" })
+  const { service, findOneAndUpdateCalls } = await makeService({
+    bookingDoc,
+    overlapExisting: [],
+  })
+
+  const reservation = await service.reschedule("v9", "b1", {
+    dayKey: "2026-07-22",
+    start: "10:00",
+    durationMin: 60,
+  })
+
+  assert.equal(reservation.id, "b1")
+  assert.equal(findOneAndUpdateCalls.length, 1)
+  const filter = findOneAndUpdateCalls[0] as {
+    bookingId: string
+    venueId: string
+    status: { $in: string[] }
+  }
+  assert.equal(filter.bookingId, "b1")
+  assert.equal(filter.venueId, "v9")
+  assert.deepEqual(filter.status, {
+    $in: ["pending", "confirmed", "checked-in"],
+  })
+})
+
+void test("reschedule rejects with ConflictException when the status transitioned concurrently (fast-path gate)", async () => {
+  const bookingDoc = makeBookingDoc({ status: "cancelled" })
+  const { service } = await makeService({ bookingDoc })
+
+  await assert.rejects(
+    () =>
+      service.reschedule("v9", "b1", {
+        dayKey: "2026-07-22",
+        start: "10:00",
+        durationMin: 60,
+      }),
+    ConflictException
+  )
+})
+
+void test("reschedule rejects with ConflictException (not NotFoundException) when the guarded findOneAndUpdate misses — a concurrent status transition after the lean read passed", async () => {
+  const bookingDoc = makeBookingDoc({ status: "confirmed" })
+  const { service, findOneAndUpdateCalls } = await makeService({
+    bookingDoc,
+    overlapExisting: [],
+    // Simulates the sweeper/an operator action cancelling the booking
+    // between the lean-read status gate and the guarded write.
+    findOneAndUpdateResult: null,
+  })
+
+  await assert.rejects(
+    () =>
+      service.reschedule("v9", "b1", {
+        dayKey: "2026-07-22",
+        start: "10:00",
+        durationMin: 60,
+      }),
+    ConflictException
+  )
+  assert.equal(findOneAndUpdateCalls.length, 1)
+  const filter = findOneAndUpdateCalls[0] as {
+    status: { $in: string[] }
+  }
+  assert.deepEqual(filter.status, {
+    $in: ["pending", "confirmed", "checked-in"],
+  })
 })
 
 // ── cancel (refund policy — decision #6) ────────────────────────────────────

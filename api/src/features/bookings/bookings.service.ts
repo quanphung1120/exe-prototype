@@ -815,12 +815,24 @@ export class BookingsService {
         const $set =
           existing.paymentStatus === "paid" ? fields : { ...fields, price }
         const query = this.bookingModel.findOneAndUpdate(
-          { bookingId, venueId },
+          {
+            bookingId,
+            venueId,
+            status: { $in: BookingsService.RESCHEDULABLE_STATUSES },
+          },
           { $set },
           { new: true }
         )
         const doc = await (session ? query.session(session) : query)
-        if (!doc) throw new NotFoundException("Reservation not found")
+        if (!doc) {
+          // The doc existed moments ago on the lean read (fast-path status
+          // gate above) — a miss here means the status transitioned
+          // concurrently (sweeper/operator action), not that the booking
+          // vanished.
+          throw new ConflictException(
+            `Không thể đổi giờ đặt sân ở trạng thái hiện tại`
+          )
+        }
         return doc
       }
     )
