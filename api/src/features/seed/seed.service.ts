@@ -40,7 +40,7 @@ export class SeedService {
   async buildSeed(userId?: string): Promise<Seed> {
     const serverNow = vnNowIso()
     const todayIso = isoDateOf(serverNow)
-    const [courts, players, profile, userSessions, assessment] =
+    const [courts, players, profile, userSessions, assessment, workspace] =
       await Promise.all([
         this.courts.listCourts(),
         this.players.listPlayers(),
@@ -51,6 +51,11 @@ export class SeedService {
         userId
           ? this.assessment.getUserAssessment(userId)
           : Promise.resolve(null),
+        // `myWorkspace` depends only on `userId`, so it joins this batch too —
+        // only the venue bundle below stays dependent (it needs `venues[0]`).
+        userId
+          ? this.venues.myWorkspace(userId)
+          : Promise.resolve({ brand: null, venues: [] }),
       ])
 
     // The demo sessions are derived from *this user's* profile rooms/bookings, so
@@ -75,9 +80,7 @@ export class SeedService {
     // carries a structural fallback bundle never rendered before that redirect.
     // `activeVenueId` defaults to the first branch; the web overrides it from the
     // `/dashboard/venue/[venueId]` URL segment.
-    const { brand, venues } = userId
-      ? await this.venues.myWorkspace(userId)
-      : { brand: null, venues: [] }
+    const { brand, venues } = workspace
     const activeVenueId = venues[0]?.id ?? null
     const venue = activeVenueId
       ? await this.venues.venueBundle(activeVenueId)
