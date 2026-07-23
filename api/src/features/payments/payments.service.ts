@@ -70,7 +70,11 @@ function toPaymentSummary(doc: Payment): PaymentSummary {
   }
 }
 
-/** A remote SePay order's status field, as read back from `order.retrieve()`. */
+/** A remote SePay order's status field, as read back from `order.retrieve()`.
+ * No amount field: `order.retrieve()`'s response shape isn't documented to
+ * carry the settled amount the way the IPN's `order.order_amount` does, so
+ * `byBooking`'s reconciliation settle intentionally skips the amount check
+ * (passes `undefined`) rather than guess a field name. */
 interface RemoteOrder {
   order_status?: string
 }
@@ -264,7 +268,7 @@ export class PaymentsService {
       return { received: true }
     }
 
-    await this.markPaid(invoiceNumber, payload)
+    await this.markPaid(invoiceNumber, payload, payload.order?.order_amount)
     return { received: true }
   }
 
@@ -273,18 +277,50 @@ export class PaymentsService {
    * handler and the `byBooking` reconciliation fallback so both go through the
    * same idempotency guard and the same booking-confirm + venue-notify
    * follow-through. Returns the updated doc, or `null` on a replay/unknown
-   * invoice (nothing left to do).
+   * invoice/amount mismatch (nothing left to do).
+   *
+   * `expectedAmount` (VND, from the caller's typed payload) is folded into
+   * the guarded filter itself rather than compared after the fact — a
+   * mismatched amount then simply fails to match the awaiting payment,
+   * settling nothing, with no separate check-then-write race to worry about.
+   * Pass `undefined` when the caller has no amount to compare (see
+   * `byBooking`) to skip the check entirely.
    */
   private async markPaid(
     invoiceNumber: string,
-    rawPayload: unknown
+    rawPayload: unknown,
+    expectedAmount?: number
   ): Promise<PaymentDocument | null> {
     const updated = await this.paymentModel.findOneAndUpdate(
-      { invoiceNumber, status: "awaiting" },
+      {
+        invoiceNumber,
+        status: "awaiting",
+        ...(typeof expectedAmount === "number"
+          ? { amount: expectedAmount }
+          : {}),
+      },
       { $set: { status: "paid", paidAt: vnNowIso(), ipnPayload: rawPayload } },
       { new: true }
     )
-    if (!updated) return null
+    if (!updated) {
+      // The miss is either "already settled / unknown invoice" (existing
+      // silent no-op — a replayed or stale notification) or "amount
+      // mismatch" (a short-settled order that must NOT confirm the
+      // booking). Only pay for the extra read to tell them apart when an
+      // amount was actually supplied to check against.
+      if (typeof expectedAmount === "number") {
+        const existing = await this.paymentModel
+          .findOne({ invoiceNumber })
+          .select("amount status bookingId")
+          .lean<{ amount: number; status: string; bookingId: string }>()
+        if (existing && existing.status === "awaiting") {
+          this.logger.error(
+            `IPN amount mismatch for invoice ${invoiceNumber} (booking ${existing.bookingId}): expected ${existing.amount} VND, got ${expectedAmount} VND — payment not settled`
+          )
+        }
+      }
+      return null
+    }
 
     // Only bump usedCount once the payment actually settles — not at
     // checkout — so an abandoned/expired checkout never burns a redemption.
