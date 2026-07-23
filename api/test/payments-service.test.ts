@@ -6,6 +6,7 @@ import "reflect-metadata"
 import {
   ConflictException,
   ForbiddenException,
+  Logger,
   UnauthorizedException,
 } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
@@ -246,11 +247,19 @@ function makeService(deps: Deps = {}) {
     }))
 }
 
-function ipnBody(invoiceNumber: string, notificationType = "ORDER_PAID") {
+function ipnBody(
+  invoiceNumber: string,
+  notificationType = "ORDER_PAID",
+  orderAmount?: number
+) {
   return JSON.stringify({
     timestamp: Math.floor(Date.now() / 1000),
     notification_type: notificationType,
-    order: { order_invoice_number: invoiceNumber, order_status: "PAID" },
+    order: {
+      order_invoice_number: invoiceNumber,
+      order_status: "PAID",
+      ...(orderAmount === undefined ? {} : { order_amount: orderAmount }),
+    },
   })
 }
 
@@ -486,6 +495,97 @@ void test("handleIpn ignores a non-ORDER_PAID notification", async () => {
 
   assert.equal(store.get("b1")?.status, "awaiting")
   assert.equal(confirmPaymentCalls.length, 0)
+})
+
+/**
+ * `PaymentsService`'s `logger` is a plain `Logger` instance, not injected —
+ * spy on the shared prototype method for the duration of `fn` and restore it
+ * after, mirroring how one would spy on any un-injectable singleton.
+ */
+async function captureLoggerErrors(fn: () => Promise<void>) {
+  const calls: unknown[][] = []
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- restored below, never invoked unbound.
+  const original = Logger.prototype.error
+  Logger.prototype.error = ((...args: unknown[]) => {
+    calls.push(args)
+  }) as typeof Logger.prototype.error
+  try {
+    await fn()
+  } finally {
+    Logger.prototype.error = original
+  }
+  return calls
+}
+
+void test("handleIpn does not settle a payment whose order_amount is short of the recorded amount, but still acks and logs an error", async () => {
+  const { service, store, notifications, confirmPaymentCalls } =
+    await makeService({
+      seedPayments: [
+        {
+          invoiceNumber: "b1",
+          bookingId: "b1",
+          venueId: "v9",
+          userId: "user-1",
+          amount: 200_000,
+          currency: "VND",
+          status: "awaiting",
+          save: () => Promise.resolve(),
+        },
+      ],
+    })
+
+  let result: { received: boolean } | undefined
+  const errorLogs = await captureLoggerErrors(async () => {
+    result = await service.handleIpn(
+      Buffer.from(ipnBody("b1", "ORDER_PAID", 150_000)),
+      {
+        "x-sepay-signature": "sha256=irrelevant-in-this-fake",
+        "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+      }
+    )
+  })
+
+  assert.deepEqual(result, { received: true })
+  assert.equal(store.get("b1")?.status, "awaiting")
+  assert.equal(confirmPaymentCalls.length, 0)
+  assert.equal(notifications.length, 0)
+  assert.equal(errorLogs.length, 1)
+  const [message] = errorLogs[0] ?? []
+  assert.match(String(message), /b1/)
+  assert.match(String(message), /200000|200,000|200_000/)
+  assert.match(String(message), /150000|150,000|150_000/)
+})
+
+void test("handleIpn settles the payment when order_amount matches the recorded amount", async () => {
+  const { service, store, confirmPaymentCalls } = await makeService({
+    seedPayments: [
+      {
+        invoiceNumber: "b1",
+        bookingId: "b1",
+        venueId: "v9",
+        userId: "user-1",
+        amount: 200_000,
+        currency: "VND",
+        status: "awaiting",
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+
+  const errorLogs = await captureLoggerErrors(async () => {
+    const result = await service.handleIpn(
+      Buffer.from(ipnBody("b1", "ORDER_PAID", 200_000)),
+      {
+        "x-sepay-signature": "sha256=irrelevant-in-this-fake",
+        "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+      }
+    )
+    assert.deepEqual(result, { received: true })
+  })
+
+  assert.equal(store.get("b1")?.status, "paid")
+  assert.deepEqual(confirmPaymentCalls, ["b1"])
+  assert.equal(errorLogs.length, 0)
 })
 
 // ── byBooking ────────────────────────────────────────────────────────────────
