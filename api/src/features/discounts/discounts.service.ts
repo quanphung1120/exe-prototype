@@ -75,11 +75,30 @@ export class DiscountsService {
     }
   }
 
-  /** Increment `usedCount` for a code — called only once a payment is `paid`. */
-  async applyUsage(code: string): Promise<void> {
-    await this.discountModel.updateOne(
-      { code: code.trim().toUpperCase() },
+  /**
+   * Increment `usedCount` for a code — called only once a payment is `paid`.
+   * The limit lives in the filter so the check and the increment are one
+   * atomic update: `"applied"` means the increment landed within the limit,
+   * `"over_limit"` means the code was already exhausted when this settlement
+   * arrived (validate-time check raced another checkout), `"missing"` means
+   * the code no longer exists.
+   */
+  async applyUsage(
+    code: string
+  ): Promise<"applied" | "over_limit" | "missing"> {
+    const normalized = code.trim().toUpperCase()
+    const res = await this.discountModel.updateOne(
+      {
+        code: normalized,
+        $or: [
+          { usageLimit: { $exists: false } },
+          { $expr: { $lt: ["$usedCount", "$usageLimit"] } },
+        ],
+      },
       { $inc: { usedCount: 1 } }
     )
+    if (res.modifiedCount > 0) return "applied"
+    const exists = await this.discountModel.exists({ code: normalized })
+    return exists ? "over_limit" : "missing"
   }
 }
