@@ -30,6 +30,9 @@ services:
       # Server-side calls stay inside the compose network; the browser still
       # hits the API through the published port on localhost.
       API_URL: http://api:6969
+      # Inlined into the client bundle at dev/build time: the browser reaches
+      # the api via the host-published port, not the compose-network name.
+      NEXT_PUBLIC_API_URL: http://localhost:6969
     ports:
       - "3000:3000"
     depends_on:
