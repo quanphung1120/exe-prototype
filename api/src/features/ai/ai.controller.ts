@@ -1,11 +1,8 @@
-import { Body, Controller, Post, Res, UseGuards } from "@nestjs/common"
+import { Body, Controller, Post, Res } from "@nestjs/common"
 import type { Response } from "express"
 
 import { UserId } from "../../common/user-id.decorator.js"
-import {
-  UserThrottle,
-  UserThrottlerGuard,
-} from "../../common/user-throttler.guard.js"
+import { UserThrottle } from "../../common/user-throttler.guard.js"
 import { AiChatDto } from "./ai-chat.dto.js"
 import { AiService } from "./ai.service.js"
 
@@ -20,7 +17,6 @@ import { AiService } from "./ai.service.js"
 export class AiController {
   constructor(private readonly ai: AiService) {}
 
-  @UseGuards(UserThrottlerGuard)
   @UserThrottle({ limit: 10, ttl: 60_000 })
   @Post("chat")
   async chat(
