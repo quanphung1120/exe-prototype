@@ -102,7 +102,13 @@ export class StreamService {
     image?: string
   ): Promise<{ apiKey: string; token: string }> {
     await this.seedForUser(userId, name, image)
-    return { apiKey: this.client.key, token: this.client.createToken(userId) }
+    // 24h bounds the life of a leaked token; the web client refreshes via its
+    // token provider, so a short-lived token costs nothing in UX.
+    const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24
+    return {
+      apiKey: this.client.key,
+      token: this.client.createToken(userId, exp),
+    }
   }
 
   /**

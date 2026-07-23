@@ -1,7 +1,26 @@
 "use server"
 
-import { apiFetch } from "@/lib/api"
+import { apiFetch, fetchStreamCredentials } from "@/lib/api"
 import { roomChannelId } from "@/features/chat/channel-ids"
+
+/**
+ * Re-sign a fresh Stream Chat user token — the token provider passed to
+ * `connectUser`/`useCreateChatClient` calls this again whenever the
+ * previously issued token (24h-lived, see api `StreamService.issueToken`)
+ * expires. Runs as a server action so it re-authenticates through the
+ * caller's own Clerk session (via `apiFetch`'s bearer), never an
+ * unauthenticated mint. Throws (rather than degrading to null) so the
+ * caller/SDK can surface a real connection failure instead of silently
+ * reconnecting with an empty token.
+ */
+export async function refreshStreamToken(user: {
+  name: string
+  image?: string | null
+}): Promise<string> {
+  const creds = await fetchStreamCredentials(user)
+  if (!creds) throw new Error("Stream credentials unavailable")
+  return creds.token
+}
 
 // ── Real room-chat lifecycle (quyết định #13) ────────────────────────────
 // Only the room's real members are ever added — no mock seeding — every
