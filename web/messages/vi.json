@@ -2098,6 +2098,7 @@
       "conditions": "Điều kiện",
       "validity": "Hiệu lực",
       "usage": "Lượt dùng",
+      "perUser": "{count}/người",
       "status": "Trạng thái",
       "actions": "Hành động"
     },

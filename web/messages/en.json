@@ -2098,6 +2098,7 @@
       "conditions": "Conditions",
       "validity": "Validity",
       "usage": "Usage",
+      "perUser": "{count}/person",
       "status": "Status",
       "actions": "Actions"
     },

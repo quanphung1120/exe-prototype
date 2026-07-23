@@ -182,7 +182,7 @@ export function AdminDiscountsView({
                   {row.usedCount}/{row.usageLimit ?? t("unlimited")}
                   {row.perUserLimit !== undefined ? (
                     <span className="ml-1 text-xs text-muted-foreground">
-                      ({row.perUserLimit}/người)
+                      ({t("table.perUser", { count: row.perUserLimit })})
                     </span>
                   ) : null}
                 </TableCell>
@@ -327,18 +327,20 @@ function DiscountFormDialog({
     if (!target) return
     startTransition(async () => {
       try {
+        // In edit mode, an emptied field means "clear it" (`null`, applied
+        // by the PATCH's null-clearing semantics); in create mode there is
+        // nothing to clear, so an empty field is simply omitted.
+        const cleared = target.mode === "edit" ? null : undefined
         const patch: Partial<AdminDiscountInput> = {
           type,
           value: Number(value),
           maxDiscount:
-            type === "percent" && maxDiscount ? Number(maxDiscount) : undefined,
-          minOrder: minOrder ? Number(minOrder) : undefined,
-          usageLimit: usageLimit ? Number(usageLimit) : undefined,
-          perUserLimit: perUserLimit ? Number(perUserLimit) : undefined,
-          validFrom: validFrom ? new Date(validFrom).toISOString() : undefined,
-          validUntil: validUntil
-            ? new Date(validUntil).toISOString()
-            : undefined,
+            type === "percent" && maxDiscount ? Number(maxDiscount) : cleared,
+          minOrder: minOrder ? Number(minOrder) : cleared,
+          usageLimit: usageLimit ? Number(usageLimit) : cleared,
+          perUserLimit: perUserLimit ? Number(perUserLimit) : cleared,
+          validFrom: validFrom ? new Date(validFrom).toISOString() : cleared,
+          validUntil: validUntil ? new Date(validUntil).toISOString() : cleared,
           description,
         }
         if (target.mode === "create") {

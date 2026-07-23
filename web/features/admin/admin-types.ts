@@ -69,19 +69,22 @@ export interface AdminDiscountRow {
 
 /**
  * Create/update payload for `createDiscount`/`updateDiscount` server actions
- * — mirrors the api's `CreateDiscountDto`, dates as ISO strings (the dialog
- * converts a `datetime-local` value with `new Date(value).toISOString()`).
+ * — mirrors the api's `CreateDiscountDto`/`UpdateDiscountDto`, dates as ISO
+ * strings (the dialog converts a `datetime-local` value with
+ * `new Date(value).toISOString()`). The optional fields accept `null` for a
+ * `PATCH` that clears a previously-set value — omitted means "leave
+ * unchanged", `null` means "clear". `createDiscount` never sends `null`.
  */
 export interface AdminDiscountInput {
   code: string
   type: "percent" | "fixed"
   value: number
-  maxDiscount?: number
-  minOrder?: number
-  validFrom?: string
-  validUntil?: string
-  usageLimit?: number
-  perUserLimit?: number
+  maxDiscount?: number | null
+  minOrder?: number | null
+  validFrom?: string | null
+  validUntil?: string | null
+  usageLimit?: number | null
+  perUserLimit?: number | null
   active?: boolean
   description: string
 }
