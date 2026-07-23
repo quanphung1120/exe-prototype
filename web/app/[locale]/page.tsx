@@ -3,16 +3,20 @@ import {
   BarChart3,
   CalendarCheck,
   CheckCircle2,
-  ImageIcon,
+  Clock,
+  Feather,
+  Heart,
   MapPin,
   MessageSquare,
   MessagesSquare,
+  RefreshCw,
   Search,
   Shield,
   Sparkles,
   Star,
   TrendingUp,
   Users,
+  Zap,
 } from "lucide-react"
 import Image from "next/image"
 import { getTranslations, setRequestLocale } from "next-intl/server"
@@ -42,6 +46,8 @@ const TRUST_LOGOS = [
   "Topspin Center",
 ]
 
+const ABOUT_FEATURE_ICONS = [Zap, RefreshCw]
+
 const PLAYER_FEATURE_ICONS = [
   Sparkles,
   Users,
@@ -49,6 +55,18 @@ const PLAYER_FEATURE_ICONS = [
   MapPin,
   MessagesSquare,
 ]
+
+// Floating chips over the full-bleed hero photo — position is a
+// percentage-based inset from the hero section's own edges (the photo now
+// fills the whole section), clustered around where the racket sits on the
+// right. Only shown at `lg`, tune by eye once the photo crop is final.
+const HERO_BADGES = [
+  { key: "smartMatching", icon: Users, className: "top-[12%] right-[10%]" },
+  { key: "aiPowered", icon: Sparkles, className: "top-[30%] right-[40%]" },
+  { key: "saveTime", icon: Clock, className: "top-[40%] right-[4%]" },
+  { key: "moreGames", icon: Feather, className: "bottom-[28%] right-[44%]" },
+  { key: "builtForYou", icon: Heart, className: "bottom-[12%] right-[12%]" },
+] as const
 const STEP_ICONS = [MessageSquare, Search, CheckCircle2]
 const VENUE_BENEFIT_ICONS = [TrendingUp, Users, BarChart3, Shield]
 
@@ -71,21 +89,6 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Neutral image placeholder — section imagery is intentionally left blank. */
-function Placeholder({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn(
-        "bg-court-lines flex items-center justify-center overflow-hidden rounded-3xl border border-border bg-muted",
-        className
-      )}
-      aria-hidden="true"
-    >
-      <ImageIcon className="size-8 text-muted-foreground/40" />
-    </div>
-  )
-}
-
 export default async function Page({
   params,
 }: {
@@ -95,6 +98,12 @@ export default async function Page({
   setRequestLocale(locale)
   const t = await getTranslations("Landing")
   const tc = await getTranslations("Common")
+
+  const aboutFeatures = ABOUT_FEATURE_ICONS.map((icon, i) => ({
+    icon,
+    title: t(`aboutSection.features.${i}.title`),
+    body: t(`aboutSection.features.${i}.body`),
+  }))
 
   const playerFeatures = PLAYER_FEATURE_ICONS.map((icon, i) => ({
     icon,
@@ -136,45 +145,57 @@ export default async function Page({
       <SiteHeader />
       <main id="top">
         {/* ── Hero ─────────────────────────────────────────── */}
-        {/* Pulled up behind the transparent navbar so the photo bleeds under it. */}
-        <section className="relative isolate -mt-32 overflow-hidden">
-          {/* Hero photograph — anchored to the right, blended into the page. */}
-          <div
-            className="absolute inset-0 -z-10 overflow-hidden"
-            aria-hidden="true"
-          >
-            <div className="absolute inset-y-0 right-0 w-full overflow-hidden sm:w-[50%]">
-              <Parallax speed={0.22} className="absolute inset-0">
-                <Image
-                  src="/hero-modern.png"
-                  alt=""
-                  fill
-                  priority
-                  sizes="(min-width: 640px) 50vw, 100vw"
-                  className="scale-110 object-cover object-center sm:translate-y-[16%] sm:scale-[1.22] sm:object-[5%_center]"
-                />
-              </Parallax>
-              {/* Blend the image's left edge into the page. */}
-              <div className="absolute inset-0 bg-gradient-to-r from-background via-background/55 to-transparent sm:via-background/15" />
-            </div>
-            {/* Lighten the very top so the transparent navbar stays legible. */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-background via-background/50 to-transparent" />
-            {/* Mobile: a flat veil so the headline stays readable over the photo. */}
-            <div className="absolute inset-0 bg-background/45 sm:hidden" />
-            {/* Fade the bottom into the page so the trust strip sits clean. */}
-            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-background" />
+        <section className="relative isolate overflow-hidden py-20 sm:py-24 lg:flex lg:min-h-[760px] lg:items-center lg:py-0">
+          {/* Photo stretched to fill the entire hero — the visual is the background.
+              Anchored bottom-right (where the racket already bleeds off-frame in the
+              source photo) so cover-cropping trims sky/background first and never
+              clips the racket, regardless of viewport aspect ratio. */}
+          <div className="absolute inset-0 -z-20" aria-hidden="true">
+            <Parallax speed={0.1} className="absolute inset-0">
+              <Image
+                src="/hero-badminton.png"
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover object-right-bottom brightness-95 contrast-[0.97] saturate-95 dark:brightness-100 dark:contrast-100 dark:saturate-100"
+              />
+            </Parallax>
           </div>
-
+          {/* Legibility scrim so the text column stays readable over the photo.
+              Dark mode uses the lighter "card" surface instead of the near-black
+              page background so the left side doesn't read as flat black. */}
           <div
-            className={`${containerCx} pt-40 pb-20 sm:pt-48 sm:pb-28 lg:pt-56 lg:pb-32`}
-          >
-            <HeroIntro className="max-w-2xl">
+            className="absolute inset-0 -z-10 bg-gradient-to-r from-background via-background/85 to-background/25 dark:from-card/90 dark:via-card/65 dark:to-transparent"
+            aria-hidden="true"
+          />
+          <div
+            className="absolute inset-0 -z-10 bg-background/20 sm:hidden"
+            aria-hidden="true"
+          />
+
+          <div className="mx-auto w-full max-w-[1280px] px-6 sm:px-10 lg:px-16">
+            <HeroIntro className="max-w-xl">
+              <span
+                data-hero-item
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/70 px-3.5 py-1.5 text-sm font-medium text-foreground backdrop-blur-sm"
+              >
+                <Sparkles className="size-3.5 text-primary" />
+                {t("hero.eyebrow")}
+              </span>
+
               <h1
                 data-hero-item
-                className={`${displayCx} text-5xl leading-[0.95] uppercase sm:text-6xl lg:text-7xl`}
+                className={`${displayCx} mt-5 text-5xl leading-[0.95] uppercase sm:text-6xl lg:text-7xl`}
               >
                 {t("hero.titleLine1")}
-                <span className="block">{t("hero.titleLine2")}</span>
+                <span className="block">
+                  {t.rich("hero.titleLine2", {
+                    accent: (chunks) => (
+                      <span className="text-lime">{chunks}</span>
+                    ),
+                  })}
+                </span>
               </h1>
 
               {/* Lime accent rule. */}
@@ -186,7 +207,7 @@ export default async function Page({
 
               <p
                 data-hero-item
-                className="mt-6 max-w-xl text-lg text-muted-foreground sm:text-xl"
+                className="mt-6 text-lg text-muted-foreground sm:text-xl"
               >
                 {t("hero.subtitle")}
               </p>
@@ -236,10 +257,29 @@ export default async function Page({
               </div>
             </HeroIntro>
           </div>
+
+          {/* Floating badges over the photo — hidden on small screens where the photo sits behind a solid scrim. */}
+          <div
+            className="absolute inset-0 -z-10 hidden lg:block"
+            aria-hidden="true"
+          >
+            {HERO_BADGES.map(({ key, icon: Icon, className }) => (
+              <span
+                key={key}
+                className={cn(
+                  "absolute inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-foreground shadow-md backdrop-blur-sm sm:text-sm",
+                  className
+                )}
+              >
+                <Icon className="size-3.5 text-primary sm:size-4" />
+                {t(`hero.badges.${key}`)}
+              </span>
+            ))}
+          </div>
         </section>
 
-        {/* ── Trust strip (sliding marquee, overlaps the hero) ─ */}
-        <section className="relative z-10 -mt-32 pt-32 sm:-mt-14">
+        {/* ── Trust strip (sliding marquee) ─ */}
+        <section className="relative z-10 pt-8 sm:pt-4">
           <div className={containerCx}>
             <div className="overflow-hidden rounded-2xl border border-border bg-background/80 px-6 py-5 shadow-sm backdrop-blur-md sm:px-8">
               <p className="text-center text-xs font-medium tracking-wide text-muted-foreground uppercase">
@@ -265,7 +305,10 @@ export default async function Page({
         </section>
 
         {/* ── About ────────────────────────────────────────── */}
-        <section id="about" className="scroll-mt-20 py-20 sm:py-28">
+        <section
+          id="about"
+          className="scroll-mt-20 pt-10 pb-20 sm:pt-14 sm:pb-28"
+        >
           <div className={containerCx}>
             <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
               <Reveal>
@@ -281,14 +324,69 @@ export default async function Page({
                 <p className="mt-6 max-w-xl text-lg text-muted-foreground">
                   {t("aboutSection.body")}
                 </p>
-                <div className="mt-8 grid grid-cols-2 gap-4">
-                  <Placeholder className="aspect-[4/3]" />
-                  <Placeholder className="aspect-[4/3]" />
+                <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {aboutFeatures.map((feature) => (
+                    <div
+                      key={feature.title}
+                      className="rounded-2xl border border-border bg-card p-5"
+                    >
+                      <span className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <feature.icon className="size-4" />
+                      </span>
+                      <h3 className="mt-3 font-heading text-base font-semibold">
+                        {feature.title}
+                      </h3>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {feature.body}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </Reveal>
 
               <Reveal delayMs={120}>
-                <Placeholder className="aspect-[4/5] lg:aspect-[3/4]" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="mt-10 flex flex-col gap-4">
+                    <div className="relative aspect-[4/5] overflow-hidden rounded-3xl border border-border">
+                      <Image
+                        src="/about-catch.png"
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 25vw, 45vw"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="relative aspect-square overflow-hidden rounded-3xl border border-border">
+                      <Image
+                        src="/about-racket.jpg"
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 25vw, 45vw"
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <div className="relative aspect-square overflow-hidden rounded-3xl border border-border">
+                      <Image
+                        src="/about-court.png"
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 25vw, 45vw"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="relative aspect-[4/5] overflow-hidden rounded-3xl border border-border">
+                      <Image
+                        src="/about-action.jpg"
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 25vw, 45vw"
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                </div>
               </Reveal>
             </div>
           </div>
@@ -314,20 +412,140 @@ export default async function Page({
                   delayMs={i * 60}
                   className={feature.featured ? "sm:col-span-2" : ""}
                 >
-                  <article
-                    className={`group flex h-full flex-col rounded-3xl border p-6 transition-colors ${
-                      feature.featured
-                        ? "border-primary/30 bg-gradient-to-br from-primary/[0.07] to-lime/[0.07]"
-                        : "border-border bg-card hover:border-primary/40"
-                    }`}
-                  >
-                    <span className="flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <article className="flex h-full flex-col rounded-3xl border border-border bg-card p-6 transition-colors hover:border-primary/40">
+                    <span
+                      className={cn(
+                        "flex size-12 items-center justify-center rounded-2xl",
+                        i === 0 && "bg-lime text-lime-foreground",
+                        i === 1 && "bg-primary text-primary-foreground",
+                        i >= 2 && "bg-muted text-foreground"
+                      )}
+                    >
                       <feature.icon className="size-6" />
                     </span>
                     <h3 className="mt-5 font-heading text-xl font-semibold">
                       {feature.title}
                     </h3>
                     <p className="mt-2 text-muted-foreground">{feature.body}</p>
+
+                    {i === 0 && (
+                      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl bg-muted p-3">
+                          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                            {t("playerFeatures.0.demoRequestLabel")}
+                          </p>
+                          <p className="mt-1.5 text-sm text-foreground">
+                            {t("playerFeatures.0.demoRequest")}
+                          </p>
+                        </div>
+                        <div className="rounded-xl bg-lime p-3">
+                          <p className="text-[10px] font-semibold tracking-wide text-lime-foreground/70 uppercase">
+                            {t("playerFeatures.0.demoResponseLabel")}
+                          </p>
+                          <p className="mt-1.5 text-sm text-lime-foreground">
+                            {t("playerFeatures.0.demoResponse")}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {i === 1 && (
+                      <div className="mt-6">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                            {t("playerFeatures.1.demoLabel")}
+                          </p>
+                          <span className="rounded-full bg-lime px-2.5 py-0.5 text-xs font-semibold text-lime-foreground">
+                            {t("playerFeatures.1.demoBadge")}
+                          </span>
+                        </div>
+                        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+                          <div className="h-full w-[70%] rounded-full bg-lime" />
+                        </div>
+                      </div>
+                    )}
+
+                    {i === 2 && (
+                      <div className="mt-6 inline-flex w-fit items-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold">
+                        <Zap className="size-4 text-lime" />
+                        {t("playerFeatures.2.demoCta")}
+                      </div>
+                    )}
+
+                    {i === 3 && (
+                      <div
+                        className="relative mt-6 aspect-[4/3] overflow-hidden rounded-2xl bg-muted"
+                        aria-hidden="true"
+                      >
+                        {/* map tile tint */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.08] via-transparent to-lime/[0.12]" />
+
+                        {/* city blocks */}
+                        <div className="absolute top-[10%] left-[8%] size-9 rounded-md bg-foreground/[0.06]" />
+                        <div className="absolute top-[12%] right-[12%] size-6 rounded-md bg-foreground/[0.06]" />
+                        <div className="absolute bottom-[14%] left-[14%] size-7 rounded-md bg-foreground/[0.06]" />
+                        <div className="absolute right-[8%] bottom-[8%] size-10 rounded-md bg-foreground/[0.06]" />
+
+                        {/* streets */}
+                        <svg
+                          className="absolute inset-0 size-full"
+                          viewBox="0 0 200 150"
+                          preserveAspectRatio="none"
+                          fill="none"
+                        >
+                          <g className="text-border" stroke="currentColor">
+                            <path d="M0 32H200M0 82H200M0 122H200" strokeWidth="1.5" />
+                            <path d="M38 0V150M98 0V150M152 0V150" strokeWidth="1.5" />
+                          </g>
+                          <path
+                            d="M-5 58Q70 36 130 72T205 100"
+                            className="text-lime"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            strokeLinecap="round"
+                            opacity="0.65"
+                          />
+                        </svg>
+
+                        {/* "you are here" pulse */}
+                        <span className="absolute top-[68%] left-[20%] flex size-3 -translate-x-1/2 -translate-y-1/2">
+                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary/60" />
+                          <span className="relative inline-flex size-3 rounded-full bg-primary ring-2 ring-background" />
+                        </span>
+
+                        {/* nearby court pins */}
+                        <div className="absolute top-[30%] left-[42%] -translate-x-1/2 -translate-y-full">
+                          <MapPin className="mx-auto size-5 fill-lime text-lime-foreground drop-shadow" />
+                          <span className="mt-0.5 block rounded-full bg-lime px-2 py-0.5 text-center text-[10px] font-semibold whitespace-nowrap text-lime-foreground shadow-sm">
+                            650m
+                          </span>
+                        </div>
+                        <div className="absolute top-[52%] left-[72%] -translate-x-1/2 -translate-y-full">
+                          <MapPin className="mx-auto size-5 fill-primary text-primary-foreground drop-shadow" />
+                          <span className="mt-0.5 block rounded-full bg-card px-2 py-0.5 text-center text-[10px] font-semibold whitespace-nowrap text-foreground shadow-sm ring-1 ring-border">
+                            1.4km
+                          </span>
+                        </div>
+                        <MapPin className="absolute top-[80%] left-[55%] size-4 -translate-x-1/2 -translate-y-full text-muted-foreground/70" />
+                      </div>
+                    )}
+
+                    {i === 4 && (
+                      <div className="mt-6 space-y-2">
+                        <div className="rounded-xl bg-muted p-3">
+                          <p className="text-xs font-semibold text-foreground">
+                            {t("playerFeatures.4.demoName")}
+                          </p>
+                          <p className="mt-0.5 text-sm text-muted-foreground">
+                            {t("playerFeatures.4.demoMessage")}
+                          </p>
+                        </div>
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-lime px-3 py-1.5 text-xs font-semibold text-lime-foreground">
+                          <CheckCircle2 className="size-3.5" />
+                          {t("playerFeatures.4.demoConfirm")}
+                        </div>
+                      </div>
+                    )}
                   </article>
                 </Reveal>
               ))}
