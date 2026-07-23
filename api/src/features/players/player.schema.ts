@@ -8,11 +8,16 @@ import type { Player as PlayerType, SportKey } from "../../shared/index.js"
 // `MATCH_SUGGESTIONS` (see player.service) and every user sees the same pool.
 @Schema({ timestamps: true })
 export class Player {
-  @Prop({ required: true, unique: true, index: true }) playerId: string
-  @Prop({ required: true }) name: string
-  @Prop({ required: true }) initials: string
-  // `type: String` is explicit because the field types are string unions —
-  // @nestjs/mongoose can't infer a Mongoose type from union decorator metadata.
+  // Explicit `type: X` on every field below (rather than relying on
+  // reflect-metadata to infer it from the TS annotation) since esbuild-based
+  // runners like tsx don't emit the design:type metadata @Prop() needs — see
+  // test/sessions-service.test.ts (this schema wasn't reachable from any
+  // test's import graph until SeedService started depending on PlayerService,
+  // which is what surfaced this).
+  @Prop({ type: String, required: true, unique: true, index: true })
+  playerId: string
+  @Prop({ type: String, required: true }) name: string
+  @Prop({ type: String, required: true }) initials: string
   @Prop({
     type: String,
     required: true,
@@ -22,13 +27,13 @@ export class Player {
   @Prop({ type: String, required: true, enum: ["badminton"] })
   sport: SportKey
   // Distance from the current user, km.
-  @Prop({ required: true }) distanceKm: number
+  @Prop({ type: Number, required: true }) distanceKm: number
   // AI compatibility score, 0–100.
-  @Prop({ required: true }) matchPct: number
+  @Prop({ type: Number, required: true }) matchPct: number
   // Reliability/reputation score, 0–100.
-  @Prop({ required: true }) trust: number
-  @Prop({ default: false }) online: boolean
-  @Prop({ default: "" }) blurb: string
+  @Prop({ type: Number, required: true }) trust: number
+  @Prop({ type: Boolean, default: false }) online: boolean
+  @Prop({ type: String, default: "" }) blurb: string
 }
 
 export type PlayerDocument = HydratedDocument<Player>

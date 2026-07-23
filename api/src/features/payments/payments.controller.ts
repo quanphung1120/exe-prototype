@@ -12,6 +12,7 @@ import type { Request } from "express"
 
 import { Public } from "../../common/public.decorator.js"
 import { UserId } from "../../common/user-id.decorator.js"
+import { UserThrottle } from "../../common/user-throttler.guard.js"
 import { BookingIdParamDto, CheckoutDto } from "./payments.dto.js"
 import { PaymentsService } from "./payments.service.js"
 
@@ -24,7 +25,11 @@ import { PaymentsService } from "./payments.service.js"
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
-  /** Start (or resume) a SePay checkout for the caller's own booking hold. */
+  /**
+   * Start (or resume) a SePay checkout for the caller's own booking hold.
+   * Per-user throttled — each call creates an external SePay checkout.
+   */
+  @UserThrottle({ limit: 10, ttl: 60_000 })
   @Post("checkout")
   async checkout(@UserId() userId: string, @Body() body: CheckoutDto) {
     return this.payments.checkout(userId, body.bookingId, body.discountCode)

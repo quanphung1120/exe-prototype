@@ -3,12 +3,14 @@
 import * as React from "react"
 import { useChat } from "@ai-sdk/react"
 import {
+  DefaultChatTransport,
   isToolUIPart,
   getToolName,
   isTextUIPart,
   isReasoningUIPart,
 } from "ai"
 import type { UIMessage } from "ai"
+import { useAuth } from "@clerk/nextjs"
 import {
   ArrowUp,
   CalendarCheck,
@@ -80,6 +82,7 @@ import { Flip, gsap, prefersReducedMotion } from "@/features/landing/gsap"
 import { Streamdown } from "streamdown"
 import "streamdown/styles.css"
 import { cn } from "@/lib/utils"
+import { PUBLIC_API_URL } from "@/lib/public-api"
 import { useRouter } from "@/i18n/navigation"
 import {
   chooseSuggestedCourt,
@@ -201,7 +204,15 @@ export function AiNativeDashboardView() {
   const locale = useLocale()
   const { courts, user: USER } = useData()
   const { openBooking } = useBooking()
-  const { createInviteRoom, addPlayersToSession, sessions, joinedIds, joinRoom, userLevelForSport, userLevels } = useSession()
+  const {
+    createInviteRoom,
+    addPlayersToSession,
+    sessions,
+    joinedIds,
+    joinRoom,
+    userLevelForSport,
+    userLevels,
+  } = useSession()
   const router = useRouter()
 
   const [input, setInput] = React.useState("")
@@ -266,8 +277,23 @@ export function AiNativeDashboardView() {
     [userLoc]
   )
 
+  const { getToken } = useAuth()
+  // The transport resolves headers per request, so each send attaches a
+  // fresh short-lived Clerk token. useChat re-reads `options.transport` on
+  // every render internally (via its own ref), so recreating the transport
+  // whenever `getToken`'s identity changes is safe — no stale closure risk.
+  const transport = React.useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: `${PUBLIC_API_URL}/api/ai/chat`,
+        headers: async () => ({
+          Authorization: `Bearer ${(await getToken()) ?? ""}`,
+        }),
+      }),
+    [getToken]
+  )
   // AI SDK v6 — sendMessage replaces handleSubmit/append
-  const { messages, sendMessage, status, setMessages } = useChat()
+  const { messages, sendMessage, status, setMessages } = useChat({ transport })
   const isLoading = status === "streaming" || status === "submitted"
 
   React.useEffect(() => {
@@ -314,7 +340,11 @@ export function AiNativeDashboardView() {
       for (const part of msg.parts ?? []) {
         if (isToolUIPart(part) && part.state === "output-available") {
           const result = toolResult((part as { output: unknown }).output)
-          if (result?.kind === "booking" && result.value.success && result.value.courtId) {
+          if (
+            result?.kind === "booking" &&
+            result.value.success &&
+            result.value.courtId
+          ) {
             ids.add(result.value.courtId)
           }
         }
@@ -479,7 +509,7 @@ export function AiNativeDashboardView() {
           slot: schedule.slot,
           durationMin: 90,
           level:
-            (lastPlayerResult.intent.targetLevel) ??
+            lastPlayerResult.intent.targetLevel ??
             userLevelForSport(inviteSport),
           pricePerHour: suggestedCourt?.pricePerHour ?? 0,
           invitees: selectedPlayers.map((p) => p.initials),
@@ -669,7 +699,6 @@ export function AiNativeDashboardView() {
   // Active conversation — thread scrolls, composer pinned at the bottom.
   return (
     <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-3xl flex-col">
-      {/* Thread */}
       <div
         ref={scrollRef}
         className="no-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto px-1 py-2"
@@ -700,7 +729,7 @@ export function AiNativeDashboardView() {
         {/* Pulse while waiting for first token */}
         {isLoading && messages[messages.length - 1]?.role === "user" ? (
           <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base text-muted-foreground">
+            <div className="flex items-center gap-2 rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm text-muted-foreground sm:text-base">
               <Loader2 className="size-3.5 animate-spin text-brand" />
               {t("thinking")}
             </div>
@@ -708,7 +737,6 @@ export function AiNativeDashboardView() {
         ) : null}
       </div>
 
-      {/* Player invite action bar */}
       {lastPlayerResult ? (
         <div className="shrink-0 border-t border-border/60 bg-background px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -792,7 +820,8 @@ export function AiNativeDashboardView() {
                     className="rounded-full"
                     onClick={inviteToChat}
                     disabled={
-                      !selectedPlayers.length || inviteState.status === "sending"
+                      !selectedPlayers.length ||
+                      inviteState.status === "sending"
                     }
                   >
                     <Users />
@@ -807,7 +836,6 @@ export function AiNativeDashboardView() {
         </div>
       ) : null}
 
-      {/* Composer */}
       <div className="shrink-0 pt-1 pb-2">{composer}</div>
 
       {profileDialog}
@@ -973,7 +1001,7 @@ function ChatMessageRow({
       .join("")
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-3xl rounded-br-md bg-primary px-5 py-3 text-sm sm:text-base text-primary-foreground">
+        <div className="max-w-[85%] rounded-3xl rounded-br-md bg-primary px-5 py-3 text-sm text-primary-foreground sm:text-base">
           {text}
         </div>
       </div>
@@ -1064,10 +1092,7 @@ function ChatMessageRow({
 
           if (isDone && result?.kind === "assessment") {
             return (
-              <RequestAssessmentChatResult
-                key={i}
-                sport={result.value.sport}
-              />
+              <RequestAssessmentChatResult key={i} sport={result.value.sport} />
             )
           }
 
@@ -1145,7 +1170,7 @@ function ThinkingBlock({ text, done }: { text: string; done: boolean }) {
         <div
           ref={bodyRef}
           className={cn(
-            "mt-2.5 no-scrollbar max-h-44 overflow-y-auto pr-1 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground",
+            "mt-2.5 no-scrollbar max-h-44 overflow-y-auto pr-1 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground sm:text-sm",
             !done &&
               "mask-[linear-gradient(to_bottom,transparent,black_1.5rem)]"
           )}
@@ -1175,7 +1200,7 @@ function SearchingIndicator({ toolName }: { toolName: string }) {
             ? t("bookingCourt")
             : t("working")
   return (
-    <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3.5 py-2 text-xs sm:text-sm text-muted-foreground ring-1 ring-foreground/5">
+    <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3.5 py-2 text-xs text-muted-foreground ring-1 ring-foreground/5 sm:text-sm">
       <Loader2 className="size-3.5 animate-spin text-brand" />
       {label}
     </div>
@@ -1211,7 +1236,7 @@ function ClarifyChatResult({
             type="button"
             disabled={disabled}
             onClick={() => onChoose(option)}
-            className="inline-flex items-center rounded-full border border-border bg-background px-4 py-2 text-sm sm:text-base text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
           >
             {option}
           </button>
@@ -1239,7 +1264,7 @@ function RequestAssessmentChatResult({ sport }: { sport: SportKey }) {
         <Button
           onClick={() => router.push(PLAYER_ASSESSMENT_PATH)}
           variant="outline"
-          className="rounded-full shadow-sm text-sm sm:text-base py-2 px-4"
+          className="rounded-full px-4 py-2 text-sm shadow-sm sm:text-base"
         >
           {t("completeAssessment")}
         </Button>
@@ -1263,7 +1288,7 @@ function BookingChatResult({
     return (
       <div className="flex flex-col gap-2">
         <div className="flex justify-start">
-          <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base text-muted-foreground">
+          <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm text-muted-foreground sm:text-base">
             {booking.reason ?? "Booking failed — please try again."}
           </div>
         </div>
@@ -1272,10 +1297,8 @@ function BookingChatResult({
             <button
               type="button"
               disabled={disabled}
-              onClick={() =>
-                onChoose(`Book at ${booking.suggestTime} instead`)
-              }
-              className="inline-flex items-center rounded-full border border-border bg-background px-4 py-2 text-sm sm:text-base text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => onChoose(`Book at ${booking.suggestTime} instead`)}
+              className="inline-flex items-center rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
             >
               <Clock className="mr-1.5 size-3.5" />
               Try {booking.suggestTime}
@@ -1290,38 +1313,34 @@ function BookingChatResult({
   const hrs = Math.floor(mins / 60)
   const rem = mins % 60
   const durationLabel =
-    hrs > 0 && rem > 0
-      ? `${hrs}h ${rem}m`
-      : hrs > 0
-        ? `${hrs}h`
-        : `${rem}m`
+    hrs > 0 && rem > 0 ? `${hrs}h ${rem}m` : hrs > 0 ? `${hrs}h` : `${rem}m`
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-3xl bg-brand/5 p-4 sm:p-5 ring-1 ring-brand/20">
+    <div className="flex flex-col gap-2.5 rounded-3xl bg-brand/5 p-4 ring-1 ring-brand/20 sm:p-5">
       <div className="flex items-center gap-2">
         <div className="grid size-7 shrink-0 place-items-center rounded-full bg-brand/10">
           <CheckCheck className="size-3.5 text-brand" />
         </div>
-        <span className="font-heading font-semibold text-sm sm:text-base">
+        <span className="font-heading text-sm font-semibold sm:text-base">
           Booking confirmed
         </span>
       </div>
       <div className="flex flex-col gap-1.5 text-sm sm:text-base">
         <p className="font-medium">{booking.court}</p>
-        <p className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
+        <p className="flex items-center gap-1 text-xs text-muted-foreground sm:text-sm">
           <MapPin className="size-3.5 shrink-0" />
           {booking.district}
         </p>
-        <p className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
+        <p className="flex items-center gap-1 text-xs text-muted-foreground sm:text-sm">
           <Clock className="size-3.5 shrink-0" />
           {booking.date} · {booking.time} · {durationLabel}
         </p>
       </div>
       <div className="flex items-center justify-between border-t border-brand/10 pt-2.5">
-        <span className="font-mono text-[10px] sm:text-xs tracking-wider text-muted-foreground uppercase">
+        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase sm:text-xs">
           {booking.bookingId}
         </span>
-        <span className="font-heading font-bold tabular-nums text-sm sm:text-base">
+        <span className="font-heading text-sm font-bold tabular-nums sm:text-base">
           {booking.totalPrice != null ? formatVnd(booking.totalPrice) : "—"}
         </span>
       </div>
@@ -1591,7 +1610,7 @@ function RoomCard({
     <div className="flex flex-col gap-3 rounded-3xl border border-border bg-background p-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="flex min-w-0 items-center gap-1.5 truncate font-heading font-semibold text-sm">
+          <p className="flex min-w-0 items-center gap-1.5 truncate font-heading text-sm font-semibold">
             <span className="truncate">{room.title}</span>
             {room.demo ? (
               <span
@@ -1602,7 +1621,7 @@ function RoomCard({
               </span>
             ) : null}
           </p>
-          <p className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="size-3 shrink-0" />
             {room.venue} · {room.district} · {room.distanceKm} km
           </p>
@@ -1634,7 +1653,7 @@ function RoomCard({
       </div>
 
       <div className="flex items-center justify-between border-t border-border pt-2.5">
-        <span className="font-heading font-bold tabular-nums text-sm">
+        <span className="font-heading text-sm font-bold tabular-nums">
           {formatVnd(room.pricePerHour)}
           <span className="text-xs font-normal text-muted-foreground">/hr</span>
         </span>
@@ -1760,4 +1779,3 @@ function PlayerChatCard({
     </article>
   )
 }
-

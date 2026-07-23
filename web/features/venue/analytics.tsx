@@ -167,7 +167,6 @@ export function VenueAnalyticsView({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header */}
       {!embedded ? (
         <div className="flex flex-col gap-1">
           <h1 className="font-heading text-3xl font-bold tracking-tight">
@@ -177,7 +176,6 @@ export function VenueAnalyticsView({
         </div>
       ) : null}
 
-      {/* KPI row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <VenueStat
           label={t("kpi.revenue")}
@@ -211,9 +209,7 @@ export function VenueAnalyticsView({
         />
       </div>
 
-      {/* Revenue + hour/weekday coverage */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-5">
-        {/* Revenue (last 7 days) */}
         <VenuePanel
           title={t("revenue.title")}
           icon={TrendingUp}
@@ -264,7 +260,6 @@ export function VenueAnalyticsView({
           </div>
         </VenuePanel>
 
-        {/* Hour / weekday coverage toggle */}
         <VenuePanel
           title={t("coverage.title")}
           icon={BarChart3}
@@ -304,7 +299,6 @@ export function VenueAnalyticsView({
         </VenuePanel>
       </div>
 
-      {/* Weekday × hour occupancy heatmap */}
       <VenuePanel
         title={t("heatmap.title")}
         icon={Grid3x3}
@@ -315,7 +309,6 @@ export function VenueAnalyticsView({
         </p>
         <div className="overflow-x-auto">
           <div className="min-w-[34rem]">
-            {/* Column (hour) labels */}
             <div className="mb-1 grid grid-cols-[2.5rem_repeat(7,minmax(0,1fr))] gap-1">
               <span />
               {HEATMAP_HOURS.map((h) => (
@@ -352,7 +345,6 @@ export function VenueAnalyticsView({
             </div>
           </div>
         </div>
-        {/* Low → high scale legend */}
         <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
           <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
             <span>{t("heatmap.low")}</span>
@@ -377,7 +369,6 @@ export function VenueAnalyticsView({
         </div>
       </VenuePanel>
 
-      {/* Cold slots — the operator's action list for the quietest windows */}
       <ColdSlotsPanel
         coldSlots={coldSlots}
         hasActivity={hasActivity}
@@ -390,9 +381,7 @@ export function VenueAnalyticsView({
         tSchedule={tSchedule}
       />
 
-      {/* Sport mix + Channels */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        {/* Sport mix */}
         <VenuePanel title={t("sportMix.title")} icon={BarChart3}>
           <div className="flex items-center justify-center gap-6 py-2">
             {SPORT_MIX.map((s) => (
@@ -436,7 +425,6 @@ export function VenueAnalyticsView({
           </div>
         </VenuePanel>
 
-        {/* Booking channels */}
         <VenuePanel title={t("channels.title")} icon={Smartphone}>
           <div className="flex flex-col gap-4">
             {CHANNEL_MIX.map((c) => {

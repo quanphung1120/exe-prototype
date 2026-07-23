@@ -5,9 +5,12 @@ import type { RefundQueueItem, Venue as VenueInfo } from "../../shared/index.js"
 import type { BookingSummary } from "../bookings/booking.helpers.js"
 import { BookingsService } from "../bookings/bookings.service.js"
 import { BrandsService } from "../brands/brands.service.js"
+import type { AdminDiscountRow } from "../discounts/discounts.service.js"
+import { DiscountsService } from "../discounts/discounts.service.js"
 import { ProfileService } from "../players/profile.service.js"
 import { SessionsService } from "../sessions/sessions.service.js"
 import { VenuesService } from "../venues/venues.service.js"
+import type { CreateDiscountDto, UpdateDiscountDto } from "./admin.dto.js"
 
 /** One brand's venue branches, each with its aggregate booking/revenue totals. */
 export interface AdminVenueRow extends VenueInfo {
@@ -18,6 +21,19 @@ export interface AdminVenueRow extends VenueInfo {
 export interface AdminBrandGroup {
   brand: { id: string; name: string; initials: string } | null
   venues: AdminVenueRow[]
+}
+
+/**
+ * `UpdateDiscountDto`'s date fields are `string | null | undefined` —
+ * `undefined` means "leave unchanged", `null` means "clear it". Preserve
+ * that distinction while converting a present ISO string to a `Date`.
+ */
+function toDateOrClear(
+  iso: string | null | undefined
+): Date | null | undefined {
+  if (iso === undefined) return undefined
+  if (iso === null) return null
+  return new Date(iso)
 }
 
 export interface AdminOverview {
@@ -46,7 +62,8 @@ export class AdminService {
     @Inject(BrandsService) private readonly brands: BrandsService,
     @Inject(BookingsService) private readonly bookings: BookingsService,
     @Inject(ProfileService) private readonly profiles: ProfileService,
-    @Inject(SessionsService) private readonly sessions: SessionsService
+    @Inject(SessionsService) private readonly sessions: SessionsService,
+    @Inject(DiscountsService) private readonly discounts: DiscountsService
   ) {}
 
   async overview(): Promise<AdminOverview> {
@@ -169,5 +186,33 @@ export class AdminService {
     reason?: string
   ): Promise<BookingSummary> {
     return this.bookings.adminForceCancel(bookingId, reason)
+  }
+
+  /** Every discount code — `GET /api/admin/discounts`. */
+  listDiscounts(): Promise<AdminDiscountRow[]> {
+    return this.discounts.listAllAdmin()
+  }
+
+  createDiscount(dto: CreateDiscountDto): Promise<AdminDiscountRow> {
+    return this.discounts.createCode({
+      ...dto,
+      validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
+      validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
+    })
+  }
+
+  updateDiscount(
+    code: string,
+    dto: UpdateDiscountDto
+  ): Promise<AdminDiscountRow> {
+    return this.discounts.updateCode(code, {
+      ...dto,
+      validFrom: toDateOrClear(dto.validFrom),
+      validUntil: toDateOrClear(dto.validUntil),
+    })
+  }
+
+  async deleteDiscount(code: string): Promise<void> {
+    await this.discounts.deleteCode(code)
   }
 }

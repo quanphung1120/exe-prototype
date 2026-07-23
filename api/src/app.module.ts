@@ -8,9 +8,11 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler"
 
 import { AllExceptionsFilter } from "./common/all-exceptions.filter.js"
 import { ClerkAuthGuard } from "./common/clerk-auth.guard.js"
+import { UserThrottlerGuard } from "./common/user-throttler.guard.js"
 import { validateEnv } from "./env.validation.js"
 import { AccountModule } from "./features/account/account.module.js"
 import { AdminModule } from "./features/admin/admin.module.js"
+import { AiModule } from "./features/ai/ai.module.js"
 import { AssessmentModule } from "./features/assessment/assessment.module.js"
 import { BookingsModule } from "./features/bookings/bookings.module.js"
 import { CourtsModule } from "./features/courts/courts.module.js"
@@ -23,6 +25,7 @@ import { RoomsModule } from "./features/rooms/rooms.module.js"
 import { SeedModule } from "./features/seed/seed.module.js"
 import { SessionsModule } from "./features/sessions/sessions.module.js"
 import { StreamModule } from "./features/stream/stream.module.js"
+import { VenueWorkspaceModule } from "./features/venue-workspace/venue-workspace.module.js"
 import { VenuesModule } from "./features/venues/venues.module.js"
 
 @Module({
@@ -54,6 +57,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     // past the SLA, auto-complete finished checked-in bookings) — see
     // `features/payments/bookings-sweeper.service.ts`.
     ScheduleModule.forRoot(),
+    AiModule,
     BookingsModule,
     CourtsModule,
     PlayersModule,
@@ -61,6 +65,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     RoomsModule,
     AssessmentModule,
     VenuesModule,
+    VenueWorkspaceModule,
     AccountModule,
     StreamModule,
     NotificationsModule,
@@ -71,11 +76,18 @@ import { VenuesModule } from "./features/venues/venues.module.js"
   ],
   controllers: [HealthController],
   providers: [
-    // Order matters: the throttler runs first so it rate-limits even
-    // unauthenticated/rejected requests, then the Clerk auth guard (skips
-    // @Public routes), then the `{ error }` filter for anything thrown.
+    // Order matters: two throttle layers plus auth, in registration order
+    // (global guards run in that order). ThrottlerGuard runs first so it
+    // rate-limits even unauthenticated/rejected requests (120/min per IP,
+    // pre-auth). Then ClerkAuthGuard (skips @Public routes) verifies the
+    // token and stashes the userId. Then UserThrottlerGuard runs post-auth
+    // with a shared 120/min-per-user budget across every authenticated
+    // route (own stricter bucket for routes carrying `@UserThrottle()`, see
+    // that guard's doc comment). Then the `{ error }` filter for anything
+    // thrown.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: ClerkAuthGuard },
+    { provide: APP_GUARD, useClass: UserThrottlerGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],
 })

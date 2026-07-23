@@ -81,10 +81,8 @@ export function AppSidebar() {
   const activeVenueId = venueId
   const VENUE = (venueId && VENUES.find((v) => v.id === venueId)) || VENUES[0]
 
-  // The name shown for the current operator/player identity.
   const displayName = isVenue && VENUE ? VENUE.manager.name : userName
 
-  // One translator, namespace chosen by the active workspace.
   const tNav = useTranslations(ns)
   const t = useTranslations("Sidebar")
 
@@ -102,15 +100,12 @@ export function AppSidebar() {
       ? VENUE.manager.initials
       : USER.initials
 
-  // Collapse the mobile drawer once a destination is chosen.
   const handleNavigate = () => {
     if (isMobile) setOpenMobile(false)
   }
 
-  // End the Clerk session and return to the locale landing page.
   const handleSignOut = () => void signOut({ redirectUrl: "/" + locale })
 
-  // Switch to the player workspace.
   const switchToPlayer = () => {
     router.push("/dashboard")
     handleNavigate()

@@ -70,7 +70,11 @@ function toPaymentSummary(doc: Payment): PaymentSummary {
   }
 }
 
-/** A remote SePay order's status field, as read back from `order.retrieve()`. */
+/** A remote SePay order's status field, as read back from `order.retrieve()`.
+ * No amount field: `order.retrieve()`'s response shape isn't documented to
+ * carry the settled amount the way the IPN's `order.order_amount` does, so
+ * `byBooking`'s reconciliation settle intentionally skips the amount check
+ * (passes `undefined`) rather than guess a field name. */
 interface RemoteOrder {
   order_status?: string
 }
@@ -157,6 +161,7 @@ export class PaymentsService {
     const discount = discountCode
       ? await this.discounts.validate(discountCode, booking.price)
       : null
+    if (discount) await this.assertRedemptionQuota(discount, userId, bookingId)
 
     const payment = await this.paymentModel.findOneAndUpdate(
       { bookingId },
@@ -194,6 +199,51 @@ export class PaymentsService {
     await payment.save()
 
     return { payment: toPaymentSummary(payment), fields, checkoutUrl }
+  }
+
+  /**
+   * Enforce a discount code's redemption caps *before* the charge is quoted —
+   * `DiscountsService#applyUsage`'s atomic guard only bumps the global
+   * `usedCount` at settle time, which protects the counter but not the money:
+   * by then the discounted amount is already locked onto the SePay order. This
+   * closes that gap using the `payments` collection itself as the redemption
+   * ledger — a `Payment` with this `discountCode` in an `awaiting`/`paid`
+   * status is one held-or-settled redemption (an expired/cancelled hold flips
+   * to `cancelled` and frees its slot). Counting in-flight `awaiting` holds
+   * (not just settled `paid` ones) makes concurrent checkouts see each other,
+   * so a near-exhausted code can't over-issue the discount, and per-user reuse
+   * across separate bookings is capped. The current booking is excluded so a
+   * resumed checkout doesn't count its own hold against the limit.
+   */
+  private async assertRedemptionQuota(
+    discount: { code: string; usageLimit?: number; perUserLimit?: number },
+    userId: string,
+    bookingId: string
+  ): Promise<void> {
+    const held = { $in: ["awaiting", "paid"] as PaymentRecordStatus[] }
+    if (typeof discount.perUserLimit === "number") {
+      const mine = await this.paymentModel.countDocuments({
+        discountCode: discount.code,
+        userId,
+        status: held,
+        bookingId: { $ne: bookingId },
+      })
+      if (mine >= discount.perUserLimit) {
+        throw new ConflictException(
+          "Bạn đã dùng mã giảm giá này tối đa số lần cho phép"
+        )
+      }
+    }
+    if (typeof discount.usageLimit === "number") {
+      const total = await this.paymentModel.countDocuments({
+        discountCode: discount.code,
+        status: held,
+        bookingId: { $ne: bookingId },
+      })
+      if (total >= discount.usageLimit) {
+        throw new ConflictException("Mã giảm giá đã hết lượt sử dụng")
+      }
+    }
   }
 
   // ── Status polling ───────────────────────────────────────────────────────
@@ -264,7 +314,7 @@ export class PaymentsService {
       return { received: true }
     }
 
-    await this.markPaid(invoiceNumber, payload)
+    await this.markPaid(invoiceNumber, payload, payload.order?.order_amount)
     return { received: true }
   }
 
@@ -273,24 +323,81 @@ export class PaymentsService {
    * handler and the `byBooking` reconciliation fallback so both go through the
    * same idempotency guard and the same booking-confirm + venue-notify
    * follow-through. Returns the updated doc, or `null` on a replay/unknown
-   * invoice (nothing left to do).
+   * invoice/amount mismatch (nothing left to do).
+   *
+   * `expectedAmount` (VND, from the caller's payload) is folded into the
+   * guarded filter itself rather than compared after the fact — a mismatched
+   * amount then simply fails to match the awaiting payment, settling nothing,
+   * with no separate check-then-write race to worry about. Pass `undefined`
+   * when the caller has no amount to compare (see `byBooking`) to skip the
+   * check entirely. A value that is *present but not coercible to a finite
+   * number* (SePay may deliver `order_amount` as a string; a malformed one
+   * must not slip through) fails closed — the payment is left unsettled rather
+   * than the amount guard being silently skipped.
    */
   private async markPaid(
     invoiceNumber: string,
-    rawPayload: unknown
+    rawPayload: unknown,
+    expectedAmount?: number | string
   ): Promise<PaymentDocument | null> {
+    let expectedNumeric: number | undefined
+    if (expectedAmount !== undefined) {
+      expectedNumeric =
+        typeof expectedAmount === "number"
+          ? expectedAmount
+          : Number(String(expectedAmount).trim())
+      if (!Number.isFinite(expectedNumeric)) {
+        this.logger.error(
+          `IPN for invoice ${invoiceNumber}: non-numeric order_amount ${JSON.stringify(expectedAmount)} — payment not settled`
+        )
+        return null
+      }
+    }
+
     const updated = await this.paymentModel.findOneAndUpdate(
-      { invoiceNumber, status: "awaiting" },
+      {
+        invoiceNumber,
+        status: "awaiting",
+        ...(expectedNumeric !== undefined ? { amount: expectedNumeric } : {}),
+      },
       { $set: { status: "paid", paidAt: vnNowIso(), ipnPayload: rawPayload } },
       { new: true }
     )
-    if (!updated) return null
+    if (!updated) {
+      // The miss is either "already settled / unknown invoice" (existing
+      // silent no-op — a replayed or stale notification) or "amount
+      // mismatch" (a short-settled order that must NOT confirm the
+      // booking). Only pay for the extra read to tell them apart when an
+      // amount was actually supplied to check against.
+      if (expectedNumeric !== undefined) {
+        const existing = await this.paymentModel
+          .findOne({ invoiceNumber })
+          .select("amount status bookingId")
+          .lean<{ amount: number; status: string; bookingId: string }>()
+        if (existing && existing.status === "awaiting") {
+          this.logger.error(
+            `IPN amount mismatch for invoice ${invoiceNumber} (booking ${existing.bookingId}): expected ${existing.amount} VND, got ${expectedNumeric} VND — payment not settled`
+          )
+        }
+      }
+      return null
+    }
 
     // Only bump usedCount once the payment actually settles — not at
     // checkout — so an abandoned/expired checkout never burns a redemption.
     if (updated.discountCode) {
       await this.discounts
         .applyUsage(updated.discountCode)
+        .then((outcome) => {
+          if (outcome === "applied") return
+          const reason =
+            outcome === "over_limit"
+              ? "already at its usageLimit"
+              : "no longer exists"
+          this.logger.warn(
+            `Discount ${updated.discountCode} ${reason} when booking ${updated.bookingId} settled — usedCount not incremented`
+          )
+        })
         .catch((err: unknown) => {
           this.logger.warn(
             `Failed to record discount usage for ${updated.discountCode} (booking ${updated.bookingId}): ${String(err)}`

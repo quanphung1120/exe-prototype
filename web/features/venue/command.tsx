@@ -266,7 +266,6 @@ export function VenueCommandView() {
 
       {/* ── Arrivals + revenue ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Upcoming arrivals */}
         <VenuePanel
           title={t("upcomingArrivals")}
           icon={Users}
@@ -297,7 +296,6 @@ export function VenueCommandView() {
           )}
         </VenuePanel>
 
-        {/* Revenue this week */}
         <VenuePanel title={t("revenueWeek")} icon={CircleDollarSign}>
           <div className="flex flex-col gap-4">
             <div className="flex items-end justify-between gap-3">

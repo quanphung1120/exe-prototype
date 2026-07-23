@@ -35,6 +35,8 @@ export class DiscountCode {
   @Prop({ type: Date }) validUntil?: Date
   /** Total redemptions allowed across all users; unlimited when unset. */
   @Prop({ type: Number }) usageLimit?: number
+  /** Max redemptions a single user may make of this code; unlimited when unset. */
+  @Prop({ type: Number }) perUserLimit?: number
   @Prop({ type: Number, required: true, default: 0 }) usedCount: number
   @Prop({ type: Boolean, required: true, default: true }) active: boolean
   /** Vietnamese, user-facing label shown wherever the code is applied. */

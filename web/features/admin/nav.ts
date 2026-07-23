@@ -4,16 +4,13 @@ import {
   Building2,
   CalendarClock,
   LayoutDashboard,
+  TicketPercent,
 } from "lucide-react"
 
 import type { NavItem } from "@/features/dashboard/nav"
 
 export type AdminSectionKey =
-  | "overview"
-  | "venues"
-  | "bookings"
-  | "refunds"
-  | "approvals"
+  "overview" | "venues" | "bookings" | "discounts" | "refunds" | "approvals"
 
 /** Every admin route lives under this prefix — one cross-tenant surface, not per-venue. */
 export const ADMIN_BASE_PREFIX = "/dashboard/admin"
@@ -44,6 +41,13 @@ export const ADMIN_NAV: NavItem<AdminSectionKey>[] = [
     label: "Bookings & payments",
     icon: CalendarClock,
     caption: "Recent transactions across every venue",
+  },
+  {
+    key: "discounts",
+    href: `${ADMIN_BASE_PREFIX}/discounts`,
+    label: "Coupons",
+    icon: TicketPercent,
+    caption: "Discount codes and usage",
   },
   {
     key: "refunds",

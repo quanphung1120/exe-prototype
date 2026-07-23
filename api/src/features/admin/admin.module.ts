@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common"
 
 import { BookingsModule } from "../bookings/bookings.module.js"
 import { BrandsModule } from "../brands/brands.module.js"
+import { DiscountsModule } from "../discounts/discounts.module.js"
 import { PlayersModule } from "../players/players.module.js"
 import { SessionsModule } from "../sessions/sessions.module.js"
 import { VenuesModule } from "../venues/venues.module.js"
@@ -17,6 +18,7 @@ import { AdminService } from "./admin.service.js"
     BookingsModule,
     PlayersModule,
     SessionsModule,
+    DiscountsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

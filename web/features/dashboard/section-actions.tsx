@@ -108,7 +108,6 @@ function NoAction() {
   return null
 }
 
-/** Render the active section's topbar actions for the given workspace. */
 export function SectionActions({
   workspace,
   sectionKey,

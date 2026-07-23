@@ -119,7 +119,6 @@ export function SetupWizard() {
         </div>
       </div>
 
-      {/* Stepper */}
       <ol className="mb-6 flex items-center gap-2">
         {steps.map((label, i) => (
           <li key={label} className="flex flex-1 items-center gap-2">
@@ -164,7 +163,6 @@ export function SetupWizard() {
         )}
       </div>
 
-      {/* Footer nav */}
       <div className="mt-5 flex items-center justify-between gap-2">
         <Button
           type="button"
@@ -363,7 +361,6 @@ function CourtsStep({
         </p>
       )}
 
-      {/* Add-court row */}
       <div className="flex flex-col gap-3 rounded-2xl bg-muted/40 p-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field>

@@ -299,7 +299,6 @@ export function VenueCustomersView({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Header */}
       {!embedded ? (
         <div className="flex flex-col gap-1">
           <h1 className="font-heading text-3xl font-bold tracking-tight">
@@ -309,7 +308,6 @@ export function VenueCustomersView({
         </div>
       ) : null}
 
-      {/* Customer list */}
       <VenuePanel
         title={t("listTitle")}
         icon={Users}

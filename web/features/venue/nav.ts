@@ -15,7 +15,6 @@ export type VenueSectionKey =
  */
 export const VENUE_BASE_PREFIX = "/dashboard/venue"
 
-/** Build the base path for a specific venue's workspace. */
 export function venueBase(venueId: string): string {
   return `${VENUE_BASE_PREFIX}/${venueId}`
 }

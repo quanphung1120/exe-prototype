@@ -42,7 +42,6 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
 
-  // Lock body scroll while the mobile menu is open.
   React.useEffect(() => {
     if (open) {
       const prev = document.body.style.overflow

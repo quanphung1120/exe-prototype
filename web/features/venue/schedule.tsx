@@ -498,7 +498,6 @@ export function VenueScheduleView({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Heading */}
       {!embedded ? (
         <div>
           <h1 className="font-heading text-3xl font-bold tracking-tight">
@@ -510,7 +509,6 @@ export function VenueScheduleView({
         </div>
       ) : null}
 
-      {/* Summary chips */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryChip
           label={t("summary.occupancy")}
@@ -538,7 +536,6 @@ export function VenueScheduleView({
         />
       </div>
 
-      {/* The calendar */}
       <VenuePanel
         title={t("grid.title")}
         icon={CalendarRange}
@@ -621,7 +618,6 @@ export function VenueScheduleView({
           />
         )}
 
-        {/* Legend */}
         {view !== "month" ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/60 pt-3">
             <MicroLabel className="mr-1">{t("legend.title")}</MicroLabel>

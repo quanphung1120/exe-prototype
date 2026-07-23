@@ -14,6 +14,7 @@ import type {
   AdminApprovalRow,
   AdminBookingRow,
   AdminBrandGroup,
+  AdminDiscountRow,
   AdminOverview,
   AdminRefundRow,
 } from "@/features/admin/admin-types"
@@ -35,7 +36,7 @@ export const API_TIMEOUT_MS = 8_000
  * call so it's always the current session's token, not one captured at module
  * init). The Hono API is guarded by @clerk/hono and rejects anonymous
  * requests with 401, so this runs only inside Clerk-middleware-matched server
- * contexts (dashboard layout, pages, server actions, /api/chat) where
+ * contexts (dashboard layout, pages, server actions) where
  * `auth()` is available. `throw: true` makes a non-2xx response reject with a
  * `BetterFetchError` instead of returning an `{ error }` object, so callers
  * keep their existing try/catch-free shape.
@@ -226,4 +227,8 @@ export async function fetchAdminRefunds(): Promise<AdminRefundRow[]> {
 
 export async function fetchAdminApprovals(): Promise<AdminApprovalRow[]> {
   return apiFetch<AdminApprovalRow[]>("/api/admin/approvals")
+}
+
+export async function fetchAdminDiscounts(): Promise<AdminDiscountRow[]> {
+  return apiFetch<AdminDiscountRow[]>("/api/admin/discounts")
 }

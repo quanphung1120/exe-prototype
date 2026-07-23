@@ -21,6 +21,21 @@ import {
 import { COURT_BLOCK_REASONS } from "../../shared/index.js"
 import type { CourtBlockReason, SportKey } from "../../shared/index.js"
 
+/** `?venue=` selects which venue's bundle to read; optional → defaults to first. */
+export class VenueQueryDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  venue?: string
+}
+
+/** `?venue=` is required for the raw bundle (unknown id → 404, no fallback). */
+export class BundleQueryDto {
+  @IsString()
+  @IsNotEmpty()
+  venue: string
+}
+
 const SPORTS = ["badminton"] as const
 const COURT_STATES = [
   "available",

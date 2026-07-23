@@ -6,6 +6,7 @@ import "reflect-metadata"
 import {
   ConflictException,
   ForbiddenException,
+  Logger,
   UnauthorizedException,
 } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
@@ -65,11 +66,38 @@ interface FakePaymentDoc {
   save: () => Promise<void>
 }
 
+/** Match one field against either a scalar or a subset of Mongo operators
+ * (`$in`/`$ne`/`$exists`) — enough for the exact-match filters and the
+ * redemption-quota `countDocuments` calls `PaymentsService` issues. */
+function matchesValue(actual: unknown, expected: unknown): boolean {
+  if (
+    expected !== null &&
+    typeof expected === "object" &&
+    !Array.isArray(expected)
+  ) {
+    return Object.entries(expected as Record<string, unknown>).every(
+      ([op, v]) => {
+        switch (op) {
+          case "$ne":
+            return actual !== v
+          case "$in":
+            return Array.isArray(v) && v.includes(actual)
+          case "$exists":
+            return (actual !== undefined) === v
+          default:
+            return actual === expected
+        }
+      }
+    )
+  }
+  return actual === expected
+}
+
 function matches(
   doc: Record<string, unknown>,
   filter: Record<string, unknown>
 ) {
-  return Object.entries(filter).every(([k, v]) => doc[k] === v)
+  return Object.entries(filter).every(([k, v]) => matchesValue(doc[k], v))
 }
 
 /**
@@ -108,6 +136,13 @@ function makeFakePaymentModel(store: Map<string, FakePaymentDoc>) {
         Object.assign(doc, update.$set)
       }
       return Promise.resolve(doc)
+    },
+    countDocuments: (filter: Record<string, unknown>) => {
+      let n = 0
+      for (const doc of store.values()) {
+        if (matches(doc as unknown as Record<string, unknown>, filter)) n++
+      }
+      return Promise.resolve(n)
     },
   }
 }
@@ -148,7 +183,11 @@ interface Deps {
     description: string
     discountAmount: number
     finalAmount: number
+    usageLimit?: number
+    perUserLimit?: number
   }
+  /** Stubs what `DiscountsService#applyUsage` resolves to; defaults to `"applied"`. */
+  applyUsageResult?: "applied" | "over_limit" | "missing"
 }
 
 function makeService(deps: Deps = {}) {
@@ -218,7 +257,7 @@ function makeService(deps: Deps = {}) {
     },
     applyUsage: (code: string) => {
       applyUsageCalls.push(code)
-      return Promise.resolve()
+      return Promise.resolve(deps.applyUsageResult ?? "applied")
     },
   }
 
@@ -246,11 +285,19 @@ function makeService(deps: Deps = {}) {
     }))
 }
 
-function ipnBody(invoiceNumber: string, notificationType = "ORDER_PAID") {
+function ipnBody(
+  invoiceNumber: string,
+  notificationType = "ORDER_PAID",
+  orderAmount?: number | string
+) {
   return JSON.stringify({
     timestamp: Math.floor(Date.now() / 1000),
     notification_type: notificationType,
-    order: { order_invoice_number: invoiceNumber, order_status: "PAID" },
+    order: {
+      order_invoice_number: invoiceNumber,
+      order_status: "PAID",
+      ...(orderAmount === undefined ? {} : { order_amount: orderAmount }),
+    },
   })
 }
 
@@ -347,6 +394,119 @@ void test("checkout re-throws when the discountCode fails validation instead of 
   await assert.rejects(() => service.checkout("user-1", "b1", "hethan"))
 })
 
+/** A GIAM10-style validate stub carrying redemption caps. */
+function cappedDiscount(caps: { usageLimit?: number; perUserLimit?: number }) {
+  return (code: string, amount: number) => ({
+    valid: true as const,
+    code: code.toUpperCase(),
+    type: "percent" as const,
+    value: 10,
+    description: "Giảm 10%",
+    discountAmount: 20_000,
+    finalAmount: amount - 20_000,
+    ...caps,
+  })
+}
+
+void test("checkout rejects a discount the caller has already redeemed up to its perUserLimit", async () => {
+  const { service } = await makeService({
+    discountValidate: cappedDiscount({ perUserLimit: 1 }),
+    // user-1 already holds a settled redemption of GIAM10 on another booking.
+    seedPayments: [
+      {
+        invoiceNumber: "b-prev",
+        bookingId: "b-prev",
+        venueId: "v9",
+        userId: "user-1",
+        amount: 180_000,
+        currency: "VND",
+        status: "paid",
+        discountCode: "GIAM10",
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+  await assert.rejects(
+    () => service.checkout("user-1", "b2", "giam10"),
+    ConflictException
+  )
+})
+
+void test("checkout still allows a discount a *different* user has redeemed (perUserLimit is per user)", async () => {
+  const { service, store } = await makeService({
+    bookingLean: makeBookingLean({ userId: "user-2" }),
+    discountValidate: cappedDiscount({ perUserLimit: 1 }),
+    // The prior redemption belongs to user-1; user-2 has none of their own.
+    seedPayments: [
+      {
+        invoiceNumber: "b-prev",
+        bookingId: "b-prev",
+        venueId: "v9",
+        userId: "user-1",
+        amount: 180_000,
+        currency: "VND",
+        status: "paid",
+        discountCode: "GIAM10",
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+  const result = await service.checkout("user-2", "b2", "giam10")
+  assert.equal(result.payment.amount, 180_000)
+  assert.equal(store.get("b2")?.discountCode, "GIAM10")
+})
+
+void test("checkout rejects a discount whose usageLimit is already met by in-flight holds (reservation-aware)", async () => {
+  const { service } = await makeService({
+    discountValidate: cappedDiscount({ usageLimit: 1 }),
+    // The single global slot is taken by another user's *awaiting* hold — not
+    // yet settled, but it must still block a second reservation.
+    seedPayments: [
+      {
+        invoiceNumber: "b-held",
+        bookingId: "b-held",
+        venueId: "v9",
+        userId: "someone-else",
+        amount: 180_000,
+        currency: "VND",
+        status: "awaiting",
+        discountCode: "GIAM10",
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+  await assert.rejects(
+    () => service.checkout("user-1", "b2", "giam10"),
+    ConflictException
+  )
+})
+
+void test("checkout resume does not count the booking's own hold against the limit", async () => {
+  const { service, store } = await makeService({
+    discountValidate: cappedDiscount({ usageLimit: 1, perUserLimit: 1 }),
+    // b1's own awaiting hold is the only redemption — resuming its checkout
+    // must not read that as "limit reached".
+    seedPayments: [
+      {
+        invoiceNumber: "b1",
+        bookingId: "b1",
+        venueId: "v9",
+        userId: "user-1",
+        amount: 180_000,
+        currency: "VND",
+        status: "awaiting",
+        discountCode: "GIAM10",
+        originalAmount: 200_000,
+        discountAmount: 20_000,
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+  const result = await service.checkout("user-1", "b1", "giam10")
+  assert.equal(result.payment.status, "awaiting")
+  assert.equal(store.get("b1")?.amount, 180_000)
+})
+
 // ── IPN ──────────────────────────────────────────────────────────────────────
 
 void test("handleIpn marks the payment paid, confirms the booking, and notifies the venue", async () => {
@@ -404,6 +564,38 @@ void test("handleIpn increments the discount's usedCount only once the payment s
   })
 
   assert.equal(store.get("b1")?.status, "paid")
+  assert.deepEqual(applyUsageCalls, ["GIAM10"])
+})
+
+void test("handleIpn still settles the payment when applyUsage reports 'over_limit' (never-throw contract)", async () => {
+  const { service, store, confirmPaymentCalls, applyUsageCalls } =
+    await makeService({
+      applyUsageResult: "over_limit",
+      seedPayments: [
+        {
+          invoiceNumber: "b1",
+          bookingId: "b1",
+          venueId: "v9",
+          userId: "user-1",
+          amount: 180_000,
+          currency: "VND",
+          status: "awaiting",
+          originalAmount: 200_000,
+          discountCode: "GIAM10",
+          discountAmount: 20_000,
+          save: () => Promise.resolve(),
+        },
+      ],
+    })
+
+  const result = await service.handleIpn(Buffer.from(ipnBody("b1")), {
+    "x-sepay-signature": "sha256=irrelevant-in-this-fake",
+    "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+  })
+
+  assert.deepEqual(result, { received: true })
+  assert.equal(store.get("b1")?.status, "paid")
+  assert.deepEqual(confirmPaymentCalls, ["b1"])
   assert.deepEqual(applyUsageCalls, ["GIAM10"])
 })
 
@@ -486,6 +678,164 @@ void test("handleIpn ignores a non-ORDER_PAID notification", async () => {
 
   assert.equal(store.get("b1")?.status, "awaiting")
   assert.equal(confirmPaymentCalls.length, 0)
+})
+
+/**
+ * `PaymentsService`'s `logger` is a plain `Logger` instance, not injected —
+ * spy on the shared prototype method for the duration of `fn` and restore it
+ * after, mirroring how one would spy on any un-injectable singleton.
+ */
+async function captureLoggerErrors(fn: () => Promise<void>) {
+  const calls: unknown[][] = []
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- restored below, never invoked unbound.
+  const original = Logger.prototype.error
+  Logger.prototype.error = ((...args: unknown[]) => {
+    calls.push(args)
+  }) as typeof Logger.prototype.error
+  try {
+    await fn()
+  } finally {
+    Logger.prototype.error = original
+  }
+  return calls
+}
+
+void test("handleIpn does not settle a payment whose order_amount is short of the recorded amount, but still acks and logs an error", async () => {
+  const { service, store, notifications, confirmPaymentCalls } =
+    await makeService({
+      seedPayments: [
+        {
+          invoiceNumber: "b1",
+          bookingId: "b1",
+          venueId: "v9",
+          userId: "user-1",
+          amount: 200_000,
+          currency: "VND",
+          status: "awaiting",
+          save: () => Promise.resolve(),
+        },
+      ],
+    })
+
+  let result: { received: boolean } | undefined
+  const errorLogs = await captureLoggerErrors(async () => {
+    result = await service.handleIpn(
+      Buffer.from(ipnBody("b1", "ORDER_PAID", 150_000)),
+      {
+        "x-sepay-signature": "sha256=irrelevant-in-this-fake",
+        "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+      }
+    )
+  })
+
+  assert.deepEqual(result, { received: true })
+  assert.equal(store.get("b1")?.status, "awaiting")
+  assert.equal(confirmPaymentCalls.length, 0)
+  assert.equal(notifications.length, 0)
+  assert.equal(errorLogs.length, 1)
+  const [message] = errorLogs[0] ?? []
+  assert.match(String(message), /b1/)
+  assert.match(String(message), /200000|200,000|200_000/)
+  assert.match(String(message), /150000|150,000|150_000/)
+})
+
+void test("handleIpn settles the payment when order_amount matches the recorded amount", async () => {
+  const { service, store, confirmPaymentCalls } = await makeService({
+    seedPayments: [
+      {
+        invoiceNumber: "b1",
+        bookingId: "b1",
+        venueId: "v9",
+        userId: "user-1",
+        amount: 200_000,
+        currency: "VND",
+        status: "awaiting",
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+
+  const errorLogs = await captureLoggerErrors(async () => {
+    const result = await service.handleIpn(
+      Buffer.from(ipnBody("b1", "ORDER_PAID", 200_000)),
+      {
+        "x-sepay-signature": "sha256=irrelevant-in-this-fake",
+        "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+      }
+    )
+    assert.deepEqual(result, { received: true })
+  })
+
+  assert.equal(store.get("b1")?.status, "paid")
+  assert.deepEqual(confirmPaymentCalls, ["b1"])
+  assert.equal(errorLogs.length, 0)
+})
+
+void test("handleIpn settles when order_amount arrives as a numeric string", async () => {
+  const { service, store, confirmPaymentCalls } = await makeService({
+    seedPayments: [
+      {
+        invoiceNumber: "b1",
+        bookingId: "b1",
+        venueId: "v9",
+        userId: "user-1",
+        amount: 200_000,
+        currency: "VND",
+        status: "awaiting",
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+
+  const result = await service.handleIpn(
+    // SePay may deliver order_amount as a string — it must still match 200_000.
+    Buffer.from(ipnBody("b1", "ORDER_PAID", "200000")),
+    {
+      "x-sepay-signature": "sha256=irrelevant-in-this-fake",
+      "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+    }
+  )
+
+  assert.deepEqual(result, { received: true })
+  assert.equal(store.get("b1")?.status, "paid")
+  assert.deepEqual(confirmPaymentCalls, ["b1"])
+})
+
+void test("handleIpn fails closed on a non-numeric order_amount (does not settle)", async () => {
+  const { service, store, confirmPaymentCalls, notifications } =
+    await makeService({
+      seedPayments: [
+        {
+          invoiceNumber: "b1",
+          bookingId: "b1",
+          venueId: "v9",
+          userId: "user-1",
+          amount: 200_000,
+          currency: "VND",
+          status: "awaiting",
+          save: () => Promise.resolve(),
+        },
+      ],
+    })
+
+  let result: { received: boolean } | undefined
+  const errorLogs = await captureLoggerErrors(async () => {
+    result = await service.handleIpn(
+      Buffer.from(ipnBody("b1", "ORDER_PAID", "not-a-number")),
+      {
+        "x-sepay-signature": "sha256=irrelevant-in-this-fake",
+        "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+      }
+    )
+  })
+
+  // Still acks SePay (200), but the amount guard is NOT silently skipped:
+  // the payment stays awaiting and nothing downstream fires.
+  assert.deepEqual(result, { received: true })
+  assert.equal(store.get("b1")?.status, "awaiting")
+  assert.equal(confirmPaymentCalls.length, 0)
+  assert.equal(notifications.length, 0)
+  assert.equal(errorLogs.length, 1)
 })
 
 // ── byBooking ────────────────────────────────────────────────────────────────

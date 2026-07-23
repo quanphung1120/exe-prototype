@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Post } from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
-import { VenueIdParamDto, VenueSetupDto } from "./venues.dto.js"
-import { VenuesService } from "./venues.service.js"
+import { VenueIdParamDto, VenueSetupDto } from "../venues/venues.dto.js"
+import { VenuesService } from "../venues/venues.service.js"
 
 // Venue-workspace (operator) read endpoints, mounted at /api/venue. An account's
 // brand may own many venue branches: `GET /:venueId/bundle` loads one branch's
@@ -11,7 +11,7 @@ import { VenuesService } from "./venues.service.js"
 // fresh account to setup. (The brand + branch list the switcher needs already
 // rides along in the aggregate `/api/seed` payload, so it needs no route here.)
 @Controller("venue")
-export class VenueController {
+export class VenueWorkspaceController {
   constructor(private readonly venues: VenuesService) {}
 
   /** Provision a venue branch (guided setup wizard); the first also mints the brand. */
