@@ -70,7 +70,7 @@ export default async function DashboardLayout({
                     accountType={seed.accountType}
                     isAdmin={session.user.role === "admin"}
                   >
-                    <SidebarProvider className="font-geist">
+                    <SidebarProvider className="font-geist" defaultOpen={false}>
                       <AppSidebar />
                       <SidebarInset className="overflow-hidden">
                         <DashboardTopbar />

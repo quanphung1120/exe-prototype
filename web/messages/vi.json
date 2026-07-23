@@ -586,7 +586,7 @@
     "hero": {
       "eyebrow": "Ghép trận bằng AI cho các môn thể thao vợt",
       "titleLine1": "Tìm sân",
-      "titleLine2": "Tìm <accent>đối thủ</accent> phù hợp.",
+      "titleLine2": "Tìm <accent>đối thủ</accent> phù hợp.",
       "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
       "cta": "Bắt đầu ngay",
       "socialProof": "1.000+ người chơi đã tham gia",
@@ -1713,7 +1713,8 @@
   },
   "AiDashboard": {
     "clearChat": "Reset cuộc trò chuyện",
-    "welcomeTitle": "Tôi có thể giúp gì cho bạn hôm nay?",
+    "welcomeTitleLine1": "Tôi có thể giúp gì cho",
+    "welcomeTitleLine2": "<accent>bạn</accent> hôm nay?",
     "welcomeSubtitle": "Tìm sân hoặc kết nối với bạn chơi tức thì. Bạn có thể tìm sân theo quận hoặc môn thể thao, kiểm tra lịch trống thời gian thực, đặt sân trực tiếp, hoặc tìm người chơi cùng trình độ để mời vào nhóm chat.",
     "inputPlaceholder": "Hỏi về sân hoặc bạn chơi…",
     "thinking": "Đang suy nghĩ…",
@@ -1770,7 +1771,11 @@
     "roomSpotsOpen": "còn {count} chỗ",
     "joinRoom": "Tham gia",
     "joined": "Đã tham gia",
-    "requested": "Đã yêu cầu…"
+    "requested": "Đã yêu cầu…",
+    "recent": {
+      "title": "Gần đây",
+      "viewAll": "Xem tất cả"
+    }
   },
   "Assessment": {
     "metaTitle": "Đánh giá trình độ",

@@ -7,6 +7,7 @@ import {
   Feather,
   Heart,
   MapPin,
+  MessageCircle,
   MessageSquare,
   MessagesSquare,
   RefreshCw,
@@ -49,7 +50,7 @@ const TRUST_LOGOS = [
 const ABOUT_FEATURE_ICONS = [Zap, RefreshCw]
 
 const PLAYER_FEATURE_ICONS = [
-  Sparkles,
+  MessageCircle,
   Users,
   CalendarCheck,
   MapPin,
@@ -157,8 +158,9 @@ export default async function Page({
                 alt=""
                 fill
                 priority
+                quality={95}
                 sizes="100vw"
-                className="object-cover object-bottom-right brightness-95 contrast-[0.97] saturate-95 dark:brightness-100 dark:contrast-100 dark:saturate-100"
+                className="object-cover object-right-bottom dark:brightness-100 dark:contrast-100 dark:saturate-100"
               />
             </Parallax>
           </div>

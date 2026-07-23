@@ -13,23 +13,28 @@ import type { UIMessage } from "ai"
 import { useAuth } from "@clerk/nextjs"
 import {
   ArrowUp,
+  CalendarCheck,
   CheckCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
+  Flame,
   LogIn,
   Loader2,
   MapPin,
+  MessageSquare,
   Plus,
   Shield,
   Sparkles,
   Star,
+  TrendingUp,
   Users,
   UserPlus,
   X,
   Zap,
 } from "lucide-react"
+import Image from "next/image"
 import { toast } from "sonner"
 import { useLocale, useTranslations } from "next-intl"
 
@@ -40,6 +45,8 @@ import {
   type Court,
   type Level,
   type MatchRoom,
+  type NotificationItem,
+  type NotificationKind,
   type PlaySession,
   type SportKey,
 } from "@/features/dashboard/data"
@@ -60,9 +67,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
-import { LogoMark } from "@/components/logo"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
+import { useAuthUser } from "@/features/dashboard/auth-user"
+import { useNotifications } from "@/features/dashboard/notifications"
+import { demoChannelId } from "@/features/chat/channel-ids"
 import { type LatLng } from "@/features/play/court-map"
 import { Flip, gsap, prefersReducedMotion } from "@/features/landing/gsap"
 import { Streamdown } from "streamdown"
@@ -540,9 +554,10 @@ export function AiNativeDashboardView() {
   const composer = (
     <div
       data-flip-id="ai-composer"
-      className="rounded-[2rem] border border-border bg-background p-2 shadow-xl shadow-foreground/5"
+      className="rounded-[2rem] border border-border bg-background p-2.5 shadow-xl shadow-foreground/5 sm:p-3"
     >
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2.5 pl-2">
+        <Sparkles className="mb-3.5 size-4.5 shrink-0 text-brand" aria-hidden />
         <Textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -555,12 +570,15 @@ export function AiNativeDashboardView() {
           placeholder={isLoading ? t("thinking") : t("inputPlaceholder")}
           aria-label="Ask SportMatch AI"
           disabled={isLoading}
-          className="max-h-32 min-h-12 flex-1 border-0 bg-transparent py-3.5 pr-0 pl-3 text-base shadow-none focus-visible:ring-0 sm:pl-4 sm:text-lg"
+          className="max-h-32 min-h-9 flex-1 resize-none border-0 bg-transparent py-2.5 pr-0 pl-2 text-base shadow-none focus-visible:ring-0 sm:text-lg"
         />
+        <kbd className="mb-3 hidden shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:inline-block">
+          ⌘K
+        </kbd>
         <Button
           type="button"
           size="icon"
-          className="mb-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
+          className="mb-0.5 size-10 shrink-0 rounded-full bg-brand text-brand-foreground hover:bg-brand/90"
           aria-label="Send"
           onClick={() => void submit(input)}
           disabled={isLoading || !input.trim()}
@@ -572,36 +590,28 @@ export function AiNativeDashboardView() {
   )
 
   const promptItems = [
-    { key: "badmintonNearMe" },
-    { key: "bookTomorrow" },
-    { key: "sameLevelPlayers" },
-    { key: "badmintonTeammates" },
-    { key: "quickMatch" },
+    { key: "badmintonNearMe", icon: MapPin },
+    { key: "bookTomorrow", icon: Clock },
+    { key: "sameLevelPlayers", icon: Users },
+    { key: "badmintonTeammates", icon: UserPlus },
+    { key: "quickMatch", icon: Zap },
   ]
 
   const quickPrompts = (
-    <div className="flex w-full flex-wrap justify-center gap-3 px-2">
-      {promptItems.map(({ key }) => {
+    <div className="no-scrollbar flex flex-nowrap gap-2 overflow-x-auto">
+      {promptItems.map(({ key, icon: Icon }) => {
         const text = t(`prompts.${key}`)
-        const desc = t(`prompts.${key}Desc`)
         return (
           <button
             key={key}
             type="button"
             onClick={() => void submit(text)}
-            className={cn(
-              "group relative flex w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/80 bg-background/50 p-4 text-center shadow-sm backdrop-blur-sm transition-all duration-300 sm:w-56",
-              "hover:-translate-y-0.5 hover:border-primary/40 hover:bg-muted/30 hover:shadow-md"
-            )}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-background py-1.5 pr-3.5 pl-1.5 text-xs font-medium whitespace-nowrap text-foreground shadow-sm transition-colors hover:border-brand/40 hover:bg-brand/5 sm:text-sm"
           >
-            <div className="space-y-1">
-              <h3 className="font-heading text-sm font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
-                {text}
-              </h3>
-              <p className="line-clamp-2 text-xs text-muted-foreground">
-                {desc}
-              </p>
-            </div>
+            <span className="grid size-5.5 shrink-0 place-items-center rounded-full bg-brand/10 text-brand sm:size-6">
+              <Icon className="size-3 sm:size-3.5" />
+            </span>
+            {text}
           </button>
         )
       })}
@@ -618,26 +628,68 @@ export function AiNativeDashboardView() {
     />
   )
 
-  // Empty state — centered hero + composer, ChatGPT-style. Collapses into the
-  // thread layout below as soon as the first message lands.
+  // Empty state — full-bleed hero photo + composer + quick actions + recent
+  // activity. Collapses into the plain thread layout below as soon as the
+  // first message lands, since that's a separate return branch entirely.
   if (showWelcome) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-9.5rem)] w-full max-w-3xl flex-col items-center justify-center gap-8 px-2 py-4">
-        <section className="flex flex-col items-center gap-4 text-center">
-          <LogoMark className="size-14 text-primary" />
-          <div>
-            <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              {t("welcomeTitle")}
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground sm:text-base">
-              {t("welcomeSubtitle")}
-            </p>
+      <div className="flex w-full flex-col">
+        {/* Full-bleed photo — negative margins cancel the dashboard <main>'s
+            own padding so it spans edge-to-edge and touches the topbar's
+            bottom edge directly, instead of floating inset like a card. */}
+        <div className="relative isolate -mx-4 -mt-4 min-h-[460px] overflow-hidden sm:-mx-6 sm:-mt-6 sm:min-h-[520px] lg:min-h-[580px]">
+          <div className="absolute inset-0 -z-20" aria-hidden="true">
+            <Image
+              src="/dashboard-img.png"
+              alt=""
+              fill
+              priority
+              quality={95}
+              sizes="100vw"
+              className="object-cover object-[right_60%] dark:brightness-90 dark:contrast-110 dark:saturate-90"
+            />
           </div>
-        </section>
+          {/* Legibility scrim so the heading/composer stay readable over the
+              photo — fades out toward the right so the racket still shows. */}
+          <div
+            className="absolute inset-0 -z-10 bg-gradient-to-r from-background via-background/85 to-background/20 dark:from-card/90 dark:via-card/65 dark:to-transparent"
+            aria-hidden="true"
+          />
 
-        <div className="w-full">{composer}</div>
+          <div className="relative mx-auto flex h-full max-w-6xl flex-col justify-end px-6 pt-10 pb-16 sm:px-8 sm:pt-14 sm:pb-20">
+            <section className="flex max-w-[560px] flex-col gap-5">
+              <h1 className="font-heading text-6xl leading-[1.1] font-extrabold tracking-tight text-balance sm:text-7xl">
+                <span className="block">{t("welcomeTitleLine1")}</span>
+                <span className="block">
+                  {t.rich("welcomeTitleLine2", {
+                    accent: (chunks) => (
+                      <span className="text-brand">{chunks}</span>
+                    ),
+                  })}
+                </span>
+              </h1>
+              <p className="max-w-[540px] text-base text-muted-foreground sm:text-lg">
+                {t("welcomeSubtitle")}
+              </p>
+            </section>
+          </div>
+        </div>
 
-        {quickPrompts}
+        {/* The composer straddles the seam between the photo and the page
+            below it — pulled up on top of the image with a negative margin
+            so it reads as a floating card sitting right on the bottom edge
+            of the background photo, instead of being clipped flush against
+            the photo's own overflow-hidden boundary (which squared off its
+            rounded corners and cut its shadow). */}
+        <div className="relative z-10 mx-auto -mt-[79px] w-full max-w-6xl px-8 sm:-mt-[83px] sm:px-10">
+          {composer}
+        </div>
+
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-2 pt-8 sm:pt-10">
+          {quickPrompts}
+
+          <RecentActivity />
+        </div>
 
         {profileDialog}
       </div>
@@ -788,6 +840,134 @@ export function AiNativeDashboardView() {
 
       {profileDialog}
     </div>
+  )
+}
+
+// ─── Recent activity (welcome hero) ────────────────────────────────────────────
+// Reuses the same notification feed as the topbar bell — the closest thing this
+// prototype has to a "recent AI activity" history — reformatted as a list.
+
+const recentIcon: Record<
+  NotificationKind,
+  React.ComponentType<{ className?: string }>
+> = {
+  match: Sparkles,
+  chat: MessageSquare,
+  booking: CalendarCheck,
+  rating: TrendingUp,
+  streak: Flame,
+}
+
+function RecentActivity() {
+  const t = useTranslations("AiDashboard")
+  const { items, markRead } = useNotifications()
+  const user = useAuthUser()
+  const router = useRouter()
+  const [viewAllOpen, setViewAllOpen] = React.useState(false)
+
+  if (!items.length) return null
+
+  const openItem = (item: NotificationItem) => {
+    markRead(item.id)
+    if (item.chatId) {
+      const channel = item.chatId.startsWith("room-")
+        ? item.chatId
+        : demoChannelId(item.chatId, user.id)
+      router.push(`/dashboard/chat?channel=${channel}`)
+    } else if (item.href) {
+      router.push(item.href)
+    }
+    setViewAllOpen(false)
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-heading text-sm font-semibold text-foreground">
+          {t("recent.title")}
+        </h2>
+        <Popover open={viewAllOpen} onOpenChange={setViewAllOpen}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                className="flex items-center gap-0.5 text-sm font-medium text-brand hover:underline"
+              />
+            }
+          >
+            {t("recent.viewAll")}
+            <ChevronRight className="size-3.5" />
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 p-1.5">
+            <div className="max-h-96 overflow-y-auto">
+              {items.map((item) => (
+                <RecentRow key={item.id} item={item} onOpen={openItem} />
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="flex flex-col divide-y divide-border rounded-3xl border border-border bg-background">
+        {items.slice(0, 3).map((item) => (
+          <RecentRow key={item.id} item={item} onOpen={openItem} padded />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function RecentRow({
+  item,
+  onOpen,
+  padded,
+}: {
+  item: NotificationItem
+  onOpen: (item: NotificationItem) => void
+  padded?: boolean
+}) {
+  const t = useTranslations("Notifications")
+  const Icon = recentIcon[item.kind]
+  const text = t.has(`items.${item.id}.text`)
+    ? t(`items.${item.id}.text`)
+    : item.text
+  const time = t.has(`items.${item.id}.time`)
+    ? t(`items.${item.id}.time`)
+    : item.time
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(item)}
+      className={cn(
+        "flex w-full items-center gap-3 text-left transition-colors hover:bg-muted/50",
+        padded ? "px-4 py-3" : "rounded-2xl p-2.5"
+      )}
+    >
+      <span
+        className={cn(
+          "grid size-9 shrink-0 place-items-center rounded-xl",
+          item.read
+            ? "bg-muted text-muted-foreground"
+            : "bg-brand/12 text-brand"
+        )}
+      >
+        <Icon className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span
+          className={cn(
+            "block truncate text-sm",
+            item.read ? "text-muted-foreground" : "font-medium text-foreground"
+          )}
+        >
+          {text}
+        </span>
+        <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
+          {time}
+        </span>
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground/60" />
+    </button>
   )
 }
 
