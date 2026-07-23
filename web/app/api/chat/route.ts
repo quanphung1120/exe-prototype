@@ -13,6 +13,7 @@ import { auth } from "@clerk/nextjs/server"
 import { fetchSeed } from "@/lib/api"
 import { findMatchedPlayers } from "@/features/play/player-matching"
 import type { Court, Level, SportKey } from "@/lib/shared"
+import { allowRequest } from "./rate-limit"
 
 type SportLevels = Partial<Record<SportKey, Level>>
 type LatLng = { lat: number; lng: number }
@@ -55,15 +56,23 @@ const latLngSchema = z
   .nullable()
   .optional()
 
-const bodySchema = z.object({
-  // Messages are handed straight to the AI SDK's converter, which does its own
-  // structural validation; we only assert it's an array and cap its length so a
-  // client can't stuff an oversized prompt (cost / context-flooding abuse).
-  messages: z.array(z.unknown()).max(50),
-  userLevels: sportLevelsSchema,
-  userLocation: latLngSchema,
-  locale: z.enum(["en", "vi"]).optional(),
-})
+const bodySchema = z
+  .object({
+    // Messages are handed straight to the AI SDK's converter, which does its
+    // own structural validation; we only assert it's an array and cap its
+    // length so a client can't stuff an oversized prompt (cost /
+    // context-flooding abuse). The .refine below additionally bounds the
+    // serialized size of the whole array, since 50 messages of unbounded
+    // length would still let an attacker smuggle a huge payload through.
+    messages: z.array(z.unknown()).max(50),
+    userLevels: sportLevelsSchema,
+    userLocation: latLngSchema,
+    locale: z.enum(["en", "vi"]).optional(),
+  })
+  .refine((body) => JSON.stringify(body.messages).length <= 48_000, {
+    message: "messages payload too large",
+    path: ["messages"],
+  })
 
 // Fold the (now validated) skill levels + location into a system-prompt block.
 // The block is fenced as untrusted data and the model is told (in SYSTEM) never
@@ -215,6 +224,15 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 })
   }
 
+  // Per-user cost/DoS guard on this paid-LLM proxy — see rate-limit.ts for
+  // the in-memory window implementation and its single-instance caveat.
+  if (!allowRequest(userId)) {
+    return new Response("Too many requests — thử lại sau một phút nhé.", {
+      status: 429,
+      headers: { "Retry-After": "60" },
+    })
+  }
+
   // Fail fast with a clear signal when the key is missing, instead of letting
   // every request reach OpenRouter and get rejected mid-stream with a 401 that
   // looks like a generic streaming error.
@@ -222,9 +240,16 @@ export async function POST(req: Request) {
     return new Response("Server is missing OPENROUTER_API_KEY", { status: 500 })
   }
 
+  // Reject oversized bodies before parsing — a client can't force us to hold
+  // or JSON.parse an arbitrarily large payload in memory.
+  const text = await req.text()
+  if (text.length > 64_000) {
+    return new Response("Request body too large", { status: 413 })
+  }
+
   let raw: unknown
   try {
-    raw = await req.json()
+    raw = JSON.parse(text)
   } catch {
     return new Response("Invalid JSON body", { status: 400 })
   }
