@@ -1,14 +1,15 @@
-// ─── Per-user request rate limit for the AI chat route ────────────────────
-// `POST /api/chat` is a paid-LLM proxy (OpenRouter) — Clerk auth alone does
-// not bound how often a signed-in user can hit it. This is a small in-memory
-// fixed-window limiter, keyed by Clerk userId.
+// ─── Per-user request rate limit for the AI chat endpoint ─────────────────
+// `POST /api/ai/chat` is a paid-LLM endpoint (OpenRouter) called directly by
+// the browser — Clerk auth alone does not bound how often a signed-in user
+// can hit it. This is a small in-memory fixed-window limiter, keyed by Clerk
+// userId, layered on top of the global per-IP ThrottlerGuard.
 //
 // PROTOTYPE LIMITATION: the window state lives in a module-scoped Map, so it
-// is per-instance and resets on redeploy/restart. That's adequate for this
-// prototype's single Next.js instance (docker-compose / `pnpm dev`) but does
-// NOT hold if the web app ever runs with >1 replica or on serverless (each
-// invocation gets fresh memory) — at that point, swap this for a shared
-// store (e.g. Redis/Upstash) behind the same `allowRequest` signature.
+// is per-api-instance and resets on redeploy/restart. That's adequate for
+// this prototype's single api instance (docker-compose / `pnpm dev`) but does
+// NOT hold if the api ever runs with >1 replica (each instance gets its own
+// memory) — at that point, swap this for a shared store (e.g. Redis/Upstash)
+// behind the same `allowRequest` signature.
 
 const WINDOW_MS = 60_000
 const MAX_REQUESTS = 10 // per user per minute
