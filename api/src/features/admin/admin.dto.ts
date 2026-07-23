@@ -93,14 +93,19 @@ export class CreateDiscountDto {
 }
 
 export class UpdateDiscountDto {
+  // Optional fields below accept `null` as well as being omitted: omitted
+  // means "leave unchanged", `null` means "clear this field" — `@IsOptional()`
+  // skips the type validators for both, so a `null` still reaches the
+  // service undisturbed. `type`/`value`/`active`/`description` have no
+  // "cleared" state, so they stay plain optionals.
   @IsOptional() @IsIn(["percent", "fixed"]) type?: "percent" | "fixed"
   @IsOptional() @IsInt() @Min(1) value?: number
-  @IsOptional() @IsInt() @Min(1) maxDiscount?: number
-  @IsOptional() @IsInt() @Min(1) minOrder?: number
-  @IsOptional() @IsISO8601() validFrom?: string
-  @IsOptional() @IsISO8601() validUntil?: string
-  @IsOptional() @IsInt() @Min(1) usageLimit?: number
-  @IsOptional() @IsInt() @Min(1) perUserLimit?: number
+  @IsOptional() @IsInt() @Min(1) maxDiscount?: number | null
+  @IsOptional() @IsInt() @Min(1) minOrder?: number | null
+  @IsOptional() @IsISO8601() validFrom?: string | null
+  @IsOptional() @IsISO8601() validUntil?: string | null
+  @IsOptional() @IsInt() @Min(1) usageLimit?: number | null
+  @IsOptional() @IsInt() @Min(1) perUserLimit?: number | null
   @IsOptional() @IsBoolean() active?: boolean
   @IsOptional()
   @IsString()

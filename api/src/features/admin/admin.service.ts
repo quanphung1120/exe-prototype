@@ -23,6 +23,19 @@ export interface AdminBrandGroup {
   venues: AdminVenueRow[]
 }
 
+/**
+ * `UpdateDiscountDto`'s date fields are `string | null | undefined` —
+ * `undefined` means "leave unchanged", `null` means "clear it". Preserve
+ * that distinction while converting a present ISO string to a `Date`.
+ */
+function toDateOrClear(
+  iso: string | null | undefined
+): Date | null | undefined {
+  if (iso === undefined) return undefined
+  if (iso === null) return null
+  return new Date(iso)
+}
+
 export interface AdminOverview {
   users: number
   brands: number
@@ -194,8 +207,8 @@ export class AdminService {
   ): Promise<AdminDiscountRow> {
     return this.discounts.updateCode(code, {
       ...dto,
-      validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
-      validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
+      validFrom: toDateOrClear(dto.validFrom),
+      validUntil: toDateOrClear(dto.validUntil),
     })
   }
 

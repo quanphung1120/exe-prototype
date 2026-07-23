@@ -217,20 +217,22 @@ export class DiscountsService {
   /**
    * Patch an existing code — `PATCH /api/admin/discounts/:code`. Only keys
    * present in `patch` are applied (`undefined` means "leave unchanged");
-   * `code` and `usedCount` are never patchable here (payments reference
-   * codes by string — see the module docstring).
+   * for the nullable fields, an explicit `null` clears the field (`$unset`
+   * on save, via assigning `undefined` to the Mongoose path). `code` and
+   * `usedCount` are never patchable here (payments reference codes by
+   * string — see the module docstring).
    */
   async updateCode(
     rawCode: string,
     patch: {
       type?: DiscountCode["type"]
       value?: number
-      maxDiscount?: number
-      minOrder?: number
-      validFrom?: Date
-      validUntil?: Date
-      usageLimit?: number
-      perUserLimit?: number
+      maxDiscount?: number | null
+      minOrder?: number | null
+      validFrom?: Date | null
+      validUntil?: Date | null
+      usageLimit?: number | null
+      perUserLimit?: number | null
       active?: boolean
       description?: string
     }
@@ -242,12 +244,26 @@ export class DiscountsService {
 
     if (patch.type !== undefined) doc.type = patch.type
     if (patch.value !== undefined) doc.value = patch.value
-    if (patch.maxDiscount !== undefined) doc.maxDiscount = patch.maxDiscount
-    if (patch.minOrder !== undefined) doc.minOrder = patch.minOrder
-    if (patch.validFrom !== undefined) doc.validFrom = patch.validFrom
-    if (patch.validUntil !== undefined) doc.validUntil = patch.validUntil
-    if (patch.usageLimit !== undefined) doc.usageLimit = patch.usageLimit
-    if (patch.perUserLimit !== undefined) doc.perUserLimit = patch.perUserLimit
+    if (patch.maxDiscount !== undefined) {
+      doc.maxDiscount =
+        patch.maxDiscount === null ? undefined : patch.maxDiscount
+    }
+    if (patch.minOrder !== undefined) {
+      doc.minOrder = patch.minOrder === null ? undefined : patch.minOrder
+    }
+    if (patch.validFrom !== undefined) {
+      doc.validFrom = patch.validFrom === null ? undefined : patch.validFrom
+    }
+    if (patch.validUntil !== undefined) {
+      doc.validUntil = patch.validUntil === null ? undefined : patch.validUntil
+    }
+    if (patch.usageLimit !== undefined) {
+      doc.usageLimit = patch.usageLimit === null ? undefined : patch.usageLimit
+    }
+    if (patch.perUserLimit !== undefined) {
+      doc.perUserLimit =
+        patch.perUserLimit === null ? undefined : patch.perUserLimit
+    }
     if (patch.active !== undefined) doc.active = patch.active
     if (patch.description !== undefined) doc.description = patch.description
 

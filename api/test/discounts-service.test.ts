@@ -326,6 +326,71 @@ void test("updateCode validates the resulting shape when flipping type", async (
   assert.equal(saveCalls.length, 0)
 })
 
+void test("updateCode clears maxDiscount when flipping percent to fixed via null", async () => {
+  const saveCalls: FakeDiscountDoc[] = []
+  const existing = makeFakeDoc(
+    {
+      code: "GIAM10",
+      type: "percent",
+      value: 10,
+      maxDiscount: 50_000,
+      usedCount: 2,
+      description: "desc",
+    },
+    saveCalls
+  )
+  const { service } = await makeAdminService({
+    countDocuments: 1,
+    findOneResult: existing,
+  })
+
+  const row = await service.updateCode("GIAM10", {
+    type: "fixed",
+    maxDiscount: null,
+  })
+
+  assert.equal(saveCalls.length, 1)
+  assert.equal(row.type, "fixed")
+  assert.equal(row.maxDiscount, undefined)
+})
+
+void test("updateCode null clears minOrder/usageLimit/perUserLimit/validFrom/validUntil, omitted leaves them", async () => {
+  const saveCalls: FakeDiscountDoc[] = []
+  const existing = makeFakeDoc(
+    {
+      code: "GIAM10",
+      type: "percent",
+      value: 10,
+      minOrder: 100_000,
+      usageLimit: 50,
+      perUserLimit: 2,
+      validFrom: new Date("2026-01-01"),
+      validUntil: new Date("2026-12-31"),
+      description: "desc",
+    },
+    saveCalls
+  )
+  const { service } = await makeAdminService({
+    countDocuments: 1,
+    findOneResult: existing,
+  })
+
+  const row = await service.updateCode("GIAM10", {
+    minOrder: null,
+    usageLimit: null,
+    perUserLimit: null,
+    validFrom: null,
+  })
+
+  assert.equal(saveCalls.length, 1)
+  assert.equal(row.minOrder, undefined)
+  assert.equal(row.usageLimit, undefined)
+  assert.equal(row.perUserLimit, undefined)
+  assert.equal(row.validFrom, undefined)
+  // validUntil was omitted from the patch, not nulled — must stay untouched.
+  assert.deepEqual(row.validUntil, new Date("2026-12-31"))
+})
+
 void test("updateCode never changes code or usedCount", async () => {
   const saveCalls: FakeDiscountDoc[] = []
   const existing = makeFakeDoc(
