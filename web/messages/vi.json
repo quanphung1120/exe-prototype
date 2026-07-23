@@ -584,18 +584,36 @@
   },
   "Landing": {
     "hero": {
+      "eyebrow": "Ghép trận bằng AI cho các môn thể thao vợt",
       "titleLine1": "Tìm sân",
-      "titleLine2": "Tìm đối thủ phù hợp.",
+      "titleLine2": "Tìm <accent>đối thủ</accent> phù hợp.",
       "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
       "cta": "Bắt đầu ngay",
       "socialProof": "1.000+ người chơi đã tham gia",
-      "sportsLabel": "Dành cho:"
+      "sportsLabel": "Dành cho:",
+      "badges": {
+        "smartMatching": "Ghép trận thông minh",
+        "aiPowered": "Có AI hỗ trợ",
+        "saveTime": "Tiết kiệm thời gian",
+        "moreGames": "Chơi nhiều hơn",
+        "builtForYou": "Dành riêng cho bạn"
+      }
     },
     "aboutSection": {
       "eyebrow": "Về SportMatch AI",
       "titleStrong": "Một trợ lý thông minh phía sau mỗi trận đấu —",
       "titleMuted": "đặt sân, ghép người chơi và lấp đầy mọi khung giờ trống cho Quý khách.",
-      "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. SportMatch AI lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân."
+      "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. SportMatch AI lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân.",
+      "features": [
+        {
+          "title": "Nhanh chóng",
+          "body": "Từ người mới bắt đầu đến hội chơi quen, chúng tôi xây dựng cách nhanh nhất để ra sân."
+        },
+        {
+          "title": "Đồng bộ",
+          "body": "Pickleball và cầu lông luôn chỉ cách một tin nhắn. Luôn sẵn sàng cho trận tiếp theo."
+        }
+      ]
     },
     "pricingSection": {
       "eyebrow": "Bảng giá",
@@ -644,15 +662,22 @@
     "playerFeatures": {
       "0": {
         "title": "Trợ lý đặt sân AI",
-        "body": "Chỉ cần nói điều Quý khách muốn — “cầu lông tối nay sau 7 giờ, gần đây, người chơi cùng trình độ.” Trợ lý sẽ lo phần còn lại: sân, giờ và người chơi."
+        "body": "Chỉ cần nói điều Quý khách muốn — “cầu lông tối nay sau 7 giờ, gần đây, người chơi cùng trình độ.” Trợ lý sẽ lo phần còn lại: sân, giờ và người chơi.",
+        "demoRequestLabel": "Yêu cầu từ người chơi",
+        "demoRequest": "“Tìm 1 sân Pickleball lúc 18h tối nay gần Quận 1...”",
+        "demoResponseLabel": "Xử lý bởi AI",
+        "demoResponse": "“Đã tìm thấy 3 sân trống. Đang ghép cặp với 2 người chơi trình độ B+...”"
       },
       "1": {
         "title": "Ghép theo trình độ",
-        "body": "Được ghép với những người chơi cùng trình độ để mỗi trận đều cân sức — không còn cảnh một chiều."
+        "body": "Được ghép với những người chơi cùng trình độ để mỗi trận đều cân sức — không còn cảnh một chiều.",
+        "demoLabel": "Trình độ của bạn",
+        "demoBadge": "Level 4.5"
       },
       "2": {
         "title": "Đặt sân tức thì",
-        "body": "Tình trạng sân trống theo thời gian thực tại các địa điểm gần Quý khách. Giữ chỗ chỉ trong vài giây, không cần gọi điện."
+        "body": "Tình trạng sân trống theo thời gian thực tại các địa điểm gần Quý khách. Giữ chỗ chỉ trong vài giây, không cần gọi điện.",
+        "demoCta": "Đặt sân nhanh sẵn sàng"
       },
       "3": {
         "title": "Sân gần Quý khách",
@@ -660,7 +685,10 @@
       },
       "4": {
         "title": "Trò chuyện & phối hợp",
-        "body": "Tính năng trò chuyện, nhắc lịch và đặt sân chung tích hợp sẵn giúp cả nhóm luôn nắm chung thông tin."
+        "body": "Tính năng trò chuyện, nhắc lịch và đặt sân chung tích hợp sẵn giúp cả nhóm luôn nắm chung thông tin.",
+        "demoName": "Duy Nguyen",
+        "demoMessage": "Trận tối nay 7h chốt nhé mọi người!",
+        "demoConfirm": "Đã xác nhận đặt sân 03."
       }
     },
     "stepsSection": {
