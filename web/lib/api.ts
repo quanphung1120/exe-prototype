@@ -14,6 +14,7 @@ import type {
   AdminApprovalRow,
   AdminBookingRow,
   AdminBrandGroup,
+  AdminDiscountRow,
   AdminOverview,
   AdminRefundRow,
 } from "@/features/admin/admin-types"
@@ -226,4 +227,8 @@ export async function fetchAdminRefunds(): Promise<AdminRefundRow[]> {
 
 export async function fetchAdminApprovals(): Promise<AdminApprovalRow[]> {
   return apiFetch<AdminApprovalRow[]>("/api/admin/approvals")
+}
+
+export async function fetchAdminDiscounts(): Promise<AdminDiscountRow[]> {
+  return apiFetch<AdminDiscountRow[]>("/api/admin/discounts")
 }

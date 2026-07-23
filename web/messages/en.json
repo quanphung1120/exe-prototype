@@ -1942,6 +1942,10 @@
       "label": "Bookings & payments",
       "caption": "Recent transactions across every venue"
     },
+    "discounts": {
+      "label": "Coupons",
+      "caption": "Discount codes and usage"
+    },
     "refunds": {
       "label": "Refund queue",
       "caption": "Manual refunds awaiting settlement"
@@ -2077,6 +2081,63 @@
       "district": "District",
       "city": "City",
       "actions": "Actions"
+    }
+  },
+  "AdminDiscounts": {
+    "metaTitle": "Coupons",
+    "metaDescription": "Create and manage discount codes applied at booking checkout",
+    "title": "Coupons",
+    "subtitle": "Create and manage discount codes applied at booking checkout",
+    "create": "Create code",
+    "empty": "No discount codes yet",
+    "unlimited": "Unlimited",
+    "table": {
+      "code": "Code",
+      "description": "Description",
+      "value": "Value",
+      "conditions": "Conditions",
+      "validity": "Validity",
+      "usage": "Usage",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "status": {
+      "active": "Active",
+      "inactive": "Disabled"
+    },
+    "actions": {
+      "edit": "Edit",
+      "enable": "Enable",
+      "disable": "Disable",
+      "delete": "Delete"
+    },
+    "dialog": {
+      "createTitle": "Create discount code",
+      "editTitle": "Edit discount code",
+      "code": "Code",
+      "type": {
+        "label": "Type",
+        "percent": "Percent",
+        "fixed": "Fixed amount"
+      },
+      "value": "Value",
+      "maxDiscount": "Max discount (VND)",
+      "minOrder": "Minimum order (VND)",
+      "usageLimit": "Total usage limit",
+      "perUserLimit": "Per-user limit",
+      "validFrom": "Valid from",
+      "validUntil": "Valid until",
+      "description": "Description",
+      "cancel": "Cancel",
+      "submit": "Save",
+      "saving": "Saving..."
+    },
+    "delete": {
+      "title": "Delete this code?",
+      "description": "\"{code}\" has never been redeemed and can be safely removed. This cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "pending": "Deleting..."
     }
   }
 }

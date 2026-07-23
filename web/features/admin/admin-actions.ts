@@ -6,6 +6,8 @@ import { apiAction as api } from "@/lib/api"
 import type {
   AdminBookingRow,
   AdminApprovalRow,
+  AdminDiscountInput,
+  AdminDiscountRow,
 } from "@/features/admin/admin-types"
 
 // Server actions for the admin workspace. They run on the server (so the api
@@ -67,4 +69,32 @@ export async function forceCancelBooking(
   )
   revalidateAdmin()
   return booking
+}
+
+export async function createDiscount(
+  input: AdminDiscountInput
+): Promise<AdminDiscountRow> {
+  const discount = await api<AdminDiscountRow>("/api/admin/discounts", {
+    method: "POST",
+    body: JSON.stringify(input),
+  })
+  revalidateAdmin()
+  return discount
+}
+
+export async function updateDiscount(
+  code: string,
+  patch: Partial<AdminDiscountInput>
+): Promise<AdminDiscountRow> {
+  const discount = await api<AdminDiscountRow>(`/api/admin/discounts/${code}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  })
+  revalidateAdmin()
+  return discount
+}
+
+export async function deleteDiscount(code: string): Promise<void> {
+  await api(`/api/admin/discounts/${code}`, { method: "DELETE" })
+  revalidateAdmin()
 }

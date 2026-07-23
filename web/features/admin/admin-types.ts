@@ -49,3 +49,39 @@ export type AdminRefundRow = RefundQueueItem & { venueId: string }
 
 /** `GET /api/admin/approvals` — venues awaiting admin review. */
 export type AdminApprovalRow = Venue
+
+/** `GET /api/admin/discounts` — one coupon row of the admin panel. */
+export interface AdminDiscountRow {
+  code: string
+  type: "percent" | "fixed"
+  value: number
+  maxDiscount?: number
+  minOrder?: number
+  validFrom?: string
+  validUntil?: string
+  usageLimit?: number
+  perUserLimit?: number
+  usedCount: number
+  active: boolean
+  description: string
+  createdAt?: string
+}
+
+/**
+ * Create/update payload for `createDiscount`/`updateDiscount` server actions
+ * — mirrors the api's `CreateDiscountDto`, dates as ISO strings (the dialog
+ * converts a `datetime-local` value with `new Date(value).toISOString()`).
+ */
+export interface AdminDiscountInput {
+  code: string
+  type: "percent" | "fixed"
+  value: number
+  maxDiscount?: number
+  minOrder?: number
+  validFrom?: string
+  validUntil?: string
+  usageLimit?: number
+  perUserLimit?: number
+  active?: boolean
+  description: string
+}

@@ -1942,6 +1942,10 @@
       "label": "Đặt sân & thanh toán",
       "caption": "Giao dịch gần đây trên toàn hệ thống"
     },
+    "discounts": {
+      "label": "Mã giảm giá",
+      "caption": "Quản lý coupon và lượt dùng"
+    },
     "refunds": {
       "label": "Hàng đợi hoàn tiền",
       "caption": "Hoàn tiền thủ công đang chờ xử lý"
@@ -2077,6 +2081,63 @@
       "district": "Quận/Huyện",
       "city": "Tỉnh/Thành phố",
       "actions": "Hành động"
+    }
+  },
+  "AdminDiscounts": {
+    "metaTitle": "Mã giảm giá",
+    "metaDescription": "Tạo và quản lý coupon áp dụng khi thanh toán đặt sân",
+    "title": "Mã giảm giá",
+    "subtitle": "Tạo và quản lý coupon áp dụng khi thanh toán đặt sân",
+    "create": "Tạo mã",
+    "empty": "Chưa có mã giảm giá nào",
+    "unlimited": "Không giới hạn",
+    "table": {
+      "code": "Mã",
+      "description": "Mô tả",
+      "value": "Giá trị",
+      "conditions": "Điều kiện",
+      "validity": "Hiệu lực",
+      "usage": "Lượt dùng",
+      "status": "Trạng thái",
+      "actions": "Hành động"
+    },
+    "status": {
+      "active": "Đang hoạt động",
+      "inactive": "Đã tắt"
+    },
+    "actions": {
+      "edit": "Sửa",
+      "enable": "Bật",
+      "disable": "Tắt",
+      "delete": "Xoá"
+    },
+    "dialog": {
+      "createTitle": "Tạo mã giảm giá",
+      "editTitle": "Sửa mã giảm giá",
+      "code": "Mã",
+      "type": {
+        "label": "Loại",
+        "percent": "Phần trăm",
+        "fixed": "Số tiền cố định"
+      },
+      "value": "Giá trị",
+      "maxDiscount": "Giảm tối đa (VND)",
+      "minOrder": "Đơn tối thiểu (VND)",
+      "usageLimit": "Giới hạn tổng lượt dùng",
+      "perUserLimit": "Giới hạn mỗi người",
+      "validFrom": "Có hiệu lực từ",
+      "validUntil": "Có hiệu lực đến",
+      "description": "Mô tả",
+      "cancel": "Hủy",
+      "submit": "Lưu",
+      "saving": "Đang lưu..."
+    },
+    "delete": {
+      "title": "Xoá mã này?",
+      "description": "\"{code}\" chưa từng được sử dụng và có thể xoá an toàn. Không thể hoàn tác.",
+      "cancel": "Hủy",
+      "confirm": "Xoá",
+      "pending": "Đang xoá..."
     }
   }
 }
