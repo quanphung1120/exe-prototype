@@ -149,6 +149,8 @@ interface Deps {
     discountAmount: number
     finalAmount: number
   }
+  /** Stubs what `DiscountsService#applyUsage` resolves to; defaults to `"applied"`. */
+  applyUsageResult?: "applied" | "over_limit" | "missing"
 }
 
 function makeService(deps: Deps = {}) {
@@ -218,7 +220,7 @@ function makeService(deps: Deps = {}) {
     },
     applyUsage: (code: string) => {
       applyUsageCalls.push(code)
-      return Promise.resolve()
+      return Promise.resolve(deps.applyUsageResult ?? "applied")
     },
   }
 
@@ -404,6 +406,38 @@ void test("handleIpn increments the discount's usedCount only once the payment s
   })
 
   assert.equal(store.get("b1")?.status, "paid")
+  assert.deepEqual(applyUsageCalls, ["GIAM10"])
+})
+
+void test("handleIpn still settles the payment when applyUsage reports 'over_limit' (never-throw contract)", async () => {
+  const { service, store, confirmPaymentCalls, applyUsageCalls } =
+    await makeService({
+      applyUsageResult: "over_limit",
+      seedPayments: [
+        {
+          invoiceNumber: "b1",
+          bookingId: "b1",
+          venueId: "v9",
+          userId: "user-1",
+          amount: 180_000,
+          currency: "VND",
+          status: "awaiting",
+          originalAmount: 200_000,
+          discountCode: "GIAM10",
+          discountAmount: 20_000,
+          save: () => Promise.resolve(),
+        },
+      ],
+    })
+
+  const result = await service.handleIpn(Buffer.from(ipnBody("b1")), {
+    "x-sepay-signature": "sha256=irrelevant-in-this-fake",
+    "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+  })
+
+  assert.deepEqual(result, { received: true })
+  assert.equal(store.get("b1")?.status, "paid")
+  assert.deepEqual(confirmPaymentCalls, ["b1"])
   assert.deepEqual(applyUsageCalls, ["GIAM10"])
 })
 

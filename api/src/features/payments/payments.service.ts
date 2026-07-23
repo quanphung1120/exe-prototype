@@ -291,6 +291,16 @@ export class PaymentsService {
     if (updated.discountCode) {
       await this.discounts
         .applyUsage(updated.discountCode)
+        .then((outcome) => {
+          if (outcome === "applied") return
+          const reason =
+            outcome === "over_limit"
+              ? "already at its usageLimit"
+              : "no longer exists"
+          this.logger.warn(
+            `Discount ${updated.discountCode} ${reason} when booking ${updated.bookingId} settled — usedCount not incremented`
+          )
+        })
         .catch((err: unknown) => {
           this.logger.warn(
             `Failed to record discount usage for ${updated.discountCode} (booking ${updated.bookingId}): ${String(err)}`
