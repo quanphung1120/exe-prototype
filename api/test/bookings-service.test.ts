@@ -20,7 +20,11 @@ import { NotificationsService } from "../src/features/notifications/notification
 import { ProfileService } from "../src/features/players/profile.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { vnNowIso } from "../src/shared/index.js"
-import type { BookingRecordStatus, PaymentStatus } from "../src/shared/index.js"
+import type {
+  BookingRecordStatus,
+  PaymentStatus,
+  VenueCourt,
+} from "../src/shared/index.js"
 
 /**
  * Service-level tests for the Phase 3 player/venue-facing bookings API
@@ -138,6 +142,8 @@ interface Deps {
   createdRecords?: unknown[]
   profile?: { user: { name: string; initials: string } }
   confirmSlaMinutes?: number
+  /** Whether `bookingModel.exists({ venueId })` reports a booking already on file. */
+  bookingsExist?: boolean
 }
 
 async function makeService(deps: Deps = {}) {
@@ -162,6 +168,11 @@ async function makeService(deps: Deps = {}) {
           save: () => Promise.resolve(),
         }))
       )
+    },
+    exists: () => Promise.resolve(deps.bookingsExist ?? false),
+    insertMany: (records: unknown[]) => {
+      created.push(...records)
+      return Promise.resolve(records)
     },
   }
   const venueModelMock = {
@@ -769,4 +780,161 @@ void test("confirmPayment doesn't double-refund a late payment on an already-ref
 
   assert.equal(bookingDoc.paymentStatus, "refunded")
   assert.equal(notifications.length, 0)
+})
+
+// ── seedHistoricalBookings (fresh venue onboarding demo history) ────────────
+
+const SEED_COURTS: VenueCourt[] = [
+  {
+    id: "v9c1",
+    name: "Sân 1",
+    sport: "badminton",
+    surface: "Thảm",
+    state: "available",
+    utilToday: 0,
+    pricePerHour: 200_000,
+  },
+  {
+    id: "v9c2",
+    name: "Sân 2",
+    sport: "badminton",
+    surface: "Thảm",
+    state: "available",
+    utilToday: 0,
+    pricePerHour: 200_000,
+  },
+]
+
+void test("seedHistoricalBookings backfills completed walk-in bookings for a bare venue", async () => {
+  const { service, created } = await makeService({ bookingsExist: false })
+
+  await service.seedHistoricalBookings("v9", SEED_COURTS, "06:00", "22:00")
+
+  assert.ok(created.length > 0)
+  for (const r of created as {
+    venueId: string
+    source: string
+    status: string
+    dateKey: string
+    start: string
+    durationMin: number
+  }[]) {
+    assert.equal(r.venueId, "v9")
+    assert.equal(r.source, "walk-in")
+    assert.equal(r.status, "completed")
+    // Falls on or after 06:00 and fully within the 06:00–22:00 window.
+    assert.ok(r.start >= "06:00")
+    const [h, m] = r.start.split(":").map(Number)
+    assert.ok(h * 60 + m + r.durationMin <= 22 * 60)
+  }
+})
+
+void test("seedHistoricalBookings is a no-op when the venue already has any booking", async () => {
+  const { service, created } = await makeService({ bookingsExist: true })
+
+  await service.seedHistoricalBookings("v9", SEED_COURTS, "06:00", "22:00")
+
+  assert.equal(created.length, 0)
+})
+
+void test("seedHistoricalBookings is a no-op for a venue with no courts yet", async () => {
+  const { service, created } = await makeService({ bookingsExist: false })
+
+  await service.seedHistoricalBookings("v9", [], "06:00", "22:00")
+
+  assert.equal(created.length, 0)
+})
+
+void test("seedHistoricalBookings never double-books a court's overlapping slot", async () => {
+  const { service, created } = await makeService({ bookingsExist: false })
+
+  await service.seedHistoricalBookings("v9", SEED_COURTS, "06:00", "22:00")
+
+  const byCourtDay = new Map<
+    string,
+    { start: string; durationMin: number }[]
+  >()
+  for (const r of created as {
+    courtId: string
+    dateKey: string
+    start: string
+    durationMin: number
+  }[]) {
+    const key = `${r.courtId}:${r.dateKey}`
+    const list = byCourtDay.get(key) ?? []
+    list.push({ start: r.start, durationMin: r.durationMin })
+    byCourtDay.set(key, list)
+  }
+  const toMin = (hhmm: string) => {
+    const [h, m] = hhmm.split(":").map(Number)
+    return h * 60 + m
+  }
+  for (const slots of byCourtDay.values()) {
+    const sorted = [...slots].sort((a, b) => toMin(a.start) - toMin(b.start))
+    for (let i = 1; i < sorted.length; i++) {
+      const prevEnd = toMin(sorted[i - 1].start) + sorted[i - 1].durationMin
+      assert.ok(toMin(sorted[i].start) >= prevEnd)
+    }
+  }
+})
+
+void test("seedHistoricalBookings fills weekday evenings/weekends more than weekday mornings", async () => {
+  const { service, created } = await makeService({ bookingsExist: false })
+
+  await service.seedHistoricalBookings("v9", SEED_COURTS, "06:00", "22:00")
+
+  let busyCount = 0
+  let quietCount = 0
+  for (const r of created as { dateKey: string; start: string }[]) {
+    const weekday = new Date(`${r.dateKey}T00:00:00Z`).getUTCDay() // 0=Sun..6=Sat
+    const isWeekend = weekday === 0 || weekday === 6
+    const isEvening = r.start >= "17:00" && r.start < "21:00"
+    if (isWeekend || isEvening) busyCount++
+    else quietCount++
+  }
+  assert.ok(busyCount > quietCount)
+})
+
+void test("seedHistoricalBookings upserts a synthetic CRM customer per unique booking phone", async () => {
+  const venueDoc = makeVenueDoc()
+  const { service } = await makeService({ bookingsExist: false, venueDoc })
+
+  await service.seedHistoricalBookings("v9", SEED_COURTS, "06:00", "22:00")
+
+  assert.ok(venueDoc.ops.customers.length > 0)
+  const ids = venueDoc.ops.customers.map((c) => c.id)
+  assert.equal(ids.length, new Set(ids).size) // no duplicate phone ids
+})
+
+void test("seedHistoricalBookings is deterministic for the same venue/courts", async () => {
+  const a = await makeService({ bookingsExist: false })
+  const b = await makeService({ bookingsExist: false })
+
+  await a.service.seedHistoricalBookings("v9", SEED_COURTS, "06:00", "22:00")
+  await b.service.seedHistoricalBookings("v9", SEED_COURTS, "06:00", "22:00")
+
+  // bookingId (a fresh ObjectId) and statusHistory[].at (vnNowIso()) are the
+  // only non-deterministic fields buildBookingRecord stamps on — every other
+  // field must come out identical from the hashStr-driven pattern.
+  const fingerprint = (records: unknown[]) =>
+    (
+      records as {
+        courtId: string
+        dateKey: string
+        start: string
+        durationMin: number
+        price: number
+        customer: { phone?: string }
+      }[]
+    ).map((r) => ({
+      courtId: r.courtId,
+      dateKey: r.dateKey,
+      start: r.start,
+      durationMin: r.durationMin,
+      price: r.price,
+      phone: r.customer.phone,
+    }))
+
+  assert.equal(a.created.length, b.created.length)
+  assert.deepEqual(fingerprint(a.created), fingerprint(b.created))
 })

@@ -24,12 +24,12 @@ export default async function VenueSchedulePage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; day?: string }>
 }) {
   const { locale } = await params
-  const { tab } = await searchParams
+  const { tab, day } = await searchParams
   setRequestLocale(locale)
   const initialTab: ScheduleTab =
     tab === "reservations" ? "reservations" : "calendar"
-  return <VenueScheduleWorkspace initialTab={initialTab} />
+  return <VenueScheduleWorkspace initialTab={initialTab} initialDay={day} />
 }

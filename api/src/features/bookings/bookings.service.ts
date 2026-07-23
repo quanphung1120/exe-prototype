@@ -12,11 +12,15 @@ import { InjectConnection, InjectModel } from "@nestjs/mongoose"
 import type { ClientSession, Connection, Model } from "mongoose"
 
 import {
+  addDaysIso,
   addMinutesToIso,
+  hashStr,
   initialsOf,
   isoDateOf,
+  toMinutes,
   vnNowIso,
   canTransitionBooking,
+  type BookingRecord,
   type BookingRecordStatus,
   type PaymentStatus,
   type RefundQueueItem,
@@ -488,6 +492,112 @@ export class BookingsService {
     )
 
     return reservationFromBooking(created, isoDateOf(vnNowIso()))
+  }
+
+  // ── Historical demo seed (fresh venue onboarding) ───────────────────────────
+
+  /** Vietnamese first-and-last names for synthetic walk-in history — cosmetic only. */
+  private static readonly SEED_HISTORY_NAMES = [
+    "Nguyễn Hải",
+    "Trần Minh",
+    "Lê Phương",
+    "Phạm Đức",
+    "Vũ Thảo",
+    "Đặng Quang",
+    "Bùi Ngọc",
+    "Hoàng Nam",
+    "Đỗ Linh",
+    "Ngô Tú",
+  ]
+
+  /**
+   * A brand-new venue's Booking collection starts empty, which makes the
+   * day-of-week × hour occupancy heatmap (Insights tab) an uninformative wall
+   * of zeros. Called once from `VenuesService.provisionVenue` right after
+   * courts are added, this backfills ~4 weeks of synthetic "completed"
+   * walk-in history with a realistic weekly pattern — busy weekday evenings
+   * and weekends, quiet weekday mornings/early afternoons — so a fresh
+   * operator's analytics have something to read on day one. Deterministic
+   * (hashStr, no Math.random) and idempotent-guarded: a venue that already
+   * has any booking (real or previously seeded) is left untouched.
+   */
+  async seedHistoricalBookings(
+    venueId: string,
+    courts: VenueCourt[],
+    openFrom: string,
+    openTo: string
+  ): Promise<void> {
+    if (!courts.length) return
+    if (await this.bookingModel.exists({ venueId })) return
+
+    const todayIso = isoDateOf(vnNowIso())
+    const WEEKS = 4
+    const openMin = toMinutes(openFrom)
+    const closeMin = toMinutes(openTo)
+    const names = BookingsService.SEED_HISTORY_NAMES
+    const records: BookingRecord[] = []
+    const customersById = new Map<string, { name: string; sport: SportKey }>()
+
+    for (let dayOffset = 1; dayOffset <= WEEKS * 7; dayOffset++) {
+      const dateIso = addDaysIso(todayIso, -dayOffset)
+      const mondayFirst = (new Date(`${dateIso}T00:00:00Z`).getUTCDay() + 6) % 7
+      const isWeekend = mondayFirst >= 5
+
+      for (const court of courts) {
+        let cursorMin = openMin
+        for (let slotMin = openMin; slotMin < closeMin; slotMin += 60) {
+          if (slotMin < cursorMin) continue
+          const start = `${String(Math.floor(slotMin / 60)).padStart(2, "0")}:${String(slotMin % 60).padStart(2, "0")}`
+          // Deterministic 0–1 "roll" per venue/court/date/hour, weighed against
+          // a weekday-shaped fill probability (evenings + weekends busiest).
+          const h = hashStr(`${venueId}:${court.id}:${dateIso}:${start}`)
+          const roll = h / 4294967296
+          const isEvening = slotMin >= 17 * 60 && slotMin < 21 * 60
+          const fillProbability = isWeekend ? 0.78 : isEvening ? 0.82 : 0.14
+          if (roll >= fillProbability) continue
+
+          const durationMin = (h >>> 3) % 2 === 0 ? 60 : 90
+          if (slotMin + durationMin > closeMin) continue
+
+          const nameIdx = (h >>> 5) % names.length
+          const name = names[nameIdx]
+          const phoneDigits =
+            10000000 + (hashStr(`${venueId}:cust:${nameIdx}`) % 89999999)
+          const phone = `09${phoneDigits}`
+          customersById.set(phone, { name, sport: court.sport })
+
+          records.push(
+            buildBookingRecord({
+              venueId,
+              court,
+              dateKey: dateIso,
+              start,
+              durationMin,
+              source: "walk-in",
+              status: "completed",
+              paymentStatus: "none",
+              customer: { name, initials: initialsOf(name), phone },
+            })
+          )
+          cursorMin = slotMin + durationMin
+        }
+      }
+    }
+
+    if (!records.length) return
+    await this.bookingModel.insertMany(records)
+
+    await withVersionRetry(async () => {
+      const doc = await this.venueModel.findOne({ venueId })
+      if (!doc) return
+      const existingIds = new Set(doc.ops.customers.map((c) => c.id))
+      for (const [id, { name, sport }] of customersById) {
+        if (existingIds.has(id)) continue
+        doc.ops.customers.push(this.zeroedCustomer(id, name, sport))
+      }
+      doc.markModified("ops")
+      await doc.save()
+    })
   }
 
   // ── CRM customer sync (app + walk-in) ───────────────────────────────────────

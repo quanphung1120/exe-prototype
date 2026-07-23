@@ -182,3 +182,6 @@ export const HEATMAP_DAYS: Localized[] = [
   { en: "Sat", vi: "T7" },
   { en: "Sun", vi: "CN" },
 ]
+
+/** A heatmap cell at or below this occupancy (%) counts as a "cold" slot. */
+export const COLD_SLOT_THRESHOLD = 30

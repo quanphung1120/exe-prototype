@@ -114,8 +114,12 @@ const WALK_IN_OVERLAP_MESSAGE = "Selected time overlaps an existing reservation"
 
 export function VenueScheduleView({
   embedded = false,
+  initialDay,
 }: {
   embedded?: boolean
+  /** Land the day view on this ISO date instead of today (e.g. a deep link
+   * from the Insights cold-slot panel to a specific weekday). */
+  initialDay?: string
 } = {}) {
   const locale = useLocale()
   const t = useTranslations("VenueSchedule")
@@ -153,7 +157,19 @@ export function VenueScheduleView({
 
   const now = useNow()
   const [view, setView] = React.useState<CalendarView>("day")
-  const [cursor, setCursor] = React.useState<string>(todayIso)
+  const [cursor, setCursor] = React.useState<string>(initialDay ?? todayIso)
+  // Honor an `initialDay` deep link even after mount: a soft nav to this page
+  // with a new `?day=` (e.g. re-clicking Insights' cold-slot link) keeps the
+  // client component mounted, so a mount-only initial value would be stale.
+  // Adjust during render (not an effect) per the repo's no-sync-setState rule.
+  const [prevInitialDay, setPrevInitialDay] = React.useState(initialDay)
+  if (initialDay !== prevInitialDay) {
+    setPrevInitialDay(initialDay)
+    if (initialDay) {
+      setCursor(initialDay)
+      setView("day")
+    }
+  }
   const [weekCourtId, setWeekCourtId] = React.useState<string>(
     VENUE_COURTS[0]?.id ?? ""
   )

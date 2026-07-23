@@ -1464,7 +1464,7 @@
   },
   "VenueAnalytics": {
     "metaTitle": "Analytics · Venue",
-    "metaDescription": "Revenue, utilization and demand trends for your venue — weekly revenue, an hourly utilization heatmap, sport mix, booking channels and peak hours.",
+    "metaDescription": "Revenue, utilization and demand trends for your venue — weekly revenue, a weekday × hour utilization heatmap, sport mix, booking channels and cold slots.",
     "title": "Analytics",
     "subtitle": "Revenue, utilization and demand across the last 7 days.",
     "kpi": {
@@ -1479,11 +1479,20 @@
       "today": "Today",
       "peakDay": "Peak {day} · {amount}"
     },
+    "coverage": {
+      "title": "Coverage by window",
+      "caption": "Averaged over recent weeks",
+      "toggleHour": "By hour",
+      "toggleWeekday": "By weekday",
+      "note": "The busiest windows sell out first — amber bars are quiet windows worth addressing below."
+    },
     "heatmap": {
       "title": "Utilization heatmap",
-      "caption": "By hour × day",
+      "caption": "By hour × weekday",
+      "explain": "Each cell is the % of courts booked in that window, averaged across recent weeks — darker means busier, an amber ring flags a cold slot worth addressing.",
       "low": "Low",
       "high": "High",
+      "coldMarker": "Cold slot",
       "unit": "% booked"
     },
     "sportMix": {
@@ -1498,10 +1507,35 @@
       },
       "note": "{pct}% of bookings now come through the app."
     },
-    "peak": {
-      "title": "Peak hours",
-      "caption": "Busiest windows",
-      "note": "These windows sell out first — price and staff them accordingly."
+    "coldSlots": {
+      "title": "Cold slots",
+      "caption": "Lowest utilization",
+      "subtitle": "These windows have run quiet for weeks — pick how to handle them below.",
+      "empty": "Not enough booking history yet to detect cold slots.",
+      "allHealthy": "Every window is holding up — no cold slots to address right now.",
+      "actionsTitle": "Handle this window",
+      "reason": {
+        "veryLow": "Only {pct}% booked — nearly empty, worth acting on soon.",
+        "low": "Only {pct}% booked, well below the venue average."
+      },
+      "actions": {
+        "block": "Create a block",
+        "openSchedule": "Open schedule at this window",
+        "promo": "Suggest a promo",
+        "invite": "Invite players"
+      },
+      "toast": {
+        "promoTitle": "Promo suggestion (demo)",
+        "promoDesc": "A {pct}% discount on {slot} could lift fill rate — try it for 2 weeks and compare.",
+        "inviteTitle": "Invite players (demo)",
+        "inviteDesc": "Send a nudge to regulars free during {slot} — prioritize the ones who haven't been back in a while."
+      },
+      "dialog": {
+        "title": "Block this cold slot",
+        "court": "Court",
+        "cancel": "Cancel",
+        "submit": "Create block"
+      }
     },
     "insights": {
       "title": "AI insights",

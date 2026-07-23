@@ -1464,7 +1464,7 @@
   },
   "VenueAnalytics": {
     "metaTitle": "Phân tích · Sân",
-    "metaDescription": "Xu hướng doanh thu, công suất và nhu cầu của sân — doanh thu tuần, bản đồ nhiệt công suất theo giờ, cơ cấu môn, kênh đặt sân và khung giờ cao điểm.",
+    "metaDescription": "Xu hướng doanh thu, công suất và nhu cầu của sân — doanh thu tuần, bản đồ nhiệt công suất theo giờ × thứ, cơ cấu môn, kênh đặt sân và khung giờ trống.",
     "title": "Phân tích",
     "subtitle": "Doanh thu, công suất và nhu cầu trong 7 ngày gần nhất.",
     "kpi": {
@@ -1479,11 +1479,20 @@
       "today": "Hôm nay",
       "peakDay": "Cao nhất {day} · {amount}"
     },
+    "coverage": {
+      "title": "Độ phủ theo khung giờ",
+      "caption": "Trung bình nhiều tuần gần đây",
+      "toggleHour": "Theo giờ",
+      "toggleWeekday": "Theo thứ",
+      "note": "Khung cao nhất hết chỗ trước tiên — khung tô cam là khung vắng, cân nhắc xử lý bên dưới."
+    },
     "heatmap": {
       "title": "Bản đồ nhiệt công suất",
-      "caption": "Theo giờ × ngày",
+      "caption": "Theo giờ × thứ trong tuần",
+      "explain": "Mỗi ô là % sân được đặt vào khung giờ đó, tính trung bình qua các tuần gần đây — càng đậm càng đông, viền cam là khung trống nên xử lý.",
       "low": "Thấp",
       "high": "Cao",
+      "coldMarker": "Khung trống",
       "unit": "% lấp đầy"
     },
     "sportMix": {
@@ -1498,10 +1507,35 @@
       },
       "note": "{pct}% lượt đặt hiện đến từ ứng dụng."
     },
-    "peak": {
-      "title": "Khung giờ cao điểm",
-      "caption": "Khung bận nhất",
-      "note": "Những khung này hết chỗ trước tiên — hãy định giá và bố trí nhân sự phù hợp."
+    "coldSlots": {
+      "title": "Khung giờ trống",
+      "caption": "Công suất thấp nhất",
+      "subtitle": "Những khung giờ này thường vắng khách trong nhiều tuần qua — chọn cách xử lý bên dưới.",
+      "empty": "Chưa đủ dữ liệu đặt sân để phát hiện khung giờ trống.",
+      "allHealthy": "Mọi khung giờ đều ổn — hiện không có khung trống cần xử lý.",
+      "actionsTitle": "Xử lý khung này",
+      "reason": {
+        "veryLow": "Công suất chỉ {pct}% — gần như trống, nên xử lý sớm.",
+        "low": "Công suất {pct}%, thấp hơn nhiều so với mức trung bình của sân."
+      },
+      "actions": {
+        "block": "Tạo lịch chặn",
+        "openSchedule": "Mở lịch tại khung này",
+        "promo": "Gợi ý khuyến mãi",
+        "invite": "Mời người chơi"
+      },
+      "toast": {
+        "promoTitle": "Gợi ý khuyến mãi (minh hoạ)",
+        "promoDesc": "Giảm {pct}% cho khung {slot} có thể nâng tỷ lệ lấp đầy — thử áp dụng trong 2 tuần rồi so sánh.",
+        "inviteTitle": "Mời người chơi (minh hoạ)",
+        "inviteDesc": "Gửi thông báo mời khách quen đang rảnh khung {slot} — ưu tiên nhóm lâu chưa quay lại."
+      },
+      "dialog": {
+        "title": "Chặn khung giờ trống",
+        "court": "Sân",
+        "cancel": "Huỷ",
+        "submit": "Tạo lịch chặn"
+      }
     },
     "insights": {
       "title": "Gợi ý AI",

@@ -565,9 +565,10 @@ export class VenuesService {
    * Provision a venue branch from the setup wizard: ensure the account's brand
    * (created from this branch's profile on the first call, reused after), create
    * the venue under it (owned by `userId`, brand denormalized onto the venue),
-   * add each court, and seed the account's player profile so it has a bookable
-   * identity from day one. No longer one-per-account — an account's brand may
-   * hold many branches.
+   * add each court, seed the account's player profile so it has a bookable
+   * identity from day one, and backfill demo booking history so the new
+   * Insights heatmap isn't a wall of zeros on day one. No longer
+   * one-per-account — an account's brand may hold many branches.
    */
   async provisionVenue(
     userId: string,
@@ -584,10 +585,17 @@ export class VenuesService {
       ownerId: userId,
       brandId: brand.id,
     })
+    const courts: VenueCourt[] = []
     for (const court of input.courts) {
-      await this.addCourt(info.id, court)
+      courts.push(await this.addCourt(info.id, court))
     }
     await this.profiles.getProfile(userId)
+    await this.bookings.seedHistoricalBookings(
+      info.id,
+      courts,
+      input.openFrom,
+      input.openTo
+    )
     return this.venueBundle(info.id)
   }
 

@@ -20,8 +20,11 @@ export type ScheduleTab = "calendar" | "reservations"
  */
 export function VenueScheduleWorkspace({
   initialTab = "calendar",
+  initialDay,
 }: {
   initialTab?: ScheduleTab
+  /** Land the calendar tab's day view on this ISO date (deep link from Insights). */
+  initialDay?: string
 }) {
   const t = useTranslations("VenueSchedule")
   const { reservations: RESERVATIONS } = useVenueData()
@@ -60,7 +63,7 @@ export function VenueScheduleWorkspace({
       </div>
 
       {tab === "calendar" ? (
-        <VenueScheduleView embedded />
+        <VenueScheduleView embedded initialDay={initialDay} />
       ) : (
         <VenueReservationsView embedded />
       )}

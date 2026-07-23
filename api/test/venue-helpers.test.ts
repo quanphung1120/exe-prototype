@@ -10,18 +10,24 @@ import {
   addDaysIso,
   canTransitionBooking,
   computeChannelMix,
+  computeColdSlots,
   computeCustomerStats,
+  computeHourCoverage,
   computePeakHours,
   computeRevenueSeries,
   computeSportMix,
   computeUtilizationHeatmap,
   computeVenueStats,
+  computeWeekdayCoverage,
+  computeWeekdayHeatmap,
   courtDayEvents,
   heatmapRowLabels,
+  nextDateForWeekday,
   overlapsBlock,
   venueCourtToCourt,
   weekdayLabel,
 } from "../src/shared/helpers.js"
+import { HEATMAP_HOURS } from "../src/shared/config.js"
 import type {
   CourtBlock,
   Reservation,
@@ -500,6 +506,129 @@ void test("heatmapRowLabels labels the real 7-day window, oldest → today", () 
   assert.equal(labels.length, 7)
   assert.deepEqual(labels[6], weekdayLabel(TODAY_ISO))
   assert.deepEqual(labels[0], weekdayLabel(addDaysIso(TODAY_ISO, -6)))
+})
+
+// ── Weekday × hour occupancy heatmap & cold-slot handling ───────────────────
+// TODAY_ISO ("2026-07-13") is a Monday, i.e. Mon-first weekdayIdx 0.
+
+void test("computeWeekdayHeatmap buckets a reservation onto its real weekday row", () => {
+  const heatmap = computeWeekdayHeatmap(
+    [makeCourt()],
+    [makeReservation({ dayKey: TODAY_ISO, start: "18:00", durationMin: 60 })]
+  )
+  assert.equal(heatmap.length, 7)
+  assert.equal(heatmap[0].length, HEATMAP_HOURS.length)
+  const hourIdx = HEATMAP_HOURS.indexOf("18")
+  assert.equal(heatmap[0][hourIdx], 100) // Monday · 18:00 column, only date on record
+  assert.ok(heatmap.slice(1).every((row) => row.every((v) => v === 0)))
+})
+
+void test("computeWeekdayHeatmap averages a busy date against a quiet date on the same weekday", () => {
+  const heatmap = computeWeekdayHeatmap(
+    [makeCourt()],
+    [
+      makeReservation({
+        id: "a",
+        dayKey: TODAY_ISO, // Monday, booked at 18:00
+        start: "18:00",
+        durationMin: 60,
+      }),
+      makeReservation({
+        id: "b",
+        dayKey: addDaysIso(TODAY_ISO, -14), // a different Monday, booked at 08:00 only
+        start: "08:00",
+        durationMin: 60,
+      }),
+    ]
+  )
+  const hourIdx = HEATMAP_HOURS.indexOf("18")
+  // One Monday on record booked 18:00, the other didn't → 50% average.
+  assert.equal(heatmap[0][hourIdx], 50)
+})
+
+void test("computeWeekdayHeatmap ignores cancelled reservations", () => {
+  const heatmap = computeWeekdayHeatmap(
+    [makeCourt()],
+    [
+      makeReservation({
+        dayKey: TODAY_ISO,
+        start: "18:00",
+        status: "cancelled",
+      }),
+    ]
+  )
+  assert.ok(heatmap.every((row) => row.every((v) => v === 0)))
+})
+
+void test("computeHourCoverage averages occupancy per hour across every date on record", () => {
+  const coverage = computeHourCoverage(
+    [makeCourt()],
+    [
+      makeReservation({ id: "a", dayKey: TODAY_ISO, start: "18:00" }),
+      makeReservation({
+        id: "b",
+        dayKey: addDaysIso(TODAY_ISO, -1),
+        start: "08:00",
+      }),
+    ]
+  )
+  assert.equal(coverage.length, HEATMAP_HOURS.length)
+  // 2 dates on record; each hour is booked on exactly 1 of them → 50%.
+  assert.equal(coverage.find((p) => p.hour === "18:00")?.util, 50)
+  assert.equal(coverage.find((p) => p.hour === "08:00")?.util, 50)
+})
+
+void test("computeHourCoverage is all-zero with no reservations", () => {
+  const coverage = computeHourCoverage([makeCourt()], [])
+  assert.ok(coverage.every((p) => p.util === 0))
+})
+
+void test("computeWeekdayCoverage averages each weekday's heatmap row", () => {
+  const court = makeCourt()
+  const reservations = [
+    makeReservation({ dayKey: TODAY_ISO, start: "18:00", durationMin: 120 }),
+  ]
+  const heatmap = computeWeekdayHeatmap([court], reservations)
+  const coverage = computeWeekdayCoverage([court], reservations)
+  assert.equal(coverage.length, 7)
+  coverage.forEach((point, i) => {
+    assert.equal(point.weekdayIdx, i)
+    const expected = Math.round(
+      heatmap[i].reduce((sum, v) => sum + v, 0) / heatmap[i].length
+    )
+    assert.equal(point.util, expected)
+  })
+})
+
+void test("computeColdSlots returns the quietest cells first, respecting threshold and limit", () => {
+  const heatmap = [
+    [80, 10, 0, 90],
+    [5, 100, 20, 60],
+  ]
+  const cold = computeColdSlots(heatmap, ["08", "10", "12", "14"], {
+    threshold: 30,
+    limit: 3,
+  })
+  assert.deepEqual(
+    cold.map((s) => s.util),
+    [0, 5, 10]
+  )
+  assert.ok(cold.every((s) => s.util <= 30))
+})
+
+void test("computeColdSlots defaults to a limit of 6 quietest cells", () => {
+  const heatmap: number[][] = [Array<number>(7).fill(0)]
+  const cold = computeColdSlots(heatmap, HEATMAP_HOURS.slice(0, 7))
+  assert.equal(cold.length, 6)
+})
+
+void test("nextDateForWeekday returns today when today already matches", () => {
+  assert.equal(nextDateForWeekday(0, TODAY_ISO), TODAY_ISO)
+})
+
+void test("nextDateForWeekday returns the nearest upcoming date otherwise", () => {
+  assert.equal(nextDateForWeekday(1, TODAY_ISO), addDaysIso(TODAY_ISO, 1)) // Tue
+  assert.equal(nextDateForWeekday(6, TODAY_ISO), addDaysIso(TODAY_ISO, 6)) // Sun
 })
 
 // ── Phase 10: courtDayEvents fake filler disabled for owned venues ──────────

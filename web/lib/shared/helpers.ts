@@ -4,6 +4,7 @@
 // these to the fetched data in its `DataProvider`.
 
 import {
+  COLD_SLOT_THRESHOLD,
   COURT_OPEN_FROM,
   COURT_OPEN_TO,
   HEATMAP_DAYS,
@@ -187,7 +188,7 @@ export function rangesOverlap(
 }
 
 /** Tiny deterministic FNV-1a-style hash; stable across server and client. */
-function hashStr(s: string): number {
+export function hashStr(s: string): number {
   let h = 2166136261
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i)
@@ -1266,6 +1267,171 @@ export function computeUtilizationHeatmap(
       return Math.round((occupiedCourts.size / totalCourts) * 100)
     })
   })
+}
+
+/**
+ * Real day-of-week × hour utilization grid — occupancy averaged across every
+ * distinct calendar date on record for that weekday (Mon-first row order), so
+ * a recurring quiet Tuesday morning reads as quiet even if last Tuesday alone
+ * happened to be busy. Complements {@link computeUtilizationHeatmap}'s rolling
+ * 7-day window (anchored to specific dates) with a repeating weekly pattern.
+ */
+/**
+ * Group live reservations by their ISO date once, so the occupancy math below
+ * doesn't re-scan the whole list for every hour column.
+ */
+function reservationsByDate(live: Reservation[]): Map<string, Reservation[]> {
+  const byDate = new Map<string, Reservation[]>()
+  for (const r of live) {
+    const dateIso = reservationDay(r)
+    if (!dateIso) continue
+    const list = byDate.get(dateIso)
+    if (list) list.push(r)
+    else byDate.set(dateIso, [r])
+  }
+  return byDate
+}
+
+/** % of courts occupied during the 2-hour window at `hour` on a single date. */
+function hourOccupancyPct(
+  dayReservations: Reservation[],
+  hour: string,
+  totalCourts: number
+): number {
+  const occupiedCourts = new Set<string>()
+  for (const r of dayReservations) {
+    const start = reservationStart(r)
+    if (!start) continue
+    if (rangesOverlap(hour, 120, start, reservationMinutes(r))) {
+      occupiedCourts.add(r.courtId ?? r.court)
+    }
+  }
+  return (occupiedCourts.size / totalCourts) * 100
+}
+
+export function computeWeekdayHeatmap(
+  courts: VenueCourt[],
+  reservations: Reservation[],
+  hours: string[] = HEATMAP_HOURS
+): number[][] {
+  const live = reservations.filter(isLiveBooking)
+  const totalCourts = Math.max(1, courts.length)
+  const byDate = reservationsByDate(live)
+  const datesByWeekday: string[][] = Array.from({ length: 7 }, () => [])
+  for (const dateIso of byDate.keys()) {
+    datesByWeekday[(weekdayOf(dateIso) + 6) % 7].push(dateIso)
+  }
+  return datesByWeekday.map((dates) =>
+    hours.map((hh) => {
+      if (!dates.length) return 0
+      const hour = `${hh}:00`
+      const total = dates.reduce(
+        (sum, dateIso) =>
+          sum + hourOccupancyPct(byDate.get(dateIso) ?? [], hour, totalCourts),
+        0
+      )
+      return Math.round(total / dates.length)
+    })
+  )
+}
+
+export interface WeekdayCoveragePoint {
+  weekdayIdx: number
+  util: number
+}
+
+/**
+ * Real hour-of-day coverage — occupancy for each hour column averaged across
+ * every distinct calendar date on record, collapsing the day dimension
+ * entirely (companion bar-chart view to {@link computeWeekdayHeatmap}).
+ */
+export function computeHourCoverage(
+  courts: VenueCourt[],
+  reservations: Reservation[],
+  hours: string[] = HEATMAP_HOURS
+): PeakHourPoint[] {
+  const live = reservations.filter(isLiveBooking)
+  const totalCourts = Math.max(1, courts.length)
+  const byDate = reservationsByDate(live)
+  const dates = [...byDate.keys()]
+  if (!dates.length) return hours.map((hh) => ({ hour: `${hh}:00`, util: 0 }))
+  return hours.map((hh) => {
+    const hour = `${hh}:00`
+    const total = dates.reduce(
+      (sum, dateIso) =>
+        sum + hourOccupancyPct(byDate.get(dateIso) ?? [], hour, totalCourts),
+      0
+    )
+    return { hour, util: Math.round(total / dates.length) }
+  })
+}
+
+/**
+ * Real weekday coverage — each row of {@link computeWeekdayHeatmap} averaged
+ * across its hour columns (companion toggle to {@link computeHourCoverage}).
+ */
+/**
+ * Average each weekday row of an already-computed heatmap across its hour
+ * columns — lets a caller that already holds the heatmap (e.g. the analytics
+ * view's memoized grid) derive coverage without rebuilding it.
+ */
+export function weekdayCoverageFromHeatmap(
+  heatmap: number[][]
+): WeekdayCoveragePoint[] {
+  return heatmap.map((row, weekdayIdx) => ({
+    weekdayIdx,
+    util: row.length
+      ? Math.round(row.reduce((sum, v) => sum + v, 0) / row.length)
+      : 0,
+  }))
+}
+
+export function computeWeekdayCoverage(
+  courts: VenueCourt[],
+  reservations: Reservation[],
+  hours: string[] = HEATMAP_HOURS
+): WeekdayCoveragePoint[] {
+  return weekdayCoverageFromHeatmap(
+    computeWeekdayHeatmap(courts, reservations, hours)
+  )
+}
+
+export interface ColdSlot {
+  weekdayIdx: number
+  hour: string
+  util: number
+}
+
+/**
+ * The quietest cells of a weekday × hour heatmap, lowest first — candidates
+ * for the operator to fill (block, discount, invite). `hours` must be the
+ * same axis the heatmap was built with, so the `hour` labels line up.
+ */
+export function computeColdSlots(
+  heatmap: number[][],
+  hours: string[],
+  {
+    threshold = COLD_SLOT_THRESHOLD,
+    limit = 6,
+  }: { threshold?: number; limit?: number } = {}
+): ColdSlot[] {
+  const slots: ColdSlot[] = []
+  heatmap.forEach((row, weekdayIdx) => {
+    row.forEach((util, i) => {
+      if (util <= threshold) slots.push({ weekdayIdx, hour: hours[i], util })
+    })
+  })
+  return slots.sort((a, b) => a.util - b.util).slice(0, limit)
+}
+
+/** Nearest upcoming ISO date (today counts) matching a Mon-first weekday index. */
+export function nextDateForWeekday(
+  weekdayIdxMonFirst: number,
+  todayIso: string
+): string {
+  const todayMonFirst = (weekdayOf(todayIso) + 6) % 7
+  const delta = (weekdayIdxMonFirst - todayMonFirst + 7) % 7
+  return addDaysIso(todayIso, delta)
 }
 
 // ── Venue: CRM customer stats computed from real bookings (Phase 6) ───────────
