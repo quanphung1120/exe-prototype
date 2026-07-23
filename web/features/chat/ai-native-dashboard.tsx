@@ -647,7 +647,6 @@ export function AiNativeDashboardView() {
   // Active conversation — thread scrolls, composer pinned at the bottom.
   return (
     <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-3xl flex-col">
-      {/* Thread */}
       <div
         ref={scrollRef}
         className="no-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto px-1 py-2"
@@ -686,7 +685,6 @@ export function AiNativeDashboardView() {
         ) : null}
       </div>
 
-      {/* Player invite action bar */}
       {lastPlayerResult ? (
         <div className="shrink-0 border-t border-border/60 bg-background px-3 py-2">
           <div className="flex flex-wrap items-center gap-2">
@@ -786,7 +784,6 @@ export function AiNativeDashboardView() {
         </div>
       ) : null}
 
-      {/* Composer */}
       <div className="shrink-0 pt-1 pb-2">{composer}</div>
 
       {profileDialog}

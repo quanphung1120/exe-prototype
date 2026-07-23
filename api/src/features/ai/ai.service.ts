@@ -323,7 +323,6 @@ export class AiService {
                     Math.round(haversineKm(userLocation, c) * 10) / 10,
                 }))
               : pool
-            // Filter out courts with a known booking conflict at the requested time.
             const resolvedDate = resolveDate(date)
             const available = time
               ? withDistance.filter(
@@ -420,7 +419,6 @@ export class AiService {
           }),
           execute: async ({ sport, sports, level, district }) => {
             const { rooms } = await getSeed()
-            // Only surface rooms with at least one open seat.
             let pool = rooms.filter((r) => r.joined < r.capacity)
             const targetSports = sports ?? (sport ? [sport] : undefined)
             if (targetSports && targetSports.length > 0) {
@@ -434,7 +432,6 @@ export class AiService {
                 r.district.toLowerCase().includes(district.toLowerCase())
               )
             }
-            // Sort closest first.
             const sorted = [...pool].sort((a, b) => a.distanceKm - b.distanceKm)
             return {
               rooms: sorted.slice(0, 5),

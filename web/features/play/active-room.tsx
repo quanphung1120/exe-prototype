@@ -255,7 +255,6 @@ function RoomDetail({
       </SheetHeader>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
-        {/* Awaiting host approval — shown to the user while they're requested */}
         {awaitingApproval ? (
           <div className="flex items-start gap-2.5 rounded-2xl bg-amber-500/10 px-3 py-2.5 text-amber-700 dark:text-amber-400">
             <Hourglass className="mt-0.5 size-4 shrink-0" />
@@ -268,7 +267,6 @@ function RoomDetail({
           </div>
         ) : null}
 
-        {/* Location */}
         <section className="flex flex-col gap-2.5">
           <SectionLabel>{t("location")}</SectionLabel>
           <div className="flex flex-col gap-2 text-sm">
@@ -350,7 +348,6 @@ function RoomDetail({
           </section>
         ) : null}
 
-        {/* Participants */}
         <section className="flex flex-col gap-3">
           <SectionLabel>
             {t("participants", { count: room.players.length })}
@@ -369,7 +366,6 @@ function RoomDetail({
           </div>
         </section>
 
-        {/* Host controls — only for rooms the user owns */}
         {isHost ? (
           <section className="flex flex-col gap-3">
             <SectionLabel>{t("hostControls")}</SectionLabel>
@@ -439,7 +435,6 @@ function RoomDetail({
           </section>
         ) : null}
 
-        {/* Other joined rooms */}
         {others.length ? (
           <section className="flex flex-col gap-2">
             <SectionLabel>{t("otherRooms")}</SectionLabel>

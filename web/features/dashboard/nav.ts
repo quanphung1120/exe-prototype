@@ -66,7 +66,6 @@ export const NAV: NavItem<SectionKey>[] = [
   },
 ]
 
-/** Whether a nav href is active for the given pathname. */
 export function isNavActive(href: string, pathname: string): boolean {
   if (href === "/dashboard") return pathname === "/dashboard"
   return pathname === href || pathname.startsWith(`${href}/`)

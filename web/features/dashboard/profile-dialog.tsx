@@ -136,9 +136,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* Scrollable Container */}
         <div className="overflow-y-auto no-scrollbar flex-1 min-h-0">
-          {/* Cover Background Banner */}
           <div
             className="h-32 sm:h-36 w-full shrink-0 bg-linear-to-br from-brand via-lime/60 to-chart-3 bg-court-lines relative"
             aria-hidden="true"
@@ -147,9 +145,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             <div className="absolute inset-0 bg-black/5" />
           </div>
 
-          {/* Profile Card Body */}
           <div className="px-6 pb-6 sm:px-8 sm:pb-8 pt-0 relative flex flex-col">
-          {/* Circular Avatar overlapping the banner */}
           <div className="relative -mt-10 mb-3 w-fit">
             <Avatar className="size-20 border-4 border-popover shadow-md bg-secondary">
               {accountImage ? (
@@ -161,7 +157,6 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             </Avatar>
           </div>
 
-          {/* Identity details */}
           <div className="flex flex-col gap-0.5">
             <h3 className="font-heading text-xl leading-tight font-bold text-foreground">
               {accountName}
@@ -169,18 +164,15 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             <p className="text-xs text-muted-foreground">{handleDisplay}</p>
           </div>
 
-          {/* Bio / Description */}
           <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
             {bio}
           </p>
 
-          {/* Current Levels */}
           <div className="mt-5 flex flex-col gap-3">
             <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
               {tProfile("yourLevel")}
             </h4>
             <div className="grid grid-cols-1 gap-3">
-              {/* Badminton Level Card */}
               <div className="group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-chart-3/20 bg-chart-3/5 p-3.5">
                 <div className="absolute -right-3 -bottom-3 size-12 rounded-full bg-chart-3/10 blur-md transition-transform duration-300 group-hover:scale-125" />
                 <div className="z-10 flex items-center gap-1.5">
@@ -218,7 +210,6 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             </Button>
           </div>
 
-          {/* Reliability / Trust Score */}
           <div className="mt-5 flex items-center justify-between rounded-2xl bg-muted/40 p-3 text-xs ring-1 ring-foreground/5 dark:ring-foreground/10">
             <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground uppercase">
               <Shield className="size-3.5 text-brand" />
@@ -229,7 +220,6 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
             </span>
           </div>
 
-          {/* Reviews */}
           <div className="mt-5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
@@ -351,9 +341,7 @@ export function PlayerProfileDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Scrollable Container */}
         <div className="overflow-y-auto no-scrollbar flex-1 min-h-0">
-          {/* Cover Background Banner */}
           <div
             className="h-32 sm:h-36 w-full shrink-0 bg-linear-to-br from-brand via-lime/60 to-chart-3 bg-court-lines relative"
             aria-hidden="true"
@@ -361,9 +349,7 @@ export function PlayerProfileDialog({
             <div className="absolute inset-0 bg-black/5" />
           </div>
 
-          {/* Profile Card Body */}
           <div className="px-6 pb-6 sm:px-8 sm:pb-8 pt-0 relative flex flex-col">
-          {/* Avatar overlapping banner */}
           <div className="relative -mt-10 mb-3 w-fit">
             <Avatar className="size-20 border-4 border-popover shadow-md bg-secondary">
               <AvatarFallback className="bg-secondary text-lg font-bold text-secondary-foreground">
@@ -380,7 +366,6 @@ export function PlayerProfileDialog({
             ) : null}
           </div>
 
-          {/* Identity */}
           <div className="flex flex-col gap-0.5">
             <h3 className="font-heading text-xl leading-tight font-bold text-foreground">
               {name}
@@ -390,14 +375,12 @@ export function PlayerProfileDialog({
             </p>
           </div>
 
-          {/* Blurb */}
           {blurb ? (
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
               {blurb}
             </p>
           ) : null}
 
-          {/* Sport + Level */}
           {sport && level ? (
             <div className="mt-5 flex flex-col gap-3">
               <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
@@ -425,7 +408,6 @@ export function PlayerProfileDialog({
             </div>
           ) : null}
 
-          {/* Trust + Distance */}
           <div className="mt-3 flex gap-2">
             <div className="flex flex-1 items-center justify-between rounded-2xl bg-muted/40 p-3 text-xs ring-1 ring-foreground/5 dark:ring-foreground/10">
               <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground uppercase">
@@ -445,7 +427,6 @@ export function PlayerProfileDialog({
             ) : null}
           </div>
 
-          {/* Reviews */}
           <div className="mt-5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">

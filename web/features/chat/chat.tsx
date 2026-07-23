@@ -101,7 +101,6 @@ export function ChatView({ initialChannelId }: { initialChannelId?: string }) {
     <ChatShell>
       <ChatProfileContext.Provider value={openProfile}>
         <WithComponents overrides={COMPONENT_OVERRIDES}>
-          {/* Conversation list */}
           <aside className="hidden w-72 shrink-0 flex-col border-r border-border sm:flex">
             <ChannelList
               filters={{ type: "messaging", members: { $in: [userId] } }}

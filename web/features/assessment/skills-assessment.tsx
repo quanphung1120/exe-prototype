@@ -208,7 +208,6 @@ export function SkillsAssessmentView({
           />
         ) : (
           <>
-            {/* Header */}
             <header className="flex flex-col gap-5">
               <div className="flex items-center gap-3">
                 <div className="min-w-0">
@@ -221,7 +220,6 @@ export function SkillsAssessmentView({
                 </div>
               </div>
 
-              {/* Stepper */}
               <Stepper
                 steps={steps}
                 activeTab={activeTab}
@@ -230,7 +228,6 @@ export function SkillsAssessmentView({
                 onJump={goTo}
               />
 
-              {/* Progress */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span className="font-medium tabular-nums">
@@ -257,7 +254,6 @@ export function SkillsAssessmentView({
               </div>
             </header>
 
-            {/* Content */}
             <main className="mt-7 flex-1">
               {activeTab === "sports" ? (
                 <SportsStep
@@ -282,7 +278,6 @@ export function SkillsAssessmentView({
               ) : null}
             </main>
 
-            {/* Footer actions */}
             <footer className="mt-8 flex items-center justify-between gap-3 border-t pt-5">
               <Button
                 type="button"
