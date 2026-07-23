@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -12,10 +14,13 @@ import { Roles } from "../../common/roles.decorator.js"
 import { RolesGuard } from "../../common/roles.guard.js"
 import {
   BookingIdParamDto,
+  CreateDiscountDto,
+  DiscountCodeParamDto,
   ForceCancelBookingDto,
   ListBookingsQueryDto,
   RejectVenueDto,
   SettleRefundDto,
+  UpdateDiscountDto,
   VenueIdParamDto,
 } from "./admin.dto.js"
 import { AdminService } from "./admin.service.js"
@@ -96,5 +101,29 @@ export class AdminController {
     @Body() body: ForceCancelBookingDto
   ) {
     return this.admin.forceCancelBooking(param.bookingId, body.reason)
+  }
+
+  @Get("discounts")
+  discounts() {
+    return this.admin.listDiscounts()
+  }
+
+  @Post("discounts")
+  createDiscount(@Body() body: CreateDiscountDto) {
+    return this.admin.createDiscount(body)
+  }
+
+  @Patch("discounts/:code")
+  updateDiscount(
+    @Param() param: DiscountCodeParamDto,
+    @Body() body: UpdateDiscountDto
+  ) {
+    return this.admin.updateDiscount(param.code, body)
+  }
+
+  @Delete("discounts/:code")
+  async deleteDiscount(@Param() param: DiscountCodeParamDto) {
+    await this.admin.deleteDiscount(param.code)
+    return { ok: true }
   }
 }

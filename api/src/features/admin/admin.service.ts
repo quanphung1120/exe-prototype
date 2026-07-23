@@ -5,9 +5,12 @@ import type { RefundQueueItem, Venue as VenueInfo } from "../../shared/index.js"
 import type { BookingSummary } from "../bookings/booking.helpers.js"
 import { BookingsService } from "../bookings/bookings.service.js"
 import { BrandsService } from "../brands/brands.service.js"
+import type { AdminDiscountRow } from "../discounts/discounts.service.js"
+import { DiscountsService } from "../discounts/discounts.service.js"
 import { ProfileService } from "../players/profile.service.js"
 import { SessionsService } from "../sessions/sessions.service.js"
 import { VenuesService } from "../venues/venues.service.js"
+import type { CreateDiscountDto, UpdateDiscountDto } from "./admin.dto.js"
 
 /** One brand's venue branches, each with its aggregate booking/revenue totals. */
 export interface AdminVenueRow extends VenueInfo {
@@ -46,7 +49,8 @@ export class AdminService {
     @Inject(BrandsService) private readonly brands: BrandsService,
     @Inject(BookingsService) private readonly bookings: BookingsService,
     @Inject(ProfileService) private readonly profiles: ProfileService,
-    @Inject(SessionsService) private readonly sessions: SessionsService
+    @Inject(SessionsService) private readonly sessions: SessionsService,
+    @Inject(DiscountsService) private readonly discounts: DiscountsService
   ) {}
 
   async overview(): Promise<AdminOverview> {
@@ -169,5 +173,33 @@ export class AdminService {
     reason?: string
   ): Promise<BookingSummary> {
     return this.bookings.adminForceCancel(bookingId, reason)
+  }
+
+  /** Every discount code — `GET /api/admin/discounts`. */
+  listDiscounts(): Promise<AdminDiscountRow[]> {
+    return this.discounts.listAllAdmin()
+  }
+
+  createDiscount(dto: CreateDiscountDto): Promise<AdminDiscountRow> {
+    return this.discounts.createCode({
+      ...dto,
+      validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
+      validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
+    })
+  }
+
+  updateDiscount(
+    code: string,
+    dto: UpdateDiscountDto
+  ): Promise<AdminDiscountRow> {
+    return this.discounts.updateCode(code, {
+      ...dto,
+      validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
+      validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined,
+    })
+  }
+
+  async deleteDiscount(code: string): Promise<void> {
+    await this.discounts.deleteCode(code)
   }
 }
