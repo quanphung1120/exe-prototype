@@ -93,7 +93,10 @@ function buildUserContext(
 // PROTOTYPE LIMITATION: module-level Map — not shared across multiple api
 // instances. Two users on different instances can both book the same slot.
 // Wire to Mongo before going to production.
-const bookedSlots = new Map<string, { bookingId: string; durationMin: number }>()
+const bookedSlots = new Map<
+  string,
+  { bookingId: string; durationMin: number }
+>()
 
 function timeToMin(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number)
@@ -113,7 +116,12 @@ function resolveDate(raw: string | undefined): string {
 }
 
 // Returns the slot key and conflicting booking if any overlap exists.
-function findConflict(courtId: string, date: string, time: string, dur: number) {
+function findConflict(
+  courtId: string,
+  date: string,
+  time: string,
+  dur: number
+) {
   const newStart = timeToMin(time)
   const newEnd = newStart + dur
   for (const [key, entry] of bookedSlots) {
@@ -191,7 +199,8 @@ export class AiService {
 
     const apiKey = this.config.getOrThrow<string>("OPENROUTER_API_KEY")
     const model =
-      this.config.get<string>("OPENROUTER_MODEL") ?? "anthropic/claude-haiku-4.5"
+      this.config.get<string>("OPENROUTER_MODEL") ??
+      "anthropic/claude-haiku-4.5"
     // OpenRouter provider — surfaces the model's real reasoning tokens as AI SDK
     // reasoning parts (the plain @ai-sdk/openai provider drops OpenRouter's
     // `delta.reasoning`). Set OPENROUTER_MODEL to override the default.
@@ -246,7 +255,7 @@ export class AiService {
 
         findCourts: tool({
           description:
-            "Find and rank sports courts that match the user intent. Pass `time` (and optionally `date`) when the user wants to book at a specific slot — courts already taken at that window are excluded from results. Pass `district` when the user mentions a district or area (e.g. \"Quận 3\", \"Bình Thạnh\") — only courts in that district are returned. You can filter by a single sport using `sport`, or multiple sports using `sports`.",
+            'Find and rank sports courts that match the user intent. Pass `time` (and optionally `date`) when the user wants to book at a specific slot — courts already taken at that window are excluded from results. Pass `district` when the user mentions a district or area (e.g. "Quận 3", "Bình Thạnh") — only courts in that district are returned. You can filter by a single sport using `sport`, or multiple sports using `sports`.',
           inputSchema: z.object({
             sport: z.enum(["badminton"]).optional(),
             sports: z.array(z.enum(["badminton"])).optional(),
@@ -255,34 +264,46 @@ export class AiService {
               .string()
               .optional()
               .describe(
-                "Filter courts to this district, e.g. \"Quận 3\", \"Bình Thạnh\". Match loosely (case-insensitive substring)."
+                'Filter courts to this district, e.g. "Quận 3", "Bình Thạnh". Match loosely (case-insensitive substring).'
               ),
             time: z
               .string()
               .regex(/^\d{2}:\d{2}$/)
               .optional()
-              .describe("Requested start time in HH:MM — filters out booked courts"),
+              .describe(
+                "Requested start time in HH:MM — filters out booked courts"
+              ),
             date: z
               .string()
               .optional()
-              .describe('Date string matching bookCourt ("today", "tomorrow", YYYY-MM-DD). Defaults to "today".'),
+              .describe(
+                'Date string matching bookCourt ("today", "tomorrow", YYYY-MM-DD). Defaults to "today".'
+              ),
             durationMin: z
               .number()
               .int()
               .min(30)
               .max(240)
               .optional()
-              .describe("Intended play duration in minutes (default 60). Used to widen the conflict window."),
+              .describe(
+                "Intended play duration in minutes (default 60). Used to widen the conflict window."
+              ),
           }),
-          execute: async ({ sport, sports, sortBy, district, time, date, durationMin }) => {
+          execute: async ({
+            sport,
+            sports,
+            sortBy,
+            district,
+            time,
+            date,
+            durationMin,
+          }) => {
             const { courts } = await getSeed()
             const targetSports = sports ?? (sport ? [sport] : undefined)
-            const sportFiltered = courts.filter(
-              (c: Court) => {
-                if (!targetSports || targetSports.length === 0) return true
-                return targetSports.some((s) => c.sports.includes(s))
-              }
-            )
+            const sportFiltered = courts.filter((c: Court) => {
+              if (!targetSports || targetSports.length === 0) return true
+              return targetSports.some((s) => c.sports.includes(s))
+            })
             // Apply district filter when provided — substring match so "Quận 3" and
             // "quan 3" both work, and partial names like "Bình Thạnh" still hit.
             // No silent fallback: if the district has no courts, return empty so
@@ -298,18 +319,18 @@ export class AiService {
             const withDistance = userLocation
               ? pool.map((c: Court) => ({
                   ...c,
-                  distanceKm: Math.round(haversineKm(userLocation, c) * 10) / 10,
+                  distanceKm:
+                    Math.round(haversineKm(userLocation, c) * 10) / 10,
                 }))
               : pool
             // Filter out courts with a known booking conflict at the requested time.
             const resolvedDate = resolveDate(date)
-            const available =
-              time
-                ? withDistance.filter(
-                    (c: Court) =>
-                      !findConflict(c.id, resolvedDate, time, durationMin ?? 60)
-                  )
-                : withDistance
+            const available = time
+              ? withDistance.filter(
+                  (c: Court) =>
+                    !findConflict(c.id, resolvedDate, time, durationMin ?? 60)
+                )
+              : withDistance
             const ranked = [...available].sort((a: Court, b: Court) => {
               if (sortBy === "price") return a.pricePerHour - b.pricePerHour
               if (sortBy === "distance") return a.distanceKm - b.distanceKm
@@ -320,8 +341,8 @@ export class AiService {
             return {
               courts: ranked.slice(0, 5),
               sortBy: sortBy ?? "rating",
-              sport: (sport ?? null),
-              sports: (sports ?? null),
+              sport: sport ?? null,
+              sports: sports ?? null,
               filteredByTime: time ?? null,
               // Explicit signal so the model knows when the district filter matched nothing.
               districtMatched: district ? pool.length > 0 : null,
@@ -339,26 +360,40 @@ export class AiService {
             timeLabel: z.string().optional(),
             locationLabel: z.string().optional(),
           }),
-          execute: async ({ sport, sports, level, timeLabel, locationLabel }) => {
+          execute: async ({
+            sport,
+            sports,
+            level,
+            timeLabel,
+            locationLabel,
+          }) => {
             const { players } = await getSeed()
             const targetSports = sports ?? (sport ? [sport] : undefined)
-            const sportsText = targetSports && targetSports.length > 0 ? targetSports.join(" ") : ""
+            const sportsText =
+              targetSports && targetSports.length > 0
+                ? targetSports.join(" ")
+                : ""
             const prompt = [sportsText, level, timeLabel, locationLabel]
               .filter(Boolean)
               .join(" ")
             // Default to the user's own level for the chosen sport (sent from the
             // client) rather than a flat "intermediate" when they don't specify.
             const firstSport = targetSports?.[0]
-            const defaultLevel = (firstSport && userLevels?.[firstSport]) ?? "intermediate"
+            const defaultLevel =
+              (firstSport && userLevels?.[firstSport]) ?? "intermediate"
             const { intent, matches } = findMatchedPlayers(
               prompt,
               players,
-              (targetSports && targetSports.length === 1) ? targetSports[0] : "all",
+              targetSports && targetSports.length === 1
+                ? targetSports[0]
+                : "all",
               level ?? defaultLevel
             )
             let filteredMatches = matches
             if (targetSports && targetSports.length > 0) {
-              filteredMatches = matches.filter((m) => targetSports.includes(m.sport))
+              filteredMatches = matches.filter((m) =>
+                targetSports.includes(m.sport)
+              )
             }
             return { intent, players: filteredMatches.slice(0, 6) }
           },
@@ -386,9 +421,7 @@ export class AiService {
           execute: async ({ sport, sports, level, district }) => {
             const { rooms } = await getSeed()
             // Only surface rooms with at least one open seat.
-            let pool = (rooms).filter(
-              (r) => r.joined < r.capacity
-            )
+            let pool = rooms.filter((r) => r.joined < r.capacity)
             const targetSports = sports ?? (sport ? [sport] : undefined)
             if (targetSports && targetSports.length > 0) {
               pool = pool.filter((r) => targetSports.includes(r.sport))
@@ -405,9 +438,9 @@ export class AiService {
             const sorted = [...pool].sort((a, b) => a.distanceKm - b.distanceKm)
             return {
               rooms: sorted.slice(0, 5),
-              sport: (sport ?? null),
-              sports: (sports ?? null),
-              level: (level ?? null),
+              sport: sport ?? null,
+              sports: sports ?? null,
+              level: level ?? null,
               districtMatched: district ? pool.length > 0 : null,
             }
           },
@@ -440,7 +473,7 @@ export class AiService {
             const { courts } = await getSeed()
             const court = courts.find((c: Court) => c.id === courtId)
             if (!court) return { success: false, reason: "Court not found." }
-            const sportKey: SportKey = sport ?? (court.sports[0])
+            const sportKey: SportKey = sport ?? court.sports[0]
             if (!court.sports.includes(sportKey))
               return {
                 success: false,
@@ -473,7 +506,10 @@ export class AiService {
               }
             const totalPrice = Math.round((court.pricePerHour * mins) / 60)
             const bookingId = `BK-${courtId.toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
-            bookedSlots.set(`${courtId}:${resolvedDate}:${time}`, { bookingId, durationMin: mins })
+            bookedSlots.set(`${courtId}:${resolvedDate}:${time}`, {
+              bookingId,
+              durationMin: mins,
+            })
             return {
               success: true,
               bookingId,

@@ -121,10 +121,7 @@ void test("listPendingApprovals returns only pending venues, merging the resolve
     countDocuments: () => Promise.resolve(1),
     find: (filter: Record<string, unknown>) => ({
       sort: () => ({
-        lean: () =>
-          Promise.resolve(
-            filter.approval === "pending" ? docs : []
-          ),
+        lean: () => Promise.resolve(filter.approval === "pending" ? docs : []),
       }),
     }),
   }
@@ -238,7 +235,10 @@ async function makeBookingsService(venueDoc: ReturnType<typeof makeVenueDoc>) {
     find: () => makeQuery([]),
     create: (records: unknown[]) =>
       Promise.resolve(
-        records.map((r) => ({ ...(r as object), save: () => Promise.resolve() }))
+        records.map((r) => ({
+          ...(r as object),
+          save: () => Promise.resolve(),
+        }))
       ),
   }
   const venueModelMock = { findOne: () => makeQuery(venueDoc) }

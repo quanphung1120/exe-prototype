@@ -25,6 +25,7 @@ import { RoomsModule } from "./features/rooms/rooms.module.js"
 import { SeedModule } from "./features/seed/seed.module.js"
 import { SessionsModule } from "./features/sessions/sessions.module.js"
 import { StreamModule } from "./features/stream/stream.module.js"
+import { VenueWorkspaceModule } from "./features/venue-workspace/venue-workspace.module.js"
 import { VenuesModule } from "./features/venues/venues.module.js"
 
 @Module({
@@ -64,6 +65,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     RoomsModule,
     AssessmentModule,
     VenuesModule,
+    VenueWorkspaceModule,
     AccountModule,
     StreamModule,
     NotificationsModule,

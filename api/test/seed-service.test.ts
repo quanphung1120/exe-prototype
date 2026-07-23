@@ -5,7 +5,13 @@ import "reflect-metadata"
 
 import { Test } from "@nestjs/testing"
 
-import { ACTIVITY, NOTIFICATIONS, STATS, STREAK, USER } from "../src/data/player.js"
+import {
+  ACTIVITY,
+  NOTIFICATIONS,
+  STATS,
+  STREAK,
+  USER,
+} from "../src/data/player.js"
 import { AssessmentService } from "../src/features/assessment/assessment.service.js"
 import { CourtsService } from "../src/features/courts/courts.service.js"
 import { PlayerService } from "../src/features/players/player.service.js"
@@ -36,7 +42,12 @@ function makeProfile() {
 
 interface Deps {
   workspace?: {
-    brand: { id: string; ownerId: string; name: string; initials: string } | null
+    brand: {
+      id: string
+      ownerId: string
+      name: string
+      initials: string
+    } | null
     venues: { id: string }[]
   }
 }

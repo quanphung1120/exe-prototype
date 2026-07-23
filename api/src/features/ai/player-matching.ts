@@ -1,19 +1,10 @@
 // Hand-duplicated copy of web/features/play/player-matching.ts — see the
 // repo's shared-code convention (CLAUDE.md). Keep in sync by hand.
-import type {
-  Court,
-  Level,
-  Player,
-  SportKey,
-} from "../../shared/index.js"
+import type { Court, Level, Player, SportKey } from "../../shared/index.js"
 
 export type AiIntentKind = "court" | "player"
 export type MatchTimeKey =
-  | "tonight"
-  | "tomorrow"
-  | "saturday"
-  | "weekend"
-  | "this-weekend"
+  "tonight" | "tomorrow" | "saturday" | "weekend" | "this-weekend"
 
 export interface PlayerMatchIntent {
   kind: AiIntentKind

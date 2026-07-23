@@ -55,19 +55,15 @@ const DEFAULT_OPTIONS: UserThrottleOptions = { limit: 120, ttl: 60_000 }
 export class UserThrottlerGuard extends ThrottlerGuard {
   // @Public() routes (health probes, SePay `ipn`) have no user — they stay
   // covered by the per-IP layer only.
-  protected override shouldSkip(
-    context: ExecutionContext
-  ): Promise<boolean> {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(
-      IS_PUBLIC_KEY,
-      [context.getHandler(), context.getClass()]
-    )
+  protected override shouldSkip(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ])
     return Promise.resolve(isPublic === true)
   }
 
-  protected override getTracker(
-    req: Record<string, unknown>
-  ): Promise<string> {
+  protected override getTracker(req: Record<string, unknown>): Promise<string> {
     const request = req as unknown as Request
     const userId = getRequestUserId(request)
     return Promise.resolve(userId ? `user:${userId}` : `ip:${request.ip}`)

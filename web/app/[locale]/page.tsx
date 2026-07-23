@@ -158,7 +158,7 @@ export default async function Page({
                 fill
                 priority
                 sizes="100vw"
-                className="object-cover object-right-bottom brightness-95 contrast-[0.97] saturate-95 dark:brightness-100 dark:contrast-100 dark:saturate-100"
+                className="object-cover object-bottom-right brightness-95 contrast-[0.97] saturate-95 dark:brightness-100 dark:contrast-100 dark:saturate-100"
               />
             </Parallax>
           </div>
@@ -166,7 +166,7 @@ export default async function Page({
               Dark mode uses the lighter "card" surface instead of the near-black
               page background so the left side doesn't read as flat black. */}
           <div
-            className="absolute inset-0 -z-10 bg-gradient-to-r from-background via-background/85 to-background/25 dark:from-card/90 dark:via-card/65 dark:to-transparent"
+            className="absolute inset-0 -z-10 bg-linear-to-r from-background via-background/85 to-background/25 dark:from-card/90 dark:via-card/65 dark:to-transparent"
             aria-hidden="true"
           />
           <div
@@ -174,7 +174,7 @@ export default async function Page({
             aria-hidden="true"
           />
 
-          <div className="mx-auto w-full max-w-[1280px] px-6 sm:px-10 lg:px-16">
+          <div className="mx-auto w-full max-w-7xl px-6 sm:px-10 lg:px-16">
             <HeroIntro className="max-w-xl">
               <span
                 data-hero-item

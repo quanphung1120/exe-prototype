@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common"
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from "@nestjs/common"
 
 import { Roles } from "../../common/roles.decorator.js"
 import { RolesGuard } from "../../common/roles.guard.js"
@@ -37,7 +45,9 @@ export class AdminController {
 
   @Get("bookings")
   bookings(@Query() query: ListBookingsQueryDto) {
-    return this.admin.recentBookings(query.limit ? Number(query.limit) : undefined)
+    return this.admin.recentBookings(
+      query.limit ? Number(query.limit) : undefined
+    )
   }
 
   @Get("refunds")

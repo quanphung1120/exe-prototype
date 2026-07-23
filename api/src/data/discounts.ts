@@ -11,6 +11,10 @@ export interface InitialDiscountCode {
   maxDiscount?: number
   minOrder?: number
   validUntil?: Date
+  /** Total redemptions allowed across all users; unlimited when unset. */
+  usageLimit?: number
+  /** Redemptions allowed per user; unlimited when unset. */
+  perUserLimit?: number
   description: string
 }
 
@@ -20,6 +24,9 @@ export const INITIAL_DISCOUNTS: InitialDiscountCode[] = [
     type: "percent",
     value: 10,
     maxDiscount: 50_000,
+    // One redemption per account so a single user can't reuse it across every
+    // booking (exercises the per-user cap enforced in PaymentsService#checkout).
+    perUserLimit: 1,
     description: "Giảm 10% (tối đa 50K)",
   },
   {
@@ -28,6 +35,7 @@ export const INITIAL_DISCOUNTS: InitialDiscountCode[] = [
     value: 20,
     maxDiscount: 100_000,
     minOrder: 300_000,
+    perUserLimit: 1,
     description: "Giảm 20% cho đơn từ 300K (tối đa 100K)",
   },
   {
@@ -35,6 +43,10 @@ export const INITIAL_DISCOUNTS: InitialDiscountCode[] = [
     type: "fixed",
     value: 50_000,
     minOrder: 200_000,
+    // A globally-limited launch promo — first 100 paid redemptions across all
+    // users, one each (reservation-aware count includes in-flight holds).
+    usageLimit: 100,
+    perUserLimit: 1,
     description: "Giảm 50K cho đơn từ 200K",
   },
   {

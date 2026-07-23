@@ -936,10 +936,7 @@ void test("seedHistoricalBookings never double-books a court's overlapping slot"
 
   await service.seedHistoricalBookings("v9", SEED_COURTS, "06:00", "22:00")
 
-  const byCourtDay = new Map<
-    string,
-    { start: string; durationMin: number }[]
-  >()
+  const byCourtDay = new Map<string, { start: string; durationMin: number }[]>()
   for (const r of created as {
     courtId: string
     dateKey: string

@@ -22,6 +22,10 @@ export interface DiscountValidation {
   description: string
   discountAmount: number
   finalAmount: number
+  /** Total redemptions allowed across all users; absent when unlimited. */
+  usageLimit?: number
+  /** Redemptions allowed per user; absent when unlimited. */
+  perUserLimit?: number
 }
 
 // MongoDB-backed discount codes, seeded from `INITIAL_DISCOUNTS` the first
@@ -72,6 +76,8 @@ export class DiscountsService {
       description: found.description,
       discountAmount,
       finalAmount,
+      usageLimit: found.usageLimit,
+      perUserLimit: found.perUserLimit,
     }
   }
 

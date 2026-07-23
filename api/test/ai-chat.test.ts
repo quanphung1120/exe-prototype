@@ -19,7 +19,8 @@ process.env.STREAM_API_SECRET ??= "stream_test_dummy"
 process.env.SEPAY_ENV ??= "sandbox"
 process.env.SEPAY_MERCHANT_ID ??= "sepay_test_dummy"
 process.env.SEPAY_SECRET_KEY ??= "sepay_test_dummy"
-process.env.SEPAY_RETURN_URL ??= "http://localhost:3000/vi/dashboard/payment/success"
+process.env.SEPAY_RETURN_URL ??=
+  "http://localhost:3000/vi/dashboard/payment/success"
 process.env.OPENROUTER_API_KEY ??= "sk-or-test-dummy"
 
 import { AiChatDto } from "../src/features/ai/ai-chat.dto.js"
