@@ -6,6 +6,7 @@ import type { Event, StreamChat } from "stream-chat"
 import { Chat, useCreateChatClient } from "stream-chat-react"
 
 import type { StreamCredentials } from "@/lib/api"
+import { refreshStreamToken } from "@/features/chat/stream-actions"
 import { getStreami18n } from "@/features/chat/stream-i18n"
 
 interface StreamState {
@@ -71,12 +72,23 @@ function ConnectedProvider({
 }: StreamChatProviderProps & { creds: StreamCredentials }) {
   const locale = useLocale()
 
+  // A token *provider*, not the static `creds.token` string — the api signs
+  // user tokens with a 24h expiry (see `StreamService.issueToken`), and
+  // `stream-chat` calls this again to transparently reconnect once the
+  // previous token expires. Re-authenticates through the caller's own Clerk
+  // session on every call (the `refreshStreamToken` server action), never an
+  // unauthenticated mint.
+  const tokenProvider = React.useCallback(
+    () => refreshStreamToken({ name: userName, image: userImage }),
+    [userName, userImage]
+  )
+
   // Creates, connects and returns the client; handles disconnect on unmount and
   // React StrictMode's double-mount. Returns null while connecting. Never build
   // the client at module scope — that breaks SSR.
   const client = useCreateChatClient({
     apiKey: creds.apiKey,
-    tokenOrProvider: creds.token,
+    tokenOrProvider: tokenProvider,
     userData: {
       id: userId,
       name: userName,

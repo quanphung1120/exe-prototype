@@ -43,6 +43,7 @@ interface FakeChannelState {
 function makeFakeClient() {
   const calls = {
     createToken: [] as string[],
+    createTokenExp: [] as Array<number | undefined>,
     upsertUsers: [] as Array<Array<{ id: string; name?: string }>>,
     channels: [] as ChannelCall[],
     created: [] as string[],
@@ -55,8 +56,9 @@ function makeFakeClient() {
 
   const client = {
     key: "test-api-key",
-    createToken(userId: string) {
+    createToken(userId: string, exp?: number) {
       calls.createToken.push(userId)
+      calls.createTokenExp.push(exp)
       return `token-${userId}`
     },
     upsertUsers(users: Array<{ id: string; name?: string }>) {
@@ -144,6 +146,23 @@ void test("issueToken returns { apiKey, token } and signs the user's token", asy
 
   assert.deepEqual(result, { apiKey: "test-api-key", token: "token-user-1" })
   assert.deepEqual(calls.createToken, ["user-1"])
+})
+
+void test("issueToken signs the token with a ~24h expiry", async () => {
+  const { client, calls } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+
+  const before = Math.floor(Date.now() / 1000) + 60 * 60 * 24
+  await service.issueToken("user-1")
+  const after = Math.floor(Date.now() / 1000) + 60 * 60 * 24
+
+  const exp = calls.createTokenExp[0]
+  assert.equal(typeof exp, "number")
+  // Assert a range (not exact equality) since `before`/`after` are wall-clock
+  // reads taken around the call — allow a small window either side.
+  assert.ok(exp! >= before - 60 && exp! <= after + 60)
 })
 
 void test("seeding runs only on the upsert that inserts (upsertedCount 1), never twice", async () => {
