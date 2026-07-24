@@ -13,23 +13,28 @@ import type { UIMessage } from "ai"
 import { useAuth } from "@clerk/nextjs"
 import {
   ArrowUp,
+  CalendarCheck,
   CheckCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
+  Flame,
   LogIn,
   Loader2,
   MapPin,
+  MessageSquare,
   Plus,
   Shield,
   Sparkles,
   Star,
+  TrendingUp,
   Users,
   UserPlus,
   X,
   Zap,
 } from "lucide-react"
+import Image from "next/image"
 import { toast } from "sonner"
 import { useLocale, useTranslations } from "next-intl"
 
@@ -40,6 +45,8 @@ import {
   type Court,
   type Level,
   type MatchRoom,
+  type NotificationItem,
+  type NotificationKind,
   type PlaySession,
   type SportKey,
 } from "@/features/dashboard/data"
@@ -60,6 +67,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import {
   AssistantSideRail,
@@ -67,6 +79,9 @@ import {
   RecentChats,
 } from "@/features/chat/assistant-home"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
+import { useAuthUser } from "@/features/dashboard/auth-user"
+import { useNotifications } from "@/features/dashboard/notifications"
+import { demoChannelId } from "@/features/chat/channel-ids"
 import { type LatLng } from "@/features/play/court-map"
 import { Flip, gsap, prefersReducedMotion } from "@/features/landing/gsap"
 import { Streamdown } from "streamdown"
@@ -582,7 +597,7 @@ export function AiNativeDashboardView() {
         <Button
           type="button"
           size="icon"
-          className="mb-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
+          className="mb-0.5 size-10 shrink-0 rounded-full bg-brand text-brand-foreground hover:bg-brand/90"
           aria-label="Send"
           onClick={() => void submit(input)}
           disabled={isLoading || !input.trim()}
@@ -781,6 +796,134 @@ export function AiNativeDashboardView() {
 
       {profileDialog}
     </div>
+  )
+}
+
+// ─── Recent activity (welcome hero) ────────────────────────────────────────────
+// Reuses the same notification feed as the topbar bell — the closest thing this
+// prototype has to a "recent AI activity" history — reformatted as a list.
+
+const recentIcon: Record<
+  NotificationKind,
+  React.ComponentType<{ className?: string }>
+> = {
+  match: Sparkles,
+  chat: MessageSquare,
+  booking: CalendarCheck,
+  rating: TrendingUp,
+  streak: Flame,
+}
+
+function RecentActivity() {
+  const t = useTranslations("AiDashboard")
+  const { items, markRead } = useNotifications()
+  const user = useAuthUser()
+  const router = useRouter()
+  const [viewAllOpen, setViewAllOpen] = React.useState(false)
+
+  if (!items.length) return null
+
+  const openItem = (item: NotificationItem) => {
+    markRead(item.id)
+    if (item.chatId) {
+      const channel = item.chatId.startsWith("room-")
+        ? item.chatId
+        : demoChannelId(item.chatId, user.id)
+      router.push(`/dashboard/chat?channel=${channel}`)
+    } else if (item.href) {
+      router.push(item.href)
+    }
+    setViewAllOpen(false)
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-heading text-sm font-semibold text-foreground">
+          {t("recent.title")}
+        </h2>
+        <Popover open={viewAllOpen} onOpenChange={setViewAllOpen}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                className="flex items-center gap-0.5 text-sm font-medium text-brand hover:underline"
+              />
+            }
+          >
+            {t("recent.viewAll")}
+            <ChevronRight className="size-3.5" />
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 p-1.5">
+            <div className="max-h-96 overflow-y-auto">
+              {items.map((item) => (
+                <RecentRow key={item.id} item={item} onOpen={openItem} />
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="flex flex-col divide-y divide-border rounded-3xl border border-border bg-background">
+        {items.slice(0, 3).map((item) => (
+          <RecentRow key={item.id} item={item} onOpen={openItem} padded />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function RecentRow({
+  item,
+  onOpen,
+  padded,
+}: {
+  item: NotificationItem
+  onOpen: (item: NotificationItem) => void
+  padded?: boolean
+}) {
+  const t = useTranslations("Notifications")
+  const Icon = recentIcon[item.kind]
+  const text = t.has(`items.${item.id}.text`)
+    ? t(`items.${item.id}.text`)
+    : item.text
+  const time = t.has(`items.${item.id}.time`)
+    ? t(`items.${item.id}.time`)
+    : item.time
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(item)}
+      className={cn(
+        "flex w-full items-center gap-3 text-left transition-colors hover:bg-muted/50",
+        padded ? "px-4 py-3" : "rounded-2xl p-2.5"
+      )}
+    >
+      <span
+        className={cn(
+          "grid size-9 shrink-0 place-items-center rounded-xl",
+          item.read
+            ? "bg-muted text-muted-foreground"
+            : "bg-brand/12 text-brand"
+        )}
+      >
+        <Icon className="size-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span
+          className={cn(
+            "block truncate text-sm",
+            item.read ? "text-muted-foreground" : "font-medium text-foreground"
+          )}
+        >
+          {text}
+        </span>
+        <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
+          {time}
+        </span>
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground/60" />
+    </button>
   )
 }
 

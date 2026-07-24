@@ -5,6 +5,7 @@ import {
   CalendarCheck,
   CheckCircle2,
   MapPin,
+  MessageCircle,
   MessageSquare,
   MessagesSquare,
   RefreshCw,
@@ -47,7 +48,7 @@ const TRUST_LOGOS = [
 const ABOUT_FEATURE_ICONS = [Zap, RefreshCw]
 
 const PLAYER_FEATURE_ICONS = [
-  Sparkles,
+  MessageCircle,
   Users,
   CalendarCheck,
   MapPin,

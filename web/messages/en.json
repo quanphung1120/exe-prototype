@@ -1813,7 +1813,11 @@
     "roomSpotsOpen": "{count, plural, one {# spot open} other {# spots open}}",
     "joinRoom": "Join",
     "joined": "Joined",
-    "requested": "Requested…"
+    "requested": "Requested…",
+    "recent": {
+      "title": "Recent",
+      "viewAll": "View all"
+    }
   },
   "Assessment": {
     "metaTitle": "Skill Assessment",

@@ -1813,7 +1813,11 @@
     "roomSpotsOpen": "còn {count} chỗ",
     "joinRoom": "Tham gia",
     "joined": "Đã tham gia",
-    "requested": "Đã yêu cầu…"
+    "requested": "Đã yêu cầu…",
+    "recent": {
+      "title": "Gần đây",
+      "viewAll": "Xem tất cả"
+    }
   },
   "Assessment": {
     "metaTitle": "Đánh giá trình độ",
