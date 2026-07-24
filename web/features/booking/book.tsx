@@ -339,8 +339,6 @@ export function BookView() {
   // Pay step — transfer via QR is the only method, so paying is always ready.
   const canPay = !paying
 
-  const title = court ? t("title", { court: court.name }) : t("pickTitle")
-
   // Until the effect above arms a fresh booking, there's nothing to show.
   if (!open) {
     return (
@@ -351,7 +349,7 @@ export function BookView() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-5">
+    <div className="flex w-full flex-col gap-5 pb-20 sm:pb-0">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <Button
@@ -397,13 +395,6 @@ export function BookView() {
               ) : null}
             </React.Fragment>
           ))}
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <h1 className="font-heading text-xl font-bold tracking-tight sm:text-2xl">
-            {title}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t("description")}</p>
         </div>
       </div>
 
@@ -734,8 +725,10 @@ export function BookView() {
         ) : null}
       </div>
 
-      {/* Action bar — sticky on phones so the primary action stays reachable. */}
-      <div className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between gap-2 border-t border-border bg-background/90 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+      {/* Action bar — fixed to the viewport on phones (not sticky-in-scroll-
+          container, which drifts with the dashboard's own scroll padding) so
+          the primary action always stays reachable at the true screen edge. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-between gap-2 border-t border-border bg-background/90 px-4 py-3 backdrop-blur sm:static sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
         {step > 0 ? (
           <Button
             variant="outline"

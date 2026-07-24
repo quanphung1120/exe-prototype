@@ -303,9 +303,6 @@
     "metaDescription": "Find players for a match or an open court near you — in one place."
   },
   "Booking": {
-    "title": "Book · {court}",
-    "pickTitle": "Book a court",
-    "description": "Pick a slot, choose your format, and fill the court.",
     "metaTitle": "Book a court",
     "metaDescription": "Reserve a court — pick a slot, choose your format, and fill it.",
     "close": "Close",

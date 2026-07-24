@@ -303,9 +303,6 @@
     "metaDescription": "Tìm người chơi cho một trận hoặc sân trống gần Quý khách — trong cùng một nơi."
   },
   "Booking": {
-    "title": "Đặt · {court}",
-    "pickTitle": "Đặt sân",
-    "description": "Chọn khung giờ, chọn hình thức và lấp đầy sân.",
     "metaTitle": "Đặt sân",
     "metaDescription": "Đặt sân — chọn khung giờ, chọn hình thức và lấp đầy sân.",
     "close": "Đóng",
