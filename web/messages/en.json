@@ -1170,11 +1170,14 @@
     "title": "Set up your venue",
     "subtitle": "A few steps to get your venue ready to take bookings.",
     "steps": {
+      "brand": "Brand",
       "venue": "Venue",
       "courts": "Courts",
       "review": "Review"
     },
     "form": {
+      "brandName": "Brand name",
+      "brandNamePlaceholder": "e.g. ABC Badminton System",
       "name": "Venue name",
       "namePlaceholder": "e.g. Cầu Giấy Sports Hall",
       "ward": "Ward / Commune",

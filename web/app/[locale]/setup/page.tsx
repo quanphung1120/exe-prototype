@@ -38,5 +38,5 @@ export default async function SetupPage({
     if (venue) redirect({ href: "/dashboard/venue", locale })
   }
 
-  return <SetupWizard />
+  return <SetupWizard addingBranch={Boolean(branch)} />
 }

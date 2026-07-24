@@ -42,7 +42,13 @@ export interface CourtInput {
   state?: VenueCourt["state"]
 }
 
-export interface VenueSetupInput extends VenueInput {
+export interface VenueSetupInput extends Omit<VenueInput, "managerName"> {
+  /** Brand name (thương hiệu) — only sent on first-time setup; ignored once
+   *  the account already has a brand. */
+  brandName?: string
+  /** Required on first-time setup; reused from the account's existing branch
+   *  (and so omittable) when adding another branch. */
+  managerName?: string
   courts: CourtInput[]
 }
 

@@ -1170,11 +1170,14 @@
     "title": "Thiết lập sân của bạn",
     "subtitle": "Vài bước để địa điểm của Quý khách sẵn sàng nhận đặt sân.",
     "steps": {
+      "brand": "Thương hiệu",
       "venue": "Địa điểm",
       "courts": "Sân",
       "review": "Xác nhận"
     },
     "form": {
+      "brandName": "Tên thương hiệu",
+      "brandNamePlaceholder": "VD: Hệ thống sân Cầu Lông ABC",
       "name": "Tên địa điểm",
       "namePlaceholder": "VD: Nhà thi đấu Cầu Giấy",
       "ward": "Phường / Xã",

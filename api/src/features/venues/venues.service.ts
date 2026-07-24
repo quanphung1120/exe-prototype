@@ -81,8 +81,13 @@ export interface VenueInput {
 }
 
 /** A setup-wizard payload: the venue profile plus its initial courts. */
-export interface VenueSetupInput extends VenueInput {
+export interface VenueSetupInput
+  extends Omit<VenueInput, "managerName">,
+    Partial<Pick<VenueInput, "managerName">> {
   courts: CourtInput[]
+  /** Brand name (thương hiệu) — only used on first-time setup; ignored once the
+   *  account already has a brand (ensureBrand is idempotent). */
+  brandName?: string
 }
 
 export interface CourtInput {
@@ -628,13 +633,21 @@ export class VenuesService {
     input: VenueSetupInput
   ): Promise<VenueSeed> {
     await this.ensureSeeded()
+    const branches = await this.myBranches(userId)
+    const managerName = input.managerName ?? branches[0]?.manager.name
+    if (!managerName) {
+      throw new BadRequestException(
+        "managerName is required for the first branch"
+      )
+    }
     const brand = await this.brands.ensureBrand(userId, {
-      name: input.name,
+      name: input.brandName ?? input.name,
       image: input.image,
       description: input.description,
     })
     const info = await this.createVenue({
       ...input,
+      managerName,
       ownerId: userId,
       brandId: brand.id,
     })

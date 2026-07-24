@@ -38,20 +38,31 @@ interface VenueDraft {
   sports: SportKey[]
   openFrom: string
   openTo: string
+}
+
+interface BrandDraft {
+  brandName: string
   managerName: string
 }
 
 /**
- * Guided new-account setup: collect the venue profile, then its courts, then
- * provision both (the API also seeds the player profile). Lives outside the
- * dashboard layout so it can run before any venue exists.
+ * Guided new-account setup: on first-time setup, collect the account's brand
+ * (thương hiệu) first, then the branch profile, then its courts, then
+ * provision both (the API also seeds the player profile). Adding another
+ * branch (`?branch=1`, `addingBranch`) skips the brand step — the account's
+ * brand and manager already exist and are reused server-side. Lives outside
+ * the dashboard layout so it can run before any venue exists.
  */
-export function SetupWizard() {
+export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
   const t = useTranslations("VenueSetup")
   const router = useRouter()
 
   const [step, setStep] = React.useState(0)
   const [submitting, setSubmitting] = React.useState(false)
+  const [brand, setBrand] = React.useState<BrandDraft>({
+    brandName: "",
+    managerName: "",
+  })
   const [venue, setVenue] = React.useState<VenueDraft>({
     name: "",
     ward: "",
@@ -59,7 +70,6 @@ export function SetupWizard() {
     sports: ["badminton"],
     openFrom: "06:00",
     openTo: "22:00",
-    managerName: "",
   })
   const [courts, setCourts] = React.useState<CourtDraft[]>([])
 
@@ -76,12 +86,14 @@ export function SetupWizard() {
         : [...v.sports, s],
     }))
 
+  const brandValid =
+    brand.brandName.trim().length >= 2 && brand.managerName.trim().length >= 2
+
   const venueValid =
     venue.name.trim().length >= 2 &&
     venue.ward.trim().length >= 1 &&
     venue.province.trim().length >= 1 &&
     venue.sports.length >= 1 &&
-    venue.managerName.trim().length >= 2 &&
     TIME_RE.test(venue.openFrom) &&
     TIME_RE.test(venue.openTo)
 
@@ -92,7 +104,15 @@ export function SetupWizard() {
   const submit = async () => {
     setSubmitting(true)
     try {
-      const venueId = await provisionVenue({ ...venue, courts })
+      const payload = addingBranch
+        ? { ...venue, courts }
+        : {
+            ...venue,
+            brandName: brand.brandName,
+            managerName: brand.managerName,
+            courts,
+          }
+      const venueId = await provisionVenue(payload)
       toast.success(t("toast.done", { name: venue.name }))
       router.replace(`/dashboard/venue/${venueId}`)
       router.refresh()
@@ -104,7 +124,17 @@ export function SetupWizard() {
     }
   }
 
-  const steps = [t("steps.venue"), t("steps.courts"), t("steps.review")]
+  const stepKinds = addingBranch
+    ? (["venue", "courts", "review"] as const)
+    : (["brand", "venue", "courts", "review"] as const)
+  const steps = stepKinds.map((k) => t(`steps.${k}`))
+  const currentKind = stepKinds[step]
+  const canAdvance =
+    currentKind === "brand"
+      ? brandValid
+      : currentKind === "venue"
+        ? venueValid
+        : courts.length > 0
 
   return (
     <div className="w-full max-w-lg">
@@ -146,14 +176,16 @@ export function SetupWizard() {
       </ol>
 
       <div className="rounded-3xl bg-card p-5 ring-1 ring-foreground/5 dark:ring-foreground/10">
-        {step === 0 ? (
+        {currentKind === "brand" ? (
+          <BrandStep brand={brand} setBrand={setBrand} />
+        ) : currentKind === "venue" ? (
           <VenueStep
             venue={venue}
             setField={setVenueField}
             setVenue={setVenue}
             toggleSport={toggleSport}
           />
-        ) : step === 1 ? (
+        ) : currentKind === "courts" ? (
           <CourtsStep
             venue={venue}
             courts={courts}
@@ -161,7 +193,11 @@ export function SetupWizard() {
             onRemove={removeCourt}
           />
         ) : (
-          <ReviewStep venue={venue} courts={courts} />
+          <ReviewStep
+            venue={venue}
+            courts={courts}
+            brandName={addingBranch ? undefined : brand.brandName}
+          />
         )}
       </div>
 
@@ -176,11 +212,11 @@ export function SetupWizard() {
           <ArrowLeft />
           {t("back")}
         </Button>
-        {step < 2 ? (
+        {step < steps.length - 1 ? (
           <Button
             type="button"
             className="rounded-full"
-            disabled={step === 0 ? !venueValid : courts.length === 0}
+            disabled={!canAdvance}
             onClick={() => setStep((s) => s + 1)}
           >
             {t("next")}
@@ -197,6 +233,46 @@ export function SetupWizard() {
           </Button>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Step 0 (first-time only): brand profile ───────────────────────────────────
+
+function BrandStep({
+  brand,
+  setBrand,
+}: {
+  brand: BrandDraft
+  setBrand: React.Dispatch<React.SetStateAction<BrandDraft>>
+}) {
+  const t = useTranslations("VenueSetup")
+  return (
+    <div className="flex flex-col gap-5">
+      <Field>
+        <FieldLabel htmlFor="b-name">{t("form.brandName")}</FieldLabel>
+        <Input
+          id="b-name"
+          value={brand.brandName}
+          autoComplete="off"
+          placeholder={t("form.brandNamePlaceholder")}
+          onChange={(e) =>
+            setBrand((b) => ({ ...b, brandName: e.target.value }))
+          }
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="b-mgr">{t("form.manager")}</FieldLabel>
+        <Input
+          id="b-mgr"
+          value={brand.managerName}
+          autoComplete="off"
+          placeholder={t("form.managerPlaceholder")}
+          onChange={(e) =>
+            setBrand((b) => ({ ...b, managerName: e.target.value }))
+          }
+        />
+      </Field>
     </div>
   )
 }
@@ -313,16 +389,6 @@ function VenueStep({
           />
         </Field>
       </div>
-      <Field>
-        <FieldLabel htmlFor="v-mgr">{t("form.manager")}</FieldLabel>
-        <Input
-          id="v-mgr"
-          value={venue.managerName}
-          autoComplete="off"
-          placeholder={t("form.managerPlaceholder")}
-          onChange={(e) => setField("managerName", e.target.value)}
-        />
-      </Field>
     </div>
   )
 }
@@ -475,14 +541,21 @@ function CourtsStep({
 function ReviewStep({
   venue,
   courts,
+  brandName,
 }: {
   venue: VenueDraft
   courts: CourtDraft[]
+  brandName?: string
 }) {
   const t = useTranslations("VenueSetup")
   return (
     <div className="flex flex-col gap-4 text-sm">
       <div>
+        {brandName ? (
+          <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase">
+            {brandName}
+          </div>
+        ) : null}
         <div className="font-heading text-lg font-bold">{venue.name}</div>
         <div className="text-muted-foreground">
           {venue.ward} · {venue.province} · {venue.openFrom}–{venue.openTo}

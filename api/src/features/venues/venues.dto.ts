@@ -1,4 +1,4 @@
-import { PartialType } from "@nestjs/mapped-types"
+import { OmitType, PartialType } from "@nestjs/mapped-types"
 import { Type } from "class-transformer"
 import {
   ArrayMinSize,
@@ -100,13 +100,35 @@ export class VenuePatchDto extends PartialType(VenueInputDto) {
   archived?: boolean
 }
 
-/** The guided setup-wizard payload: the venue profile plus its initial courts. */
-export class VenueSetupDto extends VenueInputDto {
+/**
+ * The guided setup-wizard payload: the venue profile plus its initial courts.
+ * `managerName` is omitted from the base and re-declared optional (rather than
+ * inherited) — TS forbids a subclass narrowing a required property to
+ * optional in place, so `OmitType` + a fresh declaration is the clean way to
+ * loosen it here without touching `VenueInputDto`'s other consumers.
+ */
+export class VenueSetupDto extends OmitType(VenueInputDto, [
+  "managerName",
+] as const) {
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CourtInputDto)
   courts: CourtInputDto[]
+
+  /** Brand name (thương hiệu) — only sent on first-time setup; ignored once the
+   *  account already has a brand (ensureBrand is idempotent). */
+  @IsOptional()
+  @IsString()
+  @Length(2, 60)
+  brandName?: string
+
+  /** Manager/owner — required on first-time setup; on add-branch it is reused
+   *  from the account's existing branch, so it may be omitted here. */
+  @IsOptional()
+  @IsString()
+  @Length(2, 60)
+  managerName?: string
 }
 
 export class CourtInputDto {
