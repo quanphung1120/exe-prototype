@@ -20,6 +20,7 @@ import { formatVnd, SPORTS, type SportKey } from "@/features/dashboard/data"
 import { SportTag } from "@/features/dashboard/shared"
 import { provisionVenue } from "@/features/venue/venue-actions"
 import { useRouter } from "@/i18n/navigation"
+import { PROVINCE_OPTIONS, provinceCodeByName, wardsOf } from "@/lib/vn-admin"
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
@@ -54,7 +55,7 @@ export function SetupWizard() {
   const [venue, setVenue] = React.useState<VenueDraft>({
     name: "",
     ward: "",
-    province: "Hà Nội",
+    province: "",
     sports: ["badminton"],
     openFrom: "06:00",
     openTo: "22:00",
@@ -149,6 +150,7 @@ export function SetupWizard() {
           <VenueStep
             venue={venue}
             setField={setVenueField}
+            setVenue={setVenue}
             toggleSport={toggleSport}
           />
         ) : step === 1 ? (
@@ -204,14 +206,18 @@ export function SetupWizard() {
 function VenueStep({
   venue,
   setField,
+  setVenue,
   toggleSport,
 }: {
   venue: VenueDraft
   setField: <K extends keyof VenueDraft>(key: K, value: VenueDraft[K]) => void
+  setVenue: React.Dispatch<React.SetStateAction<VenueDraft>>
   toggleSport: (s: SportKey) => void
 }) {
   const t = useTranslations("VenueSetup")
   const tc = useTranslations("Common")
+  const provinceCode = provinceCodeByName(venue.province)
+  const wardOptions = wardsOf(provinceCode)
   return (
     <div className="flex flex-col gap-5">
       <Field>
@@ -226,22 +232,45 @@ function VenueStep({
       </Field>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="v-ward">{t("form.ward")}</FieldLabel>
-          <Input
-            id="v-ward"
-            value={venue.ward}
-            autoComplete="off"
-            onChange={(e) => setField("ward", e.target.value)}
-          />
+          <FieldLabel htmlFor="v-province">{t("form.province")}</FieldLabel>
+          <Select
+            value={provinceCode ?? ""}
+            onValueChange={(code) => {
+              const name =
+                PROVINCE_OPTIONS.find((p) => p.code === code)?.name ?? ""
+              setVenue((v) => ({ ...v, province: name, ward: "" }))
+            }}
+          >
+            <SelectTrigger id="v-province" className="w-full">
+              <SelectValue placeholder={t("form.provincePlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {PROVINCE_OPTIONS.map((p) => (
+                <SelectItem key={p.code} value={p.code}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
         <Field>
-          <FieldLabel htmlFor="v-province">{t("form.province")}</FieldLabel>
-          <Input
-            id="v-province"
-            value={venue.province}
-            autoComplete="off"
-            onChange={(e) => setField("province", e.target.value)}
-          />
+          <FieldLabel htmlFor="v-ward">{t("form.ward")}</FieldLabel>
+          <Select
+            value={venue.ward}
+            onValueChange={(name) => setField("ward", name ?? "")}
+            disabled={wardOptions.length === 0}
+          >
+            <SelectTrigger id="v-ward" className="w-full">
+              <SelectValue placeholder={t("form.wardPlaceholder")} />
+            </SelectTrigger>
+            <SelectContent>
+              {wardOptions.map((w) => (
+                <SelectItem key={w.code} value={w.name}>
+                  {w.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
       </div>
       <Field>
