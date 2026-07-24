@@ -100,6 +100,7 @@ function makeService(deps: Deps = {}) {
 
   const venuesMock = {
     myWorkspace: () => Promise.resolve(workspace),
+    catalogVenues: () => Promise.resolve([]),
     venueBundle: (id: string) => {
       venueBundleCalls.push(id)
       return Promise.resolve(emptyVenueSeed)

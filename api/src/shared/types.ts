@@ -903,6 +903,21 @@ export interface VenueSeed {
   insights: VenueInsight[]
 }
 
+/**
+ * A branch (venue) projected to a lightweight pin for the Find Courts map — one
+ * per venue, with coordinates already resolved (map-centre fallback applied) so
+ * the client always has concrete lat/lng to place the marker.
+ */
+export interface VenuePin {
+  id: string
+  name: string
+  ward: string
+  province: string
+  rating: number
+  lat: number
+  lng: number
+}
+
 /** The full hardcoded dataset the API serves and the web `DataProvider` holds. */
 export interface Seed {
   /** Server "now" (ISO datetime, +07:00, Asia/Ho_Chi_Minh) — the render anchor for day math (repo bans `Date.now()` in render). */
@@ -910,6 +925,8 @@ export interface Seed {
   user: User
   players: Player[]
   courts: Court[]
+  /** Every discoverable branch as one map pin (venue coords) for the Find Courts map. */
+  venuePins: VenuePin[]
   rooms: MatchRoom[]
   bookings: Booking[]
   /** Derived seed (built from rooms + bookings) so the web hydrates it directly. */

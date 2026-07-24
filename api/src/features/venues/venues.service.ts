@@ -21,6 +21,7 @@ import {
   isoDateOf,
   toMinutes,
   venueCourtToCourt,
+  venueToPin,
   vnNowIso,
   type BookingRecordStatus,
   type BranchSummary,
@@ -36,6 +37,7 @@ import {
   type VenueApprovalStatus,
   type VenueCourt,
   type VenueCustomer,
+  type VenuePin,
   type VenueSeed,
   type VenueStats,
 } from "../../shared/index.js"
@@ -73,6 +75,9 @@ export interface VenueInput {
   sports: SportKey[]
   openFrom: string
   openTo: string
+  /** Map position (WGS84); when absent the discovery map falls back to a default centre. */
+  lat?: number
+  lng?: number
   managerName: string
   /** Clerk account provisioning this venue (setup wizard) — denormalized brand owner. */
   ownerId?: string
@@ -539,6 +544,23 @@ export class VenuesService {
     return found
   }
 
+  /**
+   * Every discoverable branch as a single map pin (one per venue) for the Find
+   * Courts map. Same discovery gate as {@link catalogCourts} — archived and
+   * not-yet-approved (pending/rejected) branches are excluded, since a player-
+   * facing map must not surface a branch that can't take bookings — but UNLIKE
+   * catalogCourts a court-less (approved) branch still gets a pin. Coordinates
+   * are resolved to the venue's exact position (map-centre fallback when unset),
+   * never the per-court jitter.
+   */
+  async catalogVenues(): Promise<VenuePin[]> {
+    await this.ensureSeeded()
+    const records = await this.loadRecords()
+    return records
+      .filter((rec) => !rec.info.archived && rec.info.approval === "approved")
+      .map((rec) => venueToPin(rec.info))
+  }
+
   // ── Venue mutations ──────────────────────────────────────────────────────────
 
   async createVenue(input: VenueInput): Promise<VenueInfo> {
@@ -564,6 +586,8 @@ export class VenuesService {
         sports: input.sports,
         openFrom: input.openFrom,
         openTo: input.openTo,
+        lat: input.lat,
+        lng: input.lng,
         rating: 0,
         reviews: 0,
         manager: {
@@ -610,6 +634,8 @@ export class VenuesService {
       if (patch.sports !== undefined) next.sports = patch.sports
       if (patch.openFrom !== undefined) next.openFrom = patch.openFrom
       if (patch.openTo !== undefined) next.openTo = patch.openTo
+      if (patch.lat !== undefined) next.lat = patch.lat
+      if (patch.lng !== undefined) next.lng = patch.lng
       if (patch.managerName !== undefined) {
         next.manager = {
           name: patch.managerName,

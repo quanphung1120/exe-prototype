@@ -7,6 +7,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Length,
@@ -88,6 +89,20 @@ export class VenueInputDto {
   @Matches(HHMM, { message: "openTo: Expected HH:MM" })
   openTo: string
 
+  /** Map position (WGS84) — set from geolocation or manual entry in the setup
+   *  wizard; when absent the discovery map falls back to a default centre. */
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  lat?: number
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  lng?: number
+
   @IsString()
   @Length(2, 60)
   managerName: string
@@ -138,6 +153,20 @@ export class BranchInputDto {
 
   @Matches(HHMM, { message: "openTo: Expected HH:MM" })
   openTo: string
+
+  /** Map position (WGS84) — set from geolocation or manual entry in the setup
+   *  wizard; when absent the discovery map falls back to a default centre. */
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  lat?: number
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  lng?: number
 }
 
 /**
