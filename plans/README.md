@@ -25,6 +25,9 @@ when done.
 | 013  | Admin can manage discount codes (coupons): list/create/edit/toggle/delete via `/api/admin/discounts` + `/dashboard/admin/discounts` | P2 | M | none (prereq in-flight work landed as `44b8921`) | DONE (branch `advisor/013-admin-discount-management`, commits `b1a63bd`/`90a906b`/`92f9438` off `44b8921`, **not merged** — reviewer-verified all gates in the worktree: api typecheck/lint + 300/300 tests (9 new), web typecheck/lint 0 errors/build/27 tests, scope exactly the 14 in-scope files, i18n 49-key parity both locales. One judged-on-merit deviation, documented by the executor: `pnpm format` in web reformatted ~30 unrelated files (pre-existing prettier drift) and the executor reverted them to honor the scope criterion, re-running all gates after. Known cosmetic gap for follow-up: the usage cell hardcodes the Vietnamese literal "/người" instead of an i18n key; known deferred semantics per the plan: PATCH cannot clear an optional field (send-`null`), so e.g. converting a percent code carrying `maxDiscount` to fixed is rejected until that lands) |
 | 014  | Community chat: message the venue after a paid booking, Clerk-backed user search, DMs + named group chats | P2 | L | none | DONE (branch `advisor/014-community-chat`, commits `c787abe` api / `f012453` web off `4e46141`, **not merged** — reviewer re-ran all gates in the worktree: api typecheck/lint/build + 314/314 tests (12 new in `stream-community.test.ts`), web typecheck/lint (0 errors)/build + 27/27 tests, all three routes present, i18n parity `[] []`, scope clean. Two judged-on-merit deviations, both documented: (1) `web/features/chat/venue-inbox-context.ts` extracted as its own file — explicitly authorized by the plan's Step 9 escape hatch (chat.tsx→channel-list.tsx import cycle); (2) `stream-service.test.ts` `makeService` helper extended with the new constructor fakes — required or its existing tests break, file was in scope. Known criterion caveat: the `helpers.ts` byte-sync diff is non-empty due to a PRE-EXISTING one-line comment drift on master (verified independently by the reviewer at `4e46141`); the executor's Prettier pass actually removed the other pre-existing wrap difference. Live browser smoke test NOT run (no env credentials in the worktree) — operator should verify venue chat/user search/DMs against real Stream+Clerk after merging) |
 
+| 016  | Rename `district`/`city` → `ward`/`province` repo-wide (VN 2025 units) | P2 | L | — | DONE (branch `advisor/016-rename-ward-province`, commits `d17381b`+`ceb35ed`, **not merged** — reviewer re-verified all gates in worktree: web typecheck/lint/build + 27/27 tests, api typecheck/lint + 320/320 tests, 34 files all in-scope (27 source + 7 test fixtures), rename balanced 166/166, criteria greps clean. One reviewer-authorized in-scope extension: 9 api/test fixtures renamed per the plan's Test-plan clause (the strict inventory hadn't enumerated them). Follow-up: one-off Mongo `$rename` on the courts collection only if a populated non-throwaway Atlas DB exists — prototype re-seeds.) |
+| 017  | Vietnam new-units dataset + cascading province→ward dropdowns in venue setup | P2 | M | 016 (landed) | DONE (branch `advisor/017-vn-admin-dropdowns` off `advisor/016`, commit `851920e`, **not merged** — reviewer re-verified in worktree: web typecheck/lint/build + 35/35 tests, dataset 34 provinces/3321 wards unique-coded from provinces.open-api.vn v2 (post-2025 merger, no district layer), province/ward now `Select`s not `Input`s, cascade province→ward with single functional update (no effect), i18n keys added both locales (parity 0/0), scope exactly the 6 in-scope files vs 016. Deliberately did not refresh api seed place-name values.) |
+| 018  | Split venue setup into a Brand step + per-Branch step (brand gets its own name) | P2 | M | 016, 017 (landed; run after 017) | DONE (branch `advisor/018-setup-brand-branch-steps` off `advisor/017`, commit `ba7f8bd`, **not merged** — reviewer re-verified in worktree: api typecheck/lint + 323/323 tests (3 new meaningful provisioning tests: brandName-names-brand, missing-manager→400, add-branch reuses manager + brand name unchanged), web typecheck + i18n parity 0/0, scope exactly the 8 in-scope files vs 017. One documented deviation judged sound: plan's `declare managerName?` fails TS strict override (TS2416), executor used `OmitType(VenueInputDto, ["managerName"])` — identical runtime validation; step-index via a `stepKinds` tuple avoids off-by-one.) |
 | 015  | Redesign the community chat page — real avatars in the history, one `ChatAvatar` treatment, flat chrome + mobile single-pane flow | P2 | M | none (extends landed 014 surface) | DONE, **merged to master** (`--no-ff` merge `346237d`, branch `advisor/015-chat-redesign-avatars`, commits `71bfd26` api / `b9253d5` web / `06ebde4` web-mobile; operator-requested merge 2026-07-24, redundant local `chat.tsx` hunk discarded pre-merge as planned — reviewer re-ran all gates in the worktree: api typecheck/lint + 316/316 tests (3 new seeding tests), web typecheck/lint 0 errors + 27/27 tests, all done-criteria greps green, scope exactly the 12 in-scope files. Two reviewer-driven revision rounds, both verified: (1) header `px-4 py-3` per spec; (2) `useCallback`/`useMemo`-stabilized `MobilePaneContext` callbacks — the plan's own original snippet caused `InitialChannel`'s effect to re-run every render, bouncing the mobile back button on `?channel=` deep links; plan file corrected to match. Step 7 (mobile single-pane flow + `Chat.backToChats` i18n key) was operator-added scope mid-execution. Live browser smoke test NOT run (no env creds in worktree) — operator should verify avatars backfill + mobile flow now that it's merged) |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
@@ -126,6 +129,30 @@ REJECTED (with one-line rationale)
   targets the committed state at `6bbbdc9` and includes the identical
   de-carding as Step 6 item 1; the operator's redundant local `chat.tsx` hunk
   must be discarded/stashed before merging the branch.
+
+- 016–018 (added 2026-07-24 at commit `12d1c0e` via `/improve plan`) are a
+  three-plan chain implementing the venue-setup improvement: pick Vietnam's new
+  (2025) administrative units from dropdowns instead of typing them. Run them
+  **strictly in order** — they all touch `web/features/venue/setup-wizard.tsx`,
+  so sequential execution avoids merge conflicts, and 017/018 assume the
+  earlier field-name/UI changes are already in place.
+  - **016** — global rename `district`→`ward`, `city`→`province` across both
+    apps (150+ identifier sites incl. the AI chat tool params, player-matching,
+    session store, court schema columns, seed keys, i18n keys). Pure rename, no
+    behavior change; the compiler is the safety net. Owner-chosen scope: rename
+    *everywhere*, not just the venue address.
+  - **017** — vendor a bundled `web/lib/vn-admin/units.json` (34 provinces +
+    wards) and replace the two free-text location inputs in the setup wizard
+    with cascading province→ward `Select`s (pick a province → its wards load).
+    Deliberately does NOT refresh the api seed place-name *values* (would desync
+    the district-level AI matchmaking demo).
+  - **018** — reorder the one wizard into a Brand step (first-time only:
+    brand name + owner/manager) and a per-Branch step (name + the 017 location
+    dropdowns + hours + sports); `?branch=1` skips the brand step and reuses the
+    account's brand + manager. Decouples the brand name from the first venue's
+    name (`ensureBrand({ name: brandName })`) and reuses the manager on
+    add-branch via `myBranches`. Owner-confirmed shape ("one wizard, reordered"
+    — not brand-with-zero-venues).
 
 ## Findings considered and rejected / already resolved
 
