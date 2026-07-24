@@ -43,11 +43,11 @@ interface FakeChannelState {
  * keeps just enough per-channel state (creator, members, frozen) to exercise
  * the real room-chat lifecycle's host-authorization and freeze behavior.
  */
-function makeFakeClient() {
+function makeFakeClient(options?: { failUpsertUsers?: boolean }) {
   const calls = {
     createToken: [] as string[],
     createTokenExp: [] as Array<number | undefined>,
-    upsertUsers: [] as Array<Array<{ id: string; name?: string }>>,
+    upsertUsers: [] as Array<Array<{ id: string; name?: string; image?: string }>>,
     channels: [] as ChannelCall[],
     created: [] as string[],
     messages: [] as Array<{ id: string; user_id?: string; text?: string }>,
@@ -64,8 +64,11 @@ function makeFakeClient() {
       calls.createTokenExp.push(exp)
       return `token-${userId}`
     },
-    upsertUsers(users: Array<{ id: string; name?: string }>) {
+    upsertUsers(users: Array<{ id: string; name?: string; image?: string }>) {
       calls.upsertUsers.push(users)
+      if (options?.failUpsertUsers) {
+        return Promise.reject(new Error("upsertUsers failed"))
+      }
       return Promise.resolve()
     },
     channel(type: string, id: string, data?: ChannelCall["data"]) {
@@ -183,7 +186,7 @@ void test("issueToken signs the token with a ~24h expiry", async () => {
   assert.ok(exp! >= before - 60 && exp! <= after + 60)
 })
 
-void test("seeding runs only on the upsert that inserts (upsertedCount 1), never twice", async () => {
+void test("channel creation runs only on the upsert that inserts (upsertedCount 1), never twice", async () => {
   const { client, calls } = makeFakeClient()
   let upsertedCount = 1
   const service = await makeService(client, {
@@ -197,11 +200,64 @@ void test("seeding runs only on the upsert that inserts (upsertedCount 1), never
   assert.equal(calls.channels.length, 4)
   assert.equal(calls.created.length, 4)
 
-  // Second call: marker already present (upsertedCount 0) → no further Stream work.
+  // Second call: marker already present (upsertedCount 0) → the user upsert
+  // (backfill) still runs, but no further channel work happens.
   upsertedCount = 0
   await service.issueToken("user-2")
-  assert.equal(calls.upsertUsers.length, 1)
+  assert.equal(calls.upsertUsers.length, 2)
   assert.equal(calls.channels.length, 4)
+})
+
+void test("issueToken for a brand-new user upserts the caller and all three demo players with images", async () => {
+  const { client, calls } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 1 }),
+  })
+
+  await service.issueToken("user-new", "Nguyễn Minh", "avatar.png")
+
+  assert.equal(calls.upsertUsers.length, 1)
+  const upserted = calls.upsertUsers[0]
+  assert.equal(upserted.length, 4)
+  assert.equal(upserted[0].id, "user-new")
+  const demoPlayers = upserted.slice(1)
+  assert.equal(demoPlayers.length, 3)
+  for (const p of demoPlayers) {
+    assert.ok(p.image && p.image.length > 0, `expected ${p.id} to have an image`)
+  }
+})
+
+void test("issueToken for an already-seeded user still backfills the upsert but creates no channels", async () => {
+  const { client, calls } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+
+  await service.issueToken("user-existing")
+
+  assert.equal(calls.upsertUsers.length, 1)
+  assert.equal(calls.channels.length, 0)
+  assert.equal(calls.created.length, 0)
+})
+
+void test("an upsertUsers failure does not throw out of issueToken and does not claim the seed marker", async () => {
+  const { client, calls } = makeFakeClient({ failUpsertUsers: true })
+  let updateOneCalls = 0
+  const service = await makeService(client, {
+    updateOne: () => {
+      updateOneCalls += 1
+      return Promise.resolve({ upsertedCount: 1 })
+    },
+  })
+
+  const result = await service.issueToken("user-fail")
+
+  assert.deepEqual(result, { apiKey: "test-api-key", token: "token-user-fail" })
+  assert.equal(calls.upsertUsers.length, 1)
+  // The seed marker is never even queried when the upsert fails — channels
+  // can still seed on a retry.
+  assert.equal(updateOneCalls, 0)
+  assert.equal(calls.channels.length, 0)
 })
 
 // ── Real room-chat lifecycle (quyết định #13) ────────────────────────────
