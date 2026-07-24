@@ -149,6 +149,8 @@ export interface Booking {
   withPlayers: BookingPlayer[]
   /** Linked match room, when the booking created or belongs to one. */
   roomId?: string
+  /** Owning venue — set on real (server-backed) bookings; absent on legacy seeds. */
+  venueId?: string
   pricePerHour: number
   /** Operator's decline reason (projected from the session), shown when cancelled. */
   declineReason?: string

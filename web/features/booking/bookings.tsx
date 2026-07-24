@@ -4,6 +4,7 @@ import * as React from "react"
 import {
   Clock,
   MapPin,
+  MessageSquare,
   Plus,
   RotateCcw,
   Trophy,
@@ -11,6 +12,7 @@ import {
   Users,
 } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
+import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import {
@@ -66,6 +68,7 @@ import {
   type TimelineColumn,
 } from "@/features/booking/calendar-ui"
 import { useBooking } from "@/features/booking/booking"
+import { openVenueChat } from "@/features/chat/stream-actions"
 import { SportTag } from "@/features/dashboard/shared"
 import { useRouter } from "@/i18n/navigation"
 
@@ -451,6 +454,19 @@ function CalendarEvent({
   const t = useTranslations("Bookings")
   const tc = useTranslations("Common")
   const { cancelBooking, rebookFrom, addTeamToSession } = useBooking()
+  const router = useRouter()
+  const [opening, startOpening] = React.useTransition()
+
+  const messageVenue = () => {
+    startOpening(async () => {
+      try {
+        const { id } = await openVenueChat({ venueId: booking.venueId })
+        router.push(`/dashboard/chat?channel=${id}`)
+      } catch {
+        toast.error(t("messageVenueFailed"))
+      }
+    })
+  }
 
   const start = startOf(booking.time)
   const dur = durationOf(booking.time)
@@ -542,7 +558,9 @@ function CalendarEvent({
 
             {cancelled && booking.declineReason ? (
               <div className="flex flex-col gap-1 rounded-2xl bg-destructive/8 px-3 py-2 text-xs text-destructive/80">
-                <span>{t("declinedNote", { reason: booking.declineReason })}</span>
+                <span>
+                  {t("declinedNote", { reason: booking.declineReason })}
+                </span>
                 {booking.refunded ? (
                   <span className="text-muted-foreground">
                     {t("refundedNote")}
@@ -592,17 +610,43 @@ function CalendarEvent({
 
             {/* Actions */}
             {closed ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full justify-start rounded-full"
-                onClick={() => rebookFrom(booking.id)}
-              >
-                <RotateCcw />
-                {t("rebook")}
-              </Button>
+              <div className="flex flex-col gap-1.5">
+                {booking.venueId && !cancelled ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full justify-start rounded-full"
+                    disabled={opening}
+                    onClick={messageVenue}
+                  >
+                    <MessageSquare />
+                    {t("messageVenue")}
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full justify-start rounded-full"
+                  onClick={() => rebookFrom(booking.id)}
+                >
+                  <RotateCcw />
+                  {t("rebook")}
+                </Button>
+              </div>
             ) : (
               <div className="flex flex-col gap-1.5">
+                {booking.venueId ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full justify-start rounded-full"
+                    disabled={opening}
+                    onClick={messageVenue}
+                  >
+                    <MessageSquare />
+                    {t("messageVenue")}
+                  </Button>
+                ) : null}
                 {solo ? (
                   <Button
                     size="sm"

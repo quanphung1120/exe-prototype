@@ -2,19 +2,22 @@
 
 import * as React from "react"
 import type { PropsWithChildren } from "react"
-import { useLocale } from "next-intl"
-import { Loader2 } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
+import { Loader2, MessageSquarePlus } from "lucide-react"
 import type {
   ChannelListItemUIProps,
   ChannelListUIProps,
   LoadMorePaginatorProps,
 } from "stream-chat-react"
-import { useTranslationContext } from "stream-chat-react"
+import { useChatContext, useTranslationContext } from "stream-chat-react"
 
 import { initialsOf } from "@/lib/shared"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { NewChatDialog } from "@/features/chat/new-chat-dialog"
+import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
 
 /**
  * Custom conversation-list row, replacing Stream's ChannelListItemUI (wired
@@ -33,7 +36,26 @@ export function ChannelListItem({
   watchers,
 }: ChannelListItemUIProps) {
   const locale = useLocale()
-  const title = displayTitle ?? channel.data?.name ?? channel.id
+  const { client } = useChatContext()
+  const inbox = React.useContext(VenueInboxContext)
+
+  // Operator's venue inbox: title each row by the *player* on the other end,
+  // not the venue's own name (every row in this list is already scoped to
+  // one venue). Player-side rows are unaffected (channel.data?.venueId is
+  // only set on venue-chat channels, and `inbox` is only true in the
+  // operator's /dashboard/venue/[venueId]/messages view).
+  const venueChatOther =
+    inbox && channel.data?.venueId
+      ? Object.values(channel.state.members ?? {}).find(
+          (m) => m.user?.id !== client.userID
+        )
+      : undefined
+
+  const title =
+    venueChatOther?.user?.name ??
+    displayTitle ??
+    channel.data?.name ??
+    channel.id
   const hasUnread = (unread ?? 0) > 0
 
   return (
@@ -88,12 +110,35 @@ export function ChannelListItem({
   )
 }
 
-/** Pane header above the conversation rows, replacing Stream's bare title. */
+/**
+ * Pane header above the conversation rows, replacing Stream's bare title.
+ * Carries the "new chat" button — hidden in the venue operator's inbox
+ * (Step 9's `VenueInboxContext`), since that list only ever holds one
+ * channel per player and starting a fresh DM/group isn't a venue-chat action.
+ */
 export function ChannelListHeader() {
   const { t } = useTranslationContext("ChannelListHeader")
+  const tChat = useTranslations("Chat")
+  const inbox = React.useContext(VenueInboxContext)
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+
   return (
-    <header className="border-b border-border p-4">
+    <header className="flex items-center justify-between gap-2 border-b border-border p-4">
       <h2 className="font-heading text-sm font-semibold">{t("Chats")}</h2>
+      {!inbox ? (
+        <>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={tChat("newChat")}
+            onClick={() => setDialogOpen(true)}
+          >
+            <MessageSquarePlus />
+          </Button>
+          <NewChatDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+        </>
+      ) : null}
     </header>
   )
 }
