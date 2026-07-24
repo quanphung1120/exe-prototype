@@ -57,14 +57,14 @@ export function Composer() {
 
   if (frozen) {
     return (
-      <div className="border-t border-border bg-card p-3 text-center text-sm text-muted-foreground">
+      <div className="border-t border-border p-3 text-center text-sm text-muted-foreground">
         {t("This room has ended")}
       </div>
     )
   }
 
   return (
-    <div className="flex items-end gap-2 border-t border-border bg-card p-3">
+    <div className="flex items-end gap-2 border-t border-border p-3">
       <textarea
         ref={textareaRef}
         value={text}

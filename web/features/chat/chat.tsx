@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import { MapPin, Users } from "lucide-react"
+import { ArrowLeft, MapPin, Users } from "lucide-react"
 import {
   Channel,
   ChannelList,
@@ -12,8 +12,9 @@ import {
   useChatContext,
 } from "stream-chat-react"
 
-import { initialsOf } from "@/lib/shared"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { cn } from "@/lib/utils"
+import { AvatarBadge } from "@/components/ui/avatar"
+import { ChatAvatar } from "@/features/chat/chat-avatar"
 import { playerInitialsFromStreamId } from "@/features/chat/channel-ids"
 import {
   ChannelListHeader,
@@ -34,6 +35,7 @@ import {
   ChatUnreadSeparator,
 } from "@/features/chat/list-chrome"
 import { ChatMessage } from "@/features/chat/message"
+import { MobilePaneContext } from "@/features/chat/mobile-pane-context"
 import {
   useStreamChatStatus,
   useStreamClient,
@@ -100,6 +102,21 @@ export function ChatView({
     setProfileOpen(true)
   }
 
+  // Mobile (below `sm`) collapses the two-pane layout to one at a time; a
+  // deep link (`initialChannelId`) lands straight on the conversation.
+  const [pane, setPane] = React.useState<"list" | "conversation">(
+    initialChannelId ? "conversation" : "list"
+  )
+  const showList = React.useCallback(() => setPane("list"), [])
+  const showConversation = React.useCallback(
+    () => setPane("conversation"),
+    []
+  )
+  const paneCtx = React.useMemo(
+    () => ({ pane, showList, showConversation }),
+    [pane, showList, showConversation]
+  )
+
   if (!client) {
     return (
       <ChatShell>
@@ -113,46 +130,58 @@ export function ChatView({
   const userId = client.userID as string
 
   const body = (
-    <ChatProfileContext.Provider value={openProfile}>
-      <WithComponents overrides={COMPONENT_OVERRIDES}>
-        <aside className="hidden w-72 shrink-0 flex-col border-r border-border sm:flex">
-          <ChannelList
-            filters={
-              venueInboxId
-                ? {
-                    type: "messaging",
-                    members: { $in: [userId] },
-                    venueId: venueInboxId,
-                  }
-                : { type: "messaging", members: { $in: [userId] } }
-            }
-            sort={{ last_message_at: -1 }}
-            options={{ state: true, watch: true }}
-            Paginator={ChannelListPaginator}
-          />
-        </aside>
-
-        {/* Active conversation. No <Window> — it only exists to coordinate
-          with a Thread pane we don't render. */}
-        <section className="flex min-w-0 flex-1 flex-col">
-          <Channel>
-            <TeamChannelHeader
-              currentUserId={userId}
-              onOpenProfile={openProfile}
+    <MobilePaneContext.Provider value={paneCtx}>
+      <ChatProfileContext.Provider value={openProfile}>
+        <WithComponents overrides={COMPONENT_OVERRIDES}>
+          <aside
+            className={cn(
+              "w-full shrink-0 flex-col sm:flex sm:w-72 sm:border-r sm:border-border",
+              pane === "conversation" ? "hidden sm:flex" : "flex"
+            )}
+          >
+            <ChannelList
+              filters={
+                venueInboxId
+                  ? {
+                      type: "messaging",
+                      members: { $in: [userId] },
+                      venueId: venueInboxId,
+                    }
+                  : { type: "messaging", members: { $in: [userId] } }
+              }
+              sort={{ last_message_at: -1 }}
+              options={{ state: true, watch: true }}
+              Paginator={ChannelListPaginator}
             />
-            <MessageList />
-            <Composer />
-          </Channel>
-        </section>
+          </aside>
 
-        <InitialChannel id={initialChannelId} />
-      </WithComponents>
-      <PlayerProfileDialog
-        initials={profileInitials}
-        open={profileOpen}
-        onOpenChange={setProfileOpen}
-      />
-    </ChatProfileContext.Provider>
+          {/* Active conversation. No <Window> — it only exists to coordinate
+            with a Thread pane we don't render. */}
+          <section
+            className={cn(
+              "min-w-0 flex-1 flex-col",
+              pane === "list" ? "hidden sm:flex" : "flex"
+            )}
+          >
+            <Channel>
+              <TeamChannelHeader
+                currentUserId={userId}
+                onOpenProfile={openProfile}
+              />
+              <MessageList />
+              <Composer />
+            </Channel>
+          </section>
+
+          <InitialChannel id={initialChannelId} />
+        </WithComponents>
+        <PlayerProfileDialog
+          initials={profileInitials}
+          open={profileOpen}
+          onOpenChange={setProfileOpen}
+        />
+      </ChatProfileContext.Provider>
+    </MobilePaneContext.Provider>
   )
 
   return (
@@ -168,10 +197,10 @@ export function ChatView({
   )
 }
 
-/** The rounded, ringed two-pane card the chat lives in. */
+/** The two-pane layout the chat lives in — no card wrapper, sits directly on the dashboard background. */
 function ChatShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full min-h-[28rem] overflow-hidden rounded-4xl bg-card shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
+    <div className="flex h-full min-h-[28rem] overflow-hidden">
       {children}
     </div>
   )
@@ -185,6 +214,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
  */
 function InitialChannel({ id }: { id?: string }) {
   const { client, setActiveChannel } = useChatContext()
+  const { showConversation } = React.useContext(MobilePaneContext)
 
   React.useEffect(() => {
     if (!id) return
@@ -193,7 +223,10 @@ function InitialChannel({ id }: { id?: string }) {
     channel
       .watch()
       .then(() => {
-        if (!cancelled) setActiveChannel(channel)
+        if (!cancelled) {
+          setActiveChannel(channel)
+          showConversation()
+        }
       })
       .catch(() => {
         // Channel doesn't exist yet / no access — leave the list's pick active.
@@ -201,7 +234,7 @@ function InitialChannel({ id }: { id?: string }) {
     return () => {
       cancelled = true
     }
-  }, [id, client, setActiveChannel])
+  }, [id, client, setActiveChannel, showConversation])
 
   return null
 }
@@ -222,6 +255,7 @@ function TeamChannelHeader({
   const t = useTranslations("Chat")
   const { channel, members } = useChannelStateContext()
   const inbox = React.useContext(VenueInboxContext)
+  const { showList } = React.useContext(MobilePaneContext)
 
   const memberList = Object.values(members ?? {})
   const isGroup = memberList.length > 2
@@ -241,64 +275,71 @@ function TeamChannelHeader({
   const venueChat = Boolean(channel.data?.venueId)
 
   return (
-    <header className="flex items-center justify-between gap-3 border-b border-border bg-card p-4">
-      {venueChat && !inbox ? (
-        <div className="flex min-w-0 items-center gap-3">
-          <Avatar>
-            <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-              {initialsOf(name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="truncate font-medium">{name}</p>
-            <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="size-3" />
-              {t("venueChat")}
-            </p>
-          </div>
-        </div>
-      ) : isGroup ? (
-        <div className="flex min-w-0 items-center gap-3">
-          <Avatar>
-            <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-              {initialsOf(name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="truncate font-medium">{name}</p>
-            <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Users className="size-3" />
-              {t("members", { count: memberList.length })}
-            </p>
-          </div>
-        </div>
-      ) : (
+    <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="flex min-w-0 items-center gap-1">
         <button
           type="button"
-          disabled={!otherInitials}
-          className="-m-1 flex min-w-0 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
-          onClick={() => otherInitials && onOpenProfile(otherInitials)}
+          aria-label={t("backToChats")}
+          className="-ml-1 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground sm:hidden"
+          onClick={showList}
         >
-          <Avatar>
-            <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-              {initialsOf(other?.user?.name ?? name)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="truncate font-medium">{other?.user?.name ?? name}</p>
-            <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              {other?.user?.online ? (
-                <>
-                  <span className="size-1.5 rounded-full bg-brand" />
-                  {t("online")}
-                </>
-              ) : (
-                t("offline")
-              )}
-            </p>
-          </div>
+          <ArrowLeft className="size-5" />
         </button>
-      )}
+        {venueChat && !inbox ? (
+          <div className="flex min-w-0 items-center gap-3">
+            <ChatAvatar name={name} />
+            <div className="min-w-0">
+              <p className="truncate font-medium">{name}</p>
+              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <MapPin className="size-3" />
+                {t("venueChat")}
+              </p>
+            </div>
+          </div>
+        ) : isGroup ? (
+          <div className="flex min-w-0 items-center gap-3">
+            <ChatAvatar name={name} />
+            <div className="min-w-0">
+              <p className="truncate font-medium">{name}</p>
+              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <Users className="size-3" />
+                {t("members", { count: memberList.length })}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={!otherInitials}
+            className="-m-1 flex min-w-0 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+            onClick={() => otherInitials && onOpenProfile(otherInitials)}
+          >
+            <ChatAvatar
+              name={other?.user?.name ?? name}
+              image={other?.user?.image}
+            >
+              {other?.user?.online ? (
+                <AvatarBadge className="bg-brand" />
+              ) : null}
+            </ChatAvatar>
+            <div className="min-w-0">
+              <p className="truncate font-medium">
+                {other?.user?.name ?? name}
+              </p>
+              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                {other?.user?.online ? (
+                  <>
+                    <span className="size-1.5 rounded-full bg-brand" />
+                    {t("online")}
+                  </>
+                ) : (
+                  t("offline")
+                )}
+              </p>
+            </div>
+          </button>
+        )}
+      </div>
     </header>
   )
 }

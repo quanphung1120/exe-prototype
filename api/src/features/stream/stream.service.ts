@@ -54,9 +54,24 @@ export const venueChannelId = (venueId: string, userId: string) =>
 // The three mock players whose demo channels every new user is seeded with.
 // Their ids/names mirror the first entries of MATCH_SUGGESTIONS (p1/p2/p3).
 const DEMO_PLAYERS = [
-  { initials: "TH", name: "Trần Huy" },
-  { initials: "LL", name: "Lê Lan" },
-  { initials: "PQ", name: "Phạm Quân" },
+  {
+    initials: "TH",
+    name: "Trần Huy",
+    image:
+      "https://api.dicebear.com/9.x/adventurer/svg?seed=tran-huy&backgroundColor=b6e3f4",
+  },
+  {
+    initials: "LL",
+    name: "Lê Lan",
+    image:
+      "https://api.dicebear.com/9.x/adventurer/svg?seed=le-lan&backgroundColor=ffd5dc",
+  },
+  {
+    initials: "PQ",
+    name: "Phạm Quân",
+    image:
+      "https://api.dicebear.com/9.x/adventurer/svg?seed=pham-quan&backgroundColor=c0e8b7",
+  },
 ] as const
 
 // The seeded "Badminton Crew" group thread — moved verbatim from the old
@@ -133,8 +148,11 @@ export class StreamService {
 
   /**
    * Seed a user's demo users + channels the first time they authenticate. The
-   * `$setOnInsert` upsert claims the seed atomically: only the request that
-   * inserts the marker (upsertedCount === 1) does the Stream work, so concurrent
+   * user (+ demo-player) upsert runs on every call — cheap and idempotent, and
+   * it's what backfills new demo-player fields (e.g. avatar images) and the
+   * caller's own name/image to already-seeded users. Channel creation stays
+   * gated by the `$setOnInsert` upsert: only the request that inserts the
+   * marker (upsertedCount === 1) does that Stream work, so concurrent
    * first-token requests can't double-seed.
    */
   private async seedForUser(
@@ -142,6 +160,25 @@ export class StreamService {
     name?: string,
     image?: string
   ): Promise<void> {
+    // Runs on every token issue (not just first seed) so demo-player avatars
+    // and the caller's own name/image propagate to existing users.
+    try {
+      await this.client.upsertUsers([
+        { id: userId, name: name || "You", ...(image ? { image } : {}) },
+        ...DEMO_PLAYERS.map((p) => ({
+          id: demoPlayerStreamId(p.initials),
+          name: p.name,
+          image: p.image,
+        })),
+      ])
+    } catch (err) {
+      this.logger.error(
+        `Failed to upsert Stream users for ${userId}`,
+        err instanceof Error ? err.stack : String(err)
+      )
+      return
+    }
+
     const res = await this.seeds.updateOne(
       { userId },
       { $setOnInsert: { userId } },
@@ -150,14 +187,6 @@ export class StreamService {
     if (!res.upsertedCount) return
 
     try {
-      await this.client.upsertUsers([
-        { id: userId, name: name || "You", ...(image ? { image } : {}) },
-        ...DEMO_PLAYERS.map((p) => ({
-          id: demoPlayerStreamId(p.initials),
-          name: p.name,
-        })),
-      ])
-
       // "Badminton Crew" group — the current user plus all three mock players.
       const crew = this.client.channel(
         "messaging",

@@ -5,9 +5,7 @@ import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { Loader2, Search, X } from "lucide-react"
 
-import { initialsOf } from "@/lib/shared"
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -20,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useRouter } from "@/i18n/navigation"
+import { ChatAvatar } from "@/features/chat/chat-avatar"
 import {
   createConversation,
   searchUsers,
@@ -204,12 +203,7 @@ export function NewChatDialog({
                       active ? "bg-secondary/60" : "hover:bg-muted/40"
                     )}
                   >
-                    <Avatar>
-                      {u.image ? <AvatarImage src={u.image} alt="" /> : null}
-                      <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-                        {initialsOf(u.name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <ChatAvatar name={u.name} image={u.image} />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{u.name}</p>
                       {u.email ? (

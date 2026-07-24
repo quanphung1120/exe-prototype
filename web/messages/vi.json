@@ -1098,7 +1098,8 @@
     "create": "Bắt đầu trò chuyện",
     "creating": "Đang tạo…",
     "createFailed": "Không tạo được cuộc trò chuyện, thử lại nhé",
-    "venueChat": "Nhắn tin với sân"
+    "venueChat": "Nhắn tin với sân",
+    "backToChats": "Quay lại danh sách chat"
   },
   "Notifications": {
     "title": "Thông báo",

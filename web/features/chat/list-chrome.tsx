@@ -2,7 +2,7 @@
 
 import type * as React from "react"
 import { useLocale } from "next-intl"
-import { ArrowDown, Loader2 } from "lucide-react"
+import { ArrowDown, Loader2, MessagesSquare } from "lucide-react"
 import type {
   DateSeparatorProps,
   EmptyStateIndicatorProps,
@@ -165,11 +165,16 @@ export function ChatScrollToBottom({
 export function ChatEmptyState({ listType }: EmptyStateIndicatorProps) {
   const { t } = useTranslationContext("ChatEmptyState")
   return (
-    <p className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
-      {listType === "channel"
-        ? t("You have no channels currently")
-        : t("Nothing yet...")}
-    </p>
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+      <div className="flex size-12 items-center justify-center rounded-full bg-brand/10 text-brand">
+        <MessagesSquare className="size-6" />
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {listType === "channel"
+          ? t("You have no channels currently")
+          : t("Nothing yet...")}
+      </p>
+    </div>
   )
 }
 
