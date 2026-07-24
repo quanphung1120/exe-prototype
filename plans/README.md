@@ -27,6 +27,9 @@ when done.
 
 | 016  | Rename `district`/`city` → `ward`/`province` repo-wide (VN 2025 units) | P2 | L | — | DONE (branch `advisor/016-rename-ward-province`, commits `d17381b`+`ceb35ed`, **not merged** — reviewer re-verified all gates in worktree: web typecheck/lint/build + 27/27 tests, api typecheck/lint + 320/320 tests, 34 files all in-scope (27 source + 7 test fixtures), rename balanced 166/166, criteria greps clean. One reviewer-authorized in-scope extension: 9 api/test fixtures renamed per the plan's Test-plan clause (the strict inventory hadn't enumerated them). Follow-up: one-off Mongo `$rename` on the courts collection only if a populated non-throwaway Atlas DB exists — prototype re-seeds.) |
 | 017  | Vietnam new-units dataset + cascading province→ward dropdowns in venue setup | P2 | M | 016 (landed) | DONE (branch `advisor/017-vn-admin-dropdowns` off `advisor/016`, commit `851920e`, **not merged** — reviewer re-verified in worktree: web typecheck/lint/build + 35/35 tests, dataset 34 provinces/3321 wards unique-coded from provinces.open-api.vn v2 (post-2025 merger, no district layer), province/ward now `Select`s not `Input`s, cascade province→ward with single functional update (no effect), i18n keys added both locales (parity 0/0), scope exactly the 6 in-scope files vs 016. Deliberately did not refresh api seed place-name values.) |
+| 019  | Per-branch court management UI (a "Sân" tab: table + add/edit/archive) | P2 | M | — (enabler for 020, 021) | DONE (branch `advisor/019-court-management-ui`, commit `eafc35b`, **not merged** — reviewer re-verified in worktree: web typecheck/lint/build + 35/35 tests, scope exactly the 5 in-scope files, real 507-line view (shadcn Table + add/edit dialog w/ sport Select + archive confirm/toasts, all 3 server actions wired). Reused existing `courtStateAccent` (no shared.tsx lift needed); edit-dialog draft seeded by conditional mount, not a sync-setState-in-effect.) |
+| 020  | Setup wizard: add multiple branches at once, drop the courts step (courts added later on the Sân tab; empty branch stays off Explore/AI) | P2 | M/L | 019 (landed) | DONE (branch `advisor/020-setup-multi-branch` off `advisor/019`, **not merged** — reviewer re-verified in worktree: api typecheck/lint + 325/325 tests, web typecheck + 35/35 + i18n parity 0/0, scope exactly the 7 in-scope files. Empty-branch rule locked by a real test asserting `catalogCourts().length===0` for a fresh 0-court/pending branch; multi-branch + manager-reuse tests added. `VenueSetupDto`→`branches[]` (ArrayMinSize 1), `provisionVenue` loops branches no courts, wizard = Brand→Branches-list→Review.) |
+| 021  | Cross-branch court-status table in the Manage screen (brand-level hub; click a row to switch into a branch) | P3 | M | 019 (soft) | DONE (branch `advisor/021-cross-branch-court-table` off `advisor/020`, **not merged** — reviewer re-verified in worktree: api typecheck/lint + 326/326 tests, web typecheck/lint, scope exactly the 10 in-scope files, `BranchSummary` identical in both shared copies. `branchesSummary` = single owner-scoped `find({ownerId})` reading `ops.courts`, excludes archived; new `GET /api/venue/branches/summary`; test proves counts + archived-exclusion + owner-scoping. Manage renders the table w/ empty-branch badge + "Quản lý"→`/courts` deep-link.) |
 | 018  | Split venue setup into a Brand step + per-Branch step (brand gets its own name) | P2 | M | 016, 017 (landed; run after 017) | DONE (branch `advisor/018-setup-brand-branch-steps` off `advisor/017`, commit `ba7f8bd`, **not merged** — reviewer re-verified in worktree: api typecheck/lint + 323/323 tests (3 new meaningful provisioning tests: brandName-names-brand, missing-manager→400, add-branch reuses manager + brand name unchanged), web typecheck + i18n parity 0/0, scope exactly the 8 in-scope files vs 017. One documented deviation judged sound: plan's `declare managerName?` fails TS strict override (TS2416), executor used `OmitType(VenueInputDto, ["managerName"])` — identical runtime validation; step-index via a `stepKinds` tuple avoids off-by-one.) |
 | 015  | Redesign the community chat page — real avatars in the history, one `ChatAvatar` treatment, flat chrome + mobile single-pane flow | P2 | M | none (extends landed 014 surface) | DONE, **merged to master** (`--no-ff` merge `346237d`, branch `advisor/015-chat-redesign-avatars`, commits `71bfd26` api / `b9253d5` web / `06ebde4` web-mobile; operator-requested merge 2026-07-24, redundant local `chat.tsx` hunk discarded pre-merge as planned — reviewer re-ran all gates in the worktree: api typecheck/lint + 316/316 tests (3 new seeding tests), web typecheck/lint 0 errors + 27/27 tests, all done-criteria greps green, scope exactly the 12 in-scope files. Two reviewer-driven revision rounds, both verified: (1) header `px-4 py-3` per spec; (2) `useCallback`/`useMemo`-stabilized `MobilePaneContext` callbacks — the plan's own original snippet caused `InitialChannel`'s effect to re-run every render, bouncing the mobile back button on `?channel=` deep links; plan file corrected to match. Step 7 (mobile single-pane flow + `Chat.backToChats` i18n key) was operator-added scope mid-execution. Live browser smoke test NOT run (no env creds in worktree) — operator should verify avatars backfill + mobile flow now that it's merged) |
 
@@ -153,6 +156,30 @@ REJECTED (with one-line rationale)
     name (`ensureBrand({ name: brandName })`) and reuses the manager on
     add-branch via `myBranches`. Owner-confirmed shape ("one wizard, reordered"
     — not brand-with-zero-venues).
+
+- 019–021 (added 2026-07-24 at commit `dc414a8` via `/improve plan`) build on the
+  merged 016–018 venue-setup work. **Court model:** courts belong to a branch
+  (stored on the venue doc at `ops.courts`), so each branch's workspace manages
+  its own courts — branch management stays the existing workspace-switch model
+  (sidebar switcher → `/dashboard/venue/[venueId]/*`). Run **019 before 020**
+  (020 removes court entry from setup and depends on 019's post-setup court UI
+  existing); **021 after 019** (soft — shares state labels + deep-links to the
+  Sân tab). Backend already fully supports court CRUD (`addCourt`/`updateCourt`/
+  `deleteCourt`), so 019 is UI-only.
+  - **019** — a per-branch "Sân" nav tab at `/dashboard/venue/[venueId]/courts`:
+    a table of the branch's courts (name/sport/surface/price/state) with add/
+    edit/archive, wired to the existing server actions.
+  - **020** — setup becomes Brand → **list of branches** (each: name + province/
+    ward + hours + sports) → Review; the courts step is deleted and courts are
+    added later on the Sân tab. `VenueSetupDto` restructured to `branches[]`,
+    `provisionVenue` loops branches with no courts. The "empty branch not on
+    Explore/AI" rule holds by construction — `catalogCourts` already filters
+    `!court.archived && approval === "approved"`, so a 0-court/pending branch
+    yields zero discovery courts (locked with a test).
+  - **021** — a cross-branch court-status table in the **Manage** screen (design
+    choice: no new top-level route): a new owner-scoped `GET /api/venue/branches/
+    summary` aggregates each branch's court-state counts; rows flag empty
+    branches and link into a branch's workspace to manage its courts.
 
 ## Findings considered and rejected / already resolved
 
