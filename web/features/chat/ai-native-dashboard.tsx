@@ -61,7 +61,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
-import { LogoMark } from "@/components/logo"
+import {
+  AssistantSideRail,
+  QuickActions,
+  RecentChats,
+} from "@/features/chat/assistant-home"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
 import { type LatLng } from "@/features/play/court-map"
 import { Flip, gsap, prefersReducedMotion } from "@/features/landing/gsap"
@@ -212,6 +216,7 @@ export function AiNativeDashboardView() {
     null
   )
   const scrollRef = React.useRef<HTMLDivElement>(null)
+  const inputRef = React.useRef<HTMLTextAreaElement>(null)
   // Composer geometry captured in the welcome state, replayed once the first
   // message swaps in the thread layout so the composer glides down rather than
   // snapping to the bottom. See the Flip effect below.
@@ -313,6 +318,18 @@ export function AiNativeDashboardView() {
     return () => {
       if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current)
     }
+  }, [])
+
+  // ⌘K / Ctrl+K focuses the composer from anywhere on the page.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
   }, [])
 
   const showWelcome = messages.length === 0
@@ -540,10 +557,12 @@ export function AiNativeDashboardView() {
   const composer = (
     <div
       data-flip-id="ai-composer"
-      className="rounded-[2rem] border border-border bg-background p-2 shadow-xl shadow-foreground/5"
+      className="rounded-[2rem] bg-card p-2 ring-1 ring-foreground/5 dark:ring-foreground/10"
     >
       <div className="flex items-end gap-2">
+        <Sparkles className="mb-4 ml-3 size-5 shrink-0 text-foreground/80" />
         <Textarea
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -555,8 +574,11 @@ export function AiNativeDashboardView() {
           placeholder={isLoading ? t("thinking") : t("inputPlaceholder")}
           aria-label="Ask SportMatch AI"
           disabled={isLoading}
-          className="max-h-32 min-h-12 flex-1 border-0 bg-transparent py-3.5 pr-0 pl-3 text-base shadow-none focus-visible:ring-0 sm:pl-4 sm:text-lg"
+          className="max-h-32 min-h-12 flex-1 border-0 bg-transparent py-3.5 pr-0 pl-1 text-base shadow-none focus-visible:ring-0 sm:text-lg"
         />
+        <kbd className="mb-3.5 hidden shrink-0 rounded-md border border-border bg-muted/50 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground sm:block">
+          ⌘K
+        </kbd>
         <Button
           type="button"
           size="icon"
@@ -571,43 +593,6 @@ export function AiNativeDashboardView() {
     </div>
   )
 
-  const promptItems = [
-    { key: "badmintonNearMe" },
-    { key: "bookTomorrow" },
-    { key: "sameLevelPlayers" },
-    { key: "badmintonTeammates" },
-    { key: "quickMatch" },
-  ]
-
-  const quickPrompts = (
-    <div className="flex w-full flex-wrap justify-center gap-3 px-2">
-      {promptItems.map(({ key }) => {
-        const text = t(`prompts.${key}`)
-        const desc = t(`prompts.${key}Desc`)
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => void submit(text)}
-            className={cn(
-              "group relative flex w-full flex-col items-center justify-center gap-1.5 rounded-2xl border border-border/80 bg-background/50 p-4 text-center shadow-sm backdrop-blur-sm transition-all duration-300 sm:w-56",
-              "hover:-translate-y-0.5 hover:border-primary/40 hover:bg-muted/30 hover:shadow-md"
-            )}
-          >
-            <div className="space-y-1">
-              <h3 className="font-heading text-sm font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary">
-                {text}
-              </h3>
-              <p className="line-clamp-2 text-xs text-muted-foreground">
-                {desc}
-              </p>
-            </div>
-          </button>
-        )
-      })}
-    </div>
-  )
-
   const profileDialog = (
     <PlayerProfileDialog
       initials={profile}
@@ -618,26 +603,34 @@ export function AiNativeDashboardView() {
     />
   )
 
-  // Empty state — centered hero + composer, ChatGPT-style. Collapses into the
-  // thread layout below as soon as the first message lands.
+  // Empty state — hero + composer + quick actions + recent chats on the left,
+  // bookings/activity/stats rail on the right (xl+). Collapses into the thread
+  // layout below as soon as the first message lands.
   if (showWelcome) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-9.5rem)] w-full max-w-3xl flex-col items-center justify-center gap-8 px-2 py-4">
-        <section className="flex flex-col items-center gap-4 text-center">
-          <LogoMark className="size-14 text-primary" />
-          <div>
-            <h1 className="font-heading text-3xl font-semibold tracking-tight sm:text-4xl">
-              {t("welcomeTitle")}
+      <div className="mx-auto flex w-full max-w-7xl items-start gap-6 px-2 py-4 xl:gap-10">
+        <div className="flex min-h-[calc(100vh-9.5rem)] min-w-0 flex-1 flex-col justify-center gap-8">
+          <section className="pt-4">
+            <h1 className="font-heading text-4xl leading-[1.05] font-bold tracking-tight sm:text-5xl lg:text-6xl">
+              {t.rich("welcomeTitle", {
+                accent: (chunks) => (
+                  <span className="text-brand">{chunks}</span>
+                ),
+              })}
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground sm:text-base">
+            <p className="mt-5 max-w-md text-base text-muted-foreground sm:text-lg">
               {t("welcomeSubtitle")}
             </p>
-          </div>
-        </section>
+          </section>
 
-        <div className="w-full">{composer}</div>
+          <div className="w-full">{composer}</div>
 
-        {quickPrompts}
+          <QuickActions onPick={(text) => void submit(text)} />
+
+          <RecentChats onPick={(text) => void submit(text)} />
+        </div>
+
+        <AssistantSideRail />
 
         {profileDialog}
       </div>

@@ -481,7 +481,15 @@
     "prev": "Trước",
     "next": "Sau",
     "more": "+{count} nữa",
-    "weekdaysShort": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+    "weekdaysShort": [
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "CN"
+    ],
     "monthsShort": [
       "Th1",
       "Th2",
@@ -584,20 +592,11 @@
   },
   "Landing": {
     "hero": {
-      "eyebrow": "Ghép trận bằng AI cho các môn thể thao vợt",
-      "titleLine1": "Tìm sân",
-      "titleLine2": "Tìm <accent>đối thủ</accent> phù hợp.",
-      "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
+      "title": "Tìm sân. Tìm <accent>đối thủ</accent> phù hợp.",
+      "subtitle": "Trợ lý AI giúp Quý khách đặt sân trong vài giây và ghép trận với người chơi cùng trình độ.",
       "cta": "Bắt đầu ngay",
-      "socialProof": "1.000+ người chơi đã tham gia",
-      "sportsLabel": "Dành cho:",
-      "badges": {
-        "smartMatching": "Ghép trận thông minh",
-        "aiPowered": "Có AI hỗ trợ",
-        "saveTime": "Tiết kiệm thời gian",
-        "moreGames": "Chơi nhiều hơn",
-        "builtForYou": "Dành riêng cho bạn"
-      }
+      "ctaSecondary": "Xem cách hoạt động",
+      "imageAlt": "Người chơi cầu lông lao tới đỡ cầu bên lưới trên sân trong nhà"
     },
     "aboutSection": {
       "eyebrow": "Về SportMatch AI",
@@ -1713,9 +1712,53 @@
   },
   "AiDashboard": {
     "clearChat": "Reset cuộc trò chuyện",
-    "welcomeTitle": "Tôi có thể giúp gì cho bạn hôm nay?",
-    "welcomeSubtitle": "Tìm sân hoặc kết nối với bạn chơi tức thì. Bạn có thể tìm sân theo quận hoặc môn thể thao, kiểm tra lịch trống thời gian thực, đặt sân trực tiếp, hoặc tìm người chơi cùng trình độ để mời vào nhóm chat.",
-    "inputPlaceholder": "Hỏi về sân hoặc bạn chơi…",
+    "welcomeTitle": "Tôi có thể giúp gì cho <accent>bạn</accent> hôm nay?",
+    "welcomeSubtitle": "Tìm sân, ghép người chơi, đặt lịch tức thì. Trợ lý AI cho trận cầu thông minh hơn.",
+    "inputPlaceholder": "Hỏi bất cứ điều gì về sân hoặc người chơi…",
+    "quickActionsLabel": "Thao tác nhanh",
+    "promptsShort": {
+      "badmintonNearMe": "Tìm sân gần tôi",
+      "bookTomorrow": "Đặt sân ngày mai",
+      "sameLevelPlayers": "Ghép người chơi",
+      "badmintonTeammates": "Tìm đồng đội tối nay",
+      "quickMatch": "Ghép trận nhanh"
+    },
+    "recentChats": "Trò chuyện gần đây",
+    "viewAll": "Xem tất cả",
+    "recent": {
+      "booking": {
+        "title": "Trợ lý đặt sân",
+        "desc": "Tìm và đặt sân tại quận Tân Bình",
+        "time": "2 giờ trước"
+      },
+      "players": {
+        "title": "Tìm người chơi",
+        "desc": "Người chơi trình trung cấp gần tôi",
+        "time": "Hôm qua"
+      },
+      "summary": {
+        "title": "Tóm tắt tuần",
+        "desc": "Tổng kết hoạt động của bạn tuần này",
+        "time": "2 ngày trước"
+      }
+    },
+    "upcomingBookings": "Lịch đặt sắp tới",
+    "playersCount": "{count} người chơi",
+    "status": {
+      "confirmed": "Đã xác nhận",
+      "pending": "Chờ xác nhận"
+    },
+    "activityFeed": "Hoạt động mới",
+    "activity": {
+      "matchAccepted": "đã chấp nhận lời mời ghép trận của bạn",
+      "matchAcceptedTime": "10 phút trước",
+      "bookingConfirmed": "Đặt sân đã được xác nhận lúc 18:00 ngày 24/05",
+      "bookingConfirmedTime": "1 giờ trước",
+      "joinedChat": "đã tham gia nhóm trò chuyện của bạn",
+      "joinedChatTime": "3 giờ trước",
+      "newMatches": "Có trận mới phù hợp trình độ của bạn",
+      "newMatchesTime": "5 giờ trước"
+    },
     "thinking": "Đang suy nghĩ…",
     "reasoning": "Lập luận",
     "searchingCourts": "Đang tìm kiếm sân…",

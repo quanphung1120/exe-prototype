@@ -481,7 +481,15 @@
     "prev": "Previous",
     "next": "Next",
     "more": "+{count} more",
-    "weekdaysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdaysShort": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "monthsShort": [
       "Jan",
       "Feb",
@@ -584,20 +592,11 @@
   },
   "Landing": {
     "hero": {
-      "eyebrow": "AI matchmaking for racquet sports",
-      "titleLine1": "Find a court.",
-      "titleLine2": "Find your <accent>match</accent>.",
-      "subtitle": "Your AI booking assistant for racquet sports. Book badminton in seconds — and get matched with players at your level.",
+      "title": "Find a court. Find your <accent>match</accent>.",
+      "subtitle": "Your AI assistant books your badminton court in seconds and matches you with players at your level.",
       "cta": "Get started",
-      "socialProof": "1,000+ players joined",
-      "sportsLabel": "Built for:",
-      "badges": {
-        "smartMatching": "Smart Matching",
-        "aiPowered": "AI Powered",
-        "saveTime": "Save Time",
-        "moreGames": "More Games",
-        "builtForYou": "Built for You"
-      }
+      "ctaSecondary": "See how it works",
+      "imageAlt": "Badminton player lunging for the shuttlecock at the net on an indoor court"
     },
     "aboutSection": {
       "eyebrow": "About SportMatch AI",
@@ -1713,9 +1712,53 @@
   },
   "AiDashboard": {
     "clearChat": "Reset the chat",
-    "welcomeTitle": "How can I help you today?",
-    "welcomeSubtitle": "Find a court or match with players instantly. Search for courts by district or sport, check real-time slot availability, book slots directly, or find players near your level and invite them to a group chat.",
-    "inputPlaceholder": "Ask about courts or teammates…",
+    "welcomeTitle": "How can I help <accent>you</accent> today?",
+    "welcomeSubtitle": "Find a court, match with players, book slots instantly. Your AI partner for smarter play.",
+    "inputPlaceholder": "Ask anything about courts or players…",
+    "quickActionsLabel": "Quick actions",
+    "promptsShort": {
+      "badmintonNearMe": "Find courts near me",
+      "bookTomorrow": "Book court tomorrow",
+      "sameLevelPlayers": "Match me with players",
+      "badmintonTeammates": "Find teammates tonight",
+      "quickMatch": "Quick match"
+    },
+    "recentChats": "Recent chats",
+    "viewAll": "View all",
+    "recent": {
+      "booking": {
+        "title": "Booking Assistant",
+        "desc": "Find and book a court at Tan Binh district",
+        "time": "2 hours ago"
+      },
+      "players": {
+        "title": "Find Players",
+        "desc": "Intermediate players near me",
+        "time": "Yesterday"
+      },
+      "summary": {
+        "title": "Weekly Summary",
+        "desc": "Your activity summary for this week",
+        "time": "2 days ago"
+      }
+    },
+    "upcomingBookings": "Upcoming bookings",
+    "playersCount": "{count, plural, one {# player} other {# players}}",
+    "status": {
+      "confirmed": "Confirmed",
+      "pending": "Pending"
+    },
+    "activityFeed": "Activity feed",
+    "activity": {
+      "matchAccepted": "accepted your match request",
+      "matchAcceptedTime": "10m ago",
+      "bookingConfirmed": "Court booking confirmed for May 24 at 6:00 PM",
+      "bookingConfirmedTime": "1h ago",
+      "joinedChat": "joined your group chat",
+      "joinedChatTime": "3h ago",
+      "newMatches": "New matches available near your level",
+      "newMatchesTime": "5h ago"
+    },
     "thinking": "Thinking…",
     "reasoning": "Reasoning",
     "searchingCourts": "Searching courts…",
