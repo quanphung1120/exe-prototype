@@ -16,6 +16,7 @@ import { AvatarBadge } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChatAvatar } from "@/features/chat/chat-avatar"
+import { MobilePaneContext } from "@/features/chat/mobile-pane-context"
 import { NewChatDialog } from "@/features/chat/new-chat-dialog"
 import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
 
@@ -38,6 +39,7 @@ export function ChannelListItem({
   const locale = useLocale()
   const { client } = useChatContext()
   const inbox = React.useContext(VenueInboxContext)
+  const { showConversation } = React.useContext(MobilePaneContext)
 
   const members = Object.values(channel.state.members ?? {})
   const other = members.find((m) => m.user?.id !== client.userID)
@@ -74,6 +76,7 @@ export function ChannelListItem({
       onClick={(event) => {
         if (onSelect) onSelect(event)
         else setActiveChannel?.(channel, watchers)
+        showConversation()
       }}
     >
       <ChatAvatar

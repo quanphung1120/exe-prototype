@@ -1098,7 +1098,8 @@
     "create": "Start chat",
     "creating": "Creating…",
     "createFailed": "Couldn't start the chat, please try again",
-    "venueChat": "Venue chat"
+    "venueChat": "Venue chat",
+    "backToChats": "Back to chats"
   },
   "Notifications": {
     "title": "Notifications",
