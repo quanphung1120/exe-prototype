@@ -24,7 +24,13 @@ export class BookingIdParamDto {
   bookingId: string
 }
 
-export class RejectVenueDto {
+export class BrandIdParamDto {
+  @IsString()
+  @IsNotEmpty()
+  brandId: string
+}
+
+export class RejectBrandDto {
   @IsOptional()
   @IsString()
   @MaxLength(300)

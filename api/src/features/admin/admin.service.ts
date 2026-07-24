@@ -1,6 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common"
 
-import type { RefundQueueItem, Venue as VenueInfo } from "../../shared/index.js"
+import type {
+  Brand as BrandInfo,
+  RefundQueueItem,
+  Venue as VenueInfo,
+} from "../../shared/index.js"
 
 import type { BookingSummary } from "../bookings/booking.helpers.js"
 import { BookingsService } from "../bookings/bookings.service.js"
@@ -21,6 +25,12 @@ export interface AdminVenueRow extends VenueInfo {
 export interface AdminBrandGroup {
   brand: { id: string; name: string; initials: string } | null
   venues: AdminVenueRow[]
+}
+
+/** One pending brand awaiting review, with its venue branches for context. */
+export interface AdminApprovalGroup {
+  brand: BrandInfo
+  venues: VenueInfo[]
 }
 
 /**
@@ -104,7 +114,9 @@ export class AdminService {
       grossRevenue,
       activeSessions,
       pendingRefunds: refundQueue.length,
-      pendingApprovals: pending,
+      // Approval is per BRAND (the queue lists brands), so this KPI counts
+      // pending brands — unlike `venues.pending`, which counts their branches.
+      pendingApprovals: brands.filter((b) => b.approval === "pending").length,
     }
   }
 
@@ -150,17 +162,36 @@ export class AdminService {
     return this.bookings.listRecent(limit)
   }
 
-  /** Every venue still awaiting admin review, oldest-first. */
-  async pendingApprovals(): Promise<VenueInfo[]> {
-    return this.venues.listPendingApprovals()
+  /**
+   * Every brand still awaiting admin review, oldest-first, each with its venue
+   * branches — approval is decided per brand (the only approval gate); the
+   * branches are included so the admin can see what they're approving.
+   */
+  async pendingApprovals(): Promise<AdminApprovalGroup[]> {
+    const [pendingBrands, allVenues] = await Promise.all([
+      this.brands.listPendingApprovals(),
+      this.venues.listVenues(),
+    ])
+    return pendingBrands.map((brand) => ({
+      brand,
+      venues: allVenues.filter((v) => v.brandId === brand.id),
+    }))
   }
 
-  async approveVenue(venueId: string): Promise<VenueInfo> {
-    return this.venues.setApproval(venueId, "approved")
+  /**
+   * Approve/reject a pending brand and propagate the decision onto every
+   * branch's denormalized `Venue.approval` (the field booking/discovery read).
+   */
+  async approveBrand(brandId: string): Promise<BrandInfo> {
+    const brand = await this.brands.setApproval(brandId, "approved")
+    await this.venues.setApprovalForBrand(brandId, "approved")
+    return brand
   }
 
-  async rejectVenue(venueId: string, reason?: string): Promise<VenueInfo> {
-    return this.venues.setApproval(venueId, "rejected", reason)
+  async rejectBrand(brandId: string, reason?: string): Promise<BrandInfo> {
+    const brand = await this.brands.setApproval(brandId, "rejected", reason)
+    await this.venues.setApprovalForBrand(brandId, "rejected", reason)
+    return brand
   }
 
   /** Cross-tenant venue suspend/restore — no ownership to check, admin-only. */

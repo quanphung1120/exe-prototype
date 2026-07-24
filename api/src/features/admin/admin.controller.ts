@@ -14,11 +14,12 @@ import { Roles } from "../../common/roles.decorator.js"
 import { RolesGuard } from "../../common/roles.guard.js"
 import {
   BookingIdParamDto,
+  BrandIdParamDto,
   CreateDiscountDto,
   DiscountCodeParamDto,
   ForceCancelBookingDto,
   ListBookingsQueryDto,
-  RejectVenueDto,
+  RejectBrandDto,
   SettleRefundDto,
   UpdateDiscountDto,
   VenueIdParamDto,
@@ -65,14 +66,14 @@ export class AdminController {
     return this.admin.pendingApprovals()
   }
 
-  @Post("venues/:venueId/approve")
-  approveVenue(@Param() param: VenueIdParamDto) {
-    return this.admin.approveVenue(param.venueId)
+  @Post("brands/:brandId/approve")
+  approveBrand(@Param() param: BrandIdParamDto) {
+    return this.admin.approveBrand(param.brandId)
   }
 
-  @Post("venues/:venueId/reject")
-  rejectVenue(@Param() param: VenueIdParamDto, @Body() body: RejectVenueDto) {
-    return this.admin.rejectVenue(param.venueId, body.reason)
+  @Post("brands/:brandId/reject")
+  rejectBrand(@Param() param: BrandIdParamDto, @Body() body: RejectBrandDto) {
+    return this.admin.rejectBrand(param.brandId, body.reason)
   }
 
   @Post("venues/:venueId/suspend")

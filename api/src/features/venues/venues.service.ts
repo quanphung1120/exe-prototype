@@ -85,6 +85,13 @@ export interface VenueInput {
   brandId?: string
   /** Update-only: archive (decision #11) or `false` to restore. Never set at creation. */
   archived?: boolean
+  /**
+   * The owning brand's approval status, inherited at creation (set by
+   * `provisionVenue` from `ensureBrand`'s result) — a branch under an
+   * approved brand is bookable immediately; only a brand-new brand's branches
+   * start `"pending"`.
+   */
+  approval?: VenueApprovalStatus
 }
 
 /** One branch's profile inside a setup-wizard payload — no courts (plan 020):
@@ -597,16 +604,19 @@ export class VenuesService {
         now: "18:00",
       }
       try {
+        // A branch inherits its brand's approval status (stamped here, kept in
+        // sync by setApprovalForBrand) — only a brand still pending/rejected
+        // admin review produces a non-bookable branch. The only caller of
+        // createVenue is provisionVenue (the setup wizard).
+        const approval = input.approval ?? "approved"
         await this.venueModel.create({
           venueId: info.id,
           ownerId: input.ownerId,
           info,
           ops: emptyOps([]),
-          // Every freshly provisioned venue starts pending admin review — the
-          // only caller of createVenue is provisionVenue (the setup wizard).
-          approval: "pending",
+          approval,
         })
-        return withApproval(info, { approval: "pending" })
+        return withApproval(info, { approval })
       } catch (err) {
         if (isDuplicateKeyErrorOn(err, "venueId") && attempt < 5) continue
         throw err
@@ -733,6 +743,10 @@ export class VenuesService {
           managerName,
           ownerId: userId,
           brandId: brand.id,
+          // Approval is decided per BRAND: a first-time setup just minted a
+          // pending brand, so its branches start pending; an add-branch under
+          // an already-approved brand is bookable with no further review.
+          approval: brand.approval ?? "approved",
         })
       )
     }
@@ -1050,37 +1064,31 @@ export class VenuesService {
 
   // ── Admin approval (admin feature — role-guarded at the controller) ─────────
 
-  /** Every venue still awaiting admin review, oldest-first. */
-  async listPendingApprovals(): Promise<VenueInfo[]> {
-    await this.ensureSeeded()
-    const docs = await this.venueModel
-      .find({ approval: "pending" })
-      .sort(ORDER)
-      .lean<VenueDocument[]>()
-    return docs.map((d) => withApproval(d.info, d))
-  }
-
   /**
-   * Approve or reject a pending venue — an admin action, deliberately with no
-   * `assertOwnsVenue` check (an admin isn't the venue's owner). Approving
-   * unblocks the booking-creation gate in `BookingsService#assertSlotBookable`;
-   * rejecting leaves the venue visible to its operator (still not bookable)
-   * with `approvalReason` surfaced as the reason.
+   * Propagate a brand-level approve/reject decision (see
+   * `BrandsService#setApproval`, the canonical holder) onto every branch's
+   * denormalized `approval` copy — the field the booking-creation gate
+   * (`BookingsService#assertVenueApproved`) and the discovery filters
+   * (`catalogCourts`/`catalogVenues`) actually read. A plain `updateMany` on
+   * top-level scalar fields, deliberately outside `withVersionRetry` — it
+   * can't clobber the Mixed `info`/`ops` branches optimistic concurrency
+   * protects.
    */
-  async setApproval(
-    id: string,
+  async setApprovalForBrand(
+    brandId: string,
     status: Exclude<VenueApprovalStatus, "pending">,
     reason?: string
-  ): Promise<VenueInfo> {
+  ): Promise<void> {
     await this.ensureSeeded()
-    return withVersionRetry(async () => {
-      const doc = await this.findDoc(id)
-      if (!doc) throw new NotFoundException("Venue not found")
-      doc.approval = status
-      doc.approvalReason = status === "rejected" ? reason : undefined
-      doc.approvedAt = vnNowIso()
-      await doc.save()
-      return withApproval(doc.info, doc)
-    })
+    const set: Record<string, unknown> = {
+      approval: status,
+      approvedAt: vnNowIso(),
+    }
+    await this.venueModel.updateMany(
+      { brandId },
+      status === "rejected"
+        ? { $set: { ...set, approvalReason: reason } }
+        : { $set: set, $unset: { approvalReason: "" } }
+    )
   }
 }

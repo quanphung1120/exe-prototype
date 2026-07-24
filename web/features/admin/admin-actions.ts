@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache"
 import { apiAction as api } from "@/lib/api"
 import type {
   AdminBookingRow,
-  AdminApprovalRow,
   AdminDiscountInput,
   AdminDiscountRow,
 } from "@/features/admin/admin-types"
@@ -21,21 +20,20 @@ function revalidateAdmin() {
   revalidatePath("/dashboard/admin", "layout")
 }
 
-export async function approveVenue(venueId: string): Promise<void> {
-  await api(`/api/admin/venues/${venueId}/approve`, { method: "POST" })
+export async function approveBrand(brandId: string): Promise<void> {
+  await api(`/api/admin/brands/${brandId}/approve`, { method: "POST" })
   revalidateAdmin()
 }
 
-export async function rejectVenue(
-  venueId: string,
+export async function rejectBrand(
+  brandId: string,
   reason: string
-): Promise<AdminApprovalRow> {
-  const venue = await api<AdminApprovalRow>(
-    `/api/admin/venues/${venueId}/reject`,
-    { method: "POST", body: JSON.stringify({ reason }) }
-  )
+): Promise<void> {
+  await api(`/api/admin/brands/${brandId}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  })
   revalidateAdmin()
-  return venue
 }
 
 export async function suspendVenue(venueId: string): Promise<void> {

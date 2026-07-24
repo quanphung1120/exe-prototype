@@ -402,11 +402,14 @@ export interface Venue {
    */
   archived?: boolean
   /**
-   * Manual admin approval gate: a freshly provisioned venue starts `"pending"`
-   * and isn't bookable until an admin approves it in the admin workspace
-   * (auto-approval is a later concern). Absent on venues seeded before this
-   * field existed / hardcoded demo venues — treated as `"approved"`
-   * everywhere this is read (see `withApproval` in `venues.service.ts`).
+   * Denormalized copy of the owning {@link Brand}'s admin approval status —
+   * approval is decided at the BRAND level (a fresh brand starts `"pending"`;
+   * branches added to an approved brand inherit `"approved"` with no further
+   * review). Stamped at branch creation and rewritten when an admin
+   * approves/rejects the brand (`VenuesService#setApprovalForBrand`). Absent
+   * on venues seeded before this field existed / hardcoded demo venues —
+   * treated as `"approved"` everywhere this is read (see `withApproval` in
+   * `venues.service.ts`).
    */
   approval?: VenueApprovalStatus
   /** Admin's reason when rejecting (mirrors `Venue.declineReason` elsewhere). */
@@ -439,6 +442,17 @@ export interface Brand {
   description?: string
   /** Archived (soft-deleted) brand — mirrors {@link Venue.archived}. */
   archived?: boolean
+  /**
+   * Manual admin approval gate — the ONLY approval gate in the system: a fresh
+   * brand starts `"pending"` and none of its venue branches can take bookings
+   * until an admin approves the brand; branches added to an approved brand
+   * need no further review. Each {@link Venue} carries a denormalized copy
+   * (`Venue.approval`) that discovery/booking actually read. Absent on brands
+   * created before this gate existed — treated as `"approved"`.
+   */
+  approval?: VenueApprovalStatus
+  /** Admin's reason when rejecting the brand. */
+  approvalReason?: string
 }
 
 // ── Venue: physical courts ───────────────────────────────────────────────────

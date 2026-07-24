@@ -108,11 +108,14 @@ function makeBrandsMock(
       ensureBrand: (userId: string, input: { name?: string }) => {
         ensureCalls.push({ userId, name: input.name })
         if (brand) return Promise.resolve({ ...brand })
+        // Mirror the real ensureBrand: a freshly minted brand starts pending
+        // admin review (the approval gate now lives on the brand).
         brand = {
           id: "b1",
           ownerId: userId,
           name: input.name ?? "",
           initials: initialsOf(input.name ?? ""),
+          approval: "pending",
         } as { id: string; ownerId: string; name: string }
         return Promise.resolve({ ...brand })
       },

@@ -21,6 +21,6 @@ export default async function AdminApprovalsPage({
 }) {
   const { locale } = await params
   setRequestLocale(locale)
-  const venues = await fetchAdminApprovals()
-  return <AdminApprovalsView venues={venues} />
+  const brands = await fetchAdminApprovals()
+  return <AdminApprovalsView brands={brands} />
 }

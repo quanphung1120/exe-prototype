@@ -13,6 +13,7 @@ import type { ExecutionContext } from "@nestjs/common"
 import { RolesGuard } from "../src/common/roles.guard.js"
 import { ROLES_KEY } from "../src/common/roles.decorator.js"
 import { setRequestRole, setRequestUserId } from "../src/common/request-auth.js"
+import { BrandsService } from "../src/features/brands/brands.service.js"
 import { VenuesService } from "../src/features/venues/venues.service.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
@@ -82,7 +83,7 @@ void test("request-auth stashes and reads back the role set by ClerkAuthGuard", 
 
 type VenuesCtorArgs = ConstructorParameters<typeof VenuesService>
 
-void test("createVenue starts a fresh branch pending admin review", async () => {
+void test("createVenue stamps the brand's inherited approval status (pending brand → pending branch)", async () => {
   const created: Record<string, unknown>[] = []
   const venueModel = {
     syncIndexes: () => Promise.resolve([]),
@@ -106,28 +107,53 @@ void test("createVenue starts a fresh branch pending admin review", async () => 
     openTo: "22:00",
     managerName: "Quản lý",
     ownerId: "owner-1",
+    approval: "pending",
   })
 
   assert.equal(info.approval, "pending")
   assert.equal(created[0]?.approval, "pending")
 })
 
-void test("listPendingApprovals returns only pending venues, merging the resolved status", async () => {
-  const docs = [
-    { venueId: "v1", info: { id: "v1", name: "A" }, approval: "pending" },
-  ]
+void test("createVenue defaults a branch to approved when no brand status is passed (approved brand)", async () => {
+  const created: Record<string, unknown>[] = []
   const venueModel = {
     syncIndexes: () => Promise.resolve([]),
     countDocuments: () => Promise.resolve(1),
+    distinct: () => Promise.resolve([] as string[]),
+    create: (doc: Record<string, unknown>) => {
+      created.push(doc)
+      return Promise.resolve(doc)
+    },
+  }
+  const service = new VenuesService(
+    ...([venueModel, {}, {}, {}, {}, {}] as unknown as VenuesCtorArgs)
+  )
+
+  const info = await service.createVenue({
+    name: "Chi nhánh 2",
+    ward: "Quận 1",
+    province: "TP. Hồ Chí Minh",
+    sports: ["badminton"],
+    openFrom: "06:00",
+    openTo: "22:00",
+    managerName: "Quản lý",
+    ownerId: "owner-1",
+  })
+
+  assert.equal(info.approval, "approved")
+  assert.equal(created[0]?.approval, "approved")
+})
+
+void test("BrandsService.listPendingApprovals returns only pending brands, merging the resolved status", async () => {
+  const docs = [{ brandId: "b1", info: { id: "b1", name: "A" }, approval: "pending" }]
+  const brandModel = {
     find: (filter: Record<string, unknown>) => ({
       sort: () => ({
         lean: () => Promise.resolve(filter.approval === "pending" ? docs : []),
       }),
     }),
   }
-  const service = new VenuesService(
-    ...([venueModel, {}, {}, {}, {}, {}] as unknown as VenuesCtorArgs)
-  )
+  const service = new BrandsService(brandModel as never)
 
   const pending = await service.listPendingApprovals()
 
@@ -135,61 +161,75 @@ void test("listPendingApprovals returns only pending venues, merging the resolve
   assert.equal(pending[0]?.approval, "pending")
 })
 
-void test("setApproval approves a venue and clears any prior rejection reason", async () => {
+void test("BrandsService.setApproval approves a brand and clears any prior rejection reason", async () => {
   const doc: {
-    venueId: string
+    brandId: string
     info: { id: string; name: string }
     approval: string
     approvalReason?: string
     save: () => Promise<void>
   } = {
-    venueId: "v1",
-    info: { id: "v1", name: "A" },
+    brandId: "b1",
+    info: { id: "b1", name: "A" },
     approval: "rejected",
     approvalReason: "Thiếu giấy phép",
     save: () => Promise.resolve(),
   }
-  const venueModel = {
-    syncIndexes: () => Promise.resolve([]),
-    countDocuments: () => Promise.resolve(1),
-    findOne: () => Promise.resolve(doc),
-  }
-  const service = new VenuesService(
-    ...([venueModel, {}, {}, {}, {}, {}] as unknown as VenuesCtorArgs)
-  )
+  const brandModel = { findOne: () => Promise.resolve(doc) }
+  const service = new BrandsService(brandModel as never)
 
-  const info = await service.setApproval("v1", "approved")
+  const info = await service.setApproval("b1", "approved")
 
   assert.equal(info.approval, "approved")
   assert.equal(doc.approvalReason, undefined)
 })
 
-void test("setApproval rejects a venue with a reason", async () => {
+void test("BrandsService.setApproval rejects a brand with a reason", async () => {
   const doc: {
-    venueId: string
+    brandId: string
     info: { id: string; name: string }
     approval: string
     approvalReason?: string
     save: () => Promise<void>
   } = {
-    venueId: "v1",
-    info: { id: "v1", name: "A" },
+    brandId: "b1",
+    info: { id: "b1", name: "A" },
     approval: "pending",
     save: () => Promise.resolve(),
   }
+  const brandModel = { findOne: () => Promise.resolve(doc) }
+  const service = new BrandsService(brandModel as never)
+
+  const info = await service.setApproval("b1", "rejected", "Thiếu giấy phép")
+
+  assert.equal(info.approval, "rejected")
+  assert.equal(doc.approvalReason, "Thiếu giấy phép")
+})
+
+void test("setApprovalForBrand propagates the decision onto every branch's denormalized copy", async () => {
+  const calls: { filter: unknown; update: Record<string, unknown> }[] = []
   const venueModel = {
     syncIndexes: () => Promise.resolve([]),
     countDocuments: () => Promise.resolve(1),
-    findOne: () => Promise.resolve(doc),
+    updateMany: (filter: unknown, update: Record<string, unknown>) => {
+      calls.push({ filter, update })
+      return Promise.resolve({})
+    },
   }
   const service = new VenuesService(
     ...([venueModel, {}, {}, {}, {}, {}] as unknown as VenuesCtorArgs)
   )
 
-  const info = await service.setApproval("v1", "rejected", "Thiếu giấy phép")
+  await service.setApprovalForBrand("b1", "approved")
+  await service.setApprovalForBrand("b1", "rejected", "Thiếu giấy phép")
 
-  assert.equal(info.approval, "rejected")
-  assert.equal(doc.approvalReason, "Thiếu giấy phép")
+  assert.deepEqual(calls[0]?.filter, { brandId: "b1" })
+  const approveSet = calls[0]?.update.$set as Record<string, unknown>
+  assert.equal(approveSet.approval, "approved")
+  assert.deepEqual(calls[0]?.update.$unset, { approvalReason: "" })
+  const rejectSet = calls[1]?.update.$set as Record<string, unknown>
+  assert.equal(rejectSet.approval, "rejected")
+  assert.equal(rejectSet.approvalReason, "Thiếu giấy phép")
 })
 
 // ── BookingsService approval gate ────────────────────────────────────────────

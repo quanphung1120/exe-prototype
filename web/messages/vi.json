@@ -2238,24 +2238,23 @@
   },
   "AdminApprovals": {
     "metaTitle": "Phê duyệt",
-    "metaDescription": "Venue mới đang chờ quản trị viên duyệt",
+    "metaDescription": "Thương hiệu mới đang chờ quản trị viên duyệt",
     "title": "Phê duyệt",
-    "subtitle": "Venue mới tạo sẽ không thể nhận đặt sân cho đến khi được duyệt",
+    "subtitle": "Thương hiệu mới tạo sẽ không thể nhận đặt sân cho đến khi được duyệt — duyệt thương hiệu sẽ mở khoá mọi chi nhánh của nó",
     "approve": "Duyệt",
     "reject": {
       "button": "Từ chối",
-      "title": "Từ chối venue này?",
-      "description": "Chủ venue sẽ thấy lý do này. Họ vẫn có thể chỉnh sửa và được xét duyệt lại sau.",
+      "title": "Từ chối thương hiệu này?",
+      "description": "Chủ thương hiệu sẽ thấy lý do này. Họ vẫn có thể chỉnh sửa và được xét duyệt lại sau.",
       "reasonLabel": "Lý do",
       "reasonPlaceholder": "VD: Thiếu giấy phép kinh doanh…",
       "cancel": "Quay lại",
       "confirm": "Từ chối"
     },
-    "empty": "Không có venue nào đang chờ duyệt",
+    "empty": "Không có thương hiệu nào đang chờ duyệt",
     "table": {
-      "venue": "Venue",
-      "ward": "Phường/Xã",
-      "province": "Tỉnh/Thành phố",
+      "brand": "Thương hiệu",
+      "branches": "Chi nhánh",
       "actions": "Hành động"
     }
   },

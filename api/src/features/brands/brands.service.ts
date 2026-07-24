@@ -1,11 +1,29 @@
-import { Injectable } from "@nestjs/common"
+import { Injectable, NotFoundException } from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
-import { initialsOf, type Brand as BrandInfo } from "../../shared/index.js"
+import {
+  initialsOf,
+  vnNowIso,
+  type Brand as BrandInfo,
+  type VenueApprovalStatus,
+} from "../../shared/index.js"
 
 import { isDuplicateKeyError } from "../../common/mongo-util.js"
-import { Brand, type BrandDocument } from "./brand.schema.js"
+import {
+  Brand,
+  effectiveBrandApproval,
+  type BrandDocument,
+} from "./brand.schema.js"
+
+/** Merge a doc's resolved approval status onto the BrandInfo served to the web. */
+function withApproval(info: BrandInfo, doc: Partial<BrandDocument>): BrandInfo {
+  return {
+    ...info,
+    approval: effectiveBrandApproval(doc),
+    approvalReason: doc.approvalReason,
+  }
+}
 
 /** The profile fields captured when a brand is first provisioned. */
 export interface BrandInput {
@@ -39,13 +57,45 @@ export class BrandsService {
     const doc = await this.brandModel
       .findOne({ ownerId: userId })
       .lean<BrandDocument>()
-    return doc?.info ?? null
+    return doc ? withApproval(doc.info, doc) : null
   }
 
   /** Every brand in the system — the admin venues/brands view (admin feature). */
   async listAll(): Promise<BrandInfo[]> {
     const docs = await this.brandModel.find().lean<BrandDocument[]>()
-    return docs.map((d) => d.info)
+    return docs.map((d) => withApproval(d.info, d))
+  }
+
+  // ── Admin approval (admin feature — role-guarded at the controller) ─────────
+
+  /** Every brand still awaiting admin review, oldest-first. */
+  async listPendingApprovals(): Promise<BrandInfo[]> {
+    const docs = await this.brandModel
+      .find({ approval: "pending" })
+      .sort({ createdAt: 1 })
+      .lean<BrandDocument[]>()
+    return docs.map((d) => withApproval(d.info, d))
+  }
+
+  /**
+   * Approve or reject a pending brand — an admin action. The brand is the
+   * canonical holder of the approval status; the caller (AdminService) also
+   * propagates the decision onto every venue branch's denormalized copy via
+   * `VenuesService#setApprovalForBrand`, which is what the booking gate and
+   * discovery filters actually read.
+   */
+  async setApproval(
+    brandId: string,
+    status: Exclude<VenueApprovalStatus, "pending">,
+    reason?: string
+  ): Promise<BrandInfo> {
+    const doc = await this.brandModel.findOne({ brandId })
+    if (!doc) throw new NotFoundException("Brand not found")
+    doc.approval = status
+    doc.approvalReason = status === "rejected" ? reason : undefined
+    doc.approvedAt = vnNowIso()
+    await doc.save()
+    return withApproval(doc.info, doc)
   }
 
   /** The brandId this account owns, or null. */
@@ -77,12 +127,15 @@ export class BrandsService {
         description: seed.description,
       }
       try {
+        // A fresh brand starts pending admin review — the only approval gate
+        // in the system (venues inherit their brand's status at creation).
         await this.brandModel.create({
           brandId: info.id,
           ownerId: userId,
           info,
+          approval: "pending",
         })
-        return info
+        return { ...info, approval: "pending" }
       } catch (err) {
         if (isDuplicateKeyError(err)) {
           const winner = await this.myBrand(userId)

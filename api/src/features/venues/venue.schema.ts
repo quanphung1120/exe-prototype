@@ -40,10 +40,12 @@ export class Venue {
   // docs predate both this counter and `ops.blocks`; every read of the latter
   // defaults with `?? []` (see `VenuesService`).
   @Prop({ type: Number }) blockSeq?: number
-  // Manual admin approval gate. Missing on venues seeded before this field
-  // existed / hardcoded demo venues — every read treats an absent value as
-  // "approved" (see `withApproval`, venues.service.ts) rather than backfilling
-  // every existing document. Indexed for the admin approvals-queue query.
+  // Denormalized copy of the owning brand's admin approval status (approval
+  // is decided at the brand level — see `Brand.approval`): stamped at branch
+  // creation and rewritten by `VenuesService#setApprovalForBrand`. Missing on
+  // venues seeded before this field existed / hardcoded demo venues — every
+  // read treats an absent value as "approved" (see `withApproval`,
+  // venues.service.ts) rather than backfilling every existing document.
   @Prop({ type: String, index: true }) approval?: VenueApprovalStatus
   @Prop({ type: String }) approvalReason?: string
   @Prop({ type: String }) approvedAt?: string
