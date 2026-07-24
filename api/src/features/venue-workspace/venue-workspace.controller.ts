@@ -26,6 +26,17 @@ export class VenueWorkspaceController {
     return this.venues.myBundle(userId)
   }
 
+  /**
+   * Every branch this account owns with a court-status rollup — the Manage
+   * screen's cross-branch overview table (plan 021). A literal two-segment
+   * path, so it never collides with `GET /:venueId/bundle` below (which
+   * requires a literal "bundle" second segment).
+   */
+  @Get("branches/summary")
+  branchesSummary(@UserId() userId: string) {
+    return this.venues.branchesSummary(userId)
+  }
+
   /** One specific branch's full operator bundle (authorized by owner). */
   @Get(":venueId/bundle")
   async branchBundle(

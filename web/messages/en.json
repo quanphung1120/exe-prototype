@@ -1284,6 +1284,30 @@
     },
     "manageTitle": "Manage venue",
     "manageSubtitle": "Venue details and important actions.",
+    "overview": {
+      "title": "Branch overview",
+      "subtitle": "Every branch under your brand, with its court count and status — click Manage to switch into one.",
+      "colBranch": "Branch",
+      "colArea": "Area",
+      "colCourts": "Courts",
+      "colStates": "Court status",
+      "colApproval": "Approval",
+      "colActions": "Actions",
+      "current": "Current",
+      "manage": "Manage",
+      "empty": "No courts yet — not shown on Explore",
+      "states": {
+        "available": "Available",
+        "inPlay": "In play",
+        "upcoming": "Upcoming",
+        "maintenance": "Maintenance"
+      },
+      "approval": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      }
+    },
     "archive": "Archive",
     "dangerZone": {
       "title": "Danger zone",

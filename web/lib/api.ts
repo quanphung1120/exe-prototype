@@ -6,6 +6,7 @@ import { createFetch } from "@better-fetch/fetch"
 
 import type {
   AccountType,
+  BranchSummary,
   PlayerAssessment,
   Seed,
   VenueSeed,
@@ -175,6 +176,19 @@ export async function fetchMyVenue(): Promise<VenueSeed | null> {
     )
   }
   return data
+}
+
+/**
+ * Fetch every branch this account owns, each with a court-status rollup — the
+ * Manage screen's cross-branch overview table (plan 021). Empty when the
+ * account has provisioned no branches yet.
+ */
+export async function fetchBranchesSummary(): Promise<BranchSummary[]> {
+  try {
+    return await apiFetch<BranchSummary[]>("/api/venue/branches/summary")
+  } catch {
+    throw new Error(`Failed to load branch summary. Is the API running?`)
+  }
 }
 
 /**

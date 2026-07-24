@@ -471,6 +471,27 @@ export interface VenueCourt {
   archived?: boolean
 }
 
+// ── Venue: cross-branch overview (Manage screen) ─────────────────────────────
+
+/**
+ * One brand branch's court-status rollup — the row shape for the Manage
+ * screen's cross-branch table (plan 021). `courtCount`/`stateCounts` count
+ * only non-archived courts; a branch with `courtCount === 0` hasn't fed any
+ * courts to discovery/AI yet.
+ */
+export interface BranchSummary {
+  venueId: string
+  name: string
+  ward: string
+  province: string
+  approval?: VenueApprovalStatus
+  archived?: boolean
+  /** Non-archived courts at this branch. */
+  courtCount: number
+  /** Non-archived court counts by state. */
+  stateCounts: Record<CourtState, number>
+}
+
 // ── Venue: court blocks ──────────────────────────────────────────────────────
 
 /**

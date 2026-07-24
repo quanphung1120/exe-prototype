@@ -23,9 +23,11 @@ import {
   venueCourtToCourt,
   vnNowIso,
   type BookingRecordStatus,
+  type BranchSummary,
   type Court,
   type CourtBlock,
   type CourtBlockReason,
+  type CourtState,
   type Reservation,
   type ReservationStatus,
   type Brand,
@@ -433,6 +435,43 @@ export class VenuesService {
       this.myBranches(userId),
     ])
     return { brand, venues }
+  }
+
+  /**
+   * Every branch this account owns, with a court-status rollup (Manage
+   * screen's cross-branch table, plan 021) — the bird's-eye view the
+   * per-branch workspace switcher doesn't offer. `courtCount`/`stateCounts`
+   * only tally non-archived courts, matching `catalogCourts`'s discovery
+   * filter, so a `courtCount === 0` branch is exactly one that isn't feeding
+   * anything to discovery/AI yet.
+   */
+  async branchesSummary(userId: string): Promise<BranchSummary[]> {
+    await this.ensureSeeded()
+    const docs = await this.venueModel
+      .find({ ownerId: userId })
+      .sort(ORDER)
+      .lean<VenueDocument[]>()
+    return docs.map((d) => {
+      const info = withApproval(d.info, d)
+      const courts = d.ops.courts.filter((c) => !c.archived)
+      const stateCounts: Record<CourtState, number> = {
+        available: 0,
+        "in-play": 0,
+        upcoming: 0,
+        maintenance: 0,
+      }
+      for (const c of courts) stateCounts[c.state] += 1
+      return {
+        venueId: info.id,
+        name: info.name,
+        ward: info.ward,
+        province: info.province,
+        approval: info.approval,
+        archived: info.archived,
+        courtCount: courts.length,
+        stateCounts,
+      }
+    })
   }
 
   /**

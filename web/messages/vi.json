@@ -1284,6 +1284,30 @@
     },
     "manageTitle": "Quản lý địa điểm",
     "manageSubtitle": "Thông tin địa điểm và các thao tác quan trọng.",
+    "overview": {
+      "title": "Tổng quan chi nhánh",
+      "subtitle": "Tất cả chi nhánh thuộc thương hiệu của bạn, cùng số sân và trạng thái — bấm Quản lý để chuyển sang chi nhánh đó.",
+      "colBranch": "Chi nhánh",
+      "colArea": "Khu vực",
+      "colCourts": "Số sân",
+      "colStates": "Trạng thái sân",
+      "colApproval": "Trạng thái duyệt",
+      "colActions": "Thao tác",
+      "current": "Hiện tại",
+      "manage": "Quản lý",
+      "empty": "Chưa có sân — chưa hiển thị trên Explore",
+      "states": {
+        "available": "Trống",
+        "inPlay": "Đang chơi",
+        "upcoming": "Sắp tới",
+        "maintenance": "Bảo trì"
+      },
+      "approval": {
+        "pending": "Đang chờ duyệt",
+        "approved": "Đã duyệt",
+        "rejected": "Bị từ chối"
+      }
+    },
     "archive": "Lưu trữ",
     "dangerZone": {
       "title": "Vùng nguy hiểm",

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
+import { fetchBranchesSummary } from "@/lib/api"
 import { VenueManageView } from "@/features/venue/manage"
 
 export async function generateMetadata({
@@ -23,5 +24,6 @@ export default async function VenueManagePage({
 }) {
   const { locale } = await params
   setRequestLocale(locale)
-  return <VenueManageView />
+  const branches = await fetchBranchesSummary()
+  return <VenueManageView branches={branches} />
 }

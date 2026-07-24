@@ -5,6 +5,8 @@ import { toast } from "sonner"
 import { useTranslations } from "next-intl"
 import { AlertTriangle, ArchiveRestore } from "lucide-react"
 
+import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -14,26 +16,66 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  courtStateAccent,
+  type BranchSummary,
+  type CourtState,
+} from "@/features/venue/data"
 import { VenuePanel } from "@/features/venue/shared"
 import { useVenueData } from "@/features/venue/venue-data-provider"
 import { venueBase } from "@/features/venue/nav"
 import { archiveVenue, restoreVenue } from "@/features/venue/venue-actions"
-import { useRouter } from "@/i18n/navigation"
+import { Link, useRouter } from "@/i18n/navigation"
+
+const APPROVAL_VARIANT = {
+  pending: "outline",
+  approved: "secondary",
+  rejected: "destructive",
+} as const
+
+const COURT_STATES: CourtState[] = [
+  "available",
+  "in-play",
+  "upcoming",
+  "maintenance",
+]
 
 /**
  * The venue "manage" screen — reached from the workspace switcher (sidebar
  * header dropdown), not the persistent nav (kept at 4 tabs, see
- * `nav-simplification`). Scoped to this branch (chi nhánh): today it's the
- * archive/restore action (VienTD-Review decision #11). An archived branch stays
- * under the brand and keeps appearing in the switcher, so restoring here —
- * instead of running setup again — is the way back.
+ * `nav-simplification`). Scoped to this branch (chi nhánh): archive/restore
+ * (VienTD-Review decision #11). An archived branch stays under the brand and
+ * keeps appearing in the switcher, so restoring here — instead of running
+ * setup again — is the way back. It's also the HUB for the whole brand: the
+ * cross-branch overview table (plan 021) is the only place an operator sees
+ * every branch's court count/status at once, since every other screen is
+ * scoped to one branch via the `[venueId]` URL segment.
  */
-export function VenueManageView() {
+export function VenueManageView({
+  branches,
+}: {
+  branches: BranchSummary[]
+}) {
   const t = useTranslations("VenueManage")
   const router = useRouter()
   const { venueId, venue: VENUE } = useVenueData()
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [isPending, startTransition] = React.useTransition()
+
+  const stateLabel: Record<CourtState, string> = {
+    available: t("overview.states.available"),
+    "in-play": t("overview.states.inPlay"),
+    upcoming: t("overview.states.upcoming"),
+    maintenance: t("overview.states.maintenance"),
+  }
 
   const goToReservations = React.useCallback(() => {
     router.push(`${venueBase(venueId)}/schedule?tab=reservations`)
@@ -81,6 +123,89 @@ export function VenueManageView() {
           {t("manageSubtitle")}
         </p>
       </div>
+
+      <VenuePanel title={t("overview.title")}>
+        <p className="mb-3 text-sm text-muted-foreground">
+          {t("overview.subtitle")}
+        </p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("overview.colBranch")}</TableHead>
+              <TableHead>{t("overview.colArea")}</TableHead>
+              <TableHead className="text-right">
+                {t("overview.colCourts")}
+              </TableHead>
+              <TableHead>{t("overview.colStates")}</TableHead>
+              <TableHead>{t("overview.colApproval")}</TableHead>
+              <TableHead className="text-right">
+                {t("overview.colActions")}
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {branches.map((b) => (
+              <TableRow
+                key={b.venueId}
+                className={cn(b.venueId === venueId && "bg-brand/5")}
+              >
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    {b.name}
+                    {b.venueId === venueId ? (
+                      <Badge variant="secondary">{t("overview.current")}</Badge>
+                    ) : null}
+                  </div>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {b.ward} · {b.province}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {b.courtCount}
+                </TableCell>
+                <TableCell>
+                  {b.courtCount === 0 ? (
+                    <Badge variant="outline" className="text-muted-foreground">
+                      {t("overview.empty")}
+                    </Badge>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {COURT_STATES.filter(
+                        (state) => b.stateCounts[state] > 0
+                      ).map((state) => (
+                        <span
+                          key={state}
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                            courtStateAccent[state]
+                          )}
+                        >
+                          {b.stateCounts[state]} {stateLabel[state]}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={APPROVAL_VARIANT[b.approval ?? "approved"]}>
+                    {t(`overview.approval.${b.approval ?? "approved"}`)}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    render={<Link href={`${venueBase(b.venueId)}/courts`} />}
+                  >
+                    {t("overview.manage")}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </VenuePanel>
 
       {VENUE.archived ? (
         <div className="flex flex-col gap-4 rounded-4xl bg-card p-5 shadow-md ring-1 ring-amber-500/30 sm:flex-row sm:items-center sm:justify-between">
