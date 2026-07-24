@@ -1147,6 +1147,10 @@
       "label": "Schedule",
       "caption": "Courts × hours, at a glance"
     },
+    "courts": {
+      "label": "Courts",
+      "caption": "Add, edit and manage your courts"
+    },
     "messages": {
       "label": "Messages",
       "caption": "Chat with your players"
@@ -1619,6 +1623,66 @@
     "tabs": {
       "performance": "Performance",
       "players": "Players"
+    }
+  },
+  "VenueCourts": {
+    "metaTitle": "Courts · Venue Workspace",
+    "metaDescription": "Manage your venue's courts — add new courts, edit pricing and surface, and archive courts you no longer offer.",
+    "title": "Courts",
+    "subtitle": "Add, edit and archive the courts at this branch.",
+    "listTitle": "All courts",
+    "addButton": "Add court",
+    "col": {
+      "name": "Court",
+      "sport": "Sport",
+      "surface": "Surface",
+      "price": "Price",
+      "state": "Status",
+      "actions": "Actions"
+    },
+    "state": {
+      "available": "Open",
+      "inPlay": "In play",
+      "upcoming": "Upcoming",
+      "maintenance": "Maintenance"
+    },
+    "rowActions": "Court actions",
+    "edit": "Edit",
+    "archive": "Archive",
+    "empty": "No courts yet — add your first court.",
+    "addDialog": {
+      "title": "Add a court",
+      "description": "New courts appear on the schedule and are bookable right away."
+    },
+    "editDialog": {
+      "title": "Edit court",
+      "description": "Changes apply immediately across the schedule and bookings."
+    },
+    "form": {
+      "name": "Court name",
+      "namePlaceholder": "e.g. Court 1",
+      "sport": "Sport",
+      "state": "Status",
+      "surface": "Surface",
+      "surfacePlaceholder": "e.g. Sprung timber",
+      "price": "Price per hour (₫)",
+      "cancel": "Cancel",
+      "submit": "Save",
+      "saving": "Saving..."
+    },
+    "archiveDialog": {
+      "title": "Archive this court?",
+      "description": "{name} will stop appearing on the schedule and can no longer be booked.",
+      "cancel": "Cancel",
+      "confirm": "Confirm archive",
+      "pending": "Archiving..."
+    },
+    "toasts": {
+      "added": "Court added",
+      "updated": "Court updated",
+      "archived": "{name} archived",
+      "saveError": "Couldn't save the court",
+      "archiveError": "Couldn't archive the court"
     }
   },
   "VenueCustomers": {

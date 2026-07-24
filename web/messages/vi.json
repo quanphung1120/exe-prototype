@@ -1147,6 +1147,10 @@
       "label": "Lịch sân",
       "caption": "Sân × giờ, trong một màn hình"
     },
+    "courts": {
+      "label": "Sân",
+      "caption": "Thêm, sửa và quản lý sân của bạn"
+    },
     "messages": {
       "label": "Tin nhắn",
       "caption": "Trò chuyện với người chơi của bạn"
@@ -1619,6 +1623,66 @@
     "tabs": {
       "performance": "Hiệu suất",
       "players": "Khách chơi"
+    }
+  },
+  "VenueCourts": {
+    "metaTitle": "Sân · Không gian vận hành",
+    "metaDescription": "Quản lý sân của chi nhánh — thêm sân mới, chỉnh giá và mặt sân, lưu trữ sân không còn sử dụng.",
+    "title": "Sân",
+    "subtitle": "Thêm, chỉnh sửa và lưu trữ các sân của chi nhánh này.",
+    "listTitle": "Tất cả sân",
+    "addButton": "Thêm sân",
+    "col": {
+      "name": "Sân",
+      "sport": "Môn",
+      "surface": "Mặt sân",
+      "price": "Giá",
+      "state": "Trạng thái",
+      "actions": "Thao tác"
+    },
+    "state": {
+      "available": "Còn trống",
+      "inPlay": "Đang chơi",
+      "upcoming": "Sắp tới",
+      "maintenance": "Bảo trì"
+    },
+    "rowActions": "Thao tác với sân",
+    "edit": "Sửa",
+    "archive": "Lưu trữ",
+    "empty": "Chưa có sân nào — thêm sân đầu tiên.",
+    "addDialog": {
+      "title": "Thêm sân mới",
+      "description": "Sân mới sẽ xuất hiện trên lịch và có thể đặt ngay."
+    },
+    "editDialog": {
+      "title": "Sửa sân",
+      "description": "Thay đổi áp dụng ngay trên lịch và các đơn đặt sân."
+    },
+    "form": {
+      "name": "Tên sân",
+      "namePlaceholder": "vd: Sân 1",
+      "sport": "Môn",
+      "state": "Trạng thái",
+      "surface": "Mặt sân",
+      "surfacePlaceholder": "vd: Sàn gỗ đàn hồi",
+      "price": "Giá mỗi giờ (₫)",
+      "cancel": "Hủy",
+      "submit": "Lưu",
+      "saving": "Đang lưu..."
+    },
+    "archiveDialog": {
+      "title": "Lưu trữ sân này?",
+      "description": "{name} sẽ không còn xuất hiện trên lịch và không thể đặt được nữa.",
+      "cancel": "Hủy",
+      "confirm": "Xác nhận lưu trữ",
+      "pending": "Đang lưu trữ..."
+    },
+    "toasts": {
+      "added": "Đã thêm sân",
+      "updated": "Đã cập nhật sân",
+      "archived": "Đã lưu trữ {name}",
+      "saveError": "Không thể lưu sân",
+      "archiveError": "Không thể lưu trữ sân"
     }
   },
   "VenueCustomers": {
