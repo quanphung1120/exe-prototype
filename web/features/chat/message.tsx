@@ -16,14 +16,13 @@ import {
 } from "stream-chat-react"
 import type { Attachment as StreamAttachment } from "stream-chat"
 
-import { initialsOf } from "@/lib/shared"
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { ChatAvatar } from "@/features/chat/chat-avatar"
 import { playerInitialsFromStreamId } from "@/features/chat/channel-ids"
 import { useOpenChatProfile } from "@/features/chat/profile-context"
 
@@ -153,7 +152,8 @@ export function ChatMessage() {
                 mine
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-foreground",
-                failed && "opacity-70"
+                failed && "opacity-70",
+                lastOfGroup && (mine ? "rounded-br-md" : "rounded-bl-md")
               )}
             >
               {message.quoted_message && (
@@ -311,11 +311,12 @@ function AvatarSlot({
 }) {
   if (!show) return <div className="w-8 shrink-0" />
   const avatar = (
-    <Avatar className="size-8 shrink-0">
-      <AvatarFallback className="bg-secondary text-[10px] font-medium text-secondary-foreground">
-        {initialsOf(message.user?.name ?? "?")}
-      </AvatarFallback>
-    </Avatar>
+    <ChatAvatar
+      name={message.user?.name ?? "?"}
+      image={message.user?.image}
+      className="size-8 shrink-0"
+      fallbackClassName="text-[10px]"
+    />
   )
   if (!onOpenProfile) return avatar
   return (

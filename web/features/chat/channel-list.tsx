@@ -11,11 +11,11 @@ import type {
 } from "stream-chat-react"
 import { useChatContext, useTranslationContext } from "stream-chat-react"
 
-import { initialsOf } from "@/lib/shared"
 import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { AvatarBadge } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ChatAvatar } from "@/features/chat/chat-avatar"
 import { NewChatDialog } from "@/features/chat/new-chat-dialog"
 import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
 
@@ -39,17 +39,21 @@ export function ChannelListItem({
   const { client } = useChatContext()
   const inbox = React.useContext(VenueInboxContext)
 
+  const members = Object.values(channel.state.members ?? {})
+  const other = members.find((m) => m.user?.id !== client.userID)
+  const isGroup = members.length > 2
+  // Player-side venue chats are titled/avatared as the venue, not the
+  // owner's personal account; operator inbox rows show the player.
+  const isVenueChat = Boolean(channel.data?.venueId)
+  const avatarUser =
+    !isGroup && (inbox || !isVenueChat) ? other?.user : undefined
+
   // Operator's venue inbox: title each row by the *player* on the other end,
   // not the venue's own name (every row in this list is already scoped to
   // one venue). Player-side rows are unaffected (channel.data?.venueId is
   // only set on venue-chat channels, and `inbox` is only true in the
   // operator's /dashboard/venue/[venueId]/messages view).
-  const venueChatOther =
-    inbox && channel.data?.venueId
-      ? Object.values(channel.state.members ?? {}).find(
-          (m) => m.user?.id !== client.userID
-        )
-      : undefined
+  const venueChatOther = inbox && isVenueChat ? other : undefined
 
   const title =
     venueChatOther?.user?.name ??
@@ -72,11 +76,13 @@ export function ChannelListItem({
         else setActiveChannel?.(channel, watchers)
       }}
     >
-      <Avatar className="size-10 shrink-0">
-        <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-          {initialsOf(title ?? "?")}
-        </AvatarFallback>
-      </Avatar>
+      <ChatAvatar
+        name={avatarUser?.name ?? title ?? "?"}
+        image={avatarUser?.image}
+        className="size-10 shrink-0"
+      >
+        {avatarUser?.online ? <AvatarBadge className="bg-brand" /> : null}
+      </ChatAvatar>
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <p className={cn("truncate text-sm", hasUnread && "font-semibold")}>

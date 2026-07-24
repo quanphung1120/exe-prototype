@@ -12,8 +12,8 @@ import {
   useChatContext,
 } from "stream-chat-react"
 
-import { initialsOf } from "@/lib/shared"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { AvatarBadge } from "@/components/ui/avatar"
+import { ChatAvatar } from "@/features/chat/chat-avatar"
 import { playerInitialsFromStreamId } from "@/features/chat/channel-ids"
 import {
   ChannelListHeader,
@@ -168,10 +168,10 @@ export function ChatView({
   )
 }
 
-/** The rounded, ringed two-pane card the chat lives in. */
+/** The two-pane layout the chat lives in — no card wrapper, sits directly on the dashboard background. */
 function ChatShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full min-h-[28rem] overflow-hidden rounded-4xl bg-card shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
+    <div className="flex h-full min-h-[28rem] overflow-hidden">
       {children}
     </div>
   )
@@ -241,14 +241,10 @@ function TeamChannelHeader({
   const venueChat = Boolean(channel.data?.venueId)
 
   return (
-    <header className="flex items-center justify-between gap-3 border-b border-border bg-card p-4">
+    <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
       {venueChat && !inbox ? (
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar>
-            <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-              {initialsOf(name)}
-            </AvatarFallback>
-          </Avatar>
+          <ChatAvatar name={name} />
           <div className="min-w-0">
             <p className="truncate font-medium">{name}</p>
             <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -259,11 +255,7 @@ function TeamChannelHeader({
         </div>
       ) : isGroup ? (
         <div className="flex min-w-0 items-center gap-3">
-          <Avatar>
-            <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-              {initialsOf(name)}
-            </AvatarFallback>
-          </Avatar>
+          <ChatAvatar name={name} />
           <div className="min-w-0">
             <p className="truncate font-medium">{name}</p>
             <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -279,11 +271,9 @@ function TeamChannelHeader({
           className="-m-1 flex min-w-0 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
           onClick={() => otherInitials && onOpenProfile(otherInitials)}
         >
-          <Avatar>
-            <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-              {initialsOf(other?.user?.name ?? name)}
-            </AvatarFallback>
-          </Avatar>
+          <ChatAvatar name={other?.user?.name ?? name} image={other?.user?.image}>
+            {other?.user?.online ? <AvatarBadge className="bg-brand" /> : null}
+          </ChatAvatar>
           <div className="min-w-0">
             <p className="truncate font-medium">{other?.user?.name ?? name}</p>
             <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
