@@ -1,7 +1,7 @@
 "use client"
 
 import { Accordion } from "@base-ui/react/accordion"
-import { ChevronDown, HelpCircle } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 

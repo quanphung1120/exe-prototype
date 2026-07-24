@@ -592,11 +592,20 @@
   },
   "Landing": {
     "hero": {
-      "title": "Find a court. Find your <accent>match</accent>.",
-      "subtitle": "Your AI assistant books your badminton court in seconds and matches you with players at your level.",
+      "eyebrow": "AI matchmaking for racquet sports",
+      "titleLine1": "Find a court.",
+      "titleLine2": "Find your <accent>match</accent>.",
+      "subtitle": "Your AI booking assistant for racquet sports. Book badminton in seconds — and get matched with players at your level.",
       "cta": "Get started",
-      "ctaSecondary": "See how it works",
-      "imageAlt": "Badminton player lunging for the shuttlecock at the net on an indoor court"
+      "socialProof": "1,000+ players joined",
+      "sportsLabel": "Built for:",
+      "badges": {
+        "smartMatching": "Smart Matching",
+        "aiPowered": "AI Powered",
+        "saveTime": "Save Time",
+        "moreGames": "More Games",
+        "builtForYou": "Built for You"
+      }
     },
     "aboutSection": {
       "eyebrow": "About SportMatch AI",
@@ -1813,11 +1822,7 @@
     "roomSpotsOpen": "{count, plural, one {# spot open} other {# spots open}}",
     "joinRoom": "Join",
     "joined": "Joined",
-    "requested": "Requested…",
-    "recent": {
-      "title": "Recent",
-      "viewAll": "View all"
-    }
+    "requested": "Requested…"
   },
   "Assessment": {
     "metaTitle": "Skill Assessment",

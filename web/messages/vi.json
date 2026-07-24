@@ -592,11 +592,20 @@
   },
   "Landing": {
     "hero": {
-      "title": "Tìm sân. Tìm <accent>đối thủ</accent> phù hợp.",
-      "subtitle": "Trợ lý AI giúp Quý khách đặt sân trong vài giây và ghép trận với người chơi cùng trình độ.",
+      "eyebrow": "Ghép trận bằng AI cho các môn thể thao vợt",
+      "titleLine1": "Tìm sân",
+      "titleLine2": "Tìm <accent>đối thủ</accent> phù hợp.",
+      "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
       "cta": "Bắt đầu ngay",
-      "ctaSecondary": "Xem cách hoạt động",
-      "imageAlt": "Người chơi cầu lông lao tới đỡ cầu bên lưới trên sân trong nhà"
+      "socialProof": "1.000+ người chơi đã tham gia",
+      "sportsLabel": "Dành cho:",
+      "badges": {
+        "smartMatching": "Ghép trận thông minh",
+        "aiPowered": "Có AI hỗ trợ",
+        "saveTime": "Tiết kiệm thời gian",
+        "moreGames": "Chơi nhiều hơn",
+        "builtForYou": "Dành riêng cho bạn"
+      }
     },
     "aboutSection": {
       "eyebrow": "Về SportMatch AI",
@@ -1813,11 +1822,7 @@
     "roomSpotsOpen": "còn {count} chỗ",
     "joinRoom": "Tham gia",
     "joined": "Đã tham gia",
-    "requested": "Đã yêu cầu…",
-    "recent": {
-      "title": "Gần đây",
-      "viewAll": "Xem tất cả"
-    }
+    "requested": "Đã yêu cầu…"
   },
   "Assessment": {
     "metaTitle": "Đánh giá trình độ",

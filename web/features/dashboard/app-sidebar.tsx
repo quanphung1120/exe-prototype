@@ -36,6 +36,7 @@ import {
   SidebarHeader,
   SidebarInput,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
@@ -144,7 +145,7 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar variant="inset" collapsible="icon">
       <SidebarHeader className="gap-3">
         <SidebarMenu>
           <SidebarMenuItem>
@@ -294,7 +295,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>{tNav("group")}</SidebarGroupLabel>
-          <SidebarMenu className="gap-1.5">
+          <SidebarMenu>
             {items
               .filter((item) => !item.hidden)
               .map((item) => {
@@ -306,16 +307,11 @@ export function AppSidebar() {
                       ? String(unreadCount)
                       : undefined
                     : item.badge
-                const isActive = item.key === active.key
                 return (
                   <SidebarMenuItem key={item.key}>
                     <SidebarMenuButton
-                      isActive={isActive}
+                      isActive={item.key === active.key}
                       tooltip={tNav(`${item.key}.label`)}
-                      className={cn(
-                        isActive &&
-                          "data-active:bg-brand/10 data-active:text-brand"
-                      )}
                       render={
                         <Link href={item.href} onClick={handleNavigate} />
                       }
@@ -323,12 +319,8 @@ export function AppSidebar() {
                       <item.icon />
                       <span>{tNav(`${item.key}.label`)}</span>
                     </SidebarMenuButton>
-                    {/* A custom badge instead of SidebarMenuBadge — that
-                        component force-hides in icon-collapsed mode, but this
-                        rail stays icon-only, so the unread count needs to stay
-                        visible, pinned to the icon's corner. */}
                     {badge ? (
-                      <span
+                      <SidebarMenuBadge
                         title={
                           badge === "AI"
                             ? `${tNav(`${item.key}.label`)} AI`
@@ -340,14 +332,14 @@ export function AppSidebar() {
                             : `${tNav(`${item.key}.label`)} with ${badge} unread items`
                         }
                         className={cn(
-                          "pointer-events-none absolute -top-1 -right-1 z-10 flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1 font-mono text-[10px] font-semibold ring-2 ring-sidebar",
+                          "h-5 min-w-5 rounded-full px-1.5 text-[11px] font-semibold shadow-sm ring-1 ring-brand/20",
                           badge === "AI"
                             ? "bg-brand/12 text-brand"
                             : "bg-brand text-brand-foreground"
                         )}
                       >
                         {badge}
-                      </span>
+                      </SidebarMenuBadge>
                     ) : null}
                   </SidebarMenuItem>
                 )
