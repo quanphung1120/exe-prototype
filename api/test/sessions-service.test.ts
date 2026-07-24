@@ -52,7 +52,7 @@ function makeSession(
     listed: false,
     fillIntent: "court",
     venue: "Test Court",
-    district: "Q1",
+    ward: "Q1",
     distanceKm: 1,
     pricePerHour: 100000,
     ...overrides,

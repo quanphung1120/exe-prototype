@@ -99,8 +99,8 @@ void test("createVenue starts a fresh branch pending admin review", async () => 
 
   const info = await service.createVenue({
     name: "Sân Cầu Lông Mới",
-    district: "Quận 1",
-    city: "TP. Hồ Chí Minh",
+    ward: "Quận 1",
+    province: "TP. Hồ Chí Minh",
     sports: ["badminton"],
     openFrom: "06:00",
     openTo: "22:00",

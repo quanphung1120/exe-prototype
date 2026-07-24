@@ -47,7 +47,7 @@ function makeRoom(overrides: Partial<PlaySessionData> = {}): PlaySessionData {
     listed: true,
     fillIntent: "invite",
     venue: "Test Court",
-    district: "Q1",
+    ward: "Q1",
     distanceKm: 1,
     pricePerHour: 100000,
     ...overrides,
