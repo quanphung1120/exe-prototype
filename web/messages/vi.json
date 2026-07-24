@@ -1099,7 +1099,18 @@
     "creating": "Đang tạo…",
     "createFailed": "Không tạo được cuộc trò chuyện, thử lại nhé",
     "venueChat": "Nhắn tin với sân",
-    "backToChats": "Quay lại danh sách chat"
+    "backToChats": "Quay lại danh sách chat",
+    "rowMenuLabel": "Tùy chọn cuộc trò chuyện",
+    "deleteDm": "Xóa cuộc trò chuyện",
+    "leaveGroup": "Rời nhóm",
+    "deleteDmTitle": "Xóa cuộc trò chuyện?",
+    "deleteDmDescription": "Cuộc trò chuyện với {name} sẽ bị xóa khỏi danh sách của bạn. Người kia vẫn giữ được lịch sử trò chuyện.",
+    "leaveGroupTitle": "Rời nhóm?",
+    "leaveGroupDescription": "Bạn sẽ rời khỏi “{name}”. Các thành viên khác vẫn giữ nhóm và lịch sử trò chuyện.",
+    "deleting": "Đang xóa…",
+    "leaving": "Đang rời…",
+    "cancel": "Hủy",
+    "removeFailed": "Không thể xóa cuộc trò chuyện, thử lại nhé"
   },
   "Notifications": {
     "title": "Thông báo",

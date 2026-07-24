@@ -1099,7 +1099,18 @@
     "creating": "Creating…",
     "createFailed": "Couldn't start the chat, please try again",
     "venueChat": "Venue chat",
-    "backToChats": "Back to chats"
+    "backToChats": "Back to chats",
+    "rowMenuLabel": "Conversation options",
+    "deleteDm": "Delete conversation",
+    "leaveGroup": "Leave group",
+    "deleteDmTitle": "Delete conversation?",
+    "deleteDmDescription": "Your conversation with {name} will be removed from your list. The other person keeps their history.",
+    "leaveGroupTitle": "Leave group?",
+    "leaveGroupDescription": "You'll leave “{name}”. The other members keep the group and its history.",
+    "deleting": "Deleting…",
+    "leaving": "Leaving…",
+    "cancel": "Cancel",
+    "removeFailed": "Couldn't remove the conversation, please try again"
   },
   "Notifications": {
     "title": "Notifications",

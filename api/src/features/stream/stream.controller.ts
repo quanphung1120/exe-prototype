@@ -6,6 +6,7 @@ import { ClerkDirectoryService } from "./clerk-directory.service.js"
 import {
   CreateConversationBodyDto,
   CreateRoomBodyDto,
+  LeaveConversationBodyDto,
   RoomFreezeBodyDto,
   RoomMemberBodyDto,
   TokenBodyDto,
@@ -73,6 +74,16 @@ export class StreamController {
     @Body() body: CreateConversationBodyDto
   ) {
     return this.stream.createConversation(userId, body)
+  }
+
+  /** Leave a group / delete a DM for the caller — removes it from their list. */
+  @Delete("conversations")
+  async leaveConversation(
+    @UserId() userId: string,
+    @Body() body: LeaveConversationBodyDto
+  ) {
+    await this.stream.leaveConversation(userId, body.channelId)
+    return { ok: true }
   }
 
   /** Open (get-or-create) the caller's chat with a venue — needs a paid booking there. */

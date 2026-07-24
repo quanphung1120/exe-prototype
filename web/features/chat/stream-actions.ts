@@ -103,6 +103,19 @@ export async function createConversation(input: {
   })
 }
 
+/**
+ * Leave a group / delete a DM for the caller — removes the conversation from
+ * their list. A group is left (others keep it); a DM is hidden with the
+ * caller's history cleared (the other side is untouched). The api decides
+ * which from the channel's membership; see `StreamService.leaveConversation`.
+ */
+export async function leaveConversation(channelId: string): Promise<void> {
+  await apiFetch("/api/stream/conversations", {
+    method: "DELETE",
+    body: { channelId },
+  })
+}
+
 /** Open the caller's chat with a venue (needs a completed booking there). */
 export async function openVenueChat(input: {
   venueId?: string

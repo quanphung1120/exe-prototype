@@ -3,7 +3,9 @@
 import * as React from "react"
 import type { PropsWithChildren } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { Loader2, MessageSquarePlus } from "lucide-react"
+import { toast } from "sonner"
+import { Loader2, LogOut, MoreVertical, Trash2 } from "lucide-react"
+import type { Channel } from "stream-chat"
 import type {
   ChannelListItemUIProps,
   ChannelListUIProps,
@@ -14,10 +16,25 @@ import { useChatContext, useTranslationContext } from "stream-chat-react"
 import { cn } from "@/lib/utils"
 import { AvatarBadge } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChatAvatar } from "@/features/chat/chat-avatar"
+import { leaveConversation } from "@/features/chat/stream-actions"
 import { MobilePaneContext } from "@/features/chat/mobile-pane-context"
-import { NewChatDialog } from "@/features/chat/new-chat-dialog"
 import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
 
 /**
@@ -64,92 +81,198 @@ export function ChannelListItem({
     channel.id
   const hasUnread = (unread ?? 0) > 0
 
+  // Room chats (`room-*`) have their own leave flow tied to the room's real
+  // membership (features/rooms) — don't offer the generic remove here, or the
+  // chat channel and the room record could drift apart. Everything else (DMs,
+  // groups, venue chats) can be removed from the list.
+  const canRemove = !String(channel.id ?? "").startsWith("room-")
+
   return (
-    <button
-      type="button"
-      role="option"
-      aria-selected={active}
-      className={cn(
-        "flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors",
-        active ? "bg-secondary/60" : "hover:bg-muted/40"
-      )}
-      onClick={(event) => {
-        if (onSelect) onSelect(event)
-        else setActiveChannel?.(channel, watchers)
-        showConversation()
-      }}
-    >
-      <ChatAvatar
-        name={avatarUser?.name ?? title ?? "?"}
-        image={avatarUser?.image}
-        className="size-10 shrink-0"
+    <div className="group/row relative">
+      <button
+        type="button"
+        role="option"
+        aria-selected={active}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors",
+          active ? "bg-secondary/60" : "hover:bg-muted/40"
+        )}
+        onClick={(event) => {
+          if (onSelect) onSelect(event)
+          else setActiveChannel?.(channel, watchers)
+          showConversation()
+        }}
       >
-        {avatarUser?.online ? <AvatarBadge className="bg-brand" /> : null}
-      </ChatAvatar>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-2">
-          <p className={cn("truncate text-sm", hasUnread && "font-semibold")}>
-            {title}
-          </p>
-          {lastMessage?.created_at && (
-            <span className="shrink-0 text-[11px] text-muted-foreground">
-              {formatListTimestamp(lastMessage.created_at, locale)}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          {/* div, not p: the SDK renders the preview through Markdown, which
-              emits its own <p>. Inline it so truncate can ellipsize. */}
-          <div
-            className={cn(
-              "truncate text-xs text-muted-foreground [&_p]:inline",
-              hasUnread && "font-medium text-foreground"
+        <ChatAvatar
+          name={avatarUser?.name ?? title ?? "?"}
+          image={avatarUser?.image}
+          className="size-10 shrink-0"
+        >
+          {avatarUser?.online ? <AvatarBadge className="bg-brand" /> : null}
+        </ChatAvatar>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className={cn("truncate text-sm", hasUnread && "font-semibold")}>
+              {title}
+            </p>
+            {lastMessage?.created_at && (
+              <span
+                className={cn(
+                  "shrink-0 text-[11px] text-muted-foreground",
+                  // Make room for the hover menu so the two never overlap.
+                  canRemove && "sm:group-hover/row:opacity-0"
+                )}
+              >
+                {formatListTimestamp(lastMessage.created_at, locale)}
+              </span>
             )}
-          >
-            {latestMessagePreview}
           </div>
-          {hasUnread && (
-            <span className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-brand-foreground">
-              {unread}
-            </span>
-          )}
+          <div className="flex items-center justify-between gap-2">
+            {/* div, not p: the SDK renders the preview through Markdown, which
+                emits its own <p>. Inline it so truncate can ellipsize. */}
+            <div
+              className={cn(
+                "truncate text-xs text-muted-foreground [&_p]:inline",
+                hasUnread && "font-medium text-foreground"
+              )}
+            >
+              {latestMessagePreview}
+            </div>
+            {hasUnread && (
+              <span className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-brand-foreground">
+                {unread}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
-    </button>
+      </button>
+      {canRemove && (
+        <ChannelRowMenu channel={channel} title={title} isGroup={isGroup} />
+      )}
+    </div>
   )
 }
 
 /**
- * Pane header above the conversation rows, replacing Stream's bare title.
- * Carries the "new chat" button — hidden in the venue operator's inbox
- * (Step 9's `VenueInboxContext`), since that list only ever holds one
- * channel per player and starting a fresh DM/group isn't a venue-chat action.
+ * Per-row overflow menu to remove a conversation from the list. A group is
+ * *left* (others keep it); a DM/venue chat is *deleted for me* (hidden, my
+ * history cleared) — the api picks which from membership. The trigger is a
+ * sibling of the row's select button (never nested — invalid HTML) and shows
+ * on hover/focus, or always on touch where there's no hover.
  */
-export function ChannelListHeader() {
-  const { t } = useTranslationContext("ChannelListHeader")
-  const tChat = useTranslations("Chat")
-  const inbox = React.useContext(VenueInboxContext)
-  const [dialogOpen, setDialogOpen] = React.useState(false)
+function ChannelRowMenu({
+  channel,
+  title,
+  isGroup,
+}: {
+  channel: Channel
+  title?: string
+  isGroup: boolean
+}) {
+  const t = useTranslations("Chat")
+  const name = title ?? t("metaTitle")
+  const { channel: activeChannel, setActiveChannel } = useChatContext()
+  const [menuOpen, setMenuOpen] = React.useState(false)
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
+  const [pending, setPending] = React.useState(false)
+
+  const confirm = async () => {
+    setPending(true)
+    try {
+      await leaveConversation(channel.id as string)
+    } catch {
+      toast.error(t("removeFailed"))
+      setPending(false)
+      return
+    }
+    // If the removed conversation was the open one, clear the pane — its
+    // channel.hidden / removed_from_channel event also drops it from the list.
+    if (activeChannel?.cid === channel.cid) setActiveChannel(undefined)
+    setPending(false)
+    setConfirmOpen(false)
+  }
 
   return (
-    <header className="flex items-center justify-between gap-2 border-b border-border p-4">
-      <h2 className="font-heading text-sm font-semibold">{t("Chats")}</h2>
-      {!inbox ? (
-        <>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={tChat("newChat")}
-            onClick={() => setDialogOpen(true)}
+    <>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger
+          aria-label={t("rowMenuLabel")}
+          onClick={(e) => e.stopPropagation()}
+          className={cn(
+            "absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none data-popup-open:bg-background/80 data-popup-open:opacity-100",
+            "opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100"
+          )}
+        >
+          <MoreVertical className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-44">
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setConfirmOpen(true)}
           >
-            <MessageSquarePlus />
-          </Button>
-          <NewChatDialog open={dialogOpen} onOpenChange={setDialogOpen} />
-        </>
-      ) : null}
-    </header>
+            {isGroup ? (
+              <>
+                <LogOut />
+                {t("leaveGroup")}
+              </>
+            ) : (
+              <>
+                <Trash2 />
+                {t("deleteDm")}
+              </>
+            )}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isGroup ? t("leaveGroupTitle") : t("deleteDmTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isGroup
+                ? t("leaveGroupDescription", { name })
+                : t("deleteDmDescription", { name })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>
+              {t("cancel")}
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={pending}
+              onClick={() => void confirm()}
+            >
+              {pending ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  {isGroup ? t("leaving") : t("deleting")}
+                </>
+              ) : isGroup ? (
+                t("leaveGroup")
+              ) : (
+                t("deleteDm")
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
+}
+
+/**
+ * No-op override for Stream's ChannelListUI header slot: the "Chats" title
+ * duplicated the dashboard topbar's page title, and the new-chat button now
+ * lives there too (see `NewChatAction` in features/dashboard/section-actions).
+ * Kept as an explicit override (rather than omitted) so WithComponents
+ * doesn't fall back to Stream's own default header.
+ */
+export function ChannelListHeader() {
+  return null
 }
 
 /**
@@ -186,7 +309,10 @@ export function ChannelListShell({
     )
   }
   return (
-    <div role="listbox" className="flex flex-col gap-0.5 overflow-y-auto p-2">
+    <div
+      role="listbox"
+      className="no-scrollbar flex flex-col gap-0.5 overflow-y-auto p-2"
+    >
       {children}
     </div>
   )

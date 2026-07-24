@@ -1,12 +1,14 @@
 "use client"
 
+import * as React from "react"
 import type { ComponentType } from "react"
-import { CalendarPlus, Play, Plus, RotateCcw } from "lucide-react"
+import { CalendarPlus, MessageSquarePlus, Play, Plus, RotateCcw } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
 import { Link, usePathname } from "@/i18n/navigation"
 import { useBooking } from "@/features/booking/booking"
+import { NewChatDialog } from "@/features/chat/new-chat-dialog"
 import type { SectionKey } from "@/features/dashboard/nav"
 import {
   venueBase,
@@ -55,6 +57,26 @@ function ClearChatAction() {
   )
 }
 
+/** Chat override — opens the new-conversation dialog. */
+function NewChatAction() {
+  const t = useTranslations("Chat")
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={t("newChat")}
+        onClick={() => setDialogOpen(true)}
+      >
+        <MessageSquarePlus />
+      </Button>
+      <NewChatDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+    </>
+  )
+}
+
 /** Bookings override — same Play chooser, booking-flavored label. */
 function NewBookingAction() {
   const t = useTranslations("Bookings")
@@ -94,6 +116,7 @@ const PLAYER_ACTIONS: Partial<Record<SectionKey, ComponentType>> = {
   // Play hosts its own segmented toolbar (Matches/Courts + Quick Join), so the
   // topbar carries no extra CTA there.
   play: () => null,
+  chat: NewChatAction,
   bookings: NewBookingAction,
   // The booking wizard is itself the action — no topbar CTA needed.
   book: () => null,

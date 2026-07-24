@@ -251,9 +251,11 @@ export function AssistantSideRail() {
         </div>
       </section>
 
-      <section className="rounded-2xl bg-card p-4 shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
-        <h2 className="text-sm font-semibold">{t("activityFeed")}</h2>
-        <div className="mt-3 flex flex-col gap-4">
+      <section className="rounded-2xl bg-card shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="text-sm font-semibold">{t("activityFeed")}</h2>
+        </div>
+        <div className="flex flex-col gap-4 p-4">
           {FEED.map((item) => (
             <div key={item.key} className="flex items-start gap-3">
               {"initials" in item ? (

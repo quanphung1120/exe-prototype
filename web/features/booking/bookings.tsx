@@ -39,6 +39,7 @@ import {
   durationOf,
   locStr,
   sportAccent,
+  sportLabel,
   type Booking,
   type BookingStatus,
 } from "@/features/dashboard/data"
@@ -527,7 +528,10 @@ function CalendarEvent({
                   {booking.venue}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {courtLabel} · {tc(`sports.${booking.sport}`)}
+                  {courtLabel} ·{" "}
+                  {tc.has(`sports.${booking.sport}`)
+                    ? tc(`sports.${booking.sport}`)
+                    : sportLabel(booking.sport)}
                 </p>
               </div>
               <StatusBadge status={booking.status} />

@@ -25,6 +25,8 @@ when done.
 | 013  | Admin can manage discount codes (coupons): list/create/edit/toggle/delete via `/api/admin/discounts` + `/dashboard/admin/discounts` | P2 | M | none (prereq in-flight work landed as `44b8921`) | DONE (branch `advisor/013-admin-discount-management`, commits `b1a63bd`/`90a906b`/`92f9438` off `44b8921`, **not merged** — reviewer-verified all gates in the worktree: api typecheck/lint + 300/300 tests (9 new), web typecheck/lint 0 errors/build/27 tests, scope exactly the 14 in-scope files, i18n 49-key parity both locales. One judged-on-merit deviation, documented by the executor: `pnpm format` in web reformatted ~30 unrelated files (pre-existing prettier drift) and the executor reverted them to honor the scope criterion, re-running all gates after. Known cosmetic gap for follow-up: the usage cell hardcodes the Vietnamese literal "/người" instead of an i18n key; known deferred semantics per the plan: PATCH cannot clear an optional field (send-`null`), so e.g. converting a percent code carrying `maxDiscount` to fixed is rejected until that lands) |
 | 014  | Community chat: message the venue after a paid booking, Clerk-backed user search, DMs + named group chats | P2 | L | none | DONE (branch `advisor/014-community-chat`, commits `c787abe` api / `f012453` web off `4e46141`, **not merged** — reviewer re-ran all gates in the worktree: api typecheck/lint/build + 314/314 tests (12 new in `stream-community.test.ts`), web typecheck/lint (0 errors)/build + 27/27 tests, all three routes present, i18n parity `[] []`, scope clean. Two judged-on-merit deviations, both documented: (1) `web/features/chat/venue-inbox-context.ts` extracted as its own file — explicitly authorized by the plan's Step 9 escape hatch (chat.tsx→channel-list.tsx import cycle); (2) `stream-service.test.ts` `makeService` helper extended with the new constructor fakes — required or its existing tests break, file was in scope. Known criterion caveat: the `helpers.ts` byte-sync diff is non-empty due to a PRE-EXISTING one-line comment drift on master (verified independently by the reviewer at `4e46141`); the executor's Prettier pass actually removed the other pre-existing wrap difference. Live browser smoke test NOT run (no env credentials in the worktree) — operator should verify venue chat/user search/DMs against real Stream+Clerk after merging) |
 
+| 015  | Redesign the community chat page — real avatars in the history, one `ChatAvatar` treatment, flat chrome + mobile single-pane flow | P2 | M | none (extends landed 014 surface) | DONE, **merged to master** (`--no-ff` merge `346237d`, branch `advisor/015-chat-redesign-avatars`, commits `71bfd26` api / `b9253d5` web / `06ebde4` web-mobile; operator-requested merge 2026-07-24, redundant local `chat.tsx` hunk discarded pre-merge as planned — reviewer re-ran all gates in the worktree: api typecheck/lint + 316/316 tests (3 new seeding tests), web typecheck/lint 0 errors + 27/27 tests, all done-criteria greps green, scope exactly the 12 in-scope files. Two reviewer-driven revision rounds, both verified: (1) header `px-4 py-3` per spec; (2) `useCallback`/`useMemo`-stabilized `MobilePaneContext` callbacks — the plan's own original snippet caused `InitialChannel`'s effect to re-run every render, bouncing the mobile back button on `?channel=` deep links; plan file corrected to match. Step 7 (mobile single-pane flow + `Chat.backToChats` i18n key) was operator-added scope mid-execution. Live browser smoke test NOT run (no env creds in worktree) — operator should verify avatars backfill + mobile flow now that it's merged) |
+
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)
 
@@ -108,6 +110,22 @@ REJECTED (with one-line rationale)
   register the Venue/Booking *schemas* directly, never import
   VenuesModule/BookingsModule (venues.module already imports StreamModule —
   cycle).
+
+- 015 (added 2026-07-24 at commit `6bbbdc9` via `/improve plan`) has no plan
+  dependencies — it restyles the `/dashboard/chat` surface 014 built (also
+  used by the operator venue inbox). Two workstreams: (a) avatars — a new
+  shared `web/features/chat/chat-avatar.tsx` renders the Stream user `image`
+  with a deterministic gradient-initials fallback and replaces the four
+  hand-rolled initials blocks (message history, channel list, header,
+  new-chat dialog); demo players get DiceBear image URLs and `seedForUser`
+  moves the `upsertUsers` call outside the seed marker so existing users
+  backfill on token refresh; (b) visual — flat (de-carded) header/composer,
+  bubble corner tails, richer empty state, online AvatarBadge dots.
+  Reconciled at dispatch time (2026-07-24): the operator's uncommitted
+  ChatShell de-carding is NOT required as a precondition anymore — the plan
+  targets the committed state at `6bbbdc9` and includes the identical
+  de-carding as Step 6 item 1; the operator's redundant local `chat.tsx` hunk
+  must be discarded/stashed before merging the branch.
 
 ## Findings considered and rejected / already resolved
 

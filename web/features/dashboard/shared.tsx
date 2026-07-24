@@ -69,7 +69,7 @@ export function SportTag({ sport }: { sport: SportKey }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
       <SportDot sport={sport} />
-      {tc(`sports.${sport}`)}
+      {tc.has(`sports.${sport}`) ? tc(`sports.${sport}`) : sportLabel(sport)}
     </span>
   )
 }

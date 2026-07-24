@@ -54,6 +54,7 @@ function makeFakeClient(options?: { failUpsertUsers?: boolean }) {
     addMembers: [] as Array<{ id: string; members: string[] }>,
     removeMembers: [] as Array<{ id: string; members: string[] }>,
     updatePartial: [] as Array<{ id: string; update: unknown }>,
+    hide: [] as Array<{ id: string; userId?: string; clearHistory?: boolean }>,
   }
   const store = new Map<string, FakeChannelState>()
 
@@ -97,7 +98,12 @@ function makeFakeClient(options?: { failUpsertUsers?: boolean }) {
           }
           return Promise.resolve({
             channel: { created_by_id: s.createdBy, frozen: s.frozen },
+            members: [...s.members].map((mid) => ({ user_id: mid })),
           })
+        },
+        hide(userId?: string, clearHistory?: boolean) {
+          calls.hide.push({ id, userId, clearHistory })
+          return Promise.resolve()
         },
         addMembers(members: string[]) {
           calls.addMembers.push({ id, members })
@@ -372,6 +378,80 @@ void test("a room-chat action against a never-created channel 404s as NotFoundEx
 
   await assert.rejects(
     () => service.freezeRoomChannel("host-1", "room-never-existed"),
+    NotFoundException
+  )
+})
+
+// ── leaveConversation: leave a group / delete a DM for the caller ─────────
+
+void test("leaveConversation removes the caller from a group (3+ members), never anyone else", async () => {
+  const { client, calls, store } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+  // A group channel with the caller plus two others.
+  await client.channel("messaging", "group-abc", {
+    created_by_id: "owner-1",
+    members: ["owner-1", "user-2", "user-3"],
+  }).create()
+
+  await service.leaveConversation("user-2", "group-abc")
+
+  // Left via removeMembers — only the caller, and not hidden.
+  assert.deepEqual(calls.removeMembers, [{ id: "group-abc", members: ["user-2"] }])
+  assert.equal(calls.hide.length, 0)
+  assert.equal(store.get("group-abc")?.members.has("user-2"), false)
+  // The others keep the group.
+  assert.equal(store.get("group-abc")?.members.has("owner-1"), true)
+  assert.equal(store.get("group-abc")?.members.has("user-3"), true)
+})
+
+void test("leaveConversation hides a DM (<=2 members) for the caller and clears their history, leaving the other member", async () => {
+  const { client, calls, store } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+  await client.channel("messaging", "dm-xyz", {
+    created_by_id: "user-1",
+    members: ["user-1", "user-2"],
+  }).create()
+
+  await service.leaveConversation("user-1", "dm-xyz")
+
+  // Hidden for the caller with clearHistory — not removed from membership.
+  assert.deepEqual(calls.hide, [
+    { id: "dm-xyz", userId: "user-1", clearHistory: true },
+  ])
+  assert.equal(calls.removeMembers.length, 0)
+  // Both members still belong to the channel (the other side is untouched).
+  assert.equal(store.get("dm-xyz")?.members.has("user-1"), true)
+  assert.equal(store.get("dm-xyz")?.members.has("user-2"), true)
+})
+
+void test("leaveConversation rejects a caller who isn't a member", async () => {
+  const { client } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+  await client.channel("messaging", "group-def", {
+    created_by_id: "owner-1",
+    members: ["owner-1", "user-2"],
+  }).create()
+
+  await assert.rejects(
+    () => service.leaveConversation("intruder", "group-def"),
+    ForbiddenException
+  )
+})
+
+void test("leaveConversation against a never-created channel 404s as NotFoundException", async () => {
+  const { client } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+
+  await assert.rejects(
+    () => service.leaveConversation("user-1", "group-missing"),
     NotFoundException
   )
 })

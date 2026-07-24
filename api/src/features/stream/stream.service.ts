@@ -396,6 +396,54 @@ export class StreamService {
   }
 
   /**
+   * Remove one of the caller's own conversations from their list. Behaviour
+   * depends on the channel, but it's always the *caller* who's removed —
+   * never anyone else — so no host/creator check is needed (a user may always
+   * remove their own conversation):
+   *
+   * - **Group** (3+ members) → *leave*: the caller is removed from membership;
+   *   everyone else keeps the group and its full history.
+   * - **DM / 1:1 chat** (≤2 members, e.g. a direct message or a player↔venue
+   *   chat) → *delete for me only*: the channel is hidden for the caller with
+   *   their history cleared. The other member is untouched, and the thread
+   *   reappears on the caller's side if a new message is sent to it — the
+   *   conventional "delete conversation" behaviour of a messenger.
+   */
+  async leaveConversation(userId: string, channelId: string): Promise<void> {
+    const channel = this.client.channel("messaging", channelId)
+
+    let members: { user_id?: string; user?: { id?: string } }[]
+    try {
+      const state = await channel.query({
+        state: true,
+        watch: false,
+        presence: false,
+      })
+      members = state.members ?? []
+    } catch (err) {
+      const status =
+        (err as { status?: number; StatusCode?: number })?.status ??
+        (err as { status?: number; StatusCode?: number })?.StatusCode
+      if (status === 404)
+        throw new NotFoundException("Cuộc trò chuyện không tồn tại")
+      throw err
+    }
+
+    const isMember = members.some((m) => (m.user_id ?? m.user?.id) === userId)
+    if (!isMember) {
+      throw new ForbiddenException("Bạn không có trong cuộc trò chuyện này")
+    }
+
+    if (members.length > 2) {
+      // Group → leave: removed from membership, others keep the group.
+      await channel.removeMembers([userId])
+    } else {
+      // DM / 1:1 chat → delete for me only: hide + clear the caller's history.
+      await channel.hide(userId, true)
+    }
+  }
+
+  /**
    * Open (get-or-create) the caller's persistent chat with a venue's real
    * owner — gated on a paid (or refunded) booking there. Resolves the venue
    * either directly (`venueId`) or via one of the caller's own bookings

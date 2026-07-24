@@ -1,11 +1,17 @@
 // One-off data migration: rewrite every stored "pickleball" sport value to
 // "badminton" now that the app is badminton-only. Non-destructive — it fixes
-// values in place (venues, sessions, bookings, courts) and dedupes any sport
-// arrays; it does not delete records. Safe to re-run (idempotent).
+// values in place and dedupes any sport arrays; it does not delete records.
+// Safe to re-run (idempotent).
 //
 //   cd api && node --import tsx scripts/migrate-pickleball-to-badminton.ts
 //
 // Reads DATABASE_URL from api/.env (same connection the server uses).
+//
+// It enumerates EVERY collection in the database rather than a hardcoded list —
+// an earlier version targeted stale collection names (`bookings`, `sessions`,
+// `players`) that don't match the real ones (`profiles`, `playsessions`,
+// `playerassessments`), so it silently skipped the documents that actually held
+// the value. Scanning all collections can't drift out of sync that way.
 
 import "dotenv/config"
 import mongoose from "mongoose"
@@ -16,11 +22,16 @@ if (!DATABASE_URL) {
   process.exit(1)
 }
 
-// Deep-clone-and-rewrite: replace the exact string "pickleball" with
-// "badminton" anywhere in a nested JSON value, and dedupe arrays that end up
-// with repeated primitives (e.g. sports: ["badminton", "badminton"]).
+// Deep-clone-and-rewrite: replace the string "pickleball" with "badminton"
+// anywhere in a nested JSON value, dedupe primitive arrays that collapse to
+// duplicates (e.g. ["badminton","pickleball"] → ["badminton"]), AND rename a
+// "pickleball" OBJECT KEY to "badminton" (sport-keyed maps such as an
+// assessment's `results`). On a key collision the existing "badminton" entry
+// wins and the pickleball one is dropped — the real badminton assessment is
+// authoritative, not the legacy pickleball copy.
 function rewrite(value: unknown): { value: unknown; changed: boolean } {
   if (value === "pickleball") return { value: "badminton", changed: true }
+
   if (Array.isArray(value)) {
     let changed = false
     const mapped = value.map((v) => {
@@ -29,6 +40,8 @@ function rewrite(value: unknown): { value: unknown; changed: boolean } {
       return r.value
     })
     // Dedupe primitive duplicates introduced by the rewrite (order-preserving).
+    // Object/array items are left as-is — distinct bookings/rooms that merely
+    // share a sport are NOT duplicates.
     const deduped: unknown[] = []
     for (const item of mapped) {
       const isPrimitive = item === null || typeof item !== "object"
@@ -40,24 +53,34 @@ function rewrite(value: unknown): { value: unknown; changed: boolean } {
     }
     return { value: deduped, changed }
   }
+
   if (value && typeof value === "object") {
     let changed = false
+    const src = value as Record<string, unknown>
     const out: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    // First pass: rewrite every key except a literal "pickleball" key.
+    for (const [k, v] of Object.entries(src)) {
+      if (k === "pickleball") continue
       const r = rewrite(v)
       if (r.changed) changed = true
       out[k] = r.value
     }
+    // Rename a "pickleball" object key → "badminton" (target-wins on collision).
+    if ("pickleball" in src) {
+      changed = true
+      if (!("badminton" in out)) out.badminton = rewrite(src.pickleball).value
+    }
     return { value: out, changed }
   }
+
   return { value, changed: false }
 }
 
-async function migrateCollection(name: string, mixedPaths: string[]) {
+async function migrateCollection(name: string) {
   const col = mongoose.connection.collection(name)
   const total = await col.countDocuments().catch(() => 0)
   if (!total) {
-    console.log(`· ${name}: collection empty or missing — skipped`)
+    console.log(`· ${name}: empty — skipped`)
     return
   }
   let scanned = 0
@@ -66,9 +89,8 @@ async function migrateCollection(name: string, mixedPaths: string[]) {
   for await (const doc of cursor) {
     scanned++
     const set: Record<string, unknown> = {}
-    // Rewrite the whole document; only persist top-level fields that changed so
-    // we touch as little as possible. Mixed blobs (info/ops) are handled here
-    // too since we rewrite the entire nested value.
+    // Rewrite the whole document; persist only the top-level fields that
+    // changed so we touch as little as possible.
     for (const [k, v] of Object.entries(doc)) {
       if (k === "_id") continue
       const r = rewrite(v)
@@ -79,23 +101,19 @@ async function migrateCollection(name: string, mixedPaths: string[]) {
       updated++
     }
   }
-  console.log(
-    `· ${name}: scanned ${scanned}, updated ${updated}` +
-      (mixedPaths.length ? ` (mixed: ${mixedPaths.join(", ")})` : "")
-  )
+  console.log(`· ${name}: scanned ${scanned}, updated ${updated}`)
 }
 
 async function main() {
   await mongoose.connect(DATABASE_URL as string)
   console.log("Connected. Migrating pickleball → badminton…\n")
 
-  // Every collection that can carry a sport value. Unknown/missing collections
-  // are skipped, so this is safe to run against any environment.
-  await migrateCollection("venues", ["info", "ops"])
-  await migrateCollection("sessions", [])
-  await migrateCollection("bookings", [])
-  await migrateCollection("courts", [])
-  await migrateCollection("players", [])
+  // Every collection in the database — the rewrite is a no-op on clean docs, so
+  // scanning all of them is safe and can never miss a renamed collection.
+  const cols = await mongoose.connection.db!.listCollections().toArray()
+  for (const { name } of cols.sort((a, b) => a.name.localeCompare(b.name))) {
+    await migrateCollection(name)
+  }
 
   console.log("\nDone.")
   await mongoose.disconnect()
