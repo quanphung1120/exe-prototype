@@ -19,12 +19,13 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox"
 import { SPORTS, type SportKey } from "@/features/dashboard/data"
 import { SportTag } from "@/features/dashboard/shared"
 import { provisionVenue } from "@/features/venue/venue-actions"
@@ -32,6 +33,66 @@ import { useRouter } from "@/i18n/navigation"
 import { PROVINCE_OPTIONS, provinceCodeByName, wardsOf } from "@/lib/vn-admin"
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+
+// Diacritics-insensitive lookup so "ho chi minh" matches "Hồ Chí Minh".
+const foldVn = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+
+const vnNameFilter = (itemValue: string, query: string) =>
+  foldVn(itemValue).includes(foldVn(query))
+
+/**
+ * Single-select combobox over VN admin-unit names: type to search (accent
+ * insensitive), the field shows the selected name.
+ */
+function AdminUnitCombobox({
+  id,
+  items,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  id: string
+  items: string[]
+  value: string
+  onChange: (name: string) => void
+  placeholder: string
+  disabled?: boolean
+}) {
+  const t = useTranslations("VenueSetup")
+  return (
+    <Combobox
+      items={items}
+      value={value === "" ? null : value}
+      onValueChange={(name: string | null) => onChange(name ?? "")}
+      filter={vnNameFilter}
+      disabled={disabled}
+    >
+      <ComboboxInput
+        id={id}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="w-full"
+      />
+      <ComboboxContent>
+        <ComboboxEmpty>{t("form.noResults")}</ComboboxEmpty>
+        <ComboboxList>
+          {(name: string) => (
+            <ComboboxItem key={name} value={name}>
+              {name}
+            </ComboboxItem>
+          )}
+        </ComboboxList>
+      </ComboboxContent>
+    </Combobox>
+  )
+}
 
 interface VenueDraft {
   name: string
@@ -319,8 +380,14 @@ function BranchesStep({
 }) {
   const t = useTranslations("VenueSetup")
   const tc = useTranslations("Common")
-  const provinceCode = provinceCodeByName(draft.province)
-  const wardOptions = wardsOf(provinceCode)
+  const provinceNames = React.useMemo(
+    () => PROVINCE_OPTIONS.map((p) => p.name),
+    []
+  )
+  const wardNames = React.useMemo(
+    () => wardsOf(provinceCodeByName(draft.province)).map((w) => w.name),
+    [draft.province]
+  )
   const [locating, setLocating] = React.useState(false)
   // The two location methods are mutually exclusive — pick current-location OR
   // manual coordinates, never both at once.
@@ -410,44 +477,26 @@ function BranchesStep({
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field>
             <FieldLabel htmlFor="v-province">{t("form.province")}</FieldLabel>
-            <Select
-              value={provinceCode ?? ""}
-              onValueChange={(code) => {
-                const name =
-                  PROVINCE_OPTIONS.find((p) => p.code === code)?.name ?? ""
+            <AdminUnitCombobox
+              id="v-province"
+              items={provinceNames}
+              value={draft.province}
+              placeholder={t("form.provincePlaceholder")}
+              onChange={(name) =>
                 setDraft((v) => ({ ...v, province: name, ward: "" }))
-              }}
-            >
-              <SelectTrigger id="v-province" className="w-full">
-                <SelectValue placeholder={t("form.provincePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {PROVINCE_OPTIONS.map((p) => (
-                  <SelectItem key={p.code} value={p.code}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              }
+            />
           </Field>
           <Field>
             <FieldLabel htmlFor="v-ward">{t("form.ward")}</FieldLabel>
-            <Select
+            <AdminUnitCombobox
+              id="v-ward"
+              items={wardNames}
               value={draft.ward}
-              onValueChange={(name) => setField("ward", name ?? "")}
-              disabled={wardOptions.length === 0}
-            >
-              <SelectTrigger id="v-ward" className="w-full">
-                <SelectValue placeholder={t("form.wardPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {wardOptions.map((w) => (
-                  <SelectItem key={w.code} value={w.name}>
-                    {w.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              placeholder={t("form.wardPlaceholder")}
+              onChange={(name) => setField("ward", name)}
+              disabled={wardNames.length === 0}
+            />
           </Field>
         </div>
         <Field>

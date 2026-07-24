@@ -1184,6 +1184,8 @@
       "wardPlaceholder": "Chọn phường / xã",
       "province": "Tỉnh / Thành phố",
       "provincePlaceholder": "Chọn tỉnh / thành phố",
+      "searchPlaceholder": "Tìm kiếm…",
+      "noResults": "Không tìm thấy kết quả",
       "sports": "Môn thể thao",
       "openFrom": "Mở cửa",
       "openTo": "Đóng cửa",

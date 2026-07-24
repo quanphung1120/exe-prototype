@@ -1184,6 +1184,8 @@
       "wardPlaceholder": "Select ward / commune",
       "province": "Province / City",
       "provincePlaceholder": "Select province / city",
+      "searchPlaceholder": "Search…",
+      "noResults": "No results found",
       "sports": "Sports",
       "openFrom": "Opens",
       "openTo": "Closes",
