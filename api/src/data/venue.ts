@@ -25,8 +25,8 @@ export const VENUE: Venue = {
   id: "v1",
   name: "Shuttle Republic",
   initials: "SR",
-  ward: "Quận Cầu Giấy",
-  province: "Hà Nội",
+  ward: "Quận 1",
+  province: "TP. Hồ Chí Minh",
   sports: ["badminton"],
   openFrom: "06:00",
   openTo: "22:00",
@@ -34,8 +34,8 @@ export const VENUE: Venue = {
   reviews: 1240,
   manager: { name: "Lê Quang", initials: "LQ" },
   now: "18:00",
-  lat: 21.0333,
-  lng: 105.7908,
+  lat: 10.7769,
+  lng: 106.7009,
 }
 
 export const VENUE_COURTS: VenueCourt[] = [
@@ -630,8 +630,8 @@ export const VENUE_2: Venue = {
   id: "v2",
   name: "Smash Arena",
   initials: "SA",
-  ward: "Quận Đống Đa",
-  province: "Hà Nội",
+  ward: "Quận 3",
+  province: "TP. Hồ Chí Minh",
   sports: ["badminton"],
   openFrom: "06:00",
   openTo: "23:00",
@@ -639,8 +639,8 @@ export const VENUE_2: Venue = {
   reviews: 532,
   manager: { name: "Phạm Vy", initials: "PV" },
   now: "18:00",
-  lat: 21.0122,
-  lng: 105.8267,
+  lat: 10.786,
+  lng: 106.69,
 }
 
 export const VENUE_2_COURTS: VenueCourt[] = [
@@ -677,8 +677,8 @@ export const VENUE_3: Venue = {
   id: "v3",
   name: "Ace Pavilion",
   initials: "AP",
-  ward: "Quận Tây Hồ",
-  province: "Hà Nội",
+  ward: "Quận Bình Thạnh",
+  province: "TP. Hồ Chí Minh",
   sports: ["badminton"],
   openFrom: "05:30",
   openTo: "22:30",
@@ -686,8 +686,8 @@ export const VENUE_3: Venue = {
   reviews: 318,
   manager: { name: "Hoàng Minh", initials: "HM" },
   now: "18:00",
-  lat: 21.0703,
-  lng: 105.8235,
+  lat: 10.804,
+  lng: 106.711,
 }
 
 export const VENUE_3_COURTS: VenueCourt[] = [

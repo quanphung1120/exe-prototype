@@ -994,8 +994,8 @@ export function utilizationHeatmap(seed: string): number[][] {
 
 // ── Unified court catalog (venue courts → discovery courts) ───────────────────
 
-/** Default map centre (Hà Nội) for venues seeded without coordinates. */
-const HANOI_CENTRE = { lat: 21.0278, lng: 105.8342 }
+/** Default map centre (Hồ Chí Minh City) for venues seeded without coordinates. */
+const HCMC_CENTRE = { lat: 10.7769, lng: 106.7009 }
 
 /**
  * Project one operator {@link VenueCourt} to a discovery {@link Court} so the
@@ -1022,8 +1022,8 @@ export function venueCourtToCourt(venue: Venue, court: VenueCourt): Court {
     openSlots: Math.round((freePct / 100) * SLOT_TIMES.length),
     nextSlot: SLOT_TIMES[h % SLOT_TIMES.length],
     freePct,
-    lat: (venue.lat ?? HANOI_CENTRE.lat) + jitter(h),
-    lng: (venue.lng ?? HANOI_CENTRE.lng) + jitter(h >>> 7),
+    lat: (venue.lat ?? HCMC_CENTRE.lat) + jitter(h),
+    lng: (venue.lng ?? HCMC_CENTRE.lng) + jitter(h >>> 7),
   }
 }
 
@@ -1041,8 +1041,8 @@ export function venueToPin(venue: Venue): VenuePin {
     ward: venue.ward,
     province: venue.province,
     rating: venue.rating,
-    lat: venue.lat ?? HANOI_CENTRE.lat,
-    lng: venue.lng ?? HANOI_CENTRE.lng,
+    lat: venue.lat ?? HCMC_CENTRE.lat,
+    lng: venue.lng ?? HCMC_CENTRE.lng,
   }
 }
 
