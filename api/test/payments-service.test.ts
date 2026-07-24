@@ -169,7 +169,7 @@ interface Deps {
     status?: string
   } | null
   remoteOrder?: { order_status?: string }
-  validSignature?: boolean
+  validIpnAuth?: boolean
   seedPayments?: FakePaymentDoc[]
   /** Stubs `DiscountsService#validate` — throw to simulate an invalid code. */
   discountValidate?: (
@@ -220,7 +220,7 @@ function makeService(deps: Deps = {}) {
       cancelCalls.push(invoiceNumber)
       return Promise.resolve()
     },
-    verifyIpnSignature: () => deps.validSignature ?? true,
+    verifyIpnAuth: () => deps.validIpnAuth ?? true,
   }
   const bookingsServiceMock = {
     confirmPayment: (bookingId: string) => {
@@ -527,8 +527,7 @@ void test("handleIpn marks the payment paid, confirms the booking, and notifies 
     })
 
   const result = await service.handleIpn(Buffer.from(ipnBody("b1")), {
-    "x-sepay-signature": "sha256=irrelevant-in-this-fake",
-    "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+    "x-secret-key": "irrelevant-in-this-fake",
   })
 
   assert.deepEqual(result, { received: true })
@@ -559,8 +558,7 @@ void test("handleIpn increments the discount's usedCount only once the payment s
   })
 
   await service.handleIpn(Buffer.from(ipnBody("b1")), {
-    "x-sepay-signature": "sha256=irrelevant-in-this-fake",
-    "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+    "x-secret-key": "irrelevant-in-this-fake",
   })
 
   assert.equal(store.get("b1")?.status, "paid")
@@ -589,8 +587,7 @@ void test("handleIpn still settles the payment when applyUsage reports 'over_lim
     })
 
   const result = await service.handleIpn(Buffer.from(ipnBody("b1")), {
-    "x-sepay-signature": "sha256=irrelevant-in-this-fake",
-    "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+    "x-secret-key": "irrelevant-in-this-fake",
   })
 
   assert.deepEqual(result, { received: true })
@@ -599,9 +596,9 @@ void test("handleIpn still settles the payment when applyUsage reports 'over_lim
   assert.deepEqual(applyUsageCalls, ["GIAM10"])
 })
 
-void test("handleIpn rejects an invalid signature and touches nothing", async () => {
+void test("handleIpn rejects a wrong secret key and touches nothing", async () => {
   const { service, store, notifications } = await makeService({
-    validSignature: false,
+    validIpnAuth: false,
     seedPayments: [
       {
         invoiceNumber: "b1",
@@ -619,8 +616,7 @@ void test("handleIpn rejects an invalid signature and touches nothing", async ()
   await assert.rejects(
     () =>
       service.handleIpn(Buffer.from(ipnBody("b1")), {
-        "x-sepay-signature": "sha256=bad",
-        "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+        "x-secret-key": "irrelevant-in-this-fake",
       }),
     UnauthorizedException
   )
@@ -646,8 +642,7 @@ void test("handleIpn is a no-op replay once the invoice is already paid", async 
   })
 
   const result = await service.handleIpn(Buffer.from(ipnBody("b1")), {
-    "x-sepay-signature": "sha256=irrelevant-in-this-fake",
-    "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+    "x-secret-key": "irrelevant-in-this-fake",
   })
 
   assert.deepEqual(result, { received: true })
@@ -672,8 +667,7 @@ void test("handleIpn ignores a non-ORDER_PAID notification", async () => {
   })
 
   await service.handleIpn(Buffer.from(ipnBody("b1", "TRANSACTION_VOID")), {
-    "x-sepay-signature": "sha256=irrelevant-in-this-fake",
-    "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+    "x-secret-key": "irrelevant-in-this-fake",
   })
 
   assert.equal(store.get("b1")?.status, "awaiting")
@@ -722,8 +716,7 @@ void test("handleIpn does not settle a payment whose order_amount is short of th
     result = await service.handleIpn(
       Buffer.from(ipnBody("b1", "ORDER_PAID", 150_000)),
       {
-        "x-sepay-signature": "sha256=irrelevant-in-this-fake",
-        "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+        "x-secret-key": "irrelevant-in-this-fake",
       }
     )
   })
@@ -759,8 +752,7 @@ void test("handleIpn settles the payment when order_amount matches the recorded 
     const result = await service.handleIpn(
       Buffer.from(ipnBody("b1", "ORDER_PAID", 200_000)),
       {
-        "x-sepay-signature": "sha256=irrelevant-in-this-fake",
-        "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+        "x-secret-key": "irrelevant-in-this-fake",
       }
     )
     assert.deepEqual(result, { received: true })
@@ -791,8 +783,7 @@ void test("handleIpn settles when order_amount arrives as a numeric string", asy
     // SePay may deliver order_amount as a string — it must still match 200_000.
     Buffer.from(ipnBody("b1", "ORDER_PAID", "200000")),
     {
-      "x-sepay-signature": "sha256=irrelevant-in-this-fake",
-      "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+      "x-secret-key": "irrelevant-in-this-fake",
     }
   )
 
@@ -823,8 +814,7 @@ void test("handleIpn fails closed on a non-numeric order_amount (does not settle
     result = await service.handleIpn(
       Buffer.from(ipnBody("b1", "ORDER_PAID", "not-a-number")),
       {
-        "x-sepay-signature": "sha256=irrelevant-in-this-fake",
-        "x-sepay-timestamp": String(Math.floor(Date.now() / 1000)),
+        "x-secret-key": "irrelevant-in-this-fake",
       }
     )
   })

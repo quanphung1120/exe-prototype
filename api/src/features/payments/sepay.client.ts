@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto"
+import { createHash, timingSafeEqual } from "node:crypto"
 
 import { Injectable, Logger } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
@@ -57,20 +57,20 @@ export interface SepayClientPort {
   /** `client.order.cancel()` — cancels a not-yet-paid QR order. The Phase 5 sweeper's hold-expiry seam. */
   cancelOrder(invoiceNumber: string): Promise<void>
   /**
-   * Verify an inbound IPN request's authenticity from its raw body + headers
-   * (HMAC SHA256 per SePay's docs — `X-SePay-Signature: sha256=<hex>` over
-   * `${timestamp}.${rawBody}`, keyed by the merchant secret, `X-SePay-Timestamp`
-   * within a 5-minute replay window). `sepay-pg-node` only signs *outbound*
-   * checkout fields, not inbound IPN requests, so this is hand-rolled.
+   * Verify an inbound IPN request's authenticity. SePay does NOT HMAC-sign
+   * IPN requests — per developer.sepay.vn/en/cong-thanh-toan/IPN, the merchant
+   * configures the IPN with auth type = SECRET_KEY and SePay then sends that
+   * secret verbatim in an `X-Secret-Key` header, which we compare (timing-safe)
+   * against `SEPAY_SECRET_KEY`. The dashboard's IPN secret must therefore be
+   * set to the same value as the env var. `sepay-pg-node` only signs
+   * *outbound* checkout fields, so this is hand-rolled.
    */
-  verifyIpnSignature(rawBody: Buffer, headers: SepayIpnHeaders): boolean
+  verifyIpnAuth(headers: SepayIpnHeaders): boolean
 }
 
 function headerValue(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v
 }
-
-const IPN_REPLAY_WINDOW_SECONDS = 5 * 60
 
 @Injectable()
 export class SepayClient implements SepayClientPort {
@@ -123,26 +123,14 @@ export class SepayClient implements SepayClientPort {
     }
   }
 
-  verifyIpnSignature(rawBody: Buffer, headers: SepayIpnHeaders): boolean {
-    const signatureHeader = headerValue(headers["x-sepay-signature"])
-    const timestampHeader = headerValue(headers["x-sepay-timestamp"])
-    if (!signatureHeader || !timestampHeader) return false
+  verifyIpnAuth(headers: SepayIpnHeaders): boolean {
+    const provided = headerValue(headers["x-secret-key"])
+    if (!provided) return false
 
-    const timestamp = Number(timestampHeader)
-    if (!Number.isFinite(timestamp)) return false
-    const skewSeconds = Math.abs(Date.now() / 1000 - timestamp)
-    if (skewSeconds > IPN_REPLAY_WINDOW_SECONDS) return false
-
-    const [scheme, hexDigest] = signatureHeader.split("=")
-    if (scheme !== "sha256" || !hexDigest) return false
-
-    const expectedHex = createHmac("sha256", this.secretKey)
-      .update(`${timestampHeader}.${rawBody.toString("utf8")}`)
-      .digest("hex")
-
-    const expected = Buffer.from(expectedHex, "hex")
-    const actual = Buffer.from(hexDigest, "hex")
-    if (expected.length === 0 || expected.length !== actual.length) return false
+    // Hash both sides so timingSafeEqual gets equal-length inputs regardless
+    // of the provided value's length.
+    const expected = createHash("sha256").update(this.secretKey).digest()
+    const actual = createHash("sha256").update(provided).digest()
     return timingSafeEqual(expected, actual)
   }
 }

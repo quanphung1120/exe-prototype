@@ -284,20 +284,20 @@ export class PaymentsService {
 
   /**
    * `POST /api/payments/ipn` (`@Public()`) — SePay's server-to-server payment
-   * notification. Verifies the HMAC signature before touching anything,
+   * notification. Verifies the `X-Secret-Key` header before touching anything,
    * idempotently marks the `Payment` paid (`findOneAndUpdate` filtered on
    * `status: "awaiting"` — a replayed IPN for an already-paid invoice matches
    * nothing and is a silent no-op), then confirms the booking and notifies
    * the venue. Always resolves (returns `{received:true}`, never throws for a
-   * business-logic mismatch) except for a bad signature — SePay expects a 200
+   * business-logic mismatch) except for a bad secret key — SePay expects a 200
    * to stop retrying, and only an unauthenticated call should get anything else.
    */
   async handleIpn(
     rawBody: Buffer,
     headers: SepayIpnHeaders
   ): Promise<{ received: boolean }> {
-    if (!this.sepay.verifyIpnSignature(rawBody, headers)) {
-      throw new UnauthorizedException("Invalid IPN signature")
+    if (!this.sepay.verifyIpnAuth(headers)) {
+      throw new UnauthorizedException("Invalid IPN secret key")
     }
 
     let payload: SepayIpnPayload

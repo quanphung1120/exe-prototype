@@ -1,5 +1,4 @@
 import assert from "node:assert/strict"
-import { createHmac } from "node:crypto"
 import { test } from "node:test"
 
 import "reflect-metadata"
@@ -9,10 +8,11 @@ import type { ConfigService } from "@nestjs/config"
 import { SepayClient } from "../src/features/payments/sepay.client.js"
 
 /**
- * Unit tests for `SepayClient#verifyIpnSignature` — the hand-rolled HMAC
- * verification (per SePay's IPN docs: `X-SePay-Signature: sha256=<hex>` over
- * `${timestamp}.${rawBody}`, keyed by the merchant secret). Pure crypto, no
- * network — `SePayPgClient`'s own constructor doesn't make one either, so
+ * Unit tests for `SepayClient#verifyIpnAuth` — SePay authenticates IPN
+ * requests by sending the merchant-configured secret verbatim in an
+ * `X-Secret-Key` header (auth type = SECRET_KEY), which we compare
+ * timing-safely against `SEPAY_SECRET_KEY`. Pure crypto, no network —
+ * `SePayPgClient`'s own constructor doesn't make one either, so
  * instantiating the real `SepayClient` here (unlike `PaymentsService`'s
  * tests, which always fake `SEPAY_CLIENT`) is still safe in CI.
  */
@@ -32,94 +32,29 @@ function makeClient() {
   return new SepayClient(config)
 }
 
-function sign(timestamp: string, body: string): string {
-  const hex = createHmac("sha256", SECRET)
-    .update(`${timestamp}.${body}`)
-    .digest("hex")
-  return `sha256=${hex}`
-}
-
-void test("verifyIpnSignature accepts a correctly-signed, fresh request", () => {
+void test("verifyIpnAuth accepts the configured secret key", () => {
   const client = makeClient()
-  const body = Buffer.from(JSON.stringify({ notification_type: "ORDER_PAID" }))
-  const timestamp = String(Math.floor(Date.now() / 1000))
-
-  const ok = client.verifyIpnSignature(body, {
-    "x-sepay-signature": sign(timestamp, body.toString("utf8")),
-    "x-sepay-timestamp": timestamp,
-  })
-
-  assert.equal(ok, true)
+  assert.equal(client.verifyIpnAuth({ "x-secret-key": SECRET }), true)
 })
 
-void test("verifyIpnSignature rejects a tampered body", () => {
+void test("verifyIpnAuth accepts an array-valued header (first value wins)", () => {
   const client = makeClient()
-  const timestamp = String(Math.floor(Date.now() / 1000))
-  const signature = sign(
-    timestamp,
-    JSON.stringify({ notification_type: "ORDER_PAID" })
-  )
-  const tamperedBody = Buffer.from(
-    JSON.stringify({ notification_type: "TRANSACTION_VOID" })
-  )
-
-  const ok = client.verifyIpnSignature(tamperedBody, {
-    "x-sepay-signature": signature,
-    "x-sepay-timestamp": timestamp,
-  })
-
-  assert.equal(ok, false)
+  assert.equal(client.verifyIpnAuth({ "x-secret-key": [SECRET] }), true)
 })
 
-void test("verifyIpnSignature rejects a signature keyed by the wrong secret", () => {
+void test("verifyIpnAuth rejects a wrong secret key", () => {
   const client = makeClient()
-  const body = Buffer.from(JSON.stringify({ notification_type: "ORDER_PAID" }))
-  const timestamp = String(Math.floor(Date.now() / 1000))
-  const wrongSignature = `sha256=${createHmac("sha256", "wrong-secret")
-    .update(`${timestamp}.${body.toString("utf8")}`)
-    .digest("hex")}`
-
-  const ok = client.verifyIpnSignature(body, {
-    "x-sepay-signature": wrongSignature,
-    "x-sepay-timestamp": timestamp,
-  })
-
-  assert.equal(ok, false)
+  assert.equal(client.verifyIpnAuth({ "x-secret-key": "wrong-secret" }), false)
 })
 
-void test("verifyIpnSignature rejects a stale timestamp (replay protection)", () => {
+void test("verifyIpnAuth rejects a secret of a different length", () => {
   const client = makeClient()
-  const body = Buffer.from(JSON.stringify({ notification_type: "ORDER_PAID" }))
-  const staleTimestamp = String(Math.floor(Date.now() / 1000) - 10 * 60)
-
-  const ok = client.verifyIpnSignature(body, {
-    "x-sepay-signature": sign(staleTimestamp, body.toString("utf8")),
-    "x-sepay-timestamp": staleTimestamp,
-  })
-
-  assert.equal(ok, false)
+  assert.equal(client.verifyIpnAuth({ "x-secret-key": `${SECRET}x` }), false)
 })
 
-void test("verifyIpnSignature rejects missing headers", () => {
+void test("verifyIpnAuth rejects a missing or empty header", () => {
   const client = makeClient()
-  const body = Buffer.from(JSON.stringify({ notification_type: "ORDER_PAID" }))
-
-  assert.equal(client.verifyIpnSignature(body, {}), false)
-  assert.equal(
-    client.verifyIpnSignature(body, { "x-sepay-signature": "sha256=abc" }),
-    false
-  )
-})
-
-void test("verifyIpnSignature rejects a malformed scheme prefix", () => {
-  const client = makeClient()
-  const body = Buffer.from(JSON.stringify({ notification_type: "ORDER_PAID" }))
-  const timestamp = String(Math.floor(Date.now() / 1000))
-
-  const ok = client.verifyIpnSignature(body, {
-    "x-sepay-signature": "md5=deadbeef",
-    "x-sepay-timestamp": timestamp,
-  })
-
-  assert.equal(ok, false)
+  assert.equal(client.verifyIpnAuth({}), false)
+  assert.equal(client.verifyIpnAuth({ "x-secret-key": "" }), false)
+  assert.equal(client.verifyIpnAuth({ "x-secret-key": undefined }), false)
 })

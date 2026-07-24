@@ -19,8 +19,8 @@ import { PaymentsService } from "./payments.service.js"
 // SePay checkout + IPN (VienTD-Review Phase 4). `checkout`/`byBooking` are
 // player-facing and go through the global ClerkAuthGuard like every other
 // route; `ipn` is SePay's server calling us, so it's `@Public()` and
-// authenticates itself instead via the request's HMAC signature
-// (`PaymentsService#handleIpn` → `SepayClient#verifyIpnSignature`).
+// authenticates itself instead via the request's `X-Secret-Key` header
+// (`PaymentsService#handleIpn` → `SepayClient#verifyIpnAuth`).
 @Controller("payments")
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
@@ -38,9 +38,8 @@ export class PaymentsController {
   /**
    * SePay's server-to-server payment notification. Reads the *raw* request
    * body (`req.rawBody`, populated by `main.ts`'s `rawBody: true` app option)
-   * because the HMAC signature is computed over the exact bytes SePay sent —
-   * re-serializing the parsed JSON would silently break verification on any
-   * whitespace/key-order difference.
+   * and lets `handleIpn` parse it itself — SePay's payload shape is theirs,
+   * not ours, so it skips the DTO/ValidationPipe layer.
    */
   @Public()
   @Post("ipn")

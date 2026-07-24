@@ -18,7 +18,7 @@ export function DashboardTopbar() {
   const tNav = useTranslations(ns)
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 px-3 sm:px-4">
+    <header className="flex h-20 pt-4 shrink-0 items-center gap-2 px-3 sm:px-4">
       <SidebarTrigger className="-ml-1" />
       <div className="min-w-0 flex-1">
         <h1 className="truncate font-heading text-xl leading-tight font-semibold">
