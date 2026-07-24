@@ -79,7 +79,7 @@ export function SportFilter({ className }: { className?: string }) {
           <Button
             variant="outline"
             className={cn(
-              "rounded-full gap-2 font-medium shadow-sm ring-1 ring-foreground/5 dark:ring-foreground/10",
+              "gap-2 rounded-full font-medium shadow-sm ring-1 ring-foreground/5 dark:ring-foreground/10",
               className
             )}
           >

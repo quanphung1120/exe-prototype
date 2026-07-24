@@ -201,10 +201,7 @@ export function AssistantSideRail() {
             const date = dateParts(b.dayKey, locale)
             const confirmed = b.status === "confirmed"
             return (
-              <div
-                key={b.id}
-                className="flex gap-3 rounded-xl bg-muted/30 p-3"
-              >
+              <div key={b.id} className="flex gap-3 rounded-xl bg-muted/30 p-3">
                 <div className="flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-muted/60">
                   <span className="text-[9px] font-semibold tracking-wider text-muted-foreground">
                     {date.month}

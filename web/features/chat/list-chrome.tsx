@@ -38,9 +38,7 @@ export function ChatDateSeparator({ date, floating }: DateSeparatorProps) {
     <div
       className={cn(
         "flex justify-center",
-        floating
-          ? "pointer-events-none absolute inset-x-0 top-2 z-10"
-          : "my-3"
+        floating ? "pointer-events-none absolute inset-x-0 top-2 z-10" : "my-3"
       )}
     >
       <span
@@ -184,9 +182,7 @@ export function ChatEmptyState({ listType }: EmptyStateIndicatorProps) {
  * the space between header and composer.
  */
 export function ChatMessagePanel({ children }: React.PropsWithChildren) {
-  return (
-    <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
-  )
+  return <div className="relative flex min-h-0 flex-1 flex-col">{children}</div>
 }
 
 /** Spinner used by the list while paginating. */

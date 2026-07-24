@@ -58,7 +58,7 @@ export function OnboardingView() {
         <ThemeToggle />
       </nav>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col items-center justify-center px-4 py-10 sm:px-6">
           <LogoMark className="size-14 text-primary" />
           <h1 className="mt-6 text-center font-heading text-2xl font-bold sm:text-3xl">

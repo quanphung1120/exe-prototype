@@ -47,7 +47,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Link } from "@/i18n/navigation"
 import { formatVnd, formatVndFull } from "@/features/dashboard/data"
 import { useData } from "@/features/dashboard/data-provider"
@@ -730,9 +734,7 @@ function ColdSlotRow({
     <div className="flex items-center justify-between gap-3 py-3">
       <div className="flex flex-1 flex-col gap-0.5">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium tabular-nums">
-            {slotLabel}
-          </span>
+          <span className="text-sm font-medium tabular-nums">{slotLabel}</span>
           <span className="font-mono text-[11px] font-semibold text-amber-600 tabular-nums">
             {slot.util}%
           </span>

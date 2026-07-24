@@ -250,7 +250,9 @@ function RoomDetail({
         </div>
         <SheetTitle className="text-lg leading-tight">{title}</SheetTitle>
         <SheetDescription>
-          {tm("hostedBy", { name: isHost ? (sUser.name || userName) : room.host.name })}
+          {tm("hostedBy", {
+            name: isHost ? sUser.name || userName : room.host.name,
+          })}
         </SheetDescription>
       </SheetHeader>
 
@@ -261,7 +263,9 @@ function RoomDetail({
             <div className="min-w-0">
               <p className="text-sm font-medium">{t("awaitingApproval")}</p>
               <p className="mt-0.5 text-xs text-amber-700/80 dark:text-amber-400/80">
-                {t("awaitingApprovalBody", { name: isHost ? (sUser.name || userName) : room.host.name })}
+                {t("awaitingApprovalBody", {
+                  name: isHost ? sUser.name || userName : room.host.name,
+                })}
               </p>
             </div>
           </div>
@@ -547,7 +551,7 @@ function ParticipantRow({
   const { name, level, trust } = playerByInitials(initials)
   const tier = trustTier(trust)
   const isYou = initials === USER.initials
-  const displayName = isYou ? (sUser.name || userName) : name
+  const displayName = isYou ? sUser.name || userName : name
   const displayInitials = isYou ? initialsOf(sUser.name || userName) : initials
 
   const info = (

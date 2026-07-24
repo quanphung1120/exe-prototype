@@ -200,7 +200,12 @@ function RoomCard({
 
       <div className="mt-auto flex items-center gap-2 pt-1">
         <span className="min-w-0 truncate text-xs text-muted-foreground">
-          {t("hostedBy", { name: room.host.initials === USER.initials ? (sUser.name || userName) : room.host.name })}
+          {t("hostedBy", {
+            name:
+              room.host.initials === USER.initials
+                ? sUser.name || userName
+                : room.host.name,
+          })}
           {!joined && !requested && !full
             ? ` · ${t("openSeats", { count: openSeats })}`
             : ""}

@@ -22,23 +22,25 @@ function PlanCard({ id, featured }: { id: Audience; featured: boolean }) {
   return (
     <div
       className={cn(
-        "relative flex h-full flex-col rounded-3xl border p-6 sm:p-8 transition-all duration-300 hover:-translate-y-1",
+        "relative flex h-full flex-col rounded-3xl border p-6 transition-all duration-300 hover:-translate-y-1 sm:p-8",
         featured
-          ? "border-lime/50 bg-gradient-to-b from-primary/10 via-card to-lime/10 shadow-xl shadow-lime/5 ring-1 ring-lime/30"
-          : "border-border bg-card/80 backdrop-blur-sm shadow-sm hover:border-primary/30 hover:shadow-md"
+          ? "border-lime/50 bg-gradient-to-b from-primary/10 via-card to-lime/10 shadow-xl ring-1 shadow-lime/5 ring-lime/30"
+          : "border-border bg-card/80 shadow-sm backdrop-blur-sm hover:border-primary/30 hover:shadow-md"
       )}
     >
       {featured && (
         <span className="absolute -top-3.5 left-6 inline-flex items-center gap-1.5 rounded-full bg-lime px-3.5 py-1 text-xs font-bold text-lime-foreground shadow-md shadow-lime/20">
-          <span className="size-1.5 rounded-full bg-lime-foreground animate-pulse" />
+          <span className="size-1.5 animate-pulse rounded-full bg-lime-foreground" />
           {ts("badge")}
         </span>
       )}
 
       <div className="flex items-center justify-between">
-        <h3 className="font-heading text-2xl font-bold tracking-tight">{t("name")}</h3>
+        <h3 className="font-heading text-2xl font-bold tracking-tight">
+          {t("name")}
+        </h3>
         {featured ? (
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-lime-300 border border-emerald-500/20">
+          <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-lime-300">
             Dành cho câu lạc bộ
           </span>
         ) : (
@@ -48,13 +50,17 @@ function PlanCard({ id, featured }: { id: Audience; featured: boolean }) {
         )}
       </div>
 
-      <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{t("tagline")}</p>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        {t("tagline")}
+      </p>
 
       <div className="mt-6 flex items-baseline gap-1.5 border-b border-border/60 pb-6">
-        <span className="font-sans text-4xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+        <span className="font-sans text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
           {t("price")}
         </span>
-        <span className="text-sm font-medium text-muted-foreground">{t("period")}</span>
+        <span className="text-sm font-medium text-muted-foreground">
+          {t("period")}
+        </span>
       </div>
 
       <ul className="mt-6 flex flex-1 flex-col gap-3.5">

@@ -1,9 +1,5 @@
 import { NAV, activeNavItem, type NavItem } from "@/features/dashboard/nav"
-import {
-  VENUE_BASE_PREFIX,
-  venueBase,
-  venueNav,
-} from "@/features/venue/nav"
+import { VENUE_BASE_PREFIX, venueBase, venueNav } from "@/features/venue/nav"
 import { ADMIN_BASE_PREFIX, ADMIN_NAV } from "@/features/admin/nav"
 
 /**
@@ -25,7 +21,10 @@ export type Workspace = "player" | "venue" | "admin"
 /** The workspace a pathname belongs to. Admin is checked first — a specific
  * prefix must win over the player nav's `/dashboard` fallback. */
 export function workspaceForPath(pathname: string): Workspace {
-  if (pathname === ADMIN_BASE_PREFIX || pathname.startsWith(`${ADMIN_BASE_PREFIX}/`))
+  if (
+    pathname === ADMIN_BASE_PREFIX ||
+    pathname.startsWith(`${ADMIN_BASE_PREFIX}/`)
+  )
     return "admin"
   return pathname.startsWith(`${VENUE_BASE_PREFIX}/`) ? "venue" : "player"
 }
@@ -60,14 +59,15 @@ export function navContext(pathname: string): NavContext {
       workspace: "admin",
       ns: "AdminNav",
       items: ADMIN_NAV,
-      active: ADMIN_NAV.find((item) =>
-        // The admin base (Overview) is a prefix of every sub-route, so it must
-        // match exactly — otherwise Overview stays active everywhere, same
-        // gotcha as the venue base below.
-        item.href === ADMIN_BASE_PREFIX
-          ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(`${item.href}/`)
-      ) ?? ADMIN_NAV[0],
+      active:
+        ADMIN_NAV.find((item) =>
+          // The admin base (Overview) is a prefix of every sub-route, so it must
+          // match exactly — otherwise Overview stays active everywhere, same
+          // gotcha as the venue base below.
+          item.href === ADMIN_BASE_PREFIX
+            ? pathname === item.href
+            : pathname === item.href || pathname.startsWith(`${item.href}/`)
+        ) ?? ADMIN_NAV[0],
       venueId: null,
     }
   }

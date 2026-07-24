@@ -10,12 +10,7 @@ import {
 import type { NavItem } from "@/features/dashboard/nav"
 
 export type VenueSectionKey =
-  | "command"
-  | "schedule"
-  | "courts"
-  | "messages"
-  | "analytics"
-  | "customers"
+  "command" | "schedule" | "courts" | "messages" | "analytics" | "customers"
 
 /**
  * Prefix shared by every venue route. Used only for *detecting* the venue

@@ -614,8 +614,7 @@ export function BookView() {
                   <div className="flex items-center justify-between gap-3 text-base">
                     <span className="text-muted-foreground">{t("where")}</span>
                     <span className="text-right font-medium">
-                      {court.ward} ·{" "}
-                      {t("distance", { km: court.distanceKm })}
+                      {court.ward} · {t("distance", { km: court.distanceKm })}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-base">

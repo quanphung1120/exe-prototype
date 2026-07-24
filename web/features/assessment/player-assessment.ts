@@ -169,7 +169,7 @@ export function isCompleteAssessment(
   if (assessment.version !== 1 || !assessment.results) return false
 
   const selectedSports = Array.isArray(assessment.selectedSports)
-    ? (assessment.selectedSports)
+    ? assessment.selectedSports
     : (["badminton"] as AssessmentSport[])
 
   if (selectedSports.length === 0) return false
@@ -186,7 +186,9 @@ export function isCompleteAssessment(
     return definition.questions.every(
       (question) =>
         typeof result.answers?.[question.id] === "string" &&
-        question.answers.some((answer) => answer.key === result.answers[question.id])
+        question.answers.some(
+          (answer) => answer.key === result.answers[question.id]
+        )
     )
   })
 }
@@ -239,6 +241,8 @@ export function clearStoredAssessment() {
 export function getRangeIndex(sport: AssessmentSport, score: number): number {
   const definition = ASSESSMENTS.find((a) => a.sport === sport)
   if (!definition) return 0
-  const index = definition.ranges.findIndex((r) => score >= r.min && score <= r.max)
+  const index = definition.ranges.findIndex(
+    (r) => score >= r.min && score <= r.max
+  )
   return index !== -1 ? index : 0
 }

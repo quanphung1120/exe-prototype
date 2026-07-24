@@ -21,15 +21,18 @@ export interface Province {
 
 export const PROVINCES: Province[] = units
 
-export const PROVINCE_OPTIONS: { code: string; name: string }[] =
-  PROVINCES.map((p) => ({ code: p.code, name: p.name }))
+export const PROVINCE_OPTIONS: { code: string; name: string }[] = PROVINCES.map(
+  (p) => ({ code: p.code, name: p.name })
+)
 
 export function wardsOf(provinceCode: string | undefined): Ward[] {
   if (!provinceCode) return []
   return PROVINCES.find((p) => p.code === provinceCode)?.wards ?? []
 }
 
-export function provinceCodeByName(name: string | undefined): string | undefined {
+export function provinceCodeByName(
+  name: string | undefined
+): string | undefined {
   if (!name) return undefined
   return PROVINCES.find((p) => p.name === name)?.code
 }

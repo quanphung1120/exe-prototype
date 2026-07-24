@@ -1,17 +1,8 @@
-import type {
-  Court,
-  Level,
-  Player,
-  SportKey,
-} from "@/features/dashboard/data"
+import type { Court, Level, Player, SportKey } from "@/features/dashboard/data"
 
 export type AiIntentKind = "court" | "player"
 export type MatchTimeKey =
-  | "tonight"
-  | "tomorrow"
-  | "saturday"
-  | "weekend"
-  | "this-weekend"
+  "tonight" | "tomorrow" | "saturday" | "weekend" | "this-weekend"
 
 export interface PlayerMatchIntent {
   kind: AiIntentKind
@@ -404,9 +395,7 @@ export function chooseSuggestedCourt(
 ) {
   const pool = courts.filter((court) => !sport || court.sports.includes(sport))
   const byArea = locationLabel
-    ? pool.filter(
-        (court) => normalize(court.ward) === normalize(locationLabel)
-      )
+    ? pool.filter((court) => normalize(court.ward) === normalize(locationLabel))
     : []
   const candidates = byArea.length ? byArea : pool.length ? pool : courts
   return [...candidates].sort((a, b) => a.distanceKm - b.distanceKm)[0] ?? null

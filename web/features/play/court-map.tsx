@@ -8,11 +8,12 @@ import Map, {
   type MarkerEvent,
 } from "react-map-gl/mapbox"
 import { useTheme } from "@teispace/next-themes"
+import { MapPin } from "lucide-react"
 
 import "mapbox-gl/dist/mapbox-gl.css"
 
 import { cn } from "@/lib/utils"
-import { formatVnd, type Court } from "@/features/dashboard/data"
+import { formatVnd, type Court, type VenuePin } from "@/features/dashboard/data"
 
 const TOKEN = process.env.NEXT_PUBLIC_BOXMAP_TOKEN
 
@@ -29,11 +30,14 @@ const HCMC = { longitude: 106.7009, latitude: 10.7769, zoom: 11.2 }
  */
 export function CourtMap({
   courts,
+  venues,
   selectedId,
   onSelect,
   userLoc,
 }: {
   courts: Court[]
+  /** One pin per branch (venue coords) — shown alongside the court price-pills. */
+  venues: VenuePin[]
   selectedId: string | null
   onSelect: (id: string) => void
   userLoc: LatLng | null
@@ -41,6 +45,7 @@ export function CourtMap({
   const mapRef = React.useRef<MapRef>(null)
   const fittedRef = React.useRef(false)
   const { resolvedTheme } = useTheme()
+  const [hoverVenueId, setHoverVenueId] = React.useState<string | null>(null)
 
   // Glide the camera to the active court whenever the selection changes.
   React.useEffect(() => {
@@ -54,12 +59,22 @@ export function CourtMap({
     })
   }, [selectedId, courts])
 
-  // The first time we get a location fix, frame the player and every court.
+  // The first time we get a location fix, frame the player and every court +
+  // branch pin.
   React.useEffect(() => {
-    if (!userLoc || fittedRef.current || !courts.length) return
+    if (!userLoc || fittedRef.current || (!courts.length && !venues.length))
+      return
     fittedRef.current = true
-    const lngs = [userLoc.lng, ...courts.map((c) => c.lng)]
-    const lats = [userLoc.lat, ...courts.map((c) => c.lat)]
+    const lngs = [
+      userLoc.lng,
+      ...courts.map((c) => c.lng),
+      ...venues.map((v) => v.lng),
+    ]
+    const lats = [
+      userLoc.lat,
+      ...courts.map((c) => c.lat),
+      ...venues.map((v) => v.lat),
+    ]
     mapRef.current?.fitBounds(
       [
         [Math.min(...lngs), Math.min(...lats)],
@@ -67,7 +82,7 @@ export function CourtMap({
       ],
       { padding: 72, maxZoom: 14, duration: 1000 }
     )
-  }, [userLoc, courts])
+  }, [userLoc, courts, venues])
 
   if (!TOKEN) {
     return (
@@ -103,6 +118,48 @@ export function CourtMap({
           </span>
         </Marker>
       ) : null}
+
+      {/* One pin per branch at its exact coordinates. Rendered before the court
+          price-pills so a court marker wins the z-order where they overlap. */}
+      {venues.map((v) => {
+        const hovered = v.id === hoverVenueId
+        return (
+          <Marker
+            key={`venue-${v.id}`}
+            longitude={v.lng}
+            latitude={v.lat}
+            anchor="bottom"
+            style={{ zIndex: hovered ? 2 : 1 }}
+            onClick={(e: MarkerEvent<MouseEvent>) => {
+              e.originalEvent.stopPropagation()
+              mapRef.current?.flyTo({
+                center: [v.lng, v.lat],
+                zoom: 14,
+                duration: 1000,
+                essential: true,
+              })
+            }}
+          >
+            <button
+              type="button"
+              aria-label={v.name}
+              onMouseEnter={() => setHoverVenueId(v.id)}
+              onMouseLeave={() => setHoverVenueId(null)}
+              className="flex cursor-pointer flex-col items-center"
+            >
+              {hovered ? (
+                <span className="mb-1 max-w-[11rem] truncate rounded-full bg-brand px-2 py-0.5 text-[11px] font-semibold text-brand-foreground shadow-md">
+                  {v.name}
+                </span>
+              ) : null}
+              <span className="grid size-6 place-items-center rounded-full bg-brand text-brand-foreground shadow-md ring-2 ring-card transition-transform hover:scale-110">
+                <MapPin className="size-3.5" />
+              </span>
+              <span className="-mt-0.5 size-2 rotate-45 bg-brand shadow-md" />
+            </button>
+          </Marker>
+        )
+      })}
 
       {courts.map((c) => {
         const active = c.id === selectedId

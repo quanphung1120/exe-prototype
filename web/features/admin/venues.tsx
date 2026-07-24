@@ -94,22 +94,20 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
               <TableBody>
                 {group.venues.map((venue) => (
                   <TableRow key={venue.id}>
-                    <TableCell className="font-medium">
-                      {venue.name}
-                    </TableCell>
+                    <TableCell className="font-medium">{venue.name}</TableCell>
                     <TableCell>{venue.ward}</TableCell>
                     <TableCell>
                       <Badge
-                        variant={
-                          APPROVAL_VARIANT[venue.approval ?? "approved"]
-                        }
+                        variant={APPROVAL_VARIANT[venue.approval ?? "approved"]}
                       >
                         {t(`approval.${venue.approval ?? "approved"}`)}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={venue.archived ? "outline" : "secondary"}>
-                        {t(venue.archived ? "status.archived" : "status.active")}
+                        {t(
+                          venue.archived ? "status.archived" : "status.active"
+                        )}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">

@@ -2,7 +2,13 @@
 
 import * as React from "react"
 import type { ComponentType } from "react"
-import { CalendarPlus, MessageSquarePlus, Play, Plus, RotateCcw } from "lucide-react"
+import {
+  CalendarPlus,
+  MessageSquarePlus,
+  Play,
+  Plus,
+  RotateCcw,
+} from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
@@ -10,15 +16,9 @@ import { Link, usePathname } from "@/i18n/navigation"
 import { useBooking } from "@/features/booking/booking"
 import { NewChatDialog } from "@/features/chat/new-chat-dialog"
 import type { SectionKey } from "@/features/dashboard/nav"
-import {
-  venueBase,
-  type VenueSectionKey,
-} from "@/features/venue/nav"
+import { venueBase, type VenueSectionKey } from "@/features/venue/nav"
 import type { AdminSectionKey } from "@/features/admin/nav"
-import {
-  venueIdFromPath,
-  type Workspace,
-} from "@/features/dashboard/workspace"
+import { venueIdFromPath, type Workspace } from "@/features/dashboard/workspace"
 
 /**
  * Per-section primary actions, surfaced in the topbar.
@@ -50,8 +50,13 @@ function ClearChatAction() {
     window.dispatchEvent(new CustomEvent("clear-ai-chat"))
   }
   return (
-    <Button size="sm" variant="outline" className="rounded-full" onClick={handleClear}>
-      <RotateCcw className="size-4 mr-1.5" />
+    <Button
+      size="sm"
+      variant="outline"
+      className="rounded-full"
+      onClick={handleClear}
+    >
+      <RotateCcw className="mr-1.5 size-4" />
       <span>{t("clearChat")}</span>
     </Button>
   )

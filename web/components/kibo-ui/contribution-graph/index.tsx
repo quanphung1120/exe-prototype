@@ -1,6 +1,6 @@
-"use client";
+"use client"
 
-import type { Day as WeekDay } from "date-fns";
+import type { Day as WeekDay } from "date-fns"
 import {
   differenceInCalendarDays,
   eachDayOfInterval,
@@ -11,7 +11,7 @@ import {
   nextDay,
   parseISO,
   subWeeks,
-} from "date-fns";
+} from "date-fns"
 import {
   type CSSProperties,
   createContext,
@@ -20,31 +20,31 @@ import {
   type ReactNode,
   useContext,
   useMemo,
-} from "react";
-import { cn } from "@/lib/utils";
+} from "react"
+import { cn } from "@/lib/utils"
 
 export type Activity = {
-  date: string;
-  count: number;
-  level: number;
-};
+  date: string
+  count: number
+  level: number
+}
 
-type Week = Array<Activity | undefined>;
+type Week = Array<Activity | undefined>
 
 export type Labels = {
-  months?: string[];
-  weekdays?: string[];
-  totalCount?: string;
+  months?: string[]
+  weekdays?: string[]
+  totalCount?: string
   legend?: {
-    less?: string;
-    more?: string;
-  };
-};
+    less?: string
+    more?: string
+  }
+}
 
 type MonthLabel = {
-  weekIndex: number;
-  label: string;
-};
+  weekIndex: number
+  label: string
+}
 
 const DEFAULT_MONTH_LABELS = [
   "Jan",
@@ -59,7 +59,7 @@ const DEFAULT_MONTH_LABELS = [
   "Oct",
   "Nov",
   "Dec",
-];
+]
 
 const DEFAULT_LABELS: Labels = {
   months: DEFAULT_MONTH_LABELS,
@@ -69,109 +69,107 @@ const DEFAULT_LABELS: Labels = {
     less: "Less",
     more: "More",
   },
-};
+}
 
 type ContributionGraphContextType = {
-  data: Activity[];
-  weeks: Week[];
-  blockMargin: number;
-  blockRadius: number;
-  blockSize: number;
-  fontSize: number;
-  labels: Labels;
-  labelHeight: number;
-  maxLevel: number;
-  totalCount: number;
-  weekStart: WeekDay;
-  year: number;
-  width: number;
-  height: number;
-};
+  data: Activity[]
+  weeks: Week[]
+  blockMargin: number
+  blockRadius: number
+  blockSize: number
+  fontSize: number
+  labels: Labels
+  labelHeight: number
+  maxLevel: number
+  totalCount: number
+  weekStart: WeekDay
+  year: number
+  width: number
+  height: number
+}
 
 const ContributionGraphContext =
-  createContext<ContributionGraphContextType | null>(null);
+  createContext<ContributionGraphContextType | null>(null)
 
 const useContributionGraph = () => {
-  const context = useContext(ContributionGraphContext);
+  const context = useContext(ContributionGraphContext)
 
   if (!context) {
     throw new Error(
       "ContributionGraph components must be used within a ContributionGraph"
-    );
+    )
   }
 
-  return context;
-};
+  return context
+}
 
 const fillHoles = (activities: Activity[]): Activity[] => {
   if (activities.length === 0) {
-    return [];
+    return []
   }
 
   const sortedActivities = [...activities].sort((a, b) =>
     a.date.localeCompare(b.date)
-  );
+  )
 
-  const calendar = new Map<string, Activity>(
-    activities.map((a) => [a.date, a])
-  );
+  const calendar = new Map<string, Activity>(activities.map((a) => [a.date, a]))
 
-  const firstActivity = sortedActivities[0];
-  const lastActivity = sortedActivities.at(-1);
+  const firstActivity = sortedActivities[0]
+  const lastActivity = sortedActivities.at(-1)
 
   if (!lastActivity) {
-    return [];
+    return []
   }
 
   return eachDayOfInterval({
     start: parseISO(firstActivity.date),
     end: parseISO(lastActivity.date),
   }).map((day) => {
-    const date = formatISO(day, { representation: "date" });
+    const date = formatISO(day, { representation: "date" })
 
     if (calendar.has(date)) {
-      return calendar.get(date) as Activity;
+      return calendar.get(date) as Activity
     }
 
     return {
       date,
       count: 0,
       level: 0,
-    };
-  });
-};
+    }
+  })
+}
 
 const groupByWeeks = (
   activities: Activity[],
   weekStart: WeekDay = 0
 ): Week[] => {
   if (activities.length === 0) {
-    return [];
+    return []
   }
 
-  const normalizedActivities = fillHoles(activities);
-  const firstActivity = normalizedActivities[0];
-  const firstDate = parseISO(firstActivity.date);
+  const normalizedActivities = fillHoles(activities)
+  const firstActivity = normalizedActivities[0]
+  const firstDate = parseISO(firstActivity.date)
   const firstCalendarDate =
     getDay(firstDate) === weekStart
       ? firstDate
-      : subWeeks(nextDay(firstDate, weekStart), 1);
+      : subWeeks(nextDay(firstDate, weekStart), 1)
 
   const paddedActivities = [
     ...(new Array(differenceInCalendarDays(firstDate, firstCalendarDate)).fill(
       undefined
     ) as Activity[]),
     ...normalizedActivities,
-  ];
+  ]
 
-  const numberOfWeeks = Math.ceil(paddedActivities.length / 7);
+  const numberOfWeeks = Math.ceil(paddedActivities.length / 7)
 
   return new Array(numberOfWeeks)
     .fill(undefined)
     .map((_, weekIndex) =>
       paddedActivities.slice(weekIndex * 7, weekIndex * 7 + 7)
-    );
-};
+    )
+}
 
 const getMonthLabels = (
   weeks: Week[],
@@ -179,62 +177,62 @@ const getMonthLabels = (
 ): MonthLabel[] => {
   return weeks
     .reduce<MonthLabel[]>((labels, week, weekIndex) => {
-      const firstActivity = week.find((activity) => activity !== undefined);
+      const firstActivity = week.find((activity) => activity !== undefined)
 
       if (!firstActivity) {
         throw new Error(
           `Unexpected error: Week ${weekIndex + 1} is empty: ${JSON.stringify(week)}.`
-        );
+        )
       }
 
-      const month = monthNames[getMonth(parseISO(firstActivity.date))];
+      const month = monthNames[getMonth(parseISO(firstActivity.date))]
 
       if (!month) {
         const monthName = new Date(firstActivity.date).toLocaleString("en-US", {
           month: "short",
-        });
+        })
         throw new Error(
           `Unexpected error: undefined month label for ${monthName}.`
-        );
+        )
       }
 
-      const prevLabel = labels.at(-1);
+      const prevLabel = labels.at(-1)
 
       if (weekIndex === 0 || !prevLabel || prevLabel.label !== month) {
-        return labels.concat({ weekIndex, label: month });
+        return labels.concat({ weekIndex, label: month })
       }
 
-      return labels;
+      return labels
     }, [])
     .filter(({ weekIndex }, index, labels) => {
-      const minWeeks = 3;
+      const minWeeks = 3
 
       if (index === 0) {
-        return labels[1] && labels[1].weekIndex - weekIndex >= minWeeks;
+        return labels[1] && labels[1].weekIndex - weekIndex >= minWeeks
       }
 
       if (index === labels.length - 1) {
-        return weeks.slice(weekIndex).length >= minWeeks;
+        return weeks.slice(weekIndex).length >= minWeeks
       }
 
-      return true;
-    });
-};
+      return true
+    })
+}
 
 export type ContributionGraphProps = HTMLAttributes<HTMLDivElement> & {
-  data: Activity[];
-  blockMargin?: number;
-  blockRadius?: number;
-  blockSize?: number;
-  fontSize?: number;
-  labels?: Labels;
-  maxLevel?: number;
-  style?: CSSProperties;
-  totalCount?: number;
-  weekStart?: WeekDay;
-  children: ReactNode;
-  className?: string;
-};
+  data: Activity[]
+  blockMargin?: number
+  blockRadius?: number
+  blockSize?: number
+  fontSize?: number
+  labels?: Labels
+  maxLevel?: number
+  style?: CSSProperties
+  totalCount?: number
+  weekStart?: WeekDay
+  children: ReactNode
+  className?: string
+}
 
 export const ContributionGraph = ({
   data,
@@ -250,28 +248,26 @@ export const ContributionGraph = ({
   className,
   ...props
 }: ContributionGraphProps) => {
-  const maxLevel = Math.max(1, maxLevelProp);
-  const weeks = useMemo(() => groupByWeeks(data, weekStart), [data, weekStart]);
-  const LABEL_MARGIN = 8;
+  const maxLevel = Math.max(1, maxLevelProp)
+  const weeks = useMemo(() => groupByWeeks(data, weekStart), [data, weekStart])
+  const LABEL_MARGIN = 8
 
-  const labels = { ...DEFAULT_LABELS, ...labelsProp };
-  const labelHeight = fontSize + LABEL_MARGIN;
+  const labels = { ...DEFAULT_LABELS, ...labelsProp }
+  const labelHeight = fontSize + LABEL_MARGIN
 
   const year =
-    data.length > 0
-      ? getYear(parseISO(data[0].date))
-      : new Date().getFullYear();
+    data.length > 0 ? getYear(parseISO(data[0].date)) : new Date().getFullYear()
 
   const totalCount =
     typeof totalCountProp === "number"
       ? totalCountProp
-      : data.reduce((sum, activity) => sum + activity.count, 0);
+      : data.reduce((sum, activity) => sum + activity.count, 0)
 
-  const width = weeks.length * (blockSize + blockMargin) - blockMargin;
-  const height = labelHeight + (blockSize + blockMargin) * 7 - blockMargin;
+  const width = weeks.length * (blockSize + blockMargin) - blockMargin
+  const height = labelHeight + (blockSize + blockMargin) * 7 - blockMargin
 
   if (data.length === 0) {
-    return null;
+    return null
   }
 
   return (
@@ -299,14 +295,14 @@ export const ContributionGraph = ({
         {...props}
       />
     </ContributionGraphContext.Provider>
-  );
-};
+  )
+}
 
 export type ContributionGraphBlockProps = HTMLAttributes<SVGRectElement> & {
-  activity: Activity;
-  dayIndex: number;
-  weekIndex: number;
-};
+  activity: Activity
+  dayIndex: number
+  weekIndex: number
+}
 
 export const ContributionGraphBlock = ({
   activity,
@@ -316,12 +312,12 @@ export const ContributionGraphBlock = ({
   ...props
 }: ContributionGraphBlockProps) => {
   const { blockSize, blockMargin, blockRadius, labelHeight, maxLevel } =
-    useContributionGraph();
+    useContributionGraph()
 
   if (activity.level < 0 || activity.level > maxLevel) {
     throw new RangeError(
       `Provided activity level ${activity.level} for ${activity.date} is out of range. It must be between 0 and ${maxLevel}.`
-    );
+    )
   }
 
   return (
@@ -345,21 +341,21 @@ export const ContributionGraphBlock = ({
       y={labelHeight + (blockSize + blockMargin) * dayIndex}
       {...props}
     />
-  );
-};
+  )
+}
 
 export type ContributionGraphCalendarProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   "children"
 > & {
-  hideMonthLabels?: boolean;
-  className?: string;
+  hideMonthLabels?: boolean
+  className?: string
   children: (props: {
-    activity: Activity;
-    dayIndex: number;
-    weekIndex: number;
-  }) => ReactNode;
-};
+    activity: Activity
+    dayIndex: number
+    weekIndex: number
+  }) => ReactNode
+}
 
 export const ContributionGraphCalendar = ({
   hideMonthLabels = false,
@@ -368,12 +364,12 @@ export const ContributionGraphCalendar = ({
   ...props
 }: ContributionGraphCalendarProps) => {
   const { weeks, width, height, blockSize, blockMargin, labels } =
-    useContributionGraph();
+    useContributionGraph()
 
   const monthLabels = useMemo(
     () => getMonthLabels(weeks, labels.months),
     [weeks, labels.months]
-  );
+  )
 
   return (
     <div
@@ -403,22 +399,22 @@ export const ContributionGraphCalendar = ({
         {weeks.map((week, weekIndex) =>
           week.map((activity, dayIndex) => {
             if (!activity) {
-              return null;
+              return null
             }
 
             return (
               <Fragment key={`${weekIndex}-${dayIndex}`}>
                 {children({ activity, dayIndex, weekIndex })}
               </Fragment>
-            );
+            )
           })
         )}
       </svg>
     </div>
-  );
-};
+  )
+}
 
-export type ContributionGraphFooterProps = HTMLAttributes<HTMLDivElement>;
+export type ContributionGraphFooterProps = HTMLAttributes<HTMLDivElement>
 
 export const ContributionGraphFooter = ({
   className,
@@ -431,24 +427,24 @@ export const ContributionGraphFooter = ({
     )}
     {...props}
   />
-);
+)
 
 export type ContributionGraphTotalCountProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   "children"
 > & {
-  children?: (props: { totalCount: number; year: number }) => ReactNode;
-};
+  children?: (props: { totalCount: number; year: number }) => ReactNode
+}
 
 export const ContributionGraphTotalCount = ({
   className,
   children,
   ...props
 }: ContributionGraphTotalCountProps) => {
-  const { totalCount, year, labels } = useContributionGraph();
+  const { totalCount, year, labels } = useContributionGraph()
 
   if (children) {
-    return <>{children({ totalCount, year })}</>;
+    return <>{children({ totalCount, year })}</>
   }
 
   return (
@@ -459,22 +455,22 @@ export const ContributionGraphTotalCount = ({
             .replace("{{year}}", String(year))
         : `${totalCount} activities in ${year}`}
     </div>
-  );
-};
+  )
+}
 
 export type ContributionGraphLegendProps = Omit<
   HTMLAttributes<HTMLDivElement>,
   "children"
 > & {
-  children?: (props: { level: number }) => ReactNode;
-};
+  children?: (props: { level: number }) => ReactNode
+}
 
 export const ContributionGraphLegend = ({
   className,
   children,
   ...props
 }: ContributionGraphLegendProps) => {
-  const { labels, maxLevel, blockSize, blockRadius } = useContributionGraph();
+  const { labels, maxLevel, blockSize, blockRadius } = useContributionGraph()
 
   return (
     <div
@@ -492,7 +488,7 @@ export const ContributionGraphLegend = ({
             <title>{`${level} contributions`}</title>
             <rect
               className={cn(
-                "stroke-[1px] stroke-border",
+                "stroke-border stroke-[1px]",
                 'data-[level="0"]:fill-muted',
                 'data-[level="1"]:fill-muted-foreground/20',
                 'data-[level="2"]:fill-muted-foreground/40',
@@ -512,5 +508,5 @@ export const ContributionGraphLegend = ({
         {labels.legend?.more || "More"}
       </span>
     </div>
-  );
-};
+  )
+}

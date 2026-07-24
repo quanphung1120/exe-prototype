@@ -1187,6 +1187,21 @@
       "sports": "Môn thể thao",
       "openFrom": "Mở cửa",
       "openTo": "Đóng cửa",
+      "location": "Vị trí trên bản đồ",
+      "locationHint": "Giúp người chơi tìm đúng chi nhánh trên bản đồ. Bắt buộc — hãy chọn vị trí hiện tại hoặc nhập toạ độ.",
+      "locationMode": {
+        "current": "Vị trí hiện tại",
+        "manual": "Nhập tọa độ"
+      },
+      "useCurrentLocation": "Dùng vị trí hiện tại",
+      "locating": "Đang lấy vị trí…",
+      "latitude": "Vĩ độ",
+      "longitude": "Kinh độ",
+      "latitudePlaceholder": "VD: 21.0278",
+      "longitudePlaceholder": "VD: 105.8342",
+      "coordsSet": "Đã đặt vị trí",
+      "geoUnsupported": "Trình duyệt không hỗ trợ định vị.",
+      "geoError": "Không lấy được vị trí. Vui lòng nhập tọa độ thủ công.",
       "manager": "Người quản lý",
       "managerPlaceholder": "Tên người quản lý"
     },

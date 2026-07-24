@@ -496,8 +496,14 @@ export default async function Page({
                           fill="none"
                         >
                           <g className="text-border" stroke="currentColor">
-                            <path d="M0 32H200M0 82H200M0 122H200" strokeWidth="1.5" />
-                            <path d="M38 0V150M98 0V150M152 0V150" strokeWidth="1.5" />
+                            <path
+                              d="M0 32H200M0 82H200M0 122H200"
+                              strokeWidth="1.5"
+                            />
+                            <path
+                              d="M38 0V150M98 0V150M152 0V150"
+                              strokeWidth="1.5"
+                            />
                           </g>
                           <path
                             d="M-5 58Q70 36 130 72T205 100"

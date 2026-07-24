@@ -108,10 +108,7 @@ export function ChatView({
     initialChannelId ? "conversation" : "list"
   )
   const showList = React.useCallback(() => setPane("list"), [])
-  const showConversation = React.useCallback(
-    () => setPane("conversation"),
-    []
-  )
+  const showConversation = React.useCallback(() => setPane("conversation"), [])
   const paneCtx = React.useMemo(
     () => ({ pane, showList, showConversation }),
     [pane, showList, showConversation]
@@ -200,9 +197,7 @@ export function ChatView({
 /** The two-pane layout the chat lives in — no card wrapper, sits directly on the dashboard background. */
 function ChatShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full min-h-[28rem] overflow-hidden">
-      {children}
-    </div>
+    <div className="flex h-full min-h-[28rem] overflow-hidden">{children}</div>
   )
 }
 

@@ -1187,6 +1187,21 @@
       "sports": "Sports",
       "openFrom": "Opens",
       "openTo": "Closes",
+      "location": "Map location",
+      "locationHint": "Helps players find this branch at the right spot on the map. Required — set it from your current location or enter coordinates.",
+      "locationMode": {
+        "current": "Current location",
+        "manual": "Enter coordinates"
+      },
+      "useCurrentLocation": "Use my current location",
+      "locating": "Getting location…",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "latitudePlaceholder": "e.g. 21.0278",
+      "longitudePlaceholder": "e.g. 105.8342",
+      "coordsSet": "Location set",
+      "geoUnsupported": "Your browser doesn't support geolocation.",
+      "geoError": "Couldn't get your location. Enter coordinates manually.",
       "manager": "Manager",
       "managerPlaceholder": "Manager name"
     },

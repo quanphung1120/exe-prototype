@@ -52,7 +52,10 @@ export interface StreamChatProviderProps {
  * null client context and no `<Chat>` — the app stays fully usable, only the
  * chat surface degrades.
  */
-export function StreamChatProvider({ creds, ...rest }: StreamChatProviderProps) {
+export function StreamChatProvider({
+  creds,
+  ...rest
+}: StreamChatProviderProps) {
   if (!creds) {
     return (
       <StreamContext.Provider value={{ client: null, degraded: true }}>

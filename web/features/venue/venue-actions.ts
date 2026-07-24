@@ -31,6 +31,9 @@ export interface VenueInput {
   sports: SportKey[]
   openFrom: string
   openTo: string
+  /** Map position (WGS84) — from geolocation or manual entry in the setup wizard. */
+  lat?: number
+  lng?: number
   managerName: string
 }
 

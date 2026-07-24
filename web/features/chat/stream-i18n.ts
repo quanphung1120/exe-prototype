@@ -11,8 +11,7 @@ const viTranslations: Record<string, string> = {
   Search: "Tìm kiếm",
   "Searching...": "Đang tìm...",
   "Nothing yet...": "Chưa có gì...",
-  "Connection failure, reconnecting now...":
-    "Mất kết nối, đang kết nối lại...",
+  "Connection failure, reconnecting now...": "Mất kết nối, đang kết nối lại...",
   "Error connecting to chat, refresh the page to try again.":
     "Lỗi kết nối trò chuyện, hãy tải lại trang để thử lại.",
   "You have no channels currently": "Bạn chưa có cuộc trò chuyện nào",
@@ -30,8 +29,10 @@ const viTranslations: Record<string, string> = {
   "{{ users }} and more are typing...":
     "{{ users }} và những người khác đang nhập...",
   online: "trực tuyến",
-  "{{ commaSeparatedUsers }} and {{ moreCount }} more": "{{ commaSeparatedUsers }} và {{ moreCount }} người khác",
-  "{{ commaSeparatedUsers }}, and {{ lastUser }}": "{{ commaSeparatedUsers }} và {{ lastUser }}",
+  "{{ commaSeparatedUsers }} and {{ moreCount }} more":
+    "{{ commaSeparatedUsers }} và {{ moreCount }} người khác",
+  "{{ commaSeparatedUsers }}, and {{ lastUser }}":
+    "{{ commaSeparatedUsers }} và {{ lastUser }}",
   "🏙 Attachment...": "🏙 Tệp đính kèm...",
   "New Messages!": "Tin nhắn mới!",
   // Our own Composer (composer.tsx) — not a stock stream-chat-react string —

@@ -38,8 +38,7 @@ export function ChatAvatar({
   fallbackClassName?: string
   children?: React.ReactNode
 }) {
-  const gradient =
-    FALLBACK_GRADIENTS[hashStr(name) % FALLBACK_GRADIENTS.length]
+  const gradient = FALLBACK_GRADIENTS[hashStr(name) % FALLBACK_GRADIENTS.length]
   return (
     <Avatar className={className}>
       {image ? <AvatarImage src={image} alt="" /> : null}

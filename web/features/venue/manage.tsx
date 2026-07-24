@@ -59,11 +59,7 @@ const COURT_STATES: CourtState[] = [
  * every branch's court count/status at once, since every other screen is
  * scoped to one branch via the `[venueId]` URL segment.
  */
-export function VenueManageView({
-  branches,
-}: {
-  branches: BranchSummary[]
-}) {
+export function VenueManageView({ branches }: { branches: BranchSummary[] }) {
   const t = useTranslations("VenueManage")
   const router = useRouter()
   const { venueId, venue: VENUE } = useVenueData()

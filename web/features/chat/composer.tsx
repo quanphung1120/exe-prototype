@@ -16,7 +16,9 @@ import { Button } from "@/components/ui/button"
  * context hands us, and `channel.updated` events push straight onto it, so
  * subscribing is enough — no derived-state render to schedule.
  */
-function useFrozen(channel: ReturnType<typeof useChannelStateContext>["channel"]) {
+function useFrozen(
+  channel: ReturnType<typeof useChannelStateContext>["channel"]
+) {
   return React.useSyncExternalStore(
     (onChange) => {
       const handler = () => onChange()

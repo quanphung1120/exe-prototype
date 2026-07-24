@@ -121,174 +121,180 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   const badminton = assessment?.results?.badminton
 
   const reviewPool = REVIEW_POOL.filter((r) => r.initials !== USER.initials)
-  const reviewSeed = USER.initials.split("").reduce((s, c) => s + c.charCodeAt(0), 0)
-  const reviews = [0, 1, 2].map((i) => reviewPool[(reviewSeed + i) % reviewPool.length])
+  const reviewSeed = USER.initials
+    .split("")
+    .reduce((s, c) => s + c.charCodeAt(0), 0)
+  const reviews = [0, 1, 2].map(
+    (i) => reviewPool[(reviewSeed + i) % reviewPool.length]
+  )
   const avgRating =
-    Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
+    Math.round(
+      (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10
+    ) / 10
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex flex-col p-0 overflow-hidden max-h-[90svh] max-w-[calc(100%-2rem)] sm:max-w-md gap-0">
+      <DialogContent className="flex max-h-[90svh] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
         <DialogHeader className="sr-only">
           <DialogTitle>{tSidebar("profile")}</DialogTitle>
-          <DialogDescription>
-            {tProfile("dialogDescription")}
-          </DialogDescription>
+          <DialogDescription>{tProfile("dialogDescription")}</DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-y-auto no-scrollbar flex-1 min-h-0">
+        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
           <div
-            className="h-32 sm:h-36 w-full shrink-0 bg-linear-to-br from-brand via-lime/60 to-chart-3 bg-court-lines relative"
+            className="bg-court-lines relative h-32 w-full shrink-0 bg-linear-to-br from-brand via-lime/60 to-chart-3 sm:h-36"
             aria-hidden="true"
           >
             {/* Overlay to blend gradient nicely */}
             <div className="absolute inset-0 bg-black/5" />
           </div>
 
-          <div className="px-6 pb-6 sm:px-8 sm:pb-8 pt-0 relative flex flex-col">
-          <div className="relative -mt-10 mb-3 w-fit">
-            <Avatar className="size-20 border-4 border-popover shadow-md bg-secondary">
-              {accountImage ? (
-                <AvatarImage src={accountImage} alt={accountName} />
-              ) : null}
-              <AvatarFallback className="bg-secondary text-lg font-bold text-secondary-foreground">
-                {accountInitials}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-
-          <div className="flex flex-col gap-0.5">
-            <h3 className="font-heading text-xl leading-tight font-bold text-foreground">
-              {accountName}
-            </h3>
-            <p className="text-xs text-muted-foreground">{handleDisplay}</p>
-          </div>
-
-          <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-            {bio}
-          </p>
-
-          <div className="mt-5 flex flex-col gap-3">
-            <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-              {tProfile("yourLevel")}
-            </h4>
-            <div className="grid grid-cols-1 gap-3">
-              <div className="group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-chart-3/20 bg-chart-3/5 p-3.5">
-                <div className="absolute -right-3 -bottom-3 size-12 rounded-full bg-chart-3/10 blur-md transition-transform duration-300 group-hover:scale-125" />
-                <div className="z-10 flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-chart-3" />
-                  <span className="font-mono text-[11px] font-semibold tracking-wider text-chart-3 uppercase">
-                    {tc("sports.badminton")}
-                  </span>
-                </div>
-                <div className="z-10 mt-1">
-                  <p className="font-heading text-base leading-tight font-bold text-foreground">
-                    {badminton ? (
-                      tAssessment(`badminton.ranges.r${getRangeIndex("badminton", badminton.score)}`)
-                    ) : (
-                      tProfile("notAssessed")
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
-                    {tProfile("points", { score: badminton ? badminton.score : 0 })}
-                  </p>
-                </div>
-              </div>
+          <div className="relative flex flex-col px-6 pt-0 pb-6 sm:px-8 sm:pb-8">
+            <div className="relative -mt-10 mb-3 w-fit">
+              <Avatar className="size-20 border-4 border-popover bg-secondary shadow-md">
+                {accountImage ? (
+                  <AvatarImage src={accountImage} alt={accountName} />
+                ) : null}
+                <AvatarFallback className="bg-secondary text-lg font-bold text-secondary-foreground">
+                  {accountInitials}
+                </AvatarFallback>
+              </Avatar>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full rounded-full"
-              onClick={() => {
-                onOpenChange(false)
-                router.push(PLAYER_ASSESSMENT_PATH)
-              }}
-            >
-              <RotateCcw className="size-4" />
-              {tProfile("redoSkills")}
-            </Button>
-          </div>
+            <div className="flex flex-col gap-0.5">
+              <h3 className="font-heading text-xl leading-tight font-bold text-foreground">
+                {accountName}
+              </h3>
+              <p className="text-xs text-muted-foreground">{handleDisplay}</p>
+            </div>
 
-          <div className="mt-5 flex items-center justify-between rounded-2xl bg-muted/40 p-3 text-xs ring-1 ring-foreground/5 dark:ring-foreground/10">
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground uppercase">
-              <Shield className="size-3.5 text-brand" />
-              {tProfile("reliability")}
-            </span>
-            <span className="font-mono font-bold text-brand tabular-nums">
-              {USER.trust}%
-            </span>
-          </div>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              {bio}
+            </p>
 
-          <div className="mt-5 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+            <div className="mt-5 flex flex-col gap-3">
               <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                {tProfile("reviewsLabel")}
+                {tProfile("yourLevel")}
               </h4>
-              <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <Star
-                      key={i}
-                      className={cn(
-                        "size-3",
-                        i < Math.round(avgRating)
-                          ? "fill-amber-400 text-amber-400"
-                          : "text-muted-foreground/25"
-                      )}
-                    />
-                  ))}
-                </div>
-                <span className="font-mono text-[11px] font-bold text-foreground tabular-nums">
-                  {avgRating.toFixed(1)}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  · {tProfile("ratingsCount", { count: reviews.length })}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              {reviews.map((review, i) => (
-                <div
-                  key={i}
-                  className="flex flex-col gap-2 rounded-2xl bg-muted/40 p-3.5 ring-1 ring-foreground/5 dark:ring-foreground/10"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Avatar className="size-7 shrink-0">
-                      <AvatarFallback className="bg-secondary text-[10px] font-bold text-secondary-foreground">
-                        {review.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-foreground">
-                        {review.author}
-                      </p>
-                      <div className="mt-0.5 flex items-center gap-1">
-                        {Array.from({ length: 5 }, (_, j) => (
-                          <Star
-                            key={j}
-                            className={cn(
-                              "size-2.5",
-                              j < review.rating
-                                ? "fill-amber-400 text-amber-400"
-                                : "text-muted-foreground/25"
-                            )}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                      {review.ago}
+              <div className="grid grid-cols-1 gap-3">
+                <div className="group relative flex flex-col gap-2 overflow-hidden rounded-2xl border border-chart-3/20 bg-chart-3/5 p-3.5">
+                  <div className="absolute -right-3 -bottom-3 size-12 rounded-full bg-chart-3/10 blur-md transition-transform duration-300 group-hover:scale-125" />
+                  <div className="z-10 flex items-center gap-1.5">
+                    <span className="size-1.5 rounded-full bg-chart-3" />
+                    <span className="font-mono text-[11px] font-semibold tracking-wider text-chart-3 uppercase">
+                      {tc("sports.badminton")}
                     </span>
                   </div>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    {review.text}
-                  </p>
+                  <div className="z-10 mt-1">
+                    <p className="font-heading text-base leading-tight font-bold text-foreground">
+                      {badminton
+                        ? tAssessment(
+                            `badminton.ranges.r${getRangeIndex("badminton", badminton.score)}`
+                          )
+                        : tProfile("notAssessed")}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">
+                      {tProfile("points", {
+                        score: badminton ? badminton.score : 0,
+                      })}
+                    </p>
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full rounded-full"
+                onClick={() => {
+                  onOpenChange(false)
+                  router.push(PLAYER_ASSESSMENT_PATH)
+                }}
+              >
+                <RotateCcw className="size-4" />
+                {tProfile("redoSkills")}
+              </Button>
             </div>
-          </div>
+
+            <div className="mt-5 flex items-center justify-between rounded-2xl bg-muted/40 p-3 text-xs ring-1 ring-foreground/5 dark:ring-foreground/10">
+              <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground uppercase">
+                <Shield className="size-3.5 text-brand" />
+                {tProfile("reliability")}
+              </span>
+              <span className="font-mono font-bold text-brand tabular-nums">
+                {USER.trust}%
+              </span>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                  {tProfile("reviewsLabel")}
+                </h4>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          "size-3",
+                          i < Math.round(avgRating)
+                            ? "fill-amber-400 text-amber-400"
+                            : "text-muted-foreground/25"
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-mono text-[11px] font-bold text-foreground tabular-nums">
+                    {avgRating.toFixed(1)}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    · {tProfile("ratingsCount", { count: reviews.length })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                {reviews.map((review, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col gap-2 rounded-2xl bg-muted/40 p-3.5 ring-1 ring-foreground/5 dark:ring-foreground/10"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Avatar className="size-7 shrink-0">
+                        <AvatarFallback className="bg-secondary text-[10px] font-bold text-secondary-foreground">
+                          {review.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-foreground">
+                          {review.author}
+                        </p>
+                        <div className="mt-0.5 flex items-center gap-1">
+                          {Array.from({ length: 5 }, (_, j) => (
+                            <Star
+                              key={j}
+                              className={cn(
+                                "size-2.5",
+                                j < review.rating
+                                  ? "fill-amber-400 text-amber-400"
+                                  : "text-muted-foreground/25"
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                        {review.ago}
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {review.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </DialogContent>
@@ -326,14 +332,18 @@ export function PlayerProfileDialog({
   const blurb = fullPlayer?.blurb
 
   const pool = REVIEW_POOL.filter((r) => r.initials !== initials)
-  const seed = (initials ?? "").split("").reduce((s, c) => s + c.charCodeAt(0), 0)
+  const seed = (initials ?? "")
+    .split("")
+    .reduce((s, c) => s + c.charCodeAt(0), 0)
   const reviews = [0, 1, 2].map((i) => pool[(seed + i) % pool.length])
   const avgRating =
-    Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
+    Math.round(
+      (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10
+    ) / 10
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex flex-col p-0 overflow-hidden max-h-[90svh] max-w-[calc(100%-2rem)] sm:max-w-md gap-0">
+      <DialogContent className="flex max-h-[90svh] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
         <DialogHeader className="sr-only">
           <DialogTitle>{tProfile("viewProfile")}</DialogTitle>
           <DialogDescription>
@@ -341,161 +351,161 @@ export function PlayerProfileDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-y-auto no-scrollbar flex-1 min-h-0">
+        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
           <div
-            className="h-32 sm:h-36 w-full shrink-0 bg-linear-to-br from-brand via-lime/60 to-chart-3 bg-court-lines relative"
+            className="bg-court-lines relative h-32 w-full shrink-0 bg-linear-to-br from-brand via-lime/60 to-chart-3 sm:h-36"
             aria-hidden="true"
           >
             <div className="absolute inset-0 bg-black/5" />
           </div>
 
-          <div className="px-6 pb-6 sm:px-8 sm:pb-8 pt-0 relative flex flex-col">
-          <div className="relative -mt-10 mb-3 w-fit">
-            <Avatar className="size-20 border-4 border-popover shadow-md bg-secondary">
-              <AvatarFallback className="bg-secondary text-lg font-bold text-secondary-foreground">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            {online != null ? (
-              <span
-                className={cn(
-                  "absolute bottom-1 right-1 size-3.5 rounded-full border-2 border-popover",
-                  online ? "bg-brand" : "bg-muted-foreground/40"
-                )}
-              />
+          <div className="relative flex flex-col px-6 pt-0 pb-6 sm:px-8 sm:pb-8">
+            <div className="relative -mt-10 mb-3 w-fit">
+              <Avatar className="size-20 border-4 border-popover bg-secondary shadow-md">
+                <AvatarFallback className="bg-secondary text-lg font-bold text-secondary-foreground">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              {online != null ? (
+                <span
+                  className={cn(
+                    "absolute right-1 bottom-1 size-3.5 rounded-full border-2 border-popover",
+                    online ? "bg-brand" : "bg-muted-foreground/40"
+                  )}
+                />
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-0.5">
+              <h3 className="font-heading text-xl leading-tight font-bold text-foreground">
+                {name}
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                @{initials?.toLowerCase()}
+              </p>
+            </div>
+
+            {blurb ? (
+              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                {blurb}
+              </p>
             ) : null}
-          </div>
 
-          <div className="flex flex-col gap-0.5">
-            <h3 className="font-heading text-xl leading-tight font-bold text-foreground">
-              {name}
-            </h3>
-            <p className="text-xs text-muted-foreground">
-              @{initials?.toLowerCase()}
-            </p>
-          </div>
-
-          {blurb ? (
-            <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-              {blurb}
-            </p>
-          ) : null}
-
-          {sport && level ? (
-            <div className="mt-5 flex flex-col gap-3">
-              <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                {tProfile("playerLevel")}
-              </h4>
-              <div className="flex items-center gap-3 rounded-2xl border border-chart-3/20 bg-chart-3/5 p-3.5">
-                <SportDot sport={sport} />
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold text-foreground">
-                    {tc(`sports.${sport}`)}
-                  </span>
-                  <LevelChip level={level} />
-                </div>
-                {matchPct != null ? (
-                  <div className="ml-auto flex flex-col items-end">
-                    <span className="font-mono text-sm font-bold text-brand tabular-nums">
-                      {matchPct}%
+            {sport && level ? (
+              <div className="mt-5 flex flex-col gap-3">
+                <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                  {tProfile("playerLevel")}
+                </h4>
+                <div className="flex items-center gap-3 rounded-2xl border border-chart-3/20 bg-chart-3/5 p-3.5">
+                  <SportDot sport={sport} />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-semibold text-foreground">
+                      {tc(`sports.${sport}`)}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {tProfile("matchScore")}
-                    </span>
+                    <LevelChip level={level} />
                   </div>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="mt-3 flex gap-2">
-            <div className="flex flex-1 items-center justify-between rounded-2xl bg-muted/40 p-3 text-xs ring-1 ring-foreground/5 dark:ring-foreground/10">
-              <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground uppercase">
-                <Shield className="size-3.5 text-brand" />
-                {tProfile("reliability")}
-              </span>
-              <span className="font-mono font-bold text-brand tabular-nums">
-                {trust}%
-              </span>
-            </div>
-            {distanceKm != null ? (
-              <div className="flex items-center justify-center rounded-2xl bg-muted/40 px-3 py-2 ring-1 ring-foreground/5 dark:ring-foreground/10">
-                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                  {tProfile("kmAway", { km: distanceKm })}
-                </span>
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-5 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                {tProfile("reviewsLabel")}
-              </h4>
-              <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: 5 }, (_, i) => (
-                    <Star
-                      key={i}
-                      className={cn(
-                        "size-3",
-                        i < Math.round(avgRating)
-                          ? "fill-amber-400 text-amber-400"
-                          : "text-muted-foreground/25"
-                      )}
-                    />
-                  ))}
-                </div>
-                <span className="font-mono text-[11px] font-bold text-foreground tabular-nums">
-                  {avgRating.toFixed(1)}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  · {tProfile("ratingsCount", { count: reviews.length })}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2.5">
-              {reviews.map((review, i) => (
-                <div
-                  key={i}
-                  className="flex flex-col gap-2 rounded-2xl bg-muted/40 p-3.5 ring-1 ring-foreground/5 dark:ring-foreground/10"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Avatar className="size-7 shrink-0">
-                      <AvatarFallback className="bg-secondary text-[10px] font-bold text-secondary-foreground">
-                        {review.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-foreground">
-                        {review.author}
-                      </p>
-                      <div className="mt-0.5 flex items-center gap-1">
-                        {Array.from({ length: 5 }, (_, j) => (
-                          <Star
-                            key={j}
-                            className={cn(
-                              "size-2.5",
-                              j < review.rating
-                                ? "fill-amber-400 text-amber-400"
-                                : "text-muted-foreground/25"
-                            )}
-                          />
-                        ))}
-                      </div>
+                  {matchPct != null ? (
+                    <div className="ml-auto flex flex-col items-end">
+                      <span className="font-mono text-sm font-bold text-brand tabular-nums">
+                        {matchPct}%
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {tProfile("matchScore")}
+                      </span>
                     </div>
-                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                      {review.ago}
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    {review.text}
-                  </p>
+                  ) : null}
                 </div>
-              ))}
+              </div>
+            ) : null}
+
+            <div className="mt-3 flex gap-2">
+              <div className="flex flex-1 items-center justify-between rounded-2xl bg-muted/40 p-3 text-xs ring-1 ring-foreground/5 dark:ring-foreground/10">
+                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground uppercase">
+                  <Shield className="size-3.5 text-brand" />
+                  {tProfile("reliability")}
+                </span>
+                <span className="font-mono font-bold text-brand tabular-nums">
+                  {trust}%
+                </span>
+              </div>
+              {distanceKm != null ? (
+                <div className="flex items-center justify-center rounded-2xl bg-muted/40 px-3 py-2 ring-1 ring-foreground/5 dark:ring-foreground/10">
+                  <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                    {tProfile("kmAway", { km: distanceKm })}
+                  </span>
+                </div>
+              ) : null}
             </div>
-          </div>
+
+            <div className="mt-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                  {tProfile("reviewsLabel")}
+                </h4>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          "size-3",
+                          i < Math.round(avgRating)
+                            ? "fill-amber-400 text-amber-400"
+                            : "text-muted-foreground/25"
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-mono text-[11px] font-bold text-foreground tabular-nums">
+                    {avgRating.toFixed(1)}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    · {tProfile("ratingsCount", { count: reviews.length })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                {reviews.map((review, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col gap-2 rounded-2xl bg-muted/40 p-3.5 ring-1 ring-foreground/5 dark:ring-foreground/10"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Avatar className="size-7 shrink-0">
+                        <AvatarFallback className="bg-secondary text-[10px] font-bold text-secondary-foreground">
+                          {review.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-foreground">
+                          {review.author}
+                        </p>
+                        <div className="mt-0.5 flex items-center gap-1">
+                          {Array.from({ length: 5 }, (_, j) => (
+                            <Star
+                              key={j}
+                              className={cn(
+                                "size-2.5",
+                                j < review.rating
+                                  ? "fill-amber-400 text-amber-400"
+                                  : "text-muted-foreground/25"
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                        {review.ago}
+                      </span>
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {review.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </DialogContent>

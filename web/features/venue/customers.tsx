@@ -59,10 +59,7 @@ import {
 } from "@/features/venue/data"
 import { useVenueData } from "@/features/venue/venue-data-provider"
 import { createCustomer } from "@/features/venue/venue-actions"
-import {
-  VenueEmpty,
-  VenuePanel,
-} from "@/features/venue/shared"
+import { VenueEmpty, VenuePanel } from "@/features/venue/shared"
 import { SportTag } from "@/features/dashboard/shared"
 
 type Segment = "all" | CustomerTier
@@ -119,33 +116,13 @@ export function VenueCustomersView({
     [t]
   )
 
-
-  const headerCell = React.useCallback((label: string, column: Column<VenueCustomer, unknown>) => {
-    return (
-      <button
-        type="button"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        className="group inline-flex items-center gap-1 hover:text-foreground text-left font-mono text-[11px] tracking-wider uppercase text-muted-foreground transition-colors"
-      >
-        {label}
-        {column.getIsSorted() === "asc" ? (
-          <ArrowUp className="size-3 text-brand" />
-        ) : column.getIsSorted() === "desc" ? (
-          <ArrowDown className="size-3 text-brand" />
-        ) : (
-          <ArrowUpDown className="size-3 opacity-30 group-hover:opacity-100 transition-opacity" />
-        )}
-      </button>
-    )
-  }, [])
-
-  const headerCellRight = React.useCallback((label: string, column: Column<VenueCustomer, unknown>) => {
-    return (
-      <div className="flex justify-end">
+  const headerCell = React.useCallback(
+    (label: string, column: Column<VenueCustomer, unknown>) => {
+      return (
         <button
           type="button"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          className="group inline-flex items-center gap-1 hover:text-foreground text-right font-mono text-[11px] tracking-wider uppercase text-muted-foreground transition-colors"
+          className="group inline-flex items-center gap-1 text-left font-mono text-[11px] tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
         >
           {label}
           {column.getIsSorted() === "asc" ? (
@@ -153,12 +130,37 @@ export function VenueCustomersView({
           ) : column.getIsSorted() === "desc" ? (
             <ArrowDown className="size-3 text-brand" />
           ) : (
-            <ArrowUpDown className="size-3 opacity-30 group-hover:opacity-100 transition-opacity" />
+            <ArrowUpDown className="size-3 opacity-30 transition-opacity group-hover:opacity-100" />
           )}
         </button>
-      </div>
-    )
-  }, [])
+      )
+    },
+    []
+  )
+
+  const headerCellRight = React.useCallback(
+    (label: string, column: Column<VenueCustomer, unknown>) => {
+      return (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            className="group inline-flex items-center gap-1 text-right font-mono text-[11px] tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
+          >
+            {label}
+            {column.getIsSorted() === "asc" ? (
+              <ArrowUp className="size-3 text-brand" />
+            ) : column.getIsSorted() === "desc" ? (
+              <ArrowDown className="size-3 text-brand" />
+            ) : (
+              <ArrowUpDown className="size-3 opacity-30 transition-opacity group-hover:opacity-100" />
+            )}
+          </button>
+        </div>
+      )
+    },
+    []
+  )
 
   const columns = React.useMemo<ColumnDef<VenueCustomer>[]>(() => {
     return [
@@ -176,7 +178,9 @@ export function VenueCustomersView({
               </Avatar>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="truncate font-medium text-foreground">{c.name}</span>
+                  <span className="truncate font-medium text-foreground">
+                    {c.name}
+                  </span>
                   <TierChip tier={c.tier} label={tierLabel(c.tier)} />
                 </div>
                 <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
@@ -205,7 +209,7 @@ export function VenueCustomersView({
         accessorKey: "visits",
         header: ({ column }) => headerCellRight(t("col.visits"), column),
         cell: ({ row }) => (
-          <div className="text-right font-heading text-sm font-semibold tabular-nums text-foreground">
+          <div className="text-right font-heading text-sm font-semibold text-foreground tabular-nums">
             {row.original.visits}
           </div>
         ),
@@ -313,7 +317,10 @@ export function VenueCustomersView({
         icon={Users}
         action={
           <div className="flex items-center gap-3">
-            <Tabs value={segment} onValueChange={(v) => setSegment(v as Segment)}>
+            <Tabs
+              value={segment}
+              onValueChange={(v) => setSegment(v as Segment)}
+            >
               <TabsList variant="line" className="flex-wrap">
                 {SEGMENTS.map((seg) => (
                   <TabsTrigger key={seg} value={seg}>
@@ -337,11 +344,14 @@ export function VenueCustomersView({
         }
       >
         {rows.length ? (
-          <div className="rounded-2xl border border-border/60 overflow-hidden bg-card/50">
+          <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/50">
             <Table>
               <TableHeader className="bg-muted/30">
                 {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                  <TableRow
+                    key={headerGroup.id}
+                    className="hover:bg-transparent"
+                  >
                     {headerGroup.headers.map((header) => (
                       <TableHead key={header.id} className="h-10 px-4 py-2">
                         {header.isPlaceholder
@@ -367,7 +377,10 @@ export function VenueCustomersView({
                     )}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="px-4 py-3 align-middle">
+                      <TableCell
+                        key={cell.id}
+                        className="px-4 py-3 align-middle"
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -415,7 +428,13 @@ interface AddCustomerDialogProps {
   customersList: VenueCustomer[]
 }
 
-function AddCustomerDialog({ isOpen, onClose, onAdd, venueId, customersList }: AddCustomerDialogProps) {
+function AddCustomerDialog({
+  isOpen,
+  onClose,
+  onAdd,
+  venueId,
+  customersList,
+}: AddCustomerDialogProps) {
   const t = useTranslations("VenueCustomers")
   const tc = useTranslations("Common")
   const [name, setName] = React.useState("")
@@ -467,9 +486,7 @@ function AddCustomerDialog({ isOpen, onClose, onAdd, venueId, customersList }: A
         </DialogHeader>
         <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
           {error && (
-            <div className="text-sm font-medium text-destructive">
-              {error}
-            </div>
+            <div className="text-sm font-medium text-destructive">{error}</div>
           )}
           <label className="flex flex-col gap-1.5 text-sm font-medium">
             {t("addDialog.name")}
@@ -501,12 +518,19 @@ function AddCustomerDialog({ isOpen, onClose, onAdd, venueId, customersList }: A
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="badminton">{tc("sports.badminton")}</SelectItem>
+                <SelectItem value="badminton">
+                  {tc("sports.badminton")}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+          <div className="mt-2 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isPending}
+            >
               {t("addDialog.cancel")}
             </Button>
             <Button type="submit" disabled={isPending}>

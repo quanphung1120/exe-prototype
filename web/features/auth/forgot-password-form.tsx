@@ -108,10 +108,7 @@ export function ForgotPasswordForm() {
       </div>
 
       {sent ? (
-        <form
-          onSubmit={(e) => void onReset(e)}
-          className="space-y-4"
-        >
+        <form onSubmit={(e) => void onReset(e)} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="code">{r.codeLabel}</Label>
             <Input
@@ -150,10 +147,7 @@ export function ForgotPasswordForm() {
           </Button>
         </form>
       ) : (
-        <form
-          onSubmit={(e) => void onRequest(e)}
-          className="space-y-4"
-        >
+        <form onSubmit={(e) => void onRequest(e)} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="email">{t("emailLabel")}</Label>
             <Input

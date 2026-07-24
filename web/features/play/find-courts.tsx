@@ -68,7 +68,7 @@ function openDirections(court: Court) {
 export function FindCourtsView() {
   const t = useTranslations("FindCourts")
   const { sport } = useSportFilter()
-  const { courts: COURTS } = useData()
+  const { courts: COURTS, venuePins } = useData()
   const [sort, setSort] = React.useState<SortKey>("distance")
   const [query, setQuery] = React.useState("")
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
@@ -135,6 +135,7 @@ export function FindCourtsView() {
       <div className="relative h-[320px] overflow-hidden bg-card shadow-md ring-1 ring-foreground/5 lg:col-span-7 lg:h-full dark:ring-foreground/10">
         <CourtMap
           courts={mapCourts}
+          venues={venuePins}
           selectedId={selectedId_}
           onSelect={setSelectedId}
           userLoc={userLoc}
@@ -284,7 +285,7 @@ function CourtCard({
               <MapPin className="size-3" />
               {court.ward} ·{" "}
               {t("distance", { km: Math.round(distanceKm * 10) / 10 })}
-              <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground shadow-sm ring-1 ring-foreground/5 tabular-nums">
+              <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground tabular-nums shadow-sm ring-1 ring-foreground/5">
                 <Star className="size-3 fill-lime text-lime" />
                 {court.rating}
               </span>
@@ -302,12 +303,12 @@ function CourtCard({
         </div>
 
         <div className="inline-flex w-fit items-center gap-1 rounded-full bg-muted/70 px-2.5 py-1 text-xs font-medium text-muted-foreground ring-1 ring-foreground/5">
-          <span className="font-semibold tabular-nums text-foreground">
+          <span className="font-semibold text-foreground tabular-nums">
             {court.openSlots}
           </span>
           <span>free</span>
           <span className="text-muted-foreground/60">/</span>
-          <span className="font-semibold tabular-nums text-foreground">
+          <span className="font-semibold text-foreground tabular-nums">
             {TOTAL_DAILY_SLOTS}
           </span>
           <span>slots</span>

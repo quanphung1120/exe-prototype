@@ -49,6 +49,7 @@ import type {
   Venue,
   VenueCourt,
   VenueCustomer,
+  VenuePin,
   VenueStats,
 } from "./types"
 
@@ -1023,6 +1024,25 @@ export function venueCourtToCourt(venue: Venue, court: VenueCourt): Court {
     freePct,
     lat: (venue.lat ?? HANOI_CENTRE.lat) + jitter(h),
     lng: (venue.lng ?? HANOI_CENTRE.lng) + jitter(h >>> 7),
+  }
+}
+
+/**
+ * Project a venue to a single {@link VenuePin} for the Find Courts map, resolving
+ * the same map-centre fallback as {@link venueCourtToCourt} (but with NO jitter —
+ * a branch pin sits at the venue's exact coordinates) so even a court-less
+ * branch still shows up at the right spot. (Discovery filtering — archived /
+ * unapproved — is applied by the caller, `catalogVenues`.)
+ */
+export function venueToPin(venue: Venue): VenuePin {
+  return {
+    id: venue.id,
+    name: venue.name,
+    ward: venue.ward,
+    province: venue.province,
+    rating: venue.rating,
+    lat: venue.lat ?? HANOI_CENTRE.lat,
+    lng: venue.lng ?? HANOI_CENTRE.lng,
   }
 }
 

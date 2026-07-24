@@ -34,6 +34,7 @@ import {
   type Streak,
   type User,
   type Venue,
+  type VenuePin,
 } from "@/lib/shared"
 
 /**
@@ -61,6 +62,8 @@ interface DataContextValue {
   user: User
   players: Player[]
   courts: Court[]
+  /** Every discoverable branch as one map pin (venue coords) for the Find Courts map. */
+  venuePins: VenuePin[]
   rooms: MatchRoom[]
   bookings: Booking[]
   /** Seed sessions (built from rooms + bookings) the SessionProvider hydrates. */
@@ -135,6 +138,7 @@ export function DataProvider({
       user: seed.user,
       players: seed.players,
       courts,
+      venuePins: seed.venuePins,
       rooms: seed.rooms,
       bookings: seed.bookings,
       sessions: seed.sessions,

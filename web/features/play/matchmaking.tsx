@@ -75,8 +75,13 @@ export function useMatchmaking() {
 export function MatchmakingDock() {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
-  const { search, userLevelForSport, cancelSearch, dismissSearch, openManager } =
-    useMatchmaking()
+  const {
+    search,
+    userLevelForSport,
+    cancelSearch,
+    dismissSearch,
+    openManager,
+  } = useMatchmaking()
   const { playerByInitials } = useData()
   const ready = search?.status === "ready"
   const partnerName = search?.partner

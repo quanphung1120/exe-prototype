@@ -202,7 +202,7 @@ export function VenueCourtsView({
         }
       >
         {courts.length ? (
-          <div className="rounded-2xl border border-border/60 overflow-hidden bg-card/50">
+          <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/50">
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow className="hover:bg-transparent">
@@ -238,7 +238,7 @@ export function VenueCourtsView({
                     <TableCell className="px-4 py-3 align-middle text-sm text-muted-foreground">
                       {court.surface || "—"}
                     </TableCell>
-                    <TableCell className="px-4 py-3 align-middle text-right font-heading text-sm font-semibold tabular-nums text-foreground">
+                    <TableCell className="px-4 py-3 text-right align-middle font-heading text-sm font-semibold text-foreground tabular-nums">
                       {formatVnd(court.pricePerHour)}
                     </TableCell>
                     <TableCell className="px-4 py-3 align-middle">
@@ -254,7 +254,7 @@ export function VenueCourtsView({
                         {stateLabel[court.state]}
                       </span>
                     </TableCell>
-                    <TableCell className="px-4 py-3 align-middle text-right">
+                    <TableCell className="px-4 py-3 text-right align-middle">
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
@@ -479,7 +479,7 @@ function CourtFormDialog({
               />
             </Field>
           </div>
-          <div className="flex justify-end gap-2 mt-2">
+          <div className="mt-2 flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
@@ -502,6 +502,8 @@ function CourtFormDialog({
 }
 
 /** Maps a `CourtState` to its `state.*` i18n key (the one non-slug case is `in-play` → `inPlay`). */
-function stateKey(state: CourtState): "available" | "inPlay" | "upcoming" | "maintenance" {
+function stateKey(
+  state: CourtState
+): "available" | "inPlay" | "upcoming" | "maintenance" {
   return state === "in-play" ? "inPlay" : state
 }

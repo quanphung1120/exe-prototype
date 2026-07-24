@@ -3,7 +3,16 @@
 import * as React from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { ArrowLeft, ArrowRight, Check, Plus, Store, Trash2 } from "lucide-react"
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  LocateFixed,
+  MapPin,
+  Plus,
+  Store,
+  Trash2,
+} from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -31,6 +40,9 @@ interface VenueDraft {
   sports: SportKey[]
   openFrom: string
   openTo: string
+  /** Map position (WGS84) — optional; set via geolocation or manual entry. */
+  lat?: number
+  lng?: number
 }
 
 interface BrandDraft {
@@ -86,13 +98,24 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
   const brandValid =
     brand.brandName.trim().length >= 2 && brand.managerName.trim().length >= 2
 
+  // A branch must have a map pin — both coordinates present and in valid WGS84
+  // range (set via current-location or manual entry).
+  const draftCoordsValid =
+    draft.lat !== undefined &&
+    draft.lng !== undefined &&
+    draft.lat >= -90 &&
+    draft.lat <= 90 &&
+    draft.lng >= -180 &&
+    draft.lng <= 180
+
   const draftValid =
     draft.name.trim().length >= 2 &&
     draft.ward.trim().length >= 1 &&
     draft.province.trim().length >= 1 &&
     draft.sports.length >= 1 &&
     TIME_RE.test(draft.openFrom) &&
-    TIME_RE.test(draft.openTo)
+    TIME_RE.test(draft.openTo) &&
+    draftCoordsValid
 
   const addBranch = () => {
     if (!draftValid) return
@@ -298,6 +321,50 @@ function BranchesStep({
   const tc = useTranslations("Common")
   const provinceCode = provinceCodeByName(draft.province)
   const wardOptions = wardsOf(provinceCode)
+  const [locating, setLocating] = React.useState(false)
+  // The two location methods are mutually exclusive — pick current-location OR
+  // manual coordinates, never both at once.
+  const [locMode, setLocMode] = React.useState<"current" | "manual">("current")
+
+  // "" → undefined so an empty field clears the coordinate rather than sending 0.
+  const parseCoord = (raw: string): number | undefined => {
+    const v = raw.trim()
+    if (v === "") return undefined
+    const n = Number(v)
+    return Number.isFinite(n) ? n : undefined
+  }
+
+  // Switching method starts that method fresh — drop whatever coordinate the
+  // other one set so the pin has exactly one source.
+  const switchLocMode = (m: "current" | "manual") => {
+    if (m === locMode) return
+    setLocMode(m)
+    setDraft((v) => ({ ...v, lat: undefined, lng: undefined }))
+  }
+
+  const useMyLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      toast.error(t("form.geoUnsupported"))
+      return
+    }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const round = (n: number) => Math.round(n * 1e6) / 1e6
+        setDraft((v) => ({
+          ...v,
+          lat: round(pos.coords.latitude),
+          lng: round(pos.coords.longitude),
+        }))
+        setLocating(false)
+      },
+      () => {
+        setLocating(false)
+        toast.error(t("form.geoError"))
+      },
+      { enableHighAccuracy: true, timeout: 10_000 }
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -384,6 +451,89 @@ function BranchesStep({
           </Field>
         </div>
         <Field>
+          <FieldLabel>{t("form.location")}</FieldLabel>
+          <p className="-mt-1 text-xs text-muted-foreground">
+            {t("form.locationHint")}
+          </p>
+          {/* Pick ONE method — current-location or manual coordinates. Switching
+              clears any coordinate the other method set, so there's a single
+              source of truth for the pin. */}
+          <div
+            role="radiogroup"
+            aria-label={t("form.location")}
+            className="flex w-fit items-center gap-0.5 rounded-full bg-muted/60 p-0.5"
+          >
+            {(["current", "manual"] as const).map((m) => {
+              const active = locMode === m
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => switchLocMode(m)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
+                    active
+                      ? "bg-card text-foreground shadow-sm ring-1 ring-foreground/5"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {t(`form.locationMode.${m}`)}
+                </button>
+              )
+            })}
+          </div>
+          {locMode === "current" ? (
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start rounded-full"
+                disabled={locating}
+                onClick={useMyLocation}
+              >
+                <LocateFixed />
+                {locating ? t("form.locating") : t("form.useCurrentLocation")}
+              </Button>
+              {draft.lat !== undefined && draft.lng !== undefined ? (
+                <p className="flex items-center gap-1 text-xs text-brand">
+                  <MapPin className="size-3.5" />
+                  {t("form.coordsSet")} · {draft.lat}, {draft.lng}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-5">
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel htmlFor="v-lat">{t("form.latitude")}</FieldLabel>
+                <Input
+                  id="v-lat"
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={draft.lat ?? ""}
+                  placeholder={t("form.latitudePlaceholder")}
+                  onChange={(e) => setField("lat", parseCoord(e.target.value))}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel htmlFor="v-lng">{t("form.longitude")}</FieldLabel>
+                <Input
+                  id="v-lng"
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  value={draft.lng ?? ""}
+                  placeholder={t("form.longitudePlaceholder")}
+                  onChange={(e) => setField("lng", parseCoord(e.target.value))}
+                />
+              </div>
+            </div>
+          )}
+        </Field>
+        <Field>
           <FieldLabel>{t("form.sports")}</FieldLabel>
           <div className="flex flex-wrap gap-2">
             {SPORTS.map((s) => {
@@ -466,8 +616,13 @@ function ReviewStep({
               <div className="flex items-center gap-2">
                 <span className="font-heading font-bold">{b.name}</span>
               </div>
-              <div className="text-muted-foreground">
-                {b.ward} · {b.province} · {b.openFrom}–{b.openTo}
+              <div className="flex items-center gap-1 text-muted-foreground">
+                <span>
+                  {b.ward} · {b.province} · {b.openFrom}–{b.openTo}
+                </span>
+                {b.lat !== undefined && b.lng !== undefined ? (
+                  <MapPin className="size-3 shrink-0 text-brand" />
+                ) : null}
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {b.sports.map((s) => (

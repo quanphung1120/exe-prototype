@@ -1,12 +1,7 @@
 "use client"
 
 import * as React from "react"
-import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  Lightbulb,
-} from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, Lightbulb } from "lucide-react"
 import { LogoMark } from "@/components/logo"
 
 import { Button } from "@/components/ui/button"
@@ -52,8 +47,9 @@ export function SkillsAssessmentView({
   )
   const [answers, setAnswers] = React.useState<DraftAnswers>({})
   const [submitted, setSubmitted] = React.useState(false)
-  const [completed, setCompleted] =
-    React.useState<PlayerAssessment | null>(null)
+  const [completed, setCompleted] = React.useState<PlayerAssessment | null>(
+    null
+  )
 
   // Pre-populate from any saved assessment so the user only needs to fill
   // in the missing sport rather than redo everything from scratch. The
@@ -170,9 +166,9 @@ export function SkillsAssessmentView({
       ...newResults,
     } as PlayerAssessment["results"]
 
-    const allSportsWithResults = (
-      ["badminton"] as AssessmentSport[]
-    ).filter((sport) => mergedResults[sport] !== undefined)
+    const allSportsWithResults = (["badminton"] as AssessmentSport[]).filter(
+      (sport) => mergedResults[sport] !== undefined
+    )
 
     const nextAssessment: PlayerAssessment = {
       version: 1,
@@ -198,110 +194,112 @@ export function SkillsAssessmentView({
         <ThemeToggle />
       </nav>
 
-      <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
-      <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col px-4 py-6 sm:px-6 sm:py-10">
-        {completed ? (
-          <CompletionScreen
-            assessment={completed}
-            nextPath={nextPath}
-            onEnter={() => router.replace(nextPath)}
-          />
-        ) : (
-          <>
-            <header className="flex flex-col gap-5">
-              <div className="flex items-center gap-3">
-                <div className="min-w-0">
-                  <h1 className="font-heading text-xl font-bold sm:text-2xl">
-                    {t("gate.title")}
-                  </h1>
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    {t("gate.requiredBadge")}
-                  </span>
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col px-4 py-6 sm:px-6 sm:py-10">
+          {completed ? (
+            <CompletionScreen
+              assessment={completed}
+              nextPath={nextPath}
+              onEnter={() => router.replace(nextPath)}
+            />
+          ) : (
+            <>
+              <header className="flex flex-col gap-5">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0">
+                    <h1 className="font-heading text-xl font-bold sm:text-2xl">
+                      {t("gate.title")}
+                    </h1>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      {t("gate.requiredBadge")}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <Stepper
-                steps={steps}
-                activeTab={activeTab}
-                selectedSports={selectedSports}
-                answers={answers}
-                onJump={goTo}
-              />
+                <Stepper
+                  steps={steps}
+                  activeTab={activeTab}
+                  selectedSports={selectedSports}
+                  answers={answers}
+                  onJump={goTo}
+                />
 
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="font-medium tabular-nums">
-                    {t("progress.step", {
-                      current: currentStepIndex + 1,
-                      total: steps.length,
-                    })}
-                  </span>
-                  {current ? (
-                    <span className="tabular-nums">
-                      {t("progress.answered", {
-                        answered: answeredCount,
-                        total: current.questions.length,
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-medium tabular-nums">
+                      {t("progress.step", {
+                        current: currentStepIndex + 1,
+                        total: steps.length,
                       })}
                     </span>
-                  ) : null}
+                    {current ? (
+                      <span className="tabular-nums">
+                        {t("progress.answered", {
+                          answered: answeredCount,
+                          total: current.questions.length,
+                        })}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-brand to-lime transition-[width] duration-500 ease-out"
+                      style={{ width: `${Math.max(progress, 4)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-brand to-lime transition-[width] duration-500 ease-out"
-                    style={{ width: `${Math.max(progress, 4)}%` }}
+              </header>
+
+              <main className="mt-7 flex-1">
+                {activeTab === "sports" ? (
+                  <SportsStep
+                    selectedSports={selectedSports}
+                    onToggle={(sport) => {
+                      setSubmitted(false)
+                      setSelectedSports((prev) =>
+                        prev.includes(sport)
+                          ? prev.filter((s) => s !== sport)
+                          : [...prev, sport]
+                      )
+                    }}
                   />
-                </div>
-              </div>
-            </header>
+                ) : current ? (
+                  <QuestionsStep
+                    key={current.sport}
+                    definition={current}
+                    answers={currentAnswers}
+                    submitted={submitted}
+                    onAnswer={setAnswer}
+                  />
+                ) : null}
+              </main>
 
-            <main className="mt-7 flex-1">
-              {activeTab === "sports" ? (
-                <SportsStep
-                  selectedSports={selectedSports}
-                  onToggle={(sport) => {
-                    setSubmitted(false)
-                    setSelectedSports((prev) =>
-                      prev.includes(sport)
-                        ? prev.filter((s) => s !== sport)
-                        : [...prev, sport]
-                    )
-                  }}
-                />
-              ) : current ? (
-                <QuestionsStep
-                  key={current.sport}
-                  definition={current}
-                  answers={currentAnswers}
-                  submitted={submitted}
-                  onAnswer={setAnswer}
-                />
-              ) : null}
-            </main>
-
-            <footer className="mt-8 flex items-center justify-between gap-3 border-t pt-5">
-              <Button
-                type="button"
-                variant="ghost"
-                className="rounded-full"
-                disabled={currentStepIndex === 0}
-                onClick={back}
-              >
-                <ArrowLeft className="size-4" />
-                {t("actions.back")}
-              </Button>
-              <Button
-                type="button"
-                className="rounded-full px-6"
-                disabled={activeTab === "sports" && selectedSports.length === 0}
-                onClick={next}
-              >
-                {isLastStep ? t("actions.complete") : t("actions.continue")}
-                {!isLastStep ? <ArrowRight className="size-4" /> : null}
-              </Button>
-            </footer>
-          </>
-        )}
-      </div>
+              <footer className="mt-8 flex items-center justify-between gap-3 border-t pt-5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="rounded-full"
+                  disabled={currentStepIndex === 0}
+                  onClick={back}
+                >
+                  <ArrowLeft className="size-4" />
+                  {t("actions.back")}
+                </Button>
+                <Button
+                  type="button"
+                  className="rounded-full px-6"
+                  disabled={
+                    activeTab === "sports" && selectedSports.length === 0
+                  }
+                  onClick={next}
+                >
+                  {isLastStep ? t("actions.complete") : t("actions.continue")}
+                  {!isLastStep ? <ArrowRight className="size-4" /> : null}
+                </Button>
+              </footer>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -354,7 +352,9 @@ function Stepper({
                   : done
                     ? "border-brand/25 bg-brand/5"
                     : "border-border bg-card/60",
-                reachable ? "hover:bg-muted/70" : "cursor-not-allowed opacity-60"
+                reachable
+                  ? "hover:bg-muted/70"
+                  : "cursor-not-allowed opacity-60"
               )}
             >
               <span
@@ -620,7 +620,7 @@ function CompletionScreen({
           return (
             <div
               key={sport}
-              className="flex items-center gap-3 rounded-3xl border border-border/50 bg-card/40 p-4 text-left shadow-sm backdrop-blur-sm opacity-60"
+              className="flex items-center gap-3 rounded-3xl border border-border/50 bg-card/40 p-4 text-left opacity-60 shadow-sm backdrop-blur-sm"
             >
               <span className="text-3xl grayscale">{SPORT_EMOJI[sport]}</span>
               <div className="min-w-0">
