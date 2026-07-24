@@ -42,14 +42,18 @@ export interface CourtInput {
   state?: VenueCourt["state"]
 }
 
-export interface VenueSetupInput extends Omit<VenueInput, "managerName"> {
+/** One branch's profile inside a setup-wizard payload — no courts (plan 020):
+ *  courts are added afterwards on the per-branch "Sân" screen. */
+export type BranchInput = Omit<VenueInput, "managerName">
+
+export interface VenueSetupInput {
   /** Brand name (thương hiệu) — only sent on first-time setup; ignored once
    *  the account already has a brand. */
   brandName?: string
   /** Required on first-time setup; reused from the account's existing branch
    *  (and so omittable) when adding another branch. */
   managerName?: string
-  courts: CourtInput[]
+  branches: BranchInput[]
 }
 
 export interface WalkInReservationInput {

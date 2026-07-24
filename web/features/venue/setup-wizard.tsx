@@ -16,20 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { formatVnd, SPORTS, type SportKey } from "@/features/dashboard/data"
+import { SPORTS, type SportKey } from "@/features/dashboard/data"
 import { SportTag } from "@/features/dashboard/shared"
 import { provisionVenue } from "@/features/venue/venue-actions"
 import { useRouter } from "@/i18n/navigation"
 import { PROVINCE_OPTIONS, provinceCodeByName, wardsOf } from "@/lib/vn-admin"
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
-
-interface CourtDraft {
-  name: string
-  sport: SportKey
-  surface: string
-  pricePerHour: number
-}
 
 interface VenueDraft {
   name: string
@@ -45,13 +38,24 @@ interface BrandDraft {
   managerName: string
 }
 
+const EMPTY_DRAFT: VenueDraft = {
+  name: "",
+  ward: "",
+  province: "",
+  sports: ["badminton"],
+  openFrom: "06:00",
+  openTo: "22:00",
+}
+
 /**
  * Guided new-account setup: on first-time setup, collect the account's brand
- * (thương hiệu) first, then the branch profile, then its courts, then
- * provision both (the API also seeds the player profile). Adding another
- * branch (`?branch=1`, `addingBranch`) skips the brand step — the account's
- * brand and manager already exist and are reused server-side. Lives outside
- * the dashboard layout so it can run before any venue exists.
+ * (thương hiệu) first, then a LIST of branches (chi nhánh) — courts are added
+ * afterwards on each branch's own "Sân" screen (plan 020), so a branch with no
+ * courts yet is a valid draft. Provisioning both also seeds the player
+ * profile. Adding another branch (`?branch=1`, `addingBranch`) skips the
+ * brand step — the account's brand and manager already exist and are reused
+ * server-side. Lives outside the dashboard layout so it can run before any
+ * venue exists.
  */
 export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
   const t = useTranslations("VenueSetup")
@@ -63,23 +67,16 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
     brandName: "",
     managerName: "",
   })
-  const [venue, setVenue] = React.useState<VenueDraft>({
-    name: "",
-    ward: "",
-    province: "",
-    sports: ["badminton"],
-    openFrom: "06:00",
-    openTo: "22:00",
-  })
-  const [courts, setCourts] = React.useState<CourtDraft[]>([])
+  const [branches, setBranches] = React.useState<VenueDraft[]>([])
+  const [draft, setDraft] = React.useState<VenueDraft>(EMPTY_DRAFT)
 
-  const setVenueField = <K extends keyof VenueDraft>(
+  const setDraftField = <K extends keyof VenueDraft>(
     key: K,
     value: VenueDraft[K]
-  ) => setVenue((v) => ({ ...v, [key]: value }))
+  ) => setDraft((v) => ({ ...v, [key]: value }))
 
   const toggleSport = (s: SportKey) =>
-    setVenue((v) => ({
+    setDraft((v) => ({
       ...v,
       sports: v.sports.includes(s)
         ? v.sports.filter((x) => x !== s)
@@ -89,31 +86,34 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
   const brandValid =
     brand.brandName.trim().length >= 2 && brand.managerName.trim().length >= 2
 
-  const venueValid =
-    venue.name.trim().length >= 2 &&
-    venue.ward.trim().length >= 1 &&
-    venue.province.trim().length >= 1 &&
-    venue.sports.length >= 1 &&
-    TIME_RE.test(venue.openFrom) &&
-    TIME_RE.test(venue.openTo)
+  const draftValid =
+    draft.name.trim().length >= 2 &&
+    draft.ward.trim().length >= 1 &&
+    draft.province.trim().length >= 1 &&
+    draft.sports.length >= 1 &&
+    TIME_RE.test(draft.openFrom) &&
+    TIME_RE.test(draft.openTo)
 
-  const addCourt = (court: CourtDraft) => setCourts((c) => [...c, court])
-  const removeCourt = (i: number) =>
-    setCourts((c) => c.filter((_, idx) => idx !== i))
+  const addBranch = () => {
+    if (!draftValid) return
+    setBranches((b) => [...b, { ...draft, name: draft.name.trim() }])
+    setDraft(EMPTY_DRAFT)
+  }
+  const removeBranch = (i: number) =>
+    setBranches((b) => b.filter((_, idx) => idx !== i))
 
   const submit = async () => {
     setSubmitting(true)
     try {
       const payload = addingBranch
-        ? { ...venue, courts }
+        ? { branches }
         : {
-            ...venue,
             brandName: brand.brandName,
             managerName: brand.managerName,
-            courts,
+            branches,
           }
       const venueId = await provisionVenue(payload)
-      toast.success(t("toast.done", { name: venue.name }))
+      toast.success(t("toast.done", { name: branches[0]?.name ?? "" }))
       router.replace(`/dashboard/venue/${venueId}`)
       router.refresh()
     } catch (e) {
@@ -125,16 +125,16 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
   }
 
   const stepKinds = addingBranch
-    ? (["venue", "courts", "review"] as const)
-    : (["brand", "venue", "courts", "review"] as const)
+    ? (["branches", "review"] as const)
+    : (["brand", "branches", "review"] as const)
   const steps = stepKinds.map((k) => t(`steps.${k}`))
   const currentKind = stepKinds[step]
   const canAdvance =
     currentKind === "brand"
       ? brandValid
-      : currentKind === "venue"
-        ? venueValid
-        : courts.length > 0
+      : currentKind === "branches"
+        ? branches.length > 0
+        : true
 
   return (
     <div className="w-full max-w-lg">
@@ -178,24 +178,20 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
       <div className="rounded-3xl bg-card p-5 ring-1 ring-foreground/5 dark:ring-foreground/10">
         {currentKind === "brand" ? (
           <BrandStep brand={brand} setBrand={setBrand} />
-        ) : currentKind === "venue" ? (
-          <VenueStep
-            venue={venue}
-            setField={setVenueField}
-            setVenue={setVenue}
+        ) : currentKind === "branches" ? (
+          <BranchesStep
+            draft={draft}
+            setField={setDraftField}
+            setDraft={setDraft}
             toggleSport={toggleSport}
-          />
-        ) : currentKind === "courts" ? (
-          <CourtsStep
-            venue={venue}
-            courts={courts}
-            onAdd={addCourt}
-            onRemove={removeCourt}
+            draftValid={draftValid}
+            branches={branches}
+            onAdd={addBranch}
+            onRemove={removeBranch}
           />
         ) : (
           <ReviewStep
-            venue={venue}
-            courts={courts}
+            branches={branches}
             brandName={addingBranch ? undefined : brand.brandName}
           />
         )}
@@ -226,7 +222,7 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
           <Button
             type="button"
             className="rounded-full"
-            disabled={submitting || courts.length === 0}
+            disabled={submitting || branches.length === 0}
             onClick={() => void submit()}
           >
             {submitting ? t("creating") : t("finish")}
@@ -277,172 +273,49 @@ function BrandStep({
   )
 }
 
-// ── Step 1: venue profile ─────────────────────────────────────────────────────
+// ── Step 1: branches (chi nhánh) — add one at a time, courts come later ──────
 
-function VenueStep({
-  venue,
+function BranchesStep({
+  draft,
   setField,
-  setVenue,
+  setDraft,
   toggleSport,
-}: {
-  venue: VenueDraft
-  setField: <K extends keyof VenueDraft>(key: K, value: VenueDraft[K]) => void
-  setVenue: React.Dispatch<React.SetStateAction<VenueDraft>>
-  toggleSport: (s: SportKey) => void
-}) {
-  const t = useTranslations("VenueSetup")
-  const tc = useTranslations("Common")
-  const provinceCode = provinceCodeByName(venue.province)
-  const wardOptions = wardsOf(provinceCode)
-  return (
-    <div className="flex flex-col gap-5">
-      <Field>
-        <FieldLabel htmlFor="v-name">{t("form.name")}</FieldLabel>
-        <Input
-          id="v-name"
-          value={venue.name}
-          autoComplete="off"
-          placeholder={t("form.namePlaceholder")}
-          onChange={(e) => setField("name", e.target.value)}
-        />
-      </Field>
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <Field>
-          <FieldLabel htmlFor="v-province">{t("form.province")}</FieldLabel>
-          <Select
-            value={provinceCode ?? ""}
-            onValueChange={(code) => {
-              const name =
-                PROVINCE_OPTIONS.find((p) => p.code === code)?.name ?? ""
-              setVenue((v) => ({ ...v, province: name, ward: "" }))
-            }}
-          >
-            <SelectTrigger id="v-province" className="w-full">
-              <SelectValue placeholder={t("form.provincePlaceholder")} />
-            </SelectTrigger>
-            <SelectContent>
-              {PROVINCE_OPTIONS.map((p) => (
-                <SelectItem key={p.code} value={p.code}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="v-ward">{t("form.ward")}</FieldLabel>
-          <Select
-            value={venue.ward}
-            onValueChange={(name) => setField("ward", name ?? "")}
-            disabled={wardOptions.length === 0}
-          >
-            <SelectTrigger id="v-ward" className="w-full">
-              <SelectValue placeholder={t("form.wardPlaceholder")} />
-            </SelectTrigger>
-            <SelectContent>
-              {wardOptions.map((w) => (
-                <SelectItem key={w.code} value={w.name}>
-                  {w.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-      </div>
-      <Field>
-        <FieldLabel>{t("form.sports")}</FieldLabel>
-        <div className="flex flex-wrap gap-2">
-          {SPORTS.map((s) => {
-            const on = venue.sports.includes(s.key)
-            return (
-              <Button
-                key={s.key}
-                type="button"
-                size="sm"
-                variant={on ? "default" : "outline"}
-                className="rounded-full"
-                onClick={() => toggleSport(s.key)}
-              >
-                {tc(`sports.${s.key}`)}
-              </Button>
-            )
-          })}
-        </div>
-      </Field>
-      <div className="grid grid-cols-2 gap-5">
-        <Field>
-          <FieldLabel htmlFor="v-from">{t("form.openFrom")}</FieldLabel>
-          <Input
-            id="v-from"
-            type="time"
-            value={venue.openFrom}
-            onChange={(e) => setField("openFrom", e.target.value)}
-          />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="v-to">{t("form.openTo")}</FieldLabel>
-          <Input
-            id="v-to"
-            type="time"
-            value={venue.openTo}
-            onChange={(e) => setField("openTo", e.target.value)}
-          />
-        </Field>
-      </div>
-    </div>
-  )
-}
-
-// ── Step 2: courts ────────────────────────────────────────────────────────────
-
-function CourtsStep({
-  venue,
-  courts,
+  draftValid,
+  branches,
   onAdd,
   onRemove,
 }: {
-  venue: VenueDraft
-  courts: CourtDraft[]
-  onAdd: (court: CourtDraft) => void
+  draft: VenueDraft
+  setField: <K extends keyof VenueDraft>(key: K, value: VenueDraft[K]) => void
+  setDraft: React.Dispatch<React.SetStateAction<VenueDraft>>
+  toggleSport: (s: SportKey) => void
+  draftValid: boolean
+  branches: VenueDraft[]
+  onAdd: () => void
   onRemove: (i: number) => void
 }) {
   const t = useTranslations("VenueSetup")
   const tc = useTranslations("Common")
-  const firstSport = venue.sports[0] ?? "badminton"
-  const [draft, setDraft] = React.useState<CourtDraft>({
-    name: "",
-    sport: firstSport,
-    surface: "",
-    pricePerHour: 300000,
-  })
-
-  const add = () => {
-    if (draft.name.trim().length < 1) return
-    onAdd({ ...draft, name: draft.name.trim() })
-    setDraft({ name: "", sport: firstSport, surface: "", pricePerHour: 300000 })
-  }
+  const provinceCode = provinceCodeByName(draft.province)
+  const wardOptions = wardsOf(provinceCode)
 
   return (
     <div className="flex flex-col gap-4">
-      {courts.length > 0 ? (
+      {branches.length > 0 ? (
         <ul className="flex flex-col divide-y divide-border">
-          {courts.map((c, i) => (
+          {branches.map((b, i) => (
             <li key={i} className="flex items-center gap-3 py-2.5">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate font-medium">{c.name}</span>
-                  <SportTag sport={c.sport} />
-                </div>
+                <div className="truncate font-medium">{b.name}</div>
                 <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                  {c.surface || "—"} · {formatVnd(c.pricePerHour)}
-                  {t("perHour")}
+                  {b.ward} · {b.province} · {b.openFrom}–{b.openTo}
                 </div>
               </div>
               <Button
                 size="icon-sm"
                 variant="ghost"
                 className="rounded-full text-muted-foreground hover:text-destructive"
-                aria-label={t("removeCourt")}
+                aria-label={t("removeBranch")}
                 onClick={() => onRemove(i)}
               >
                 <Trash2 />
@@ -452,71 +325,101 @@ function CourtsStep({
         </ul>
       ) : (
         <p className="rounded-2xl bg-muted/50 px-4 py-6 text-center text-sm text-muted-foreground">
-          {t("noCourtsYet")}
+          {t("noBranchesYet")}
         </p>
       )}
 
-      <div className="flex flex-col gap-3 rounded-2xl bg-muted/40 p-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="flex flex-col gap-5 rounded-2xl bg-muted/40 p-3">
+        <Field>
+          <FieldLabel htmlFor="v-name">{t("form.name")}</FieldLabel>
+          <Input
+            id="v-name"
+            value={draft.name}
+            autoComplete="off"
+            placeholder={t("form.namePlaceholder")}
+            onChange={(e) => setField("name", e.target.value)}
+          />
+        </Field>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor="c-name">{t("courtForm.name")}</FieldLabel>
-            <Input
-              id="c-name"
-              value={draft.name}
-              autoComplete="off"
-              placeholder={t("courtForm.namePlaceholder")}
-              onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-            />
-          </Field>
-          <Field>
-            <FieldLabel>{t("courtForm.sport")}</FieldLabel>
+            <FieldLabel htmlFor="v-province">{t("form.province")}</FieldLabel>
             <Select
-              value={draft.sport}
-              onValueChange={(v) =>
-                setDraft((d) => ({ ...d, sport: v as SportKey }))
-              }
+              value={provinceCode ?? ""}
+              onValueChange={(code) => {
+                const name =
+                  PROVINCE_OPTIONS.find((p) => p.code === code)?.name ?? ""
+                setDraft((v) => ({ ...v, province: name, ward: "" }))
+              }}
             >
-              <SelectTrigger className="w-full">
-                <SelectValue>{(v) => tc(`sports.${v as SportKey}`)}</SelectValue>
+              <SelectTrigger id="v-province" className="w-full">
+                <SelectValue placeholder={t("form.provincePlaceholder")} />
               </SelectTrigger>
               <SelectContent>
-                {SPORTS.map((s) => (
-                  <SelectItem key={s.key} value={s.key}>
-                    {tc(`sports.${s.key}`)}
+                {PROVINCE_OPTIONS.map((p) => (
+                  <SelectItem key={p.code} value={p.code}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="v-ward">{t("form.ward")}</FieldLabel>
+            <Select
+              value={draft.ward}
+              onValueChange={(name) => setField("ward", name ?? "")}
+              disabled={wardOptions.length === 0}
+            >
+              <SelectTrigger id="v-ward" className="w-full">
+                <SelectValue placeholder={t("form.wardPlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {wardOptions.map((w) => (
+                  <SelectItem key={w.code} value={w.name}>
+                    {w.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field>
+          <FieldLabel>{t("form.sports")}</FieldLabel>
+          <div className="flex flex-wrap gap-2">
+            {SPORTS.map((s) => {
+              const on = draft.sports.includes(s.key)
+              return (
+                <Button
+                  key={s.key}
+                  type="button"
+                  size="sm"
+                  variant={on ? "default" : "outline"}
+                  className="rounded-full"
+                  onClick={() => toggleSport(s.key)}
+                >
+                  {tc(`sports.${s.key}`)}
+                </Button>
+              )
+            })}
+          </div>
+        </Field>
+        <div className="grid grid-cols-2 gap-5">
           <Field>
-            <FieldLabel htmlFor="c-surface">{t("courtForm.surface")}</FieldLabel>
+            <FieldLabel htmlFor="v-from">{t("form.openFrom")}</FieldLabel>
             <Input
-              id="c-surface"
-              value={draft.surface}
-              autoComplete="off"
-              placeholder={t("courtForm.surfacePlaceholder")}
-              onChange={(e) =>
-                setDraft((d) => ({ ...d, surface: e.target.value }))
-              }
+              id="v-from"
+              type="time"
+              value={draft.openFrom}
+              onChange={(e) => setField("openFrom", e.target.value)}
             />
           </Field>
           <Field>
-            <FieldLabel htmlFor="c-price">{t("courtForm.price")}</FieldLabel>
+            <FieldLabel htmlFor="v-to">{t("form.openTo")}</FieldLabel>
             <Input
-              id="c-price"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={10000}
-              value={String(draft.pricePerHour)}
-              onChange={(e) =>
-                setDraft((d) => ({
-                  ...d,
-                  pricePerHour: Math.max(0, Number(e.target.value) || 0),
-                }))
-              }
+              id="v-to"
+              type="time"
+              value={draft.openTo}
+              onChange={(e) => setField("openTo", e.target.value)}
             />
           </Field>
         </div>
@@ -525,62 +428,52 @@ function CourtsStep({
           variant="outline"
           size="sm"
           className="self-start rounded-full"
-          disabled={draft.name.trim().length < 1}
-          onClick={add}
+          disabled={!draftValid}
+          onClick={onAdd}
         >
           <Plus />
-          {t("addCourt")}
+          {t("addBranch")}
         </Button>
       </div>
     </div>
   )
 }
 
-// ── Step 3: review ────────────────────────────────────────────────────────────
+// ── Step 2: review ────────────────────────────────────────────────────────────
 
 function ReviewStep({
-  venue,
-  courts,
+  branches,
   brandName,
 }: {
-  venue: VenueDraft
-  courts: CourtDraft[]
+  branches: VenueDraft[]
   brandName?: string
 }) {
   const t = useTranslations("VenueSetup")
   return (
     <div className="flex flex-col gap-4 text-sm">
-      <div>
-        {brandName ? (
-          <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase">
-            {brandName}
-          </div>
-        ) : null}
-        <div className="font-heading text-lg font-bold">{venue.name}</div>
-        <div className="text-muted-foreground">
-          {venue.ward} · {venue.province} · {venue.openFrom}–{venue.openTo}
+      {brandName ? (
+        <div className="text-xs font-semibold text-muted-foreground uppercase">
+          {brandName}
         </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {venue.sports.map((s) => (
-            <SportTag key={s} sport={s} />
-          ))}
-        </div>
-      </div>
+      ) : null}
       <div>
         <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase">
-          {t("review.courts", { count: courts.length })}
+          {t("review.branches", { count: branches.length })}
         </div>
         <ul className="flex flex-col divide-y divide-border">
-          {courts.map((c, i) => (
-            <li key={i} className="flex items-center justify-between py-2">
-              <span className="flex items-center gap-2">
-                <span className="font-medium">{c.name}</span>
-                <SportTag sport={c.sport} />
-              </span>
-              <span className="text-muted-foreground tabular-nums">
-                {formatVnd(c.pricePerHour)}
-                {t("perHour")}
-              </span>
+          {branches.map((b, i) => (
+            <li key={i} className="py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="font-heading font-bold">{b.name}</span>
+              </div>
+              <div className="text-muted-foreground">
+                {b.ward} · {b.province} · {b.openFrom}–{b.openTo}
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {b.sports.map((s) => (
+                  <SportTag key={s} sport={s} />
+                ))}
+              </div>
             </li>
           ))}
         </ul>

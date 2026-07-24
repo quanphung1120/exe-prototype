@@ -1170,19 +1170,18 @@
   },
   "VenueSetup": {
     "metaTitle": "Set up your venue · SportMatch AI",
-    "metaDescription": "Create your venue and its courts to start taking bookings from players.",
+    "metaDescription": "Create your venue's branches to start taking bookings from players.",
     "title": "Set up your venue",
     "subtitle": "A few steps to get your venue ready to take bookings.",
     "steps": {
       "brand": "Brand",
-      "venue": "Venue",
-      "courts": "Courts",
+      "branches": "Branches",
       "review": "Review"
     },
     "form": {
       "brandName": "Brand name",
       "brandNamePlaceholder": "e.g. ABC Badminton System",
-      "name": "Venue name",
+      "name": "Branch name",
       "namePlaceholder": "e.g. Cầu Giấy Sports Hall",
       "ward": "Ward / Commune",
       "wardPlaceholder": "Select ward / commune",
@@ -1194,21 +1193,12 @@
       "manager": "Manager",
       "managerPlaceholder": "Manager name"
     },
-    "courtForm": {
-      "name": "Court name",
-      "namePlaceholder": "e.g. Court 1",
-      "sport": "Sport",
-      "surface": "Surface",
-      "surfacePlaceholder": "e.g. Sprung timber",
-      "price": "Price per hour (VND)"
-    },
-    "addCourt": "Add court",
-    "removeCourt": "Remove court",
-    "noCourtsYet": "No courts yet. Add at least one to continue.",
-    "perHour": "/hr",
+    "addBranch": "Add branch",
+    "removeBranch": "Remove branch",
+    "noBranchesYet": "No branches yet. Add at least one to continue.",
     "review": {
-      "courts": "{count} courts",
-      "note": "You can edit the venue and courts anytime after creating."
+      "branches": "{count} branches",
+      "note": "You can add courts and edit each branch anytime after creating."
     },
     "back": "Back",
     "next": "Continue",

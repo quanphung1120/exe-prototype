@@ -80,14 +80,26 @@ export interface VenueInput {
   archived?: boolean
 }
 
-/** A setup-wizard payload: the venue profile plus its initial courts. */
-export interface VenueSetupInput
-  extends Omit<VenueInput, "managerName">,
-    Partial<Pick<VenueInput, "managerName">> {
-  courts: CourtInput[]
+/** One branch's profile inside a setup-wizard payload — no courts (plan 020):
+ *  courts are added afterwards on the per-branch "Sân" screen. */
+export type BranchInput = Omit<
+  VenueInput,
+  "managerName" | "ownerId" | "brandId" | "image" | "description"
+>
+
+/** A setup-wizard payload: the account's brand (first time only) plus a list
+ *  of branches (chi nhánh) to provision under it. */
+export interface VenueSetupInput {
   /** Brand name (thương hiệu) — only used on first-time setup; ignored once the
    *  account already has a brand (ensureBrand is idempotent). */
   brandName?: string
+  /** Required on first-time setup; reused from the account's existing branch
+   *  (and so omittable) when adding another branch. */
+  managerName?: string
+  /** Brand image/description — only used on first-time setup (ensureBrand). */
+  image?: string
+  description?: string
+  branches: BranchInput[]
 }
 
 export interface CourtInput {
@@ -620,49 +632,47 @@ export class VenuesService {
   }
 
   /**
-   * Provision a venue branch from the setup wizard: ensure the account's brand
-   * (created from this branch's profile on the first call, reused after), create
-   * the venue under it (owned by `userId`, brand denormalized onto the venue),
-   * add each court, seed the account's player profile so it has a bookable
-   * identity from day one, and backfill demo booking history so the new
-   * Insights heatmap isn't a wall of zeros on day one. No longer
-   * one-per-account — an account's brand may hold many branches.
+   * Provision one or more venue branches from the setup wizard: ensure the
+   * account's brand (created from the first branch's name on the first call,
+   * reused after), create each branch under it (owned by `userId`, brand
+   * denormalized onto the venue), and seed the account's player profile so it
+   * has a bookable identity from day one. Branches start with zero courts
+   * (plan 020) — added afterwards on the per-branch "Sân" screen — so there's
+   * no booking history to backfill yet; `catalogCourts` already excludes a
+   * court-less/pending-approval branch from discovery until then. Not a
+   * transaction: if a later branch in the loop fails, earlier ones in this
+   * call remain created (acceptable for this prototype).
    */
   async provisionVenue(
     userId: string,
     input: VenueSetupInput
   ): Promise<VenueSeed> {
     await this.ensureSeeded()
-    const branches = await this.myBranches(userId)
-    const managerName = input.managerName ?? branches[0]?.manager.name
+    const existing = await this.myBranches(userId)
+    const managerName = input.managerName ?? existing[0]?.manager.name
     if (!managerName) {
       throw new BadRequestException(
         "managerName is required for the first branch"
       )
     }
     const brand = await this.brands.ensureBrand(userId, {
-      name: input.brandName ?? input.name,
+      name: input.brandName ?? input.branches[0].name,
       image: input.image,
       description: input.description,
     })
-    const info = await this.createVenue({
-      ...input,
-      managerName,
-      ownerId: userId,
-      brandId: brand.id,
-    })
-    const courts: VenueCourt[] = []
-    for (const court of input.courts) {
-      courts.push(await this.addCourt(info.id, court))
+    const created: VenueInfo[] = []
+    for (const branch of input.branches) {
+      created.push(
+        await this.createVenue({
+          ...branch,
+          managerName,
+          ownerId: userId,
+          brandId: brand.id,
+        })
+      )
     }
     await this.profiles.getProfile(userId)
-    await this.bookings.seedHistoricalBookings(
-      info.id,
-      courts,
-      input.openFrom,
-      input.openTo
-    )
-    return this.venueBundle(info.id)
+    return this.venueBundle(created[0].id)
   }
 
   // ── Court mutations (scoped to a venue) ──────────────────────────────────────

@@ -1,4 +1,4 @@
-import { OmitType, PartialType } from "@nestjs/mapped-types"
+import { PartialType } from "@nestjs/mapped-types"
 import { Type } from "class-transformer"
 import {
   ArrayMinSize,
@@ -101,21 +101,51 @@ export class VenuePatchDto extends PartialType(VenueInputDto) {
 }
 
 /**
- * The guided setup-wizard payload: the venue profile plus its initial courts.
- * `managerName` is omitted from the base and re-declared optional (rather than
- * inherited) — TS forbids a subclass narrowing a required property to
- * optional in place, so `OmitType` + a fresh declaration is the clean way to
- * loosen it here without touching `VenueInputDto`'s other consumers.
+ * One branch's profile inside a setup-wizard payload — no courts (plan 020):
+ * courts are added afterwards on the per-branch "Sân" screen, so a freshly
+ * provisioned branch is a valid, court-less draft.
  */
-export class VenueSetupDto extends OmitType(VenueInputDto, [
-  "managerName",
-] as const) {
+export class BranchInputDto {
+  @IsString()
+  @Length(2, 60)
+  name: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  image?: string
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  description?: string
+
+  @IsString()
+  @Length(1, 60)
+  ward: string
+
+  @IsString()
+  @Length(1, 60)
+  province: string
+
   @IsArray()
   @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => CourtInputDto)
-  courts: CourtInputDto[]
+  @IsIn(SPORTS, { each: true })
+  sports: SportKey[]
 
+  @Matches(HHMM, { message: "openFrom: Expected HH:MM" })
+  openFrom: string
+
+  @Matches(HHMM, { message: "openTo: Expected HH:MM" })
+  openTo: string
+}
+
+/**
+ * The guided setup-wizard payload: the account's brand (thương hiệu, first
+ * time only) plus a LIST of branches (chi nhánh) to provision under it. Each
+ * branch starts with zero courts — added later on the "Sân" screen.
+ */
+export class VenueSetupDto {
   /** Brand name (thương hiệu) — only sent on first-time setup; ignored once the
    *  account already has a brand (ensureBrand is idempotent). */
   @IsOptional()
@@ -129,6 +159,12 @@ export class VenueSetupDto extends OmitType(VenueInputDto, [
   @IsString()
   @Length(2, 60)
   managerName?: string
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => BranchInputDto)
+  branches: BranchInputDto[]
 }
 
 export class CourtInputDto {

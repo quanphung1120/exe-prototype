@@ -1170,19 +1170,18 @@
   },
   "VenueSetup": {
     "metaTitle": "Thiết lập sân · SportMatch AI",
-    "metaDescription": "Tạo địa điểm và các sân của bạn để bắt đầu nhận đặt sân từ người chơi.",
+    "metaDescription": "Tạo các chi nhánh của địa điểm để bắt đầu nhận đặt sân từ người chơi.",
     "title": "Thiết lập sân của bạn",
     "subtitle": "Vài bước để địa điểm của Quý khách sẵn sàng nhận đặt sân.",
     "steps": {
       "brand": "Thương hiệu",
-      "venue": "Địa điểm",
-      "courts": "Sân",
+      "branches": "Chi nhánh",
       "review": "Xác nhận"
     },
     "form": {
       "brandName": "Tên thương hiệu",
       "brandNamePlaceholder": "VD: Hệ thống sân Cầu Lông ABC",
-      "name": "Tên địa điểm",
+      "name": "Tên chi nhánh",
       "namePlaceholder": "VD: Nhà thi đấu Cầu Giấy",
       "ward": "Phường / Xã",
       "wardPlaceholder": "Chọn phường / xã",
@@ -1194,21 +1193,12 @@
       "manager": "Người quản lý",
       "managerPlaceholder": "Tên người quản lý"
     },
-    "courtForm": {
-      "name": "Tên sân",
-      "namePlaceholder": "VD: Sân 1",
-      "sport": "Môn",
-      "surface": "Mặt sân",
-      "surfacePlaceholder": "VD: Sàn gỗ lò xo",
-      "price": "Giá mỗi giờ (VND)"
-    },
-    "addCourt": "Thêm sân",
-    "removeCourt": "Xóa sân",
-    "noCourtsYet": "Chưa có sân nào. Thêm ít nhất một sân để tiếp tục.",
-    "perHour": "/giờ",
+    "addBranch": "Thêm chi nhánh",
+    "removeBranch": "Xóa chi nhánh",
+    "noBranchesYet": "Chưa có chi nhánh nào. Thêm ít nhất một chi nhánh để tiếp tục.",
     "review": {
-      "courts": "{count} sân",
-      "note": "Sau khi tạo, Quý khách có thể chỉnh sửa địa điểm và sân bất cứ lúc nào."
+      "branches": "{count} chi nhánh",
+      "note": "Sau khi tạo, Quý khách có thể thêm sân và chỉnh sửa từng chi nhánh bất cứ lúc nào."
     },
     "back": "Quay lại",
     "next": "Tiếp tục",
