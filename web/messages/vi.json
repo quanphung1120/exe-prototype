@@ -481,15 +481,7 @@
     "prev": "Trước",
     "next": "Sau",
     "more": "+{count} nữa",
-    "weekdaysShort": [
-      "T2",
-      "T3",
-      "T4",
-      "T5",
-      "T6",
-      "T7",
-      "CN"
-    ],
+    "weekdaysShort": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
     "monthsShort": [
       "Th1",
       "Th2",
@@ -552,6 +544,8 @@
     "manage": "Quản lý",
     "rebook": "Đặt lại",
     "addTeam": "Tìm đồng đội",
+    "messageVenue": "Nhắn tin cho sân",
+    "messageVenueFailed": "Không mở được cuộc trò chuyện với sân",
     "courtLabel": "Sân {n}",
     "cancel": "Hủy đặt sân",
     "cancelTitle": "Hủy lượt đặt này?",
@@ -588,7 +582,9 @@
     "timeoutBody": "Việc xác nhận đang mất nhiều thời gian hơn dự kiến. Vui lòng kiểm tra lại trong Đặt sân của tôi sau ít phút.",
     "errorTitle": "Không thể kiểm tra trạng thái",
     "errorBody": "Đã có lỗi khi kiểm tra thanh toán. Vui lòng kiểm tra lại trong Đặt sân của tôi.",
-    "viewBookings": "Xem đặt sân của tôi"
+    "viewBookings": "Xem đặt sân của tôi",
+    "messageVenue": "Nhắn tin cho sân",
+    "messageVenueFailed": "Không mở được cuộc trò chuyện với sân"
   },
   "Landing": {
     "hero": {
@@ -1093,7 +1089,16 @@
     "online": "Trực tuyến",
     "offline": "Ngoại tuyến",
     "loading": "Đang kết nối trò chuyện…",
-    "unavailable": "Trò chuyện hiện không khả dụng."
+    "unavailable": "Trò chuyện hiện không khả dụng.",
+    "newChat": "Cuộc trò chuyện mới",
+    "searchPlaceholder": "Tìm theo tên hoặc email…",
+    "searchHint": "Nhập ít nhất 3 ký tự",
+    "noResults": "Không tìm thấy người dùng nào",
+    "groupNamePlaceholder": "Tên nhóm",
+    "create": "Bắt đầu trò chuyện",
+    "creating": "Đang tạo…",
+    "createFailed": "Không tạo được cuộc trò chuyện, thử lại nhé",
+    "venueChat": "Nhắn tin với sân"
   },
   "Notifications": {
     "title": "Thông báo",
@@ -1129,6 +1134,10 @@
     "schedule": {
       "label": "Lịch sân",
       "caption": "Sân × giờ, trong một màn hình"
+    },
+    "messages": {
+      "label": "Tin nhắn",
+      "caption": "Trò chuyện với người chơi của bạn"
     },
     "analytics": {
       "label": "Phân tích",
@@ -1497,6 +1506,12 @@
       "approved": "Đã duyệt lượt đặt của {name}",
       "declined": "Đã từ chối yêu cầu của {name}"
     }
+  },
+  "VenueMessages": {
+    "metaTitle": "Tin nhắn",
+    "metaDescription": "Trò chuyện với người chơi đã đặt sân của bạn",
+    "title": "Tin nhắn",
+    "subtitle": "Trò chuyện với những người chơi đã đặt sân của bạn."
   },
   "VenueAnalytics": {
     "metaTitle": "Phân tích · Sân",

@@ -2,10 +2,12 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import { Check, Loader2, TriangleAlert } from "lucide-react"
+import { Check, Loader2, MessageSquare, TriangleAlert } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { useRouter } from "@/i18n/navigation"
+import { openVenueChat } from "@/features/chat/stream-actions"
 import { formatVndFull } from "@/features/dashboard/data"
 import { getPaymentStatus } from "@/features/play/payment-actions"
 
@@ -77,6 +79,18 @@ export function PaymentReturnView({ bookingId }: { bookingId: string }) {
 
   const goToBookings = () => router.push("/dashboard/bookings")
 
+  const [opening, startOpening] = React.useTransition()
+  const messageVenue = () => {
+    startOpening(async () => {
+      try {
+        const { id } = await openVenueChat({ bookingId })
+        router.push(`/dashboard/chat?channel=${id}`)
+      } catch {
+        toast.error(t("messageVenueFailed"))
+      }
+    })
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 py-16 text-center">
       {phase === "waiting" ? (
@@ -127,9 +141,20 @@ export function PaymentReturnView({ bookingId }: { bookingId: string }) {
               </div>
             </div>
           ) : null}
-          <Button className="rounded-full" onClick={goToBookings}>
-            {t("viewBookings")}
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
+            <Button className="rounded-full" onClick={goToBookings}>
+              {t("viewBookings")}
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              disabled={opening}
+              onClick={messageVenue}
+            >
+              <MessageSquare />
+              {t("messageVenue")}
+            </Button>
+          </div>
         </>
       ) : (
         <>

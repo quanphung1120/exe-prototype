@@ -655,6 +655,7 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
     status: bookingStatusOf(s),
     withPlayers: rosterToBookingPlayers(s.roster),
     roomId: s.listed ? s.id : undefined,
+    venueId: s.venueId,
     pricePerHour: s.pricePerHour,
     declineReason: s.cancelReason,
     refunded: s.refunded,

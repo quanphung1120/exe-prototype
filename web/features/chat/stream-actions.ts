@@ -74,3 +74,42 @@ export async function freezeRoomChat(roomId: string): Promise<void> {
     body: { channelId: roomChannelId(roomId) },
   })
 }
+
+// ── Community chat: user search, DMs/groups, venue chat ──────────────────
+
+export interface FoundUser {
+  id: string
+  name: string
+  image?: string
+  /** Present only when the search query was an exact email match. */
+  email?: string
+}
+
+/** Find real users by name (partial) or email (exact). */
+export async function searchUsers(q: string): Promise<FoundUser[]> {
+  return apiFetch<FoundUser[]>(
+    `/api/stream/users/search?q=${encodeURIComponent(q)}`
+  )
+}
+
+/** Start a DM (one member) or a named group chat (2+). Returns the channel id. */
+export async function createConversation(input: {
+  memberIds: string[]
+  name?: string
+}): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>("/api/stream/conversations", {
+    method: "POST",
+    body: input,
+  })
+}
+
+/** Open the caller's chat with a venue (needs a completed booking there). */
+export async function openVenueChat(input: {
+  venueId?: string
+  bookingId?: string
+}): Promise<{ id: string }> {
+  return apiFetch<{ id: string }>("/api/stream/venue-chats", {
+    method: "POST",
+    body: input,
+  })
+}

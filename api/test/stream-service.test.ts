@@ -13,6 +13,9 @@ import {
   roomChannelId,
 } from "../src/features/stream/stream.service.js"
 import { StreamSeedState } from "../src/features/stream/stream-seed.schema.js"
+import { ClerkDirectoryService } from "../src/features/stream/clerk-directory.service.js"
+import { Venue } from "../src/features/venues/venue.schema.js"
+import { Booking } from "../src/features/bookings/booking.schema.js"
 
 /**
  * StreamService signs per-user tokens and seeds each user's demo Stream data on
@@ -130,6 +133,21 @@ async function makeService(
       StreamService,
       { provide: STREAM_CLIENT, useValue: clientMock },
       { provide: getModelToken(StreamSeedState.name), useValue: modelMock },
+      // Unused by these tests (room-chat lifecycle only) — the community-chat
+      // methods (createConversation/openVenueChat) are covered separately in
+      // stream-community.test.ts.
+      {
+        provide: getModelToken(Venue.name),
+        useValue: { findOne: () => ({ lean: () => null }) },
+      },
+      {
+        provide: getModelToken(Booking.name),
+        useValue: {
+          findOne: () => ({ lean: () => null }),
+          exists: () => Promise.resolve(null),
+        },
+      },
+      { provide: ClerkDirectoryService, useValue: {} },
     ],
   }).compile()
   return moduleRef.get(StreamService)

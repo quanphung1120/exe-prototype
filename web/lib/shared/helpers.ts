@@ -655,6 +655,7 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
     status: bookingStatusOf(s),
     withPlayers: rosterToBookingPlayers(s.roster),
     roomId: s.listed ? s.id : undefined,
+    venueId: s.venueId,
     pricePerHour: s.pricePerHour,
     declineReason: s.cancelReason,
     refunded: s.refunded,
@@ -1203,7 +1204,9 @@ export function computeSportMix(reservations: Reservation[]): SportMixPoint[] {
 }
 
 /** Real app-vs-walk-in split of live bookings, from a venue's own reservations. */
-export function computeChannelMix(reservations: Reservation[]): ChannelMixPoint[] {
+export function computeChannelMix(
+  reservations: Reservation[]
+): ChannelMixPoint[] {
   const live = reservations.filter(isLiveBooking)
   const total = live.length
   return BOOKING_SOURCES.map((source) => {

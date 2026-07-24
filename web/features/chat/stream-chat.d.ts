@@ -6,5 +6,7 @@ import "stream-chat"
 declare module "stream-chat" {
   interface CustomChannelData {
     name?: string
+    /** Owning venue of a player↔venue chat (absent on all other channels). */
+    venueId?: string
   }
 }

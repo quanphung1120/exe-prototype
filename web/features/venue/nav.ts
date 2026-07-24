@@ -1,12 +1,15 @@
-import { BarChart3, CalendarRange, LayoutDashboard, Users } from "lucide-react"
+import {
+  BarChart3,
+  CalendarRange,
+  LayoutDashboard,
+  MessageSquare,
+  Users,
+} from "lucide-react"
 
 import type { NavItem } from "@/features/dashboard/nav"
 
 export type VenueSectionKey =
-  | "command"
-  | "schedule"
-  | "analytics"
-  | "customers"
+  "command" | "schedule" | "messages" | "analytics" | "customers"
 
 /**
  * Prefix shared by every venue route. Used only for *detecting* the venue
@@ -41,6 +44,13 @@ export function venueNav(venueId: string): NavItem<VenueSectionKey>[] {
       label: "Schedule",
       icon: CalendarRange,
       caption: "Grid and incoming requests",
+    },
+    {
+      key: "messages",
+      href: `${base}/messages`,
+      label: "Messages",
+      icon: MessageSquare,
+      caption: "Chat with your players",
     },
     {
       key: "analytics",

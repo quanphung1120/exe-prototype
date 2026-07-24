@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -6,9 +7,13 @@ import {
   NotFoundException,
 } from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
+import { createHash, randomUUID } from "node:crypto"
 import type { Model } from "mongoose"
 import type { StreamChat } from "stream-chat"
 
+import { Booking, type BookingDocument } from "../bookings/booking.schema.js"
+import { Venue, type VenueDocument } from "../venues/venue.schema.js"
+import { ClerkDirectoryService } from "./clerk-directory.service.js"
 import {
   StreamSeedState,
   type StreamSeedStateDocument,
@@ -19,6 +24,8 @@ import {
 declare module "stream-chat" {
   interface CustomChannelData {
     name?: string
+    /** Owning venue of a player↔venue chat (absent on all other channels). */
+    venueId?: string
   }
 }
 
@@ -35,6 +42,14 @@ export const demoChannelId = (chatId: string, userId: string) =>
 
 /** Channel id for a room's real chat — mirrors the web's `roomChannelId`. */
 export const roomChannelId = (roomId: string) => `room-${roomId}`
+
+/** Deterministic DM channel id for a user pair (order-independent). */
+export const dmChannelId = (a: string, b: string) =>
+  `dm-${createHash("sha256").update([a, b].sort().join(":")).digest("hex").slice(0, 40)}`
+
+/** Deterministic per-(player, venue) chat channel id. */
+export const venueChannelId = (venueId: string, userId: string) =>
+  `venue-${createHash("sha256").update(`${venueId}:${userId}`).digest("hex").slice(0, 40)}`
 
 // The three mock players whose demo channels every new user is seeded with.
 // Their ids/names mirror the first entries of MATCH_SUGGESTIONS (p1/p2/p3).
@@ -88,7 +103,12 @@ export class StreamService {
   constructor(
     @Inject(STREAM_CLIENT) private readonly client: StreamChat,
     @InjectModel(StreamSeedState.name)
-    private readonly seeds: Model<StreamSeedStateDocument>
+    private readonly seeds: Model<StreamSeedStateDocument>,
+    @InjectModel(Venue.name) private readonly venues: Model<VenueDocument>,
+    @InjectModel(Booking.name)
+    private readonly bookings: Model<BookingDocument>,
+    @Inject(ClerkDirectoryService)
+    private readonly directory: ClerkDirectoryService
   ) {}
 
   /**
@@ -285,5 +305,129 @@ export class StreamService {
     await this.client
       .channel("messaging", channelId)
       .updatePartial({ set: { frozen: true } })
+  }
+
+  // ── Community chat: DMs/groups + venue chat ──────────────────────────────
+  // Every real user chat any user can start with any other real user (found
+  // via ClerkDirectoryService), plus a player's channel with a venue's real
+  // owner account — gated on a paid booking there. Never mixes in mock/demo
+  // identities.
+
+  /**
+   * Start (or reopen) a DM with one other user, or a named group chat with
+   * several. `channel.create()` is idempotent get-or-create, so calling this
+   * again with the same member(s) is safe and lands in the same channel.
+   */
+  async createConversation(
+    userId: string,
+    input: { memberIds: string[]; name?: string }
+  ): Promise<{ id: string }> {
+    const memberIds = [...new Set(input.memberIds)].filter(
+      (id) => id !== userId
+    )
+    if (!memberIds.length) {
+      throw new BadRequestException("Chọn ít nhất một người để trò chuyện")
+    }
+
+    const users = await this.directory.getMany(memberIds)
+    if (users.length !== memberIds.length) {
+      throw new NotFoundException("Không tìm thấy người dùng")
+    }
+
+    await this.client.upsertUsers([
+      { id: userId },
+      ...users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        ...(u.image ? { image: u.image } : {}),
+      })),
+    ])
+
+    if (memberIds.length === 1) {
+      const id = dmChannelId(userId, memberIds[0])
+      const channel = this.client.channel("messaging", id, {
+        created_by_id: userId,
+        members: [userId, memberIds[0]],
+      })
+      await channel.create()
+      return { id }
+    }
+
+    if (!input.name) {
+      throw new BadRequestException("Nhóm cần có tên")
+    }
+    const id = `group-${randomUUID().replaceAll("-", "")}`
+    const channel = this.client.channel("messaging", id, {
+      name: input.name,
+      created_by_id: userId,
+      members: [userId, ...memberIds],
+    })
+    await channel.create()
+    return { id }
+  }
+
+  /**
+   * Open (get-or-create) the caller's persistent chat with a venue's real
+   * owner — gated on a paid (or refunded) booking there. Resolves the venue
+   * either directly (`venueId`) or via one of the caller's own bookings
+   * (`bookingId`, which wins if both are given).
+   */
+  async openVenueChat(
+    userId: string,
+    input: { venueId?: string; bookingId?: string }
+  ): Promise<{ id: string }> {
+    let venueId = input.venueId
+
+    if (input.bookingId) {
+      const booking = await this.bookings
+        .findOne({ bookingId: input.bookingId })
+        .lean()
+      if (!booking || booking.userId !== userId) {
+        throw new NotFoundException("Không tìm thấy lượt đặt sân")
+      }
+      venueId = booking.venueId
+    } else if (!venueId) {
+      throw new BadRequestException("Thiếu venueId hoặc bookingId")
+    }
+
+    const venue = await this.venues.findOne({ venueId }).lean()
+    if (!venue) throw new NotFoundException("Không tìm thấy sân")
+    if (!venue.ownerId) {
+      throw new BadRequestException("Sân này chưa hỗ trợ nhắn tin")
+    }
+    if (userId === venue.ownerId) {
+      throw new BadRequestException("Bạn là chủ sân này")
+    }
+
+    const eligible = await this.bookings.exists({
+      userId,
+      venueId,
+      paymentStatus: { $in: ["paid", "refunded", "partial_refund"] },
+    })
+    if (!eligible) {
+      throw new ForbiddenException(
+        "Bạn cần hoàn tất một lượt đặt sân trước khi nhắn tin với sân"
+      )
+    }
+
+    const owner = await this.directory.getOne(venue.ownerId)
+    await this.client.upsertUsers([
+      { id: userId },
+      {
+        id: venue.ownerId,
+        name: owner?.name ?? venue.info.name,
+        ...(owner?.image ? { image: owner.image } : {}),
+      },
+    ])
+
+    const id = venueChannelId(venueId, userId)
+    const channel = this.client.channel("messaging", id, {
+      name: venue.info.name,
+      venueId,
+      created_by_id: userId,
+      members: [userId, venue.ownerId],
+    })
+    await channel.create()
+    return { id }
   }
 }

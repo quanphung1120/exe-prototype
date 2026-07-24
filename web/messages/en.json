@@ -481,15 +481,7 @@
     "prev": "Previous",
     "next": "Next",
     "more": "+{count} more",
-    "weekdaysShort": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ],
+    "weekdaysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     "monthsShort": [
       "Jan",
       "Feb",
@@ -552,6 +544,8 @@
     "manage": "Manage",
     "rebook": "Rebook",
     "addTeam": "Find teammates",
+    "messageVenue": "Message the venue",
+    "messageVenueFailed": "Couldn't open the venue chat",
     "courtLabel": "Court {n}",
     "cancel": "Cancel booking",
     "cancelTitle": "Cancel this booking?",
@@ -588,7 +582,9 @@
     "timeoutBody": "Confirming is taking longer than expected. Please check back in My Bookings in a few minutes.",
     "errorTitle": "Couldn't check status",
     "errorBody": "Something went wrong checking your payment. Please check back in My Bookings.",
-    "viewBookings": "View my bookings"
+    "viewBookings": "View my bookings",
+    "messageVenue": "Message the venue",
+    "messageVenueFailed": "Couldn't open the venue chat"
   },
   "Landing": {
     "hero": {
@@ -1093,7 +1089,16 @@
     "online": "Online",
     "offline": "Offline",
     "loading": "Connecting to chat…",
-    "unavailable": "Chat is unavailable right now."
+    "unavailable": "Chat is unavailable right now.",
+    "newChat": "New chat",
+    "searchPlaceholder": "Search by name or email…",
+    "searchHint": "Type at least 3 characters",
+    "noResults": "No users found",
+    "groupNamePlaceholder": "Group name",
+    "create": "Start chat",
+    "creating": "Creating…",
+    "createFailed": "Couldn't start the chat, please try again",
+    "venueChat": "Venue chat"
   },
   "Notifications": {
     "title": "Notifications",
@@ -1129,6 +1134,10 @@
     "schedule": {
       "label": "Schedule",
       "caption": "Courts × hours, at a glance"
+    },
+    "messages": {
+      "label": "Messages",
+      "caption": "Chat with your players"
     },
     "analytics": {
       "label": "Insights",
@@ -1497,6 +1506,12 @@
       "approved": "Approved {name}'s booking",
       "declined": "Declined {name}'s request"
     }
+  },
+  "VenueMessages": {
+    "metaTitle": "Messages",
+    "metaDescription": "Chat with players who booked your venue",
+    "title": "Messages",
+    "subtitle": "Chat with players who've booked your venue."
   },
   "VenueAnalytics": {
     "metaTitle": "Analytics · Venue",

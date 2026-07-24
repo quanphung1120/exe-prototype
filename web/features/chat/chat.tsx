@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useTranslations } from "next-intl"
-import { Users } from "lucide-react"
+import { MapPin, Users } from "lucide-react"
 import {
   Channel,
   ChannelList,
@@ -39,7 +39,10 @@ import {
   useStreamClient,
 } from "@/features/chat/stream-provider"
 import { ChatProfileContext } from "@/features/chat/profile-context"
+import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
+
+export { VenueInboxContext }
 
 /**
  * Every visual piece the SDK renders is replaced with our own component here;
@@ -71,7 +74,19 @@ const COMPONENT_OVERRIDES = {
  * a custom header. When Stream is connecting or unavailable it falls back to
  * a centered status message instead of crashing on a missing context.
  */
-export function ChatView({ initialChannelId }: { initialChannelId?: string }) {
+export function ChatView({
+  initialChannelId,
+  venueInboxId,
+}: {
+  initialChannelId?: string
+  /**
+   * Set when this view is the venue operator's per-venue inbox
+   * (`/dashboard/venue/[venueId]/messages`) rather than a player's own chat —
+   * scopes the channel list to that venue's chats and flips the header/row
+   * rendering to the operator's perspective (see `VenueInboxContext`).
+   */
+  venueInboxId?: string
+}) {
   const t = useTranslations("Chat")
   const status = useStreamChatStatus()
   const client = useStreamClient()
@@ -97,40 +112,58 @@ export function ChatView({ initialChannelId }: { initialChannelId?: string }) {
 
   const userId = client.userID as string
 
+  const body = (
+    <ChatProfileContext.Provider value={openProfile}>
+      <WithComponents overrides={COMPONENT_OVERRIDES}>
+        <aside className="hidden w-72 shrink-0 flex-col border-r border-border sm:flex">
+          <ChannelList
+            filters={
+              venueInboxId
+                ? {
+                    type: "messaging",
+                    members: { $in: [userId] },
+                    venueId: venueInboxId,
+                  }
+                : { type: "messaging", members: { $in: [userId] } }
+            }
+            sort={{ last_message_at: -1 }}
+            options={{ state: true, watch: true }}
+            Paginator={ChannelListPaginator}
+          />
+        </aside>
+
+        {/* Active conversation. No <Window> — it only exists to coordinate
+          with a Thread pane we don't render. */}
+        <section className="flex min-w-0 flex-1 flex-col">
+          <Channel>
+            <TeamChannelHeader
+              currentUserId={userId}
+              onOpenProfile={openProfile}
+            />
+            <MessageList />
+            <Composer />
+          </Channel>
+        </section>
+
+        <InitialChannel id={initialChannelId} />
+      </WithComponents>
+      <PlayerProfileDialog
+        initials={profileInitials}
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+      />
+    </ChatProfileContext.Provider>
+  )
+
   return (
     <ChatShell>
-      <ChatProfileContext.Provider value={openProfile}>
-        <WithComponents overrides={COMPONENT_OVERRIDES}>
-          <aside className="hidden w-72 shrink-0 flex-col border-r border-border sm:flex">
-            <ChannelList
-              filters={{ type: "messaging", members: { $in: [userId] } }}
-              sort={{ last_message_at: -1 }}
-              options={{ state: true, watch: true }}
-              Paginator={ChannelListPaginator}
-            />
-          </aside>
-
-          {/* Active conversation. No <Window> — it only exists to coordinate
-            with a Thread pane we don't render. */}
-          <section className="flex min-w-0 flex-1 flex-col">
-            <Channel>
-              <TeamChannelHeader
-                currentUserId={userId}
-                onOpenProfile={openProfile}
-              />
-              <MessageList />
-              <Composer />
-            </Channel>
-          </section>
-
-          <InitialChannel id={initialChannelId} />
-        </WithComponents>
-        <PlayerProfileDialog
-          initials={profileInitials}
-          open={profileOpen}
-          onOpenChange={setProfileOpen}
-        />
-      </ChatProfileContext.Provider>
+      {venueInboxId ? (
+        <VenueInboxContext.Provider value={true}>
+          {body}
+        </VenueInboxContext.Provider>
+      ) : (
+        body
+      )}
     </ChatShell>
   )
 }
@@ -188,6 +221,7 @@ function TeamChannelHeader({
 }) {
   const t = useTranslations("Chat")
   const { channel, members } = useChannelStateContext()
+  const inbox = React.useContext(VenueInboxContext)
 
   const memberList = Object.values(members ?? {})
   const isGroup = memberList.length > 2
@@ -198,9 +232,32 @@ function TeamChannelHeader({
     ? playerInitialsFromStreamId(other.user.id)
     : null
 
+  // Player's own chat with a venue: named after the venue (not the owner's
+  // account name) with a map-pin subtitle instead of the usual online status
+  // / member count. On the operator side (`inbox`), a venue chat is just a
+  // DM with the player and falls through to the normal two-member branch
+  // below — the profile-dialog button stays disabled there since
+  // `playerInitialsFromStreamId` returns null for a real Clerk id.
+  const venueChat = Boolean(channel.data?.venueId)
+
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border bg-card p-4">
-      {isGroup ? (
+      {venueChat && !inbox ? (
+        <div className="flex min-w-0 items-center gap-3">
+          <Avatar>
+            <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
+              {initialsOf(name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate font-medium">{name}</p>
+            <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="size-3" />
+              {t("venueChat")}
+            </p>
+          </div>
+        </div>
+      ) : isGroup ? (
         <div className="flex min-w-0 items-center gap-3">
           <Avatar>
             <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
