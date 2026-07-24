@@ -271,7 +271,7 @@ function RoomDetail({
           <SectionLabel>{t("location")}</SectionLabel>
           <div className="flex flex-col gap-2 text-sm">
             <DetailRow icon={MapPin}>
-              {room.venue} · {room.district} · {room.distanceKm} km
+              {room.venue} · {room.ward} · {room.distanceKm} km
             </DetailRow>
             <DetailRow icon={Clock}>
               {booked

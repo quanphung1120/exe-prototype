@@ -181,7 +181,7 @@ export function AppSidebar() {
                       </span>
                       {isVenue && VENUE ? (
                         <span className="truncate text-xs text-sidebar-foreground/60">
-                          {`${t("venueTag")} · ${VENUE.district}`}
+                          {`${t("venueTag")} · ${VENUE.ward}`}
                         </span>
                       ) : null}
                     </div>

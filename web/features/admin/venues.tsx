@@ -77,7 +77,7 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("table.venue")}</TableHead>
-                  <TableHead>{t("table.district")}</TableHead>
+                  <TableHead>{t("table.ward")}</TableHead>
                   <TableHead>{t("table.approval")}</TableHead>
                   <TableHead>{t("table.status")}</TableHead>
                   <TableHead className="text-right">
@@ -97,7 +97,7 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
                     <TableCell className="font-medium">
                       {venue.name}
                     </TableCell>
-                    <TableCell>{venue.district}</TableCell>
+                    <TableCell>{venue.ward}</TableCell>
                     <TableCell>
                       <Badge
                         variant={

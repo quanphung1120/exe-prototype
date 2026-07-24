@@ -32,8 +32,8 @@ interface CourtDraft {
 
 interface VenueDraft {
   name: string
-  district: string
-  city: string
+  ward: string
+  province: string
   sports: SportKey[]
   openFrom: string
   openTo: string
@@ -53,8 +53,8 @@ export function SetupWizard() {
   const [submitting, setSubmitting] = React.useState(false)
   const [venue, setVenue] = React.useState<VenueDraft>({
     name: "",
-    district: "",
-    city: "Hà Nội",
+    ward: "",
+    province: "Hà Nội",
     sports: ["badminton"],
     openFrom: "06:00",
     openTo: "22:00",
@@ -77,8 +77,8 @@ export function SetupWizard() {
 
   const venueValid =
     venue.name.trim().length >= 2 &&
-    venue.district.trim().length >= 1 &&
-    venue.city.trim().length >= 1 &&
+    venue.ward.trim().length >= 1 &&
+    venue.province.trim().length >= 1 &&
     venue.sports.length >= 1 &&
     venue.managerName.trim().length >= 2 &&
     TIME_RE.test(venue.openFrom) &&
@@ -226,21 +226,21 @@ function VenueStep({
       </Field>
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field>
-          <FieldLabel htmlFor="v-district">{t("form.district")}</FieldLabel>
+          <FieldLabel htmlFor="v-ward">{t("form.ward")}</FieldLabel>
           <Input
-            id="v-district"
-            value={venue.district}
+            id="v-ward"
+            value={venue.ward}
             autoComplete="off"
-            onChange={(e) => setField("district", e.target.value)}
+            onChange={(e) => setField("ward", e.target.value)}
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="v-city">{t("form.city")}</FieldLabel>
+          <FieldLabel htmlFor="v-province">{t("form.province")}</FieldLabel>
           <Input
-            id="v-city"
-            value={venue.city}
+            id="v-province"
+            value={venue.province}
             autoComplete="off"
-            onChange={(e) => setField("city", e.target.value)}
+            onChange={(e) => setField("province", e.target.value)}
           />
         </Field>
       </div>
@@ -456,7 +456,7 @@ function ReviewStep({
       <div>
         <div className="font-heading text-lg font-bold">{venue.name}</div>
         <div className="text-muted-foreground">
-          {venue.district} · {venue.city} · {venue.openFrom}–{venue.openTo}
+          {venue.ward} · {venue.province} · {venue.openFrom}–{venue.openTo}
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {venue.sports.map((s) => (

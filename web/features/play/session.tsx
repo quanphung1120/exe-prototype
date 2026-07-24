@@ -177,7 +177,7 @@ interface SessionContextValue {
     format: "Singles" | "Doubles"
     courtId?: string | null
     venue: string
-    district: string
+    ward: string
     distanceKm: number
     dayKey: string
     dayLabel: string
@@ -1221,7 +1221,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       listed: true,
       fillIntent: "find",
       venue: room.venue,
-      district: room.district,
+      ward: room.ward,
       distanceKm: room.distanceKm,
       pricePerHour: room.pricePerHour,
     }
@@ -1238,7 +1238,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     format,
     courtId,
     venue,
-    district,
+    ward,
     distanceKm,
     dayKey,
     dayLabel,
@@ -1253,7 +1253,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     format: "Singles" | "Doubles"
     courtId?: string | null
     venue: string
-    district: string
+    ward: string
     distanceKm: number
     dayKey: string
     dayLabel: string
@@ -1289,7 +1289,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       listed: false,
       fillIntent: "invite",
       venue,
-      district,
+      ward,
       distanceKm,
       pricePerHour,
     }
@@ -1481,7 +1481,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       listed: true,
       fillIntent: "find",
       venue: c.name,
-      district: c.district,
+      ward: c.ward,
       distanceKm: c.distanceKm,
       pricePerHour: c.pricePerHour,
     }
@@ -1810,7 +1810,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         slot: draft.slot,
         durationMin: draft.durationMin,
         venue: court.name,
-        district: court.district,
+        ward: court.ward,
         distanceKm: court.distanceKm,
         pricePerHour: court.pricePerHour,
         holdExpiresAt,
@@ -1848,7 +1848,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       listed: false,
       fillIntent: "court",
       venue: court.name,
-      district: court.district,
+      ward: court.ward,
       distanceKm: court.distanceKm,
       pricePerHour: court.pricePerHour,
       holdExpiresAt,
@@ -1933,7 +1933,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         slot: draft.slot,
         durationMin: draft.durationMin,
         venue: court.name,
-        district: court.district,
+        ward: court.ward,
         distanceKm: court.distanceKm,
         pricePerHour: court.pricePerHour,
         venueId: summary.venueId,
@@ -1974,7 +1974,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       listed: false,
       fillIntent: "court",
       venue: court.name,
-      district: court.district,
+      ward: court.ward,
       distanceKm: court.distanceKm,
       pricePerHour: court.pricePerHour,
       venueId: summary.venueId,

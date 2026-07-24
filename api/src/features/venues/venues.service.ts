@@ -66,8 +66,8 @@ export interface VenueInput {
   name: string
   image?: string
   description?: string
-  district: string
-  city: string
+  ward: string
+  province: string
   sports: SportKey[]
   openFrom: string
   openTo: string
@@ -297,8 +297,8 @@ export class VenuesService {
       id: "",
       name: "",
       initials: "",
-      district: "",
-      city: "",
+      ward: "",
+      province: "",
       sports: [],
       openFrom: "00:00",
       openTo: "24:00",
@@ -503,8 +503,8 @@ export class VenuesService {
         initials: initialsOf(input.name),
         image: input.image,
         description: input.description,
-        district: input.district,
-        city: input.city,
+        ward: input.ward,
+        province: input.province,
         sports: input.sports,
         openFrom: input.openFrom,
         openTo: input.openTo,
@@ -549,8 +549,8 @@ export class VenuesService {
       }
       if (patch.image !== undefined) next.image = patch.image
       if (patch.description !== undefined) next.description = patch.description
-      if (patch.district !== undefined) next.district = patch.district
-      if (patch.city !== undefined) next.city = patch.city
+      if (patch.ward !== undefined) next.ward = patch.ward
+      if (patch.province !== undefined) next.province = patch.province
       if (patch.sports !== undefined) next.sports = patch.sports
       if (patch.openFrom !== undefined) next.openFrom = patch.openFrom
       if (patch.openTo !== undefined) next.openTo = patch.openTo

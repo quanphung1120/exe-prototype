@@ -71,11 +71,11 @@ export class VenueInputDto {
 
   @IsString()
   @Length(1, 60)
-  district: string
+  ward: string
 
   @IsString()
   @Length(1, 60)
-  city: string
+  province: string
 
   @IsArray()
   @ArrayMinSize(1)

@@ -279,7 +279,7 @@ export function CourtRow({
         </div>
         <div className="flex items-center gap-2 truncate text-xs text-muted-foreground">
           <MapPin className="size-3" />
-          {court.district} · {court.distanceKm} km
+          {court.ward} · {court.distanceKm} km
         </div>
       </div>
       <div className="hidden text-right sm:block">

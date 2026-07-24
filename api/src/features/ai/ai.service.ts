@@ -146,7 +146,7 @@ You are SportMatch AI — a smart assistant for finding badminton courts and mat
 ## How to respond
 1. Detect intent (courts vs. teammates) and the user's language. Reply in the user's preferred language/locale (Vietnamese or English) as passed in the user profile/locale context. If the user explicitly asks a question in a different language, respond in the language of their query.
 2. If key details are missing, call the \`askChoice\` tool ONCE to ask exactly ONE short clarifying question with 2–4 tappable options, then stop. Do not repeat the question as plain text (the options render as buttons). Needed details:
-   - courts → sport/sports + a location/area hint (district, neighborhood, or "near me"). Pass district name to \`findCourts\` when mentioned.
+   - courts → sport/sports + a location/area hint (ward, neighborhood, or "near me"). Pass ward name to \`findCourts\` when mentioned.
    - teammates → sport/sports (required — never call \`findPlayers\` without it). Use the <user_profile> level as default if not specified.
 3. If details are sufficient, call exactly ONE tool (\`findCourts\`, \`findPlayers\`, or \`requestAssessment\`) in your initial response. Do not respond with plain text alone without a tool call if a search is needed.
 4. When a tool has returned its results, do NOT call another tool. Write ONE short, warm sentence summarizing the result, and suggest the natural next step (e.g., "Tap a court to book", "Select players to invite to a group chat", "Complete the assessment"). Do not list the results in text; the UI renders cards automatically.
@@ -156,7 +156,7 @@ You are SportMatch AI — a smart assistant for finding badminton courts and mat
 - "find courts / venues / sân / tìm sân" → \`findCourts\`
 - "book / reserve / đặt sân / đặt chỗ at a specific time" → \`bookCourt\` (call \`findCourts\` first if no court is chosen yet)
 - "teammates / players / partner / tìm người / đồng đội / bạn chơi" → \`findPlayers\`
-- "quick match / join a game / find a room / join session / tìm trận / tham gia phòng / ghép trận nhanh" → \`findRooms\`. If no location is mentioned, call \`askChoice\` with options like "Anywhere nearby", "Quận 1", "Quận 3", "Bình Thạnh". Pass \`district\` to \`findRooms\` only if a specific district was selected.
+- "quick match / join a game / find a room / join session / tìm trận / tham gia phòng / ghép trận nhanh" → \`findRooms\`. If no location is mentioned, call \`askChoice\` with options like "Anywhere nearby", "Quận 1", "Quận 3", "Bình Thạnh". Pass \`ward\` to \`findRooms\` only if a specific ward was selected.
 
 ## Booking flow
 - To book: First surface courts via \`findCourts\`. If a time is mentioned, pass it as \`time\` to \`findCourts\`.
@@ -255,16 +255,16 @@ export class AiService {
 
         findCourts: tool({
           description:
-            'Find and rank sports courts that match the user intent. Pass `time` (and optionally `date`) when the user wants to book at a specific slot — courts already taken at that window are excluded from results. Pass `district` when the user mentions a district or area (e.g. "Quận 3", "Bình Thạnh") — only courts in that district are returned. You can filter by a single sport using `sport`, or multiple sports using `sports`.',
+            'Find and rank sports courts that match the user intent. Pass `time` (and optionally `date`) when the user wants to book at a specific slot — courts already taken at that window are excluded from results. Pass `ward` when the user mentions a ward or area (e.g. "Quận 3", "Bình Thạnh") — only courts in that ward are returned. You can filter by a single sport using `sport`, or multiple sports using `sports`.',
           inputSchema: z.object({
             sport: z.enum(["badminton"]).optional(),
             sports: z.array(z.enum(["badminton"])).optional(),
             sortBy: z.enum(["rating", "price", "distance", "team"]).optional(),
-            district: z
+            ward: z
               .string()
               .optional()
               .describe(
-                'Filter courts to this district, e.g. "Quận 3", "Bình Thạnh". Match loosely (case-insensitive substring).'
+                'Filter courts to this ward, e.g. "Quận 3", "Bình Thạnh". Match loosely (case-insensitive substring).'
               ),
             time: z
               .string()
@@ -293,7 +293,7 @@ export class AiService {
             sport,
             sports,
             sortBy,
-            district,
+            ward,
             time,
             date,
             durationMin,
@@ -304,13 +304,13 @@ export class AiService {
               if (!targetSports || targetSports.length === 0) return true
               return targetSports.some((s) => c.sports.includes(s))
             })
-            // Apply district filter when provided — substring match so "Quận 3" and
+            // Apply ward filter when provided — substring match so "Quận 3" and
             // "quan 3" both work, and partial names like "Bình Thạnh" still hit.
-            // No silent fallback: if the district has no courts, return empty so
+            // No silent fallback: if the ward has no courts, return empty so
             // the model knows to tell the user and suggest a broader search.
-            const pool = district
+            const pool = ward
               ? sportFiltered.filter((c: Court) =>
-                  c.district.toLowerCase().includes(district.toLowerCase())
+                  c.ward.toLowerCase().includes(ward.toLowerCase())
                 )
               : sportFiltered
             // When we have the user's real position, override the static seed
@@ -343,8 +343,8 @@ export class AiService {
               sport: sport ?? null,
               sports: sports ?? null,
               filteredByTime: time ?? null,
-              // Explicit signal so the model knows when the district filter matched nothing.
-              districtMatched: district ? pool.length > 0 : null,
+              // Explicit signal so the model knows when the ward filter matched nothing.
+              wardMatched: ward ? pool.length > 0 : null,
             }
           },
         }),
@@ -410,14 +410,14 @@ export class AiService {
               .describe(
                 "Filter to rooms at this level (rooms marked 'any' always pass through)."
               ),
-            district: z
+            ward: z
               .string()
               .optional()
               .describe(
-                "Filter to this district (substring match, e.g. 'Quận 3', 'Bình Thạnh')."
+                "Filter to this ward (substring match, e.g. 'Quận 3', 'Bình Thạnh')."
               ),
           }),
-          execute: async ({ sport, sports, level, district }) => {
+          execute: async ({ sport, sports, level, ward }) => {
             const { rooms } = await getSeed()
             let pool = rooms.filter((r) => r.joined < r.capacity)
             const targetSports = sports ?? (sport ? [sport] : undefined)
@@ -427,9 +427,9 @@ export class AiService {
             if (level) {
               pool = pool.filter((r) => r.level === level || r.level === "any")
             }
-            if (district) {
+            if (ward) {
               pool = pool.filter((r) =>
-                r.district.toLowerCase().includes(district.toLowerCase())
+                r.ward.toLowerCase().includes(ward.toLowerCase())
               )
             }
             const sorted = [...pool].sort((a, b) => a.distanceKm - b.distanceKm)
@@ -438,7 +438,7 @@ export class AiService {
               sport: sport ?? null,
               sports: sports ?? null,
               level: level ?? null,
-              districtMatched: district ? pool.length > 0 : null,
+              wardMatched: ward ? pool.length > 0 : null,
             }
           },
         }),
@@ -512,7 +512,7 @@ export class AiService {
               bookingId,
               courtId,
               court: court.name,
-              district: court.district,
+              ward: court.ward,
               sport: sportKey,
               date: resolvedDate,
               time,

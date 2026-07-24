@@ -1177,8 +1177,8 @@
     "form": {
       "name": "Tên địa điểm",
       "namePlaceholder": "VD: Nhà thi đấu Cầu Giấy",
-      "district": "Quận / Huyện",
-      "city": "Thành phố",
+      "ward": "Phường / Xã",
+      "province": "Tỉnh / Thành phố",
       "sports": "Môn thể thao",
       "openFrom": "Mở cửa",
       "openTo": "Đóng cửa",
@@ -1236,8 +1236,8 @@
       "description": "Các thông tin này hiển thị khắp bảng điều hành.",
       "name": "Tên địa điểm",
       "namePlaceholder": "vd: Shuttle Republic",
-      "district": "Quận / Huyện",
-      "city": "Thành phố",
+      "ward": "Phường / Xã",
+      "province": "Tỉnh / Thành phố",
       "sports": "Môn thể thao",
       "openFrom": "Mở cửa",
       "openTo": "Đóng cửa",
@@ -2059,7 +2059,7 @@
     "noBrand": "Không có thương hiệu",
     "table": {
       "venue": "Venue",
-      "district": "Quận/Huyện",
+      "ward": "Phường/Xã",
       "approval": "Phê duyệt",
       "status": "Trạng thái",
       "bookings": "Lượt đặt",
@@ -2157,8 +2157,8 @@
     "empty": "Không có venue nào đang chờ duyệt",
     "table": {
       "venue": "Venue",
-      "district": "Quận/Huyện",
-      "city": "Tỉnh/Thành phố",
+      "ward": "Phường/Xã",
+      "province": "Tỉnh/Thành phố",
       "actions": "Hành động"
     }
   },

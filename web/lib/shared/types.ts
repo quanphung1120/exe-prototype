@@ -29,7 +29,7 @@ export interface User {
   first: string
   initials: string
   handle: string
-  city: string
+  province: string
   /** Default self-declared level; mutable at runtime via the sidebar picker. */
   level: Level
   /** Reliability/reputation score, 0–100. */
@@ -72,10 +72,10 @@ export type TrustTier = "trusted" | "reliable" | "new"
 export interface Court {
   id: string
   name: string
-  /** Cấp quận/huyện — full Vietnamese name e.g. "Quận 1", "Quận Bình Thạnh", "Thành phố Thủ Đức" */
-  district: string
+  /** Cấp phường/xã — full Vietnamese name e.g. "Phường Bến Nghé", "Xã Tân Thông Hội" */
+  ward: string
   /** Tỉnh/thành phố trực thuộc trung ương — e.g. "TP. Hồ Chí Minh", "Hà Nội" */
-  city: string
+  province: string
   sports: SportKey[]
   surface: string
   pricePerHour: number
@@ -102,7 +102,7 @@ export interface MatchRoom {
   sport: SportKey
   format: "Singles" | "Doubles"
   venue: string
-  district: string
+  ward: string
   distanceKm: number
   day: string
   /** ISO date ("YYYY-MM-DD") for `day` (set on create; derived otherwise). */
@@ -242,7 +242,7 @@ export interface PlaySession {
   listed: boolean
   fillIntent: "court" | "invite" | "find"
   venue: string
-  district: string
+  ward: string
   distanceKm: number
   pricePerHour: number
   result?: "W" | "L"
@@ -379,8 +379,8 @@ export interface Venue {
   image?: string
   /** Optional short description shown on the venue profile. */
   description?: string
-  district: string
-  city: string
+  ward: string
+  province: string
   /** Sports played at this center. */
   sports: SportKey[]
   openFrom: string

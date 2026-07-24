@@ -26,8 +26,8 @@ export interface VenueInput {
   name: string
   image?: string
   description?: string
-  district: string
-  city: string
+  ward: string
+  province: string
   sports: SportKey[]
   openFrom: string
   openTo: string

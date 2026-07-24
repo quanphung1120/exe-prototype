@@ -398,7 +398,7 @@ export function chooseSuggestedCourt(
   const pool = courts.filter((court) => !sport || court.sports.includes(sport))
   const byArea = locationLabel
     ? pool.filter(
-        (court) => normalize(court.district) === normalize(locationLabel)
+        (court) => normalize(court.ward) === normalize(locationLabel)
       )
     : []
   const candidates = byArea.length ? byArea : pool.length ? pool : courts

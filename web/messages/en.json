@@ -1177,8 +1177,8 @@
     "form": {
       "name": "Venue name",
       "namePlaceholder": "e.g. Cầu Giấy Sports Hall",
-      "district": "District",
-      "city": "City",
+      "ward": "Ward / Commune",
+      "province": "Province / City",
       "sports": "Sports",
       "openFrom": "Opens",
       "openTo": "Closes",
@@ -1236,8 +1236,8 @@
       "description": "These details appear across the operator dashboard.",
       "name": "Venue name",
       "namePlaceholder": "e.g. Shuttle Republic",
-      "district": "District",
-      "city": "City",
+      "ward": "Ward / Commune",
+      "province": "Province / City",
       "sports": "Sports offered",
       "openFrom": "Opens",
       "openTo": "Closes",
@@ -2059,7 +2059,7 @@
     "noBrand": "No brand",
     "table": {
       "venue": "Venue",
-      "district": "District",
+      "ward": "Ward / Commune",
       "approval": "Approval",
       "status": "Status",
       "bookings": "Bookings",
@@ -2157,8 +2157,8 @@
     "empty": "Nothing pending review",
     "table": {
       "venue": "Venue",
-      "district": "District",
-      "city": "City",
+      "ward": "Ward / Commune",
+      "province": "Province / City",
       "actions": "Actions"
     }
   },

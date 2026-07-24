@@ -93,7 +93,7 @@ interface CourtToolResult {
   sport: SportKey | null
   sports?: SportKey[] | null
   filteredByTime?: string | null
-  districtMatched?: boolean | null
+  wardMatched?: boolean | null
 }
 
 interface PlayerToolResult {
@@ -115,7 +115,7 @@ interface RoomToolResult {
   sport: SportKey | null
   sports?: SportKey[] | null
   level: Level | null
-  districtMatched?: boolean | null
+  wardMatched?: boolean | null
 }
 
 interface BookingToolResult {
@@ -123,7 +123,7 @@ interface BookingToolResult {
   bookingId?: string
   courtId?: string
   court?: string
-  district?: string
+  ward?: string
   sport?: SportKey
   date?: string
   time?: string
@@ -501,9 +501,9 @@ export function AiNativeDashboardView() {
           format: selectedPlayers.length + 1 >= 4 ? "Doubles" : "Singles",
           courtId: suggestedCourt?.id ?? null,
           venue: suggestedCourt?.name ?? "SportMatch Group",
-          district:
+          ward:
             lastPlayerResult.intent.locationLabel ??
-            suggestedCourt?.district ??
+            suggestedCourt?.ward ??
             "Near you",
           distanceKm:
             suggestedCourt?.distanceKm ?? selectedPlayers[0]?.distanceKm ?? 1,
@@ -1142,7 +1142,7 @@ function BookingChatResult({
         <p className="font-medium">{booking.court}</p>
         <p className="flex items-center gap-1 text-xs text-muted-foreground sm:text-sm">
           <MapPin className="size-3.5 shrink-0" />
-          {booking.district}
+          {booking.ward}
         </p>
         <p className="flex items-center gap-1 text-xs text-muted-foreground sm:text-sm">
           <Clock className="size-3.5 shrink-0" />
@@ -1298,7 +1298,7 @@ function CourtCard({
         <p className="truncate text-sm font-medium">{court.name}</p>
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
           <MapPin className="size-3 shrink-0" />
-          {court.district} · {court.distanceKm} km
+          {court.ward} · {court.distanceKm} km
         </p>
         <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">
           <Star className="size-3 fill-lime text-lime" />
@@ -1436,7 +1436,7 @@ function RoomCard({
           </p>
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="size-3 shrink-0" />
-            {room.venue} · {room.district} · {room.distanceKm} km
+            {room.venue} · {room.ward} · {room.distanceKm} km
           </p>
         </div>
         <SportTag sport={room.sport} />

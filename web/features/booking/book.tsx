@@ -314,7 +314,7 @@ export function BookView() {
     ? COURTS.filter(
         (c) =>
           c.name.toLowerCase().includes(needle) ||
-          c.district.toLowerCase().includes(needle)
+          c.ward.toLowerCase().includes(needle)
       )
     : COURTS
 
@@ -566,7 +566,7 @@ export function BookView() {
                 {[
                   {
                     label: t("where"),
-                    value: `${court.district} · ${t("distance", { km: court.distanceKm })}`,
+                    value: `${court.ward} · ${t("distance", { km: court.distanceKm })}`,
                   },
                   {
                     label: t("when"),
@@ -623,7 +623,7 @@ export function BookView() {
                   <div className="flex items-center justify-between gap-3 text-base">
                     <span className="text-muted-foreground">{t("where")}</span>
                     <span className="text-right font-medium">
-                      {court.district} ·{" "}
+                      {court.ward} ·{" "}
                       {t("distance", { km: court.distanceKm })}
                     </span>
                   </div>
@@ -1028,7 +1028,7 @@ function CourtCalendar({
 
 /**
  * A single court in the court-selection grid — a card with a decorative image,
- * the court name, its district + distance (the "address"), price and a Choose
+ * the court name, its ward + distance (the "address"), price and a Choose
  * button. Choosing selects the court; the sticky action bar advances the wizard.
  */
 function CourtPickCard({
@@ -1072,7 +1072,7 @@ function CourtPickCard({
           <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="size-3 shrink-0" />
             <span className="truncate">
-              {court.district} · {t("distance", { km: court.distanceKm })}
+              {court.ward} · {t("distance", { km: court.distanceKm })}
             </span>
           </p>
         </div>

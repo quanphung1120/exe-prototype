@@ -56,8 +56,8 @@ export function AdminApprovalsView({ venues }: { venues: AdminApprovalRow[] }) {
           <TableHeader>
             <TableRow>
               <TableHead>{t("table.venue")}</TableHead>
-              <TableHead>{t("table.district")}</TableHead>
-              <TableHead>{t("table.city")}</TableHead>
+              <TableHead>{t("table.ward")}</TableHead>
+              <TableHead>{t("table.province")}</TableHead>
               <TableHead className="text-right">{t("table.actions")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -65,8 +65,8 @@ export function AdminApprovalsView({ venues }: { venues: AdminApprovalRow[] }) {
             {rows.map((venue) => (
               <TableRow key={venue.id}>
                 <TableCell className="font-medium">{venue.name}</TableCell>
-                <TableCell>{venue.district}</TableCell>
-                <TableCell>{venue.city}</TableCell>
+                <TableCell>{venue.ward}</TableCell>
+                <TableCell>{venue.province}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button

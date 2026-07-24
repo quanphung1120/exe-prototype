@@ -12,8 +12,8 @@ import type { Court as CourtType, SportKey } from "../../shared/index.js"
 export class Court {
   @Prop({ required: true, unique: true, index: true }) courtId: string
   @Prop({ required: true }) name: string
-  @Prop({ required: true }) district: string
-  @Prop({ required: true }) city: string
+  @Prop({ required: true }) ward: string
+  @Prop({ required: true }) province: string
   @Prop({ type: [String], enum: ["badminton"] }) sports: SportKey[]
   @Prop({ required: true }) surface: string
   @Prop({ required: true }) pricePerHour: number
@@ -36,8 +36,8 @@ export function toCourt(doc: Court): CourtType {
   return {
     id: doc.courtId,
     name: doc.name,
-    district: doc.district,
-    city: doc.city,
+    ward: doc.ward,
+    province: doc.province,
     sports: doc.sports,
     surface: doc.surface,
     pricePerHour: doc.pricePerHour,

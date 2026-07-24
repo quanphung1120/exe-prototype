@@ -157,7 +157,7 @@ function RoomCard({
         <span className="flex min-w-0 items-center gap-1.5">
           <MapPin className="size-3.5 shrink-0" />
           <span className="min-w-0 truncate">
-            {room.venue} · {room.district} · {room.distanceKm} km
+            {room.venue} · {room.ward} · {room.distanceKm} km
           </span>
         </span>
         <span className="flex min-w-0 items-center gap-1.5">

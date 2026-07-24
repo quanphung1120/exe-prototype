@@ -282,7 +282,7 @@ function CourtCard({
             </p>
             <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="size-3" />
-              {court.district} ·{" "}
+              {court.ward} ·{" "}
               {t("distance", { km: Math.round(distanceKm * 10) / 10 })}
               <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground shadow-sm ring-1 ring-foreground/5 tabular-nums">
                 <Star className="size-3 fill-lime text-lime" />
