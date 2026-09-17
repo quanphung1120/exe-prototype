@@ -19,6 +19,32 @@ import { findMatchedPlayers } from "./player-matching.js"
 
 type SportLevels = Partial<Record<SportKey, Level>>
 type LatLng = { lat: number; lng: number }
+type CourtSort = "rating" | "price" | "distance" | "team"
+
+const HCMC_CENTRE: LatLng = { lat: 10.7769, lng: 106.7009 }
+
+/** The product catalog currently serves Ho Chi Minh City only. */
+export function normalizeUserLocation(
+  location: LatLng | null | undefined
+): LatLng | null {
+  if (!location) return null
+  const inHcmc =
+    location.lat >= 10.3 &&
+    location.lat <= 11.2 &&
+    location.lng >= 106.3 &&
+    location.lng <= 107.1
+  return inHcmc ? location : HCMC_CENTRE
+}
+
+export function resolveCourtSort(
+  requested: CourtSort | undefined,
+  userLocation: LatLng | null | undefined
+): CourtSort {
+  // A request with a real browser position is a "near me" search. Distance
+  // must win over a model-supplied rating default, otherwise highly-rated
+  // venues can hide the closest court from the first result.
+  return userLocation ? "distance" : (requested ?? "rating")
+}
 
 // Great-circle distance in km — mirrors the client helper so the model can rank
 // courts by the user's real position instead of the static seed `distanceKm`.
@@ -146,7 +172,7 @@ You are SportMatch AI — a smart assistant for finding badminton courts and mat
 ## How to respond
 1. Detect intent (courts vs. teammates) and the user's language. Reply in the user's preferred language/locale (Vietnamese or English) as passed in the user profile/locale context. If the user explicitly asks a question in a different language, respond in the language of their query.
 2. If key details are missing, call the \`askChoice\` tool ONCE to ask exactly ONE short clarifying question with 2–4 tappable options, then stop. Do not repeat the question as plain text (the options render as buttons). Needed details:
-   - courts → sport/sports + a location/area hint (ward, neighborhood, or "near me"). Pass ward name to \`findCourts\` when mentioned.
+   - courts → sport/sports + a location/area hint (ward, neighborhood, or "near me"). Pass ward name to \`findCourts\` when mentioned. For "near me" / "gần tôi", pass \`sortBy: "distance"\`.
    - teammates → sport/sports (required — never call \`findPlayers\` without it). Use the <user_profile> level as default if not specified.
 3. If details are sufficient, call exactly ONE tool (\`findCourts\`, \`findPlayers\`, or \`requestAssessment\`) in your initial response. Do not respond with plain text alone without a tool call if a search is needed.
 4. When a tool has returned its results, do NOT call another tool. Write ONE short, warm sentence summarizing the result, and suggest the natural next step (e.g., "Tap a court to book", "Select players to invite to a group chat", "Complete the assessment"). Do not list the results in text; the UI renders cards automatically.
@@ -195,12 +221,14 @@ export class AiService {
     userLocation?: LatLng | null
     locale?: "en" | "vi"
   }): Promise<void> {
-    const { res, userId, userLevels, userLocation, locale } = args
+    const { res, userId, userLevels, locale } = args
+    // Browser/VPN geolocation can point outside the supported city. Using it
+    // against an HCMC-only catalog produces misleading values such as 1,135 km.
+    const userLocation = normalizeUserLocation(args.userLocation)
 
     const apiKey = this.config.getOrThrow<string>("OPENROUTER_API_KEY")
     const model =
-      this.config.get<string>("OPENROUTER_MODEL") ??
-      "anthropic/claude-haiku-4.5"
+      this.config.get<string>("OPENROUTER_MODEL") ?? "xiaomi/mimo-v2.5"
     // OpenRouter provider — surfaces the model's real reasoning tokens as AI SDK
     // reasoning parts (the plain @ai-sdk/openai provider drops OpenRouter's
     // `delta.reasoning`). Set OPENROUTER_MODEL to override the default.
@@ -330,16 +358,19 @@ export class AiService {
                     !findConflict(c.id, resolvedDate, time, durationMin ?? 60)
                 )
               : withDistance
+            const effectiveSort = resolveCourtSort(sortBy, userLocation)
             const ranked = [...available].sort((a: Court, b: Court) => {
-              if (sortBy === "price") return a.pricePerHour - b.pricePerHour
-              if (sortBy === "distance") return a.distanceKm - b.distanceKm
-              if (sortBy === "team")
+              if (effectiveSort === "price")
+                return a.pricePerHour - b.pricePerHour
+              if (effectiveSort === "distance")
+                return a.distanceKm - b.distanceKm
+              if (effectiveSort === "team")
                 return b.openSlots - a.openSlots || b.rating - a.rating
               return b.rating - a.rating || a.distanceKm - b.distanceKm
             })
             return {
               courts: ranked.slice(0, 5),
-              sortBy: sortBy ?? "rating",
+              sortBy: effectiveSort,
               sport: sport ?? null,
               sports: sports ?? null,
               filteredByTime: time ?? null,

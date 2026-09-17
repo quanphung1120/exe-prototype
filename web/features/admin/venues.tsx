@@ -7,6 +7,10 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
+  AdminPagination,
+  useAdminPagination,
+} from "@/features/admin/pagination"
+import {
   Table,
   TableBody,
   TableCell,
@@ -55,6 +59,19 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
   }
 
   const totalVenues = groups.reduce((n, g) => n + g.venues.length, 0)
+  const pagination = useAdminPagination(totalVenues)
+  let groupOffset = 0
+  const visibleGroups = groups.flatMap((group, index) => {
+    const start = groupOffset
+    groupOffset += group.venues.length
+    const venues = group.venues.slice(
+      Math.max(0, pagination.offset - start),
+      Math.max(0, pagination.offset + pagination.pageSize - start)
+    )
+    return venues.length
+      ? [{ ...group, venues, key: group.brand?.id ?? `ownerless-${index}` }]
+      : []
+  })
 
   return (
     <div className="flex flex-col gap-5">
@@ -68,11 +85,8 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
       {totalVenues === 0 ? (
         <VenueEmpty text={t("empty")} />
       ) : (
-        groups.map((group, i) => (
-          <VenuePanel
-            key={group.brand?.id ?? `ownerless-${i}`}
-            title={group.brand?.name ?? t("noBrand")}
-          >
+        visibleGroups.map((group) => (
+          <VenuePanel key={group.key} title={group.brand?.name ?? t("noBrand")}>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -146,6 +160,7 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
           </VenuePanel>
         ))
       )}
+      <AdminPagination pagination={pagination} />
     </div>
   )
 }

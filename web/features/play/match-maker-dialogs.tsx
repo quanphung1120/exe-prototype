@@ -110,13 +110,14 @@ function QuickJoinDialog() {
   const quickCourts = COURTS.filter(
     (c) => quickSport === "all" || c.sports.includes(quickSport)
   )
-  // ...then filtered by the search query (court name or ward).
+  // ...then filtered by the search query (court name or full address).
   const courtNeedle = courtQuery.trim().toLowerCase()
   const filteredCourts = courtNeedle
     ? quickCourts.filter(
         (c) =>
           c.name.toLowerCase().includes(courtNeedle) ||
-          c.ward.toLowerCase().includes(courtNeedle)
+          c.ward.toLowerCase().includes(courtNeedle) ||
+          c.province.toLowerCase().includes(courtNeedle)
       )
     : quickCourts
 
@@ -207,7 +208,7 @@ function QuickJoinDialog() {
                 >
                   <span className="truncate">{c.name}</span>
                   <span className="shrink-0 text-muted-foreground">
-                    · {c.ward}
+                    · {[c.ward, c.province].filter(Boolean).join(", ")}
                   </span>
                 </button>
               ))}
@@ -576,7 +577,8 @@ function CreateRoomDialog() {
                             c.sports.includes(selectedSport)
                           ).map((c) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {c.name} · {c.ward}
+                              {c.name} ·{" "}
+                              {[c.ward, c.province].filter(Boolean).join(", ")}
                             </SelectItem>
                           ))}
                         </SelectContent>

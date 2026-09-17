@@ -24,6 +24,10 @@ process.env.SEPAY_RETURN_URL ??=
 process.env.OPENROUTER_API_KEY ??= "sk-or-test-dummy"
 
 import { AiChatDto } from "../src/features/ai/ai-chat.dto.js"
+import {
+  normalizeUserLocation,
+  resolveCourtSort,
+} from "../src/features/ai/ai.service.js"
 import { findMatchedPlayers } from "../src/features/ai/player-matching.js"
 import type { Player } from "../src/shared/index.js"
 
@@ -62,6 +66,30 @@ void test("AiChatDto caps messages at 50", async () => {
   })
   const errors = await validate(dto)
   assert.ok(errors.length > 0)
+})
+
+void test("court search defaults to distance when browser location is available", () => {
+  assert.equal(
+    resolveCourtSort(undefined, { lat: 10.77, lng: 106.7 }),
+    "distance"
+  )
+  assert.equal(resolveCourtSort(undefined, null), "rating")
+  assert.equal(resolveCourtSort("price", undefined), "price")
+  assert.equal(
+    resolveCourtSort("price", { lat: 10.77, lng: 106.7 }),
+    "distance"
+  )
+})
+
+void test("court search normalizes out-of-city browser locations", () => {
+  assert.deepEqual(normalizeUserLocation({ lat: 10.77, lng: 106.7 }), {
+    lat: 10.77,
+    lng: 106.7,
+  })
+  assert.deepEqual(normalizeUserLocation({ lat: 21.03, lng: 105.83 }), {
+    lat: 10.7769,
+    lng: 106.7009,
+  })
 })
 
 void test("player-matching helper is faithfully duplicated in the api", () => {

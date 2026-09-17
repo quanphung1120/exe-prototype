@@ -70,7 +70,7 @@ Its shape (read the whole file before porting):
   tracker plus `timeToMin`, `resolveDate`, `findConflict`.
 - **Provider + config** (lines ~212–225): `const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY ?? "" })` and
-  `const MODEL = process.env.OPENROUTER_MODEL ?? "anthropic/claude-haiku-4.5"`.
+  `const MODEL = process.env.OPENROUTER_MODEL ?? "xiaomi/mimo-v2.5"`.
 - **`const SYSTEM = ...`** (lines ~227–290): the full system prompt string.
 - **`export async function POST(req)`** (lines ~292–561): auth check →
   `allowRequest` rate-limit → missing-key 500 → 64KB body cap → JSON.parse →
@@ -433,7 +433,7 @@ service. Concretely:
    ```ts
    const apiKey = this.config.getOrThrow<string>("OPENROUTER_API_KEY")
    const model = this.config.get<string>("OPENROUTER_MODEL")
-     ?? "anthropic/claude-haiku-4.5"
+     ?? "xiaomi/mimo-v2.5"
    const openrouter = createOpenRouter({ apiKey })
    ```
    (The missing-key case is now handled at boot by env validation — Step 7 — so
@@ -613,7 +613,7 @@ style and comments):
 // missing key crashes at boot instead of 500ing the first chat request. The
 // model defaults to a small reasoning-capable model; override per deployment.
 OPENROUTER_API_KEY: z.string().min(1, "OPENROUTER_API_KEY is required"),
-OPENROUTER_MODEL: z.string().min(1).default("anthropic/claude-haiku-4.5"),
+OPENROUTER_MODEL: z.string().min(1).default("xiaomi/mimo-v2.5"),
 ```
 
 In `api/.env.example`, add (documentation only — no real values):
@@ -624,7 +624,7 @@ OPENROUTER_API_KEY=
 # Model for the chatbot. Default is a small reasoning-capable model whose chain
 # of thought streams into the UI. Override with any OpenRouter model that
 # returns a `reasoning` field (effort is requested as "low").
-# OPENROUTER_MODEL=anthropic/claude-haiku-4.5
+# OPENROUTER_MODEL=xiaomi/mimo-v2.5
 ```
 
 **Relocate the running secret**: move the actual `OPENROUTER_API_KEY` (and any

@@ -7,6 +7,10 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
+  AdminPagination,
+  useAdminPagination,
+} from "@/features/admin/pagination"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -71,6 +75,7 @@ export function AdminDiscountsView({
 }) {
   const t = useTranslations("AdminDiscounts")
   const [rows, setRows] = React.useState(discounts)
+  const pagination = useAdminPagination(rows.length)
   const [dialogTarget, setDialogTarget] = React.useState<DialogTarget | null>(
     null
   )
@@ -149,84 +154,90 @@ export function AdminDiscountsView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.code}>
-                <TableCell className="font-mono text-sm font-medium">
-                  {row.code}
-                </TableCell>
-                <TableCell className="max-w-[220px] truncate">
-                  {row.description}
-                </TableCell>
-                <TableCell>
-                  {row.type === "percent" ? (
-                    <span>
-                      {row.value}%
-                      {row.maxDiscount !== undefined ? (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          ({t("dialog.maxDiscount")}:{" "}
-                          {formatVnd(row.maxDiscount)})
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    formatVnd(row.value)
-                  )}
-                </TableCell>
-                <TableCell>
-                  {row.minOrder !== undefined ? formatVnd(row.minOrder) : "—"}
-                </TableCell>
-                <TableCell className="text-sm whitespace-nowrap">
-                  {formatValidity(row)}
-                </TableCell>
-                <TableCell className="text-sm whitespace-nowrap">
-                  {row.usedCount}/{row.usageLimit ?? t("unlimited")}
-                  {row.perUserLimit !== undefined ? (
-                    <span className="ml-1 text-xs text-muted-foreground">
-                      ({t("table.perUser", { count: row.perUserLimit })})
-                    </span>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={row.active ? "default" : "secondary"}>
-                    {row.active ? t("status.active") : t("status.inactive")}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-full"
-                      onClick={() => setDialogTarget({ mode: "edit", row })}
-                    >
-                      {t("actions.edit")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-full"
-                      disabled={togglingCode === row.code}
-                      onClick={() => void handleToggle(row)}
-                    >
-                      {row.active ? t("actions.disable") : t("actions.enable")}
-                    </Button>
-                    {row.usedCount === 0 ? (
+            {rows
+              .slice(pagination.offset, pagination.offset + pagination.pageSize)
+              .map((row) => (
+                <TableRow key={row.code}>
+                  <TableCell className="font-mono text-sm font-medium">
+                    {row.code}
+                  </TableCell>
+                  <TableCell className="max-w-[220px] truncate">
+                    {row.description}
+                  </TableCell>
+                  <TableCell>
+                    {row.type === "percent" ? (
+                      <span>
+                        {row.value}%
+                        {row.maxDiscount !== undefined ? (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            ({t("dialog.maxDiscount")}:{" "}
+                            {formatVnd(row.maxDiscount)})
+                          </span>
+                        ) : null}
+                      </span>
+                    ) : (
+                      formatVnd(row.value)
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {row.minOrder !== undefined ? formatVnd(row.minOrder) : "—"}
+                  </TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">
+                    {formatValidity(row)}
+                  </TableCell>
+                  <TableCell className="text-sm whitespace-nowrap">
+                    {row.usedCount}/{row.usageLimit ?? t("unlimited")}
+                    {row.perUserLimit !== undefined ? (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        ({t("table.perUser", { count: row.perUserLimit })})
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={row.active ? "default" : "secondary"}>
+                      {row.active ? t("status.active") : t("status.inactive")}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
                       <Button
                         size="sm"
-                        variant="destructive"
+                        variant="outline"
                         className="rounded-full"
-                        onClick={() => setDeleteTarget(row)}
+                        onClick={() => setDialogTarget({ mode: "edit", row })}
                       >
-                        {t("actions.delete")}
+                        {t("actions.edit")}
                       </Button>
-                    ) : null}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-full"
+                        disabled={togglingCode === row.code}
+                        onClick={() => void handleToggle(row)}
+                      >
+                        {row.active
+                          ? t("actions.disable")
+                          : t("actions.enable")}
+                      </Button>
+                      {row.usedCount === 0 ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="rounded-full"
+                          onClick={() => setDeleteTarget(row)}
+                        >
+                          {t("actions.delete")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       )}
+
+      <AdminPagination pagination={pagination} />
 
       <DiscountFormDialog
         target={dialogTarget}

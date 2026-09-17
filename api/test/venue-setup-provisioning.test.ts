@@ -33,6 +33,7 @@ type VenuesCtorArgs = ConstructorParameters<typeof VenuesService>
 interface FakeVenueDoc {
   venueId: string
   ownerId?: string
+  brandId?: string
   info: Record<string, unknown> & {
     id: string
     manager: { name: string; initials: string }
@@ -68,8 +69,7 @@ function makeVenueModel() {
       ),
     find: (filter: Record<string, unknown> = {}) => ({
       sort: () => ({
-        lean: () =>
-          Promise.resolve(store.filter((d) => matches(filter, d))),
+        lean: () => Promise.resolve(store.filter((d) => matches(filter, d))),
       }),
     }),
     findOne: (filter: Record<string, unknown> = {}) => {
@@ -256,6 +256,7 @@ void test("provisionVenue creates every branch in the list under the same brand,
   assert.equal(seed.info.id, store[0].info.id)
   for (const doc of store) {
     assert.equal(doc.ownerId, "u4")
+    assert.equal(doc.brandId, getBrand()?.id)
     assert.equal(
       (doc.info as unknown as { brandId?: string }).brandId,
       getBrand()?.id
@@ -294,5 +295,68 @@ void test("a freshly provisioned branch (no courts, pending approval) is exclude
   assert.deepEqual(
     (store[0].ops as unknown as { courts: unknown[] }).courts,
     []
+  )
+})
+
+void test("discovery uses ownerless demo courts only until a real court exists", async () => {
+  const { model, store } = makeVenueModel()
+  const { mock: brands } = makeBrandsMock(null)
+  const service = makeService({ venueModel: model, brands })
+  const venueInfo = (id: string, name: string) => ({
+    id,
+    name,
+    initials: name.slice(0, 2),
+    ward: "Quận 7",
+    province: "TP. Hồ Chí Minh",
+    sports: ["badminton"],
+    openFrom: "06:00",
+    openTo: "22:00",
+    rating: 0,
+    reviews: 0,
+    manager: { name: "Quản lý", initials: "QL" },
+    now: "18:00",
+  })
+  const court = (id: string, name: string) => ({
+    id,
+    name,
+    sport: "badminton",
+    surface: "Thảm",
+    state: "available",
+    utilToday: 0,
+    pricePerHour: 100000,
+  })
+  store.push(
+    {
+      venueId: "v1",
+      info: venueInfo("v1", "Demo"),
+      ops: { courts: [court("demo-court", "Sân demo")] },
+      approval: "approved",
+      createdAt: new Date(0),
+      markModified: () => {},
+      save: () => Promise.resolve(),
+    },
+    {
+      venueId: "v2",
+      ownerId: "owner-1",
+      brandId: "b1",
+      info: venueInfo("v2", "Sân thật"),
+      ops: { courts: [court("real-court", "Sân thật 1")] },
+      approval: "approved",
+      createdAt: new Date(1),
+      markModified: () => {},
+      save: () => Promise.resolve(),
+    }
+  )
+
+  const courts = await service.catalogCourts()
+  const venues = await service.catalogVenues()
+
+  assert.deepEqual(
+    courts.map((item) => item.id),
+    ["real-court"]
+  )
+  assert.deepEqual(
+    venues.map((item) => item.id),
+    ["v2"]
   )
 })

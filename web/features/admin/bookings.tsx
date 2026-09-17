@@ -5,6 +5,10 @@ import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
+  AdminPagination,
+  useAdminPagination,
+} from "@/features/admin/pagination"
+import {
   Table,
   TableBody,
   TableCell,
@@ -51,6 +55,7 @@ export function AdminBookingsView({
   bookings: AdminBookingRow[]
 }) {
   const t = useTranslations("AdminBookings")
+  const pagination = useAdminPagination(bookings.length)
   const { setTarget, dialogProps } = useReasonConfirm<AdminBookingRow>(
     (booking, reason) => forceCancelBooking(booking.bookingId, reason)
   )
@@ -83,48 +88,52 @@ export function AdminBookingsView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {bookings.map((b) => (
-              <TableRow key={b.bookingId}>
-                <TableCell className="font-mono text-xs">
-                  {b.bookingId}
-                </TableCell>
-                <TableCell>{b.venueId}</TableCell>
-                <TableCell>{b.courtName}</TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {b.dateKey} · {b.start}
-                </TableCell>
-                <TableCell className="text-right font-mono tabular-nums">
-                  {formatVnd(b.price)}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={STATUS_VARIANT[b.status] ?? "outline"}>
-                    {t(`status.${b.status}`)}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={PAYMENT_VARIANT[b.paymentStatus] ?? "outline"}
-                  >
-                    {t(`paymentStatus.${b.paymentStatus}`)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  {CANCELLABLE.has(b.status) ? (
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="rounded-full"
-                      onClick={() => setTarget(b)}
+            {bookings
+              .slice(pagination.offset, pagination.offset + pagination.pageSize)
+              .map((b) => (
+                <TableRow key={b.bookingId}>
+                  <TableCell className="font-mono text-xs">
+                    {b.bookingId}
+                  </TableCell>
+                  <TableCell>{b.venueId}</TableCell>
+                  <TableCell>{b.courtName}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {b.dateKey} · {b.start}
+                  </TableCell>
+                  <TableCell className="text-right font-mono tabular-nums">
+                    {formatVnd(b.price)}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={STATUS_VARIANT[b.status] ?? "outline"}>
+                      {t(`status.${b.status}`)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={PAYMENT_VARIANT[b.paymentStatus] ?? "outline"}
                     >
-                      {t("cancel.button")}
-                    </Button>
-                  ) : null}
-                </TableCell>
-              </TableRow>
-            ))}
+                      {t(`paymentStatus.${b.paymentStatus}`)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {CANCELLABLE.has(b.status) ? (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="rounded-full"
+                        onClick={() => setTarget(b)}
+                      >
+                        {t("cancel.button")}
+                      </Button>
+                    ) : null}
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       )}
+
+      <AdminPagination pagination={pagination} />
 
       <ReasonDialog
         {...dialogProps}

@@ -92,14 +92,22 @@ const apiFetchSafe = createFetch(sharedFetchConfig)
  * shared dashboard layout (a server component) and handed to the client `DataProvider`.
  */
 export async function fetchSeed(): Promise<Seed> {
-  try {
-    return await apiFetch<Seed>("/api/seed")
-  } catch {
-    throw new Error(
-      `Failed to load dashboard seed from ${API_URL}/api/seed. ` +
-        `Is the API running? (pnpm dev / pnpm --filter api dev)`
-    )
+  let lastError: unknown
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      return await apiFetch<Seed>("/api/seed")
+    } catch (err) {
+      lastError = err
+      if (attempt < 4) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
+      }
+    }
   }
+  throw new Error(
+    `Failed to load dashboard seed from ${API_URL}/api/seed. ` +
+      `Is the API running? (pnpm dev / pnpm --filter api dev)`,
+    { cause: lastError }
+  )
 }
 
 /** Stream Chat credentials handed to the web client (app key + signed user token). */

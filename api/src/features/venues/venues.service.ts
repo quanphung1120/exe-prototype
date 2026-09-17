@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  type OnModuleInit,
 } from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
@@ -145,6 +146,8 @@ export interface CourtBlockInput {
 // createdAt/_id ascending recovers seed order and keeps new venues last.
 const ORDER = { createdAt: 1, _id: 1 } as const
 
+type StoredVenueRecord = VenueRecord & { ownerId?: string }
+
 /**
  * Narrow a booking status to the notification helper's domain — null for the
  * two payment-gate states (`awaiting_payment`/`expired`) a future phase
@@ -184,7 +187,7 @@ function maxSeq(ids: string[], prefix: string): number {
 // mutation to it. Depending on BookingsService (not the other way) is what
 // keeps this module out of the old Sessions↔Venues forwardRef cycle.
 @Injectable()
-export class VenuesService {
+export class VenuesService implements OnModuleInit {
   private readonly logger = new Logger(VenuesService.name)
 
   constructor(
@@ -202,6 +205,25 @@ export class VenuesService {
     // Provisioning a venue ensures the account's brand (its branches' parent).
     @Inject(BrandsService) private readonly brands: BrandsService
   ) {}
+
+  /**
+   * Repair approval copies written before venue creation persisted `brandId`
+   * at the document root. Brand is canonical; venue copies drive booking and
+   * discovery, so reconcile them once whenever the API starts.
+   */
+  async onModuleInit(): Promise<void> {
+    await this.ensureSeeded()
+    const brands = await this.brands.listAll()
+    await Promise.all(
+      brands.map((brand) =>
+        this.writeApprovalForBrand(
+          brand.id,
+          brand.approval ?? "approved",
+          brand.approvalReason
+        )
+      )
+    )
+  }
 
   // Memoize the one-time seed so concurrent first-requests don't each insert the
   // demo venues (which would collide on the unique `venueId` index).
@@ -242,12 +264,16 @@ export class VenuesService {
   }
 
   /** All records as plain VenueRecords, in venue order. */
-  private async loadRecords(): Promise<VenueRecord[]> {
+  private async loadRecords(): Promise<StoredVenueRecord[]> {
     const docs = await this.venueModel
       .find()
       .sort(ORDER)
       .lean<VenueDocument[]>()
-    return docs.map((d) => ({ info: withApproval(d.info, d), ops: d.ops }))
+    return docs.map((d) => ({
+      info: withApproval(d.info, d),
+      ops: d.ops,
+      ownerId: d.ownerId,
+    }))
   }
 
   private async firstRecord(): Promise<VenueRecord> {
@@ -530,17 +556,26 @@ export class VenuesService {
    * `pending`/`rejected` admin approval is excluded too — it can't take
    * bookings yet (`BookingsService#assertVenueApproved`), so surfacing it in
    * discovery would only let a player walk the whole flow into that error.
+   * Ownerless seed courts are fallback content only: as soon as at least one
+   * real operator has a discoverable court, the catalog contains real courts
+   * exclusively so seed ratings cannot crowd them out of AI results.
    */
   async catalogCourts(sport?: SportKey): Promise<Court[]> {
     await this.ensureSeeded()
     const records = await this.loadRecords()
-    const courts = records
-      .filter((rec) => !rec.info.archived && rec.info.approval === "approved")
-      .flatMap((rec) =>
-        rec.ops.courts
-          .filter((court) => !court.archived)
-          .map((court) => venueCourtToCourt(rec.info, court))
-      )
+    const approved = records.filter(
+      (rec) => !rec.info.archived && rec.info.approval === "approved"
+    )
+    const real = approved.filter(
+      (rec) => rec.ownerId && rec.ops.courts.some((court) => !court.archived)
+    )
+    const source =
+      real.length > 0 ? real : approved.filter((rec) => !rec.ownerId)
+    const courts = source.flatMap((rec) =>
+      rec.ops.courts
+        .filter((court) => !court.archived)
+        .map((court) => venueCourtToCourt(rec.info, court))
+    )
     return sport ? courts.filter((c) => c.sports.includes(sport)) : courts
   }
 
@@ -558,14 +593,19 @@ export class VenuesService {
    * facing map must not surface a branch that can't take bookings — but UNLIKE
    * catalogCourts a court-less (approved) branch still gets a pin. Coordinates
    * are resolved to the venue's exact position (map-centre fallback when unset),
-   * never the per-court jitter.
+   * never the per-court jitter. Ownerless seed pins follow the same fallback
+   * rule as courts and disappear once a real approved branch exists.
    */
   async catalogVenues(): Promise<VenuePin[]> {
     await this.ensureSeeded()
     const records = await this.loadRecords()
-    return records
-      .filter((rec) => !rec.info.archived && rec.info.approval === "approved")
-      .map((rec) => venueToPin(rec.info))
+    const approved = records.filter(
+      (rec) => !rec.info.archived && rec.info.approval === "approved"
+    )
+    const real = approved.filter((rec) => rec.ownerId)
+    return (
+      real.length > 0 ? real : approved.filter((rec) => !rec.ownerId)
+    ).map((rec) => venueToPin(rec.info))
   }
 
   // ── Venue mutations ──────────────────────────────────────────────────────────
@@ -612,6 +652,7 @@ export class VenuesService {
         await this.venueModel.create({
           venueId: info.id,
           ownerId: input.ownerId,
+          brandId: input.brandId,
           info,
           ops: emptyOps([]),
           approval,
@@ -1080,12 +1121,24 @@ export class VenuesService {
     reason?: string
   ): Promise<void> {
     await this.ensureSeeded()
+    await this.writeApprovalForBrand(brandId, status, reason, vnNowIso())
+  }
+
+  private async writeApprovalForBrand(
+    brandId: string,
+    status: VenueApprovalStatus,
+    reason?: string,
+    approvedAt?: string
+  ): Promise<void> {
     const set: Record<string, unknown> = {
+      brandId,
       approval: status,
-      approvedAt: vnNowIso(),
     }
+    if (approvedAt) set.approvedAt = approvedAt
     await this.venueModel.updateMany(
-      { brandId },
+      // Older setup writes only stored the relationship inside Mixed `info`.
+      // Match both shapes and backfill the indexed root field in the same write.
+      { $or: [{ brandId }, { "info.brandId": brandId }] },
       status === "rejected"
         ? { $set: { ...set, approvalReason: reason } }
         : { $set: set, $unset: { approvalReason: "" } }

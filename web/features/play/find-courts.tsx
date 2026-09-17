@@ -46,6 +46,10 @@ const normalize = (s: string) =>
     .toLowerCase()
     .trim()
 
+function courtAddress(court: Pick<Court, "ward" | "province">) {
+  return [court.ward, court.province].filter(Boolean).join(", ")
+}
+
 const toRad = (deg: number) => (deg * Math.PI) / 180
 
 /** Great-circle distance in km between two coordinates. */
@@ -113,7 +117,12 @@ export function FindCourtsView() {
   const items = React.useMemo(() => {
     const q = normalize(query)
     return COURTS.filter((c) => sport === "all" || c.sports.includes(sport))
-      .filter((c) => !q || normalize(c.name).includes(q))
+      .filter(
+        (c) =>
+          !q ||
+          normalize(c.name).includes(q) ||
+          normalize(courtAddress(c)).includes(q)
+      )
       .map((court) => ({
         court,
         distanceKm: userLoc ? haversineKm(userLoc, court) : court.distanceKm,
@@ -283,7 +292,7 @@ function CourtCard({
             </p>
             <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="size-3" />
-              {court.ward} ·{" "}
+              {courtAddress(court)} ·{" "}
               {t("distance", { km: Math.round(distanceKm * 10) / 10 })}
               <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground tabular-nums shadow-sm ring-1 ring-foreground/5">
                 <Star className="size-3 fill-lime text-lime" />

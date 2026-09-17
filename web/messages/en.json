@@ -1,4 +1,13 @@
 {
+  "RouteLoading": { "label": "Loading page…" },
+  "AdminPagination": {
+    "label": "Pagination",
+    "range": "Showing {from}–{to} of {total} items",
+    "pageSize": "Items per page",
+    "page": "Page",
+    "previous": "Previous",
+    "next": "Next"
+  },
   "Auth": {
     "brand": "SportMatch AI",
     "tagline": "AI-powered court booking & player matchmaking",
