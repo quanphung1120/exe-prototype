@@ -6,6 +6,10 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
+  AdminPagination,
+  useAdminPagination,
+} from "@/features/admin/pagination"
+import {
   Table,
   TableBody,
   TableCell,
@@ -24,6 +28,7 @@ import type { AdminApprovalRow } from "@/features/admin/admin-types"
 export function AdminApprovalsView({ brands }: { brands: AdminApprovalRow[] }) {
   const t = useTranslations("AdminApprovals")
   const [rows, setRows] = React.useState(brands)
+  const pagination = useAdminPagination(rows.length)
   const [pending, setPending] = React.useState<string | null>(null)
 
   const { setTarget, dialogProps } = useReasonConfirm<AdminApprovalRow>(
@@ -65,54 +70,58 @@ export function AdminApprovalsView({ brands }: { brands: AdminApprovalRow[] }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.brand.id}>
-                <TableCell className="align-top font-medium">
-                  {row.brand.name}
-                </TableCell>
-                <TableCell>
-                  {row.venues.length === 0 ? (
-                    <span className="text-muted-foreground">—</span>
-                  ) : (
-                    <div className="flex flex-col gap-0.5">
-                      {row.venues.map((venue) => (
-                        <span key={venue.id} className="text-sm">
-                          {venue.name}
-                          <span className="text-muted-foreground">
-                            {" · "}
-                            {venue.ward}, {venue.province}
+            {rows
+              .slice(pagination.offset, pagination.offset + pagination.pageSize)
+              .map((row) => (
+                <TableRow key={row.brand.id}>
+                  <TableCell className="align-top font-medium">
+                    {row.brand.name}
+                  </TableCell>
+                  <TableCell>
+                    {row.venues.length === 0 ? (
+                      <span className="text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex flex-col gap-0.5">
+                        {row.venues.map((venue) => (
+                          <span key={venue.id} className="text-sm">
+                            {venue.name}
+                            <span className="text-muted-foreground">
+                              {" · "}
+                              {venue.ward}, {venue.province}
+                            </span>
                           </span>
-                        </span>
-                      ))}
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right align-top">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        className="rounded-full"
+                        disabled={pending === row.brand.id}
+                        onClick={() => void handleApprove(row)}
+                      >
+                        {t("approve")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="rounded-full"
+                        disabled={pending === row.brand.id}
+                        onClick={() => setTarget(row)}
+                      >
+                        {t("reject.button")}
+                      </Button>
                     </div>
-                  )}
-                </TableCell>
-                <TableCell className="text-right align-top">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      size="sm"
-                      className="rounded-full"
-                      disabled={pending === row.brand.id}
-                      onClick={() => void handleApprove(row)}
-                    >
-                      {t("approve")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="rounded-full"
-                      disabled={pending === row.brand.id}
-                      onClick={() => setTarget(row)}
-                    >
-                      {t("reject.button")}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       )}
+
+      <AdminPagination pagination={pagination} />
 
       <ReasonDialog
         {...dialogProps}

@@ -560,7 +560,11 @@ export function courtDayGaps(
   const openStart = toMinutes(COURT_OPEN_FROM)
   const openEnd = toMinutes(COURT_OPEN_TO)
   const gaps: CourtBand[] = []
-  let cursor = openStart
+  const currentDate = new Date(now + VN_OFFSET_MS)
+  const current = currentDate.getUTCHours() * 60 + currentDate.getUTCMinutes()
+  const nextQuarter = Math.ceil(current / 15) * 15
+  let cursor =
+    dayKey === vnDateOf(now) ? Math.max(openStart, nextQuarter) : openStart
   for (const b of courtDayBusy(
     courts,
     sessions,

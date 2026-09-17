@@ -107,11 +107,13 @@ void test("createVenue stamps the brand's inherited approval status (pending bra
     openTo: "22:00",
     managerName: "Quản lý",
     ownerId: "owner-1",
+    brandId: "brand-1",
     approval: "pending",
   })
 
   assert.equal(info.approval, "pending")
   assert.equal(created[0]?.approval, "pending")
+  assert.equal(created[0]?.brandId, "brand-1")
 })
 
 void test("createVenue defaults a branch to approved when no brand status is passed (approved brand)", async () => {
@@ -145,7 +147,9 @@ void test("createVenue defaults a branch to approved when no brand status is pas
 })
 
 void test("BrandsService.listPendingApprovals returns only pending brands, merging the resolved status", async () => {
-  const docs = [{ brandId: "b1", info: { id: "b1", name: "A" }, approval: "pending" }]
+  const docs = [
+    { brandId: "b1", info: { id: "b1", name: "A" }, approval: "pending" },
+  ]
   const brandModel = {
     find: (filter: Record<string, unknown>) => ({
       sort: () => ({
@@ -223,13 +227,47 @@ void test("setApprovalForBrand propagates the decision onto every branch's denor
   await service.setApprovalForBrand("b1", "approved")
   await service.setApprovalForBrand("b1", "rejected", "Thiếu giấy phép")
 
-  assert.deepEqual(calls[0]?.filter, { brandId: "b1" })
+  assert.deepEqual(calls[0]?.filter, {
+    $or: [{ brandId: "b1" }, { "info.brandId": "b1" }],
+  })
   const approveSet = calls[0]?.update.$set as Record<string, unknown>
   assert.equal(approveSet.approval, "approved")
+  assert.equal(approveSet.brandId, "b1")
   assert.deepEqual(calls[0]?.update.$unset, { approvalReason: "" })
   const rejectSet = calls[1]?.update.$set as Record<string, unknown>
   assert.equal(rejectSet.approval, "rejected")
   assert.equal(rejectSet.approvalReason, "Thiếu giấy phép")
+})
+
+void test("startup reconciles a legacy branch from its canonical approved brand", async () => {
+  const calls: { filter: unknown; update: Record<string, unknown> }[] = []
+  const venueModel = {
+    syncIndexes: () => Promise.resolve([]),
+    countDocuments: () => Promise.resolve(1),
+    updateMany: (filter: unknown, update: Record<string, unknown>) => {
+      calls.push({ filter, update })
+      return Promise.resolve({ modifiedCount: 1 })
+    },
+  }
+  const brands = {
+    listAll: () =>
+      Promise.resolve([
+        { id: "b1", ownerId: "owner-1", name: "Brand", approval: "approved" },
+      ]),
+  }
+  const service = new VenuesService(
+    ...([venueModel, {}, {}, {}, {}, brands] as unknown as VenuesCtorArgs)
+  )
+
+  await service.onModuleInit()
+
+  assert.deepEqual(calls[0]?.filter, {
+    $or: [{ brandId: "b1" }, { "info.brandId": "b1" }],
+  })
+  const set = calls[0]?.update.$set as Record<string, unknown>
+  assert.equal(set.brandId, "b1")
+  assert.equal(set.approval, "approved")
+  assert.deepEqual(calls[0]?.update.$unset, { approvalReason: "" })
 })
 
 // ── BookingsService approval gate ────────────────────────────────────────────

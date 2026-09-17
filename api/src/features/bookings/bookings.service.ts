@@ -45,6 +45,7 @@ import {
 import { BookingLock, type BookingLockDocument } from "./booking-lock.schema.js"
 import {
   assertNoCourtBlock,
+  assertNotPast,
   assertWithinHours,
   bookingSlotFields,
   bookingSummaryFrom,
@@ -251,6 +252,7 @@ export class BookingsService {
     if (court.state === "maintenance") {
       throw new BadRequestException("Court is under maintenance")
     }
+    assertNotPast(dayKey, start)
     assertWithinHours(venueDoc.info, start, durationMin)
     assertNoCourtBlock(
       venueDoc.ops.blocks ?? [],

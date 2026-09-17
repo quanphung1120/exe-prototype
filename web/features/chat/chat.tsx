@@ -37,6 +37,7 @@ import {
 import { ChatMessage } from "@/features/chat/message"
 import { MobilePaneContext } from "@/features/chat/mobile-pane-context"
 import {
+  StreamChatBoundary,
   useStreamChatStatus,
   useStreamClient,
 } from "@/features/chat/stream-provider"
@@ -72,7 +73,7 @@ const COMPONENT_OVERRIDES = {
  * querying/pagination, Channel state, MessageList scroll management) with
  * fully custom UI — every visible piece is ours (see COMPONENT_OVERRIDES,
  * message.tsx, composer.tsx, channel-list.tsx, list-chrome.tsx). The `<Chat>`
- * provider lives in the dashboard layout; this view renders the two panes and
+ * provider wraps this view; this view renders the two panes and
  * a custom header. When Stream is connecting or unavailable it falls back to
  * a centered status message instead of crashing on a missing context.
  */
@@ -182,15 +183,17 @@ export function ChatView({
   )
 
   return (
-    <ChatShell>
-      {venueInboxId ? (
-        <VenueInboxContext.Provider value={true}>
-          {body}
-        </VenueInboxContext.Provider>
-      ) : (
-        body
-      )}
-    </ChatShell>
+    <StreamChatBoundary>
+      <ChatShell>
+        {venueInboxId ? (
+          <VenueInboxContext.Provider value={true}>
+            {body}
+          </VenueInboxContext.Provider>
+        ) : (
+          body
+        )}
+      </ChatShell>
+    </StreamChatBoundary>
   )
 }
 

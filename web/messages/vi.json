@@ -1,4 +1,13 @@
 {
+  "RouteLoading": { "label": "Đang tải trang…" },
+  "AdminPagination": {
+    "label": "Phân trang",
+    "range": "Hiển thị {from}–{to} trên {total} mục",
+    "pageSize": "Số mục mỗi trang",
+    "page": "Trang",
+    "previous": "Trước",
+    "next": "Sau"
+  },
   "Auth": {
     "brand": "SportMatch AI",
     "tagline": "Đặt sân & ghép cặp người chơi bằng AI",

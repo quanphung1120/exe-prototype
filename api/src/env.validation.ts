@@ -32,7 +32,7 @@ const envSchema = z.object({
   // OpenRouter (Vercel AI SDK provider) — powers POST /api/ai/chat. Required so a
   // missing key crashes at boot instead of 500ing the first chat request.
   OPENROUTER_API_KEY: z.string().min(1, "OPENROUTER_API_KEY is required"),
-  OPENROUTER_MODEL: z.string().min(1).default("anthropic/claude-haiku-4.5"),
+  OPENROUTER_MODEL: z.string().min(1).default("xiaomi/mimo-v2.5"),
 })
 
 export type Env = z.infer<typeof envSchema>

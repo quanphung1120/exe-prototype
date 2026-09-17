@@ -119,7 +119,11 @@ function RoomCard({
   const tc = useTranslations("Common")
   const sUser = useAuthUser()
   const { userName } = useMatchmaking()
-  const { user: USER } = useData()
+  const { user: USER, courtByVenue } = useData()
+  const court = courtByVenue(room.venue)
+  const address = court
+    ? [court.ward, court.province].filter(Boolean).join(", ")
+    : room.ward
   const [leaveHint, setLeaveHint] = React.useState(false)
   const full = room.joined >= room.capacity
   const openSeats = room.capacity - room.joined
@@ -157,7 +161,7 @@ function RoomCard({
         <span className="flex min-w-0 items-center gap-1.5">
           <MapPin className="size-3.5 shrink-0" />
           <span className="min-w-0 truncate">
-            {room.venue} · {room.ward} · {room.distanceKm} km
+            {room.venue} · {address} · {room.distanceKm} km
           </span>
         </span>
         <span className="flex min-w-0 items-center gap-1.5">

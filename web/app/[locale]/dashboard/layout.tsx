@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { fetchSeed, fetchStreamCredentials } from "@/lib/api"
+import { fetchSeed } from "@/lib/api"
 import { getServerSession } from "@/lib/auth-server"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -36,13 +36,9 @@ export default async function DashboardLayout({
     redirect("/" + locale + "/sign-in")
   }
 
-  // Fetch the seed and the Stream credentials in parallel. The credentials call
-  // seeds the user's demo channels on first hit and returns null if Stream is
-  // down/unconfigured — the dashboard still renders, chat just degrades.
-  const [seed, streamCreds] = await Promise.all([
-    fetchSeed(),
-    fetchStreamCredentials(session.user),
-  ])
+  // Chat connects in the browser after rendering. Its external service must
+  // not delay the dashboard or the onboarding redirect.
+  const seed = await fetchSeed()
 
   // No account type chosen or inferred yet — send fresh accounts (email and
   // Google SSO alike) through the onboarding choice point before anything else.
@@ -59,7 +55,7 @@ export default async function DashboardLayout({
           <SessionProvider>
             <NotificationsProvider>
               <StreamChatProvider
-                creds={streamCreds}
+                key={session.user.id}
                 userId={session.user.id}
                 userName={session.user.name}
                 userImage={session.user.image}

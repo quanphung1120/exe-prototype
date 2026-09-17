@@ -168,7 +168,7 @@ function RoomDetail({
     approveRequest,
     declineRequest,
   } = useSession()
-  const { players: MATCH_SUGGESTIONS, user: USER } = useData()
+  const { players: MATCH_SUGGESTIONS, user: USER, courtByVenue } = useData()
   const router = useRouter()
 
   // Only ever set for a room I host — someone else's room I'm awaiting
@@ -182,6 +182,10 @@ function RoomDetail({
   // rooms), not from `session`, since a cross-user pending request never
   // lands in my own doc.
   const awaitingApproval = requestedIds.has(room.id)
+  const court = courtByVenue(room.venue)
+  const address = court
+    ? [court.ward, court.province].filter(Boolean).join(", ")
+    : room.ward
 
   const title = tm.has(`rooms.${room.id}.title`)
     ? tm(`rooms.${room.id}.title`)
@@ -275,7 +279,7 @@ function RoomDetail({
           <SectionLabel>{t("location")}</SectionLabel>
           <div className="flex flex-col gap-2 text-sm">
             <DetailRow icon={MapPin}>
-              {room.venue} · {room.ward} · {room.distanceKm} km
+              {room.venue} · {address} · {room.distanceKm} km
             </DetailRow>
             <DetailRow icon={Clock}>
               {booked

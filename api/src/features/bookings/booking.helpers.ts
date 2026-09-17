@@ -8,6 +8,7 @@ import {
   addMinutes,
   combineDateTime,
   dayLabelFor,
+  isoDateOf,
   overlapsBlock,
   priceFor,
   rangesOverlap,
@@ -47,6 +48,20 @@ export function assertWithinHours(
   ) {
     throw new BadRequestException(
       "Reservation must stay within venue opening hours"
+    )
+  }
+}
+
+/** Reject a same-day start that has already passed in Vietnam time. */
+export function assertNotPast(
+  dateKey: string,
+  start: string,
+  now: string = vnNowIso()
+): void {
+  const today = isoDateOf(now)
+  if (dateKey === today && toMinutes(start) < toMinutes(now.slice(11, 16))) {
+    throw new BadRequestException(
+      "Không thể đặt khung giờ đã qua — vui lòng chọn giờ sắp tới"
     )
   }
 }

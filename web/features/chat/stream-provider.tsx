@@ -1,11 +1,13 @@
 "use client"
 
 import * as React from "react"
+import { useAuth } from "@clerk/nextjs"
 import { useLocale } from "next-intl"
 import type { Event, StreamChat } from "stream-chat"
 import { Chat, useCreateChatClient } from "stream-chat-react"
 
 import type { StreamCredentials } from "@/lib/api"
+import { PUBLIC_API_URL } from "@/lib/public-api"
 import { refreshStreamToken } from "@/features/chat/stream-actions"
 import { getStreami18n } from "@/features/chat/stream-i18n"
 
@@ -38,42 +40,89 @@ export function useStreamChatStatus(): "ready" | "connecting" | "unavailable" {
 }
 
 export interface StreamChatProviderProps {
-  creds: StreamCredentials | null
   userId: string
   userName: string
   userImage?: string | null
-  children: React.ReactNode
+  children?: React.ReactNode
 }
 
 /**
- * Connects the signed-in user to Stream Chat and wraps the dashboard in `<Chat>`
- * so every chat component (and the sidebar unread badge) shares one client. When
- * `creds` is null (Stream unconfigured/unreachable) it renders children with a
- * null client context and no `<Chat>` — the app stays fully usable, only the
- * chat surface degrades.
+ * Shares one connection with the chat view and the sidebar unread badge.
+ * Credentials load after mount so a slow chat service never blocks navigation.
+ * Children stay usable while connecting or when the service is unavailable.
  */
-export function StreamChatProvider({
-  creds,
-  ...rest
-}: StreamChatProviderProps) {
-  if (!creds) {
-    return (
-      <StreamContext.Provider value={{ client: null, degraded: true }}>
-        {rest.children}
-      </StreamContext.Provider>
-    )
-  }
-  return <ConnectedProvider creds={creds} {...rest} />
+export function StreamChatProvider({ ...rest }: StreamChatProviderProps) {
+  const { getToken } = useAuth()
+  const [creds, setCreds] = React.useState<StreamCredentials | null>(null)
+  const [degraded, setDegraded] = React.useState(false)
+  const [client, setClient] = React.useState<StreamChat | null>(null)
+  const { userName, userImage } = rest
+
+  React.useEffect(() => {
+    const controller = new AbortController()
+    let active = true
+    const timeout = setTimeout(() => {
+      controller.abort()
+      if (active) setDegraded(true)
+    }, 8_000)
+
+    async function connect() {
+      try {
+        const token = await getToken()
+        if (!token) throw new Error("Authentication required")
+        const response = await fetch(`${PUBLIC_API_URL}/api/stream/token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: userName,
+            image: userImage ?? undefined,
+          }),
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error("Stream credentials unavailable")
+        const credentials = (await response.json()) as StreamCredentials
+        if (active) setCreds(credentials)
+      } catch {
+        if (active) setDegraded(true)
+      } finally {
+        clearTimeout(timeout)
+      }
+    }
+
+    void connect()
+    return () => {
+      active = false
+      clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [getToken, userName, userImage])
+
+  // Keep children in a stable tree while connecting; adding a wrapper when
+  // credentials arrive would remount forms and discard in-progress input.
+  return (
+    <StreamContext.Provider value={{ client, degraded }}>
+      {creds ? (
+        <StreamConnection creds={creds} {...rest} onClient={setClient} />
+      ) : null}
+      {rest.children}
+    </StreamContext.Provider>
+  )
 }
 
-function ConnectedProvider({
+function StreamConnection({
   creds,
   userId,
   userName,
   userImage,
-  children,
-}: StreamChatProviderProps & { creds: StreamCredentials }) {
-  const locale = useLocale()
+  onClient,
+}: StreamChatProviderProps & {
+  creds: StreamCredentials
+  onClient: (client: StreamChat | null) => void
+}) {
+  const initialToken = React.useRef<string | null>(creds.token)
 
   // A token *provider*, not the static `creds.token` string — the api signs
   // user tokens with a 24h expiry (see `StreamService.issueToken`), and
@@ -81,10 +130,15 @@ function ConnectedProvider({
   // previous token expires. Re-authenticates through the caller's own Clerk
   // session on every call (the `refreshStreamToken` server action), never an
   // unauthenticated mint.
-  const tokenProvider = React.useCallback(
-    () => refreshStreamToken({ name: userName, image: userImage }),
-    [userName, userImage]
-  )
+  const tokenProvider = React.useCallback(async () => {
+    // Reuse the credential we just fetched; only refresh on SDK renewal.
+    if (initialToken.current) {
+      const token = initialToken.current
+      initialToken.current = null
+      return token
+    }
+    return refreshStreamToken({ name: userName, image: userImage })
+  }, [userName, userImage])
 
   // Creates, connects and returns the client; handles disconnect on unmount and
   // React StrictMode's double-mount. Returns null while connecting. Never build
@@ -99,28 +153,31 @@ function ConnectedProvider({
     },
   })
 
+  React.useEffect(() => {
+    onClient(client ?? null)
+    return () => onClient(null)
+  }, [client, onClient])
+  return null
+}
+
+/** SDK UI context is only needed around the chat view, not the whole dashboard. */
+export function StreamChatBoundary({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const client = useStreamClient()
+  const locale = useLocale()
   const i18nInstance = React.useMemo(() => getStreami18n(locale), [locale])
-
-  // Still connecting — expose a null client so downstream consumers show their
-  // loading/guarded state instead of crashing on a missing `<Chat>` context.
-  if (!client) {
-    return (
-      <StreamContext.Provider value={{ client: null, degraded: false }}>
-        {children}
-      </StreamContext.Provider>
-    )
-  }
-
+  if (!client) return children
   return (
-    <StreamContext.Provider value={{ client, degraded: false }}>
-      <Chat
-        client={client}
-        customClasses={CUSTOM_CLASSES}
-        i18nInstance={i18nInstance}
-      >
-        {children}
-      </Chat>
-    </StreamContext.Provider>
+    <Chat
+      client={client}
+      customClasses={CUSTOM_CLASSES}
+      i18nInstance={i18nInstance}
+    >
+      {children}
+    </Chat>
   )
 }
 

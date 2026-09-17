@@ -15,6 +15,7 @@ import {
 } from "../src/features/bookings/bookings.dto.js"
 import {
   assertNoCourtBlock,
+  assertNotPast,
   assertWithinHours,
   bookingsOverlap,
   bookingSlotFields,
@@ -217,6 +218,16 @@ void test("assertWithinHours rejects a slot spilling past closing", () => {
   assert.throws(
     () => assertWithinHours(makeVenue({ openTo: "22:00" }), "21:30", 60),
     BadRequestException
+  )
+})
+
+void test("assertNotPast rejects an earlier slot on today", () => {
+  assert.throws(
+    () => assertNotPast("2026-07-20", "06:00", "2026-07-20T16:00:00+07:00"),
+    BadRequestException
+  )
+  assert.doesNotThrow(() =>
+    assertNotPast("2026-07-20", "17:00", "2026-07-20T16:00:00+07:00")
   )
 })
 
