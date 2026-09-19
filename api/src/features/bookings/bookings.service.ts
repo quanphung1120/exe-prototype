@@ -113,6 +113,7 @@ export interface BookingStatusInfo {
   venueId: string
   status: BookingRecordStatus
   paymentStatus: PaymentStatus
+  holdExpiresAt?: string
   declineReason?: string
   cancelReason?: string
 }
@@ -343,6 +344,7 @@ export class BookingsService {
           venueId: d.venueId,
           status: d.status,
           paymentStatus: d.paymentStatus,
+          holdExpiresAt: d.holdExpiresAt,
           declineReason: d.declineReason,
           cancelReason: d.cancelReason,
         },

@@ -43,6 +43,8 @@ export function useBooking() {
     checkoutError: s.checkoutError,
     clearCheckoutError: s.clearCheckoutError,
     pay: s.pay,
+    resumePayment: s.resumePayment,
+    resumingPaymentId: s.resumingPaymentId,
     cancelBooking: s.cancelBooking,
     slotBlocked: s.slotBlocked,
     draftConflict: s.draftConflict,

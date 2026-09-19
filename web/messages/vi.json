@@ -400,6 +400,7 @@
       "redirectNotice": "Quý khách sẽ được chuyển đến trang thanh toán của SePay (VietQR hoặc thẻ) để hoàn tất giao dịch.",
       "refundPolicy": "Nếu lượt đặt bị huỷ hoặc bị từ chối, khoản hoàn tiền (nếu có) sẽ được chuyển khoản thủ công trong vòng 24–48 giờ làm việc — chúng tôi không hoàn tiền tức thì.",
       "checkoutFailed": "Không thể mở trang thanh toán — vui lòng thử lại.",
+      "paymentExpired": "Thời gian giữ sân đã hết. Vui lòng đặt lại khung giờ này.",
       "secure": "Thanh toán được bảo mật bởi SePay."
     },
     "roomTitle": "{sport} tại {court}",
@@ -521,6 +522,12 @@
     "metaTitle": "Lịch đặt",
     "metaDescription": "Các trận sắp tới và đã qua của bạn.",
     "pendingNote": "Đang chờ chủ sân duyệt.",
+    "paymentPendingNote": "Lịch chưa thanh toán. Vui lòng tiếp tục thanh toán để gửi yêu cầu cho chủ sân.",
+    "paymentCountdown": "Còn {time} để thanh toán.",
+    "paymentExpiredNote": "Thời gian giữ sân đã hết. Vui lòng đặt lại khung giờ.",
+    "unpaid": "Chưa thanh toán",
+    "continuePayment": "Tiếp tục thanh toán",
+    "openingPayment": "Đang mở thanh toán…",
     "declinedNote": "Chủ sân đã từ chối: {reason}",
     "refundedNote": "Đã hoàn tiền (mô phỏng).",
     "tabs": {

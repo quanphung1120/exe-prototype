@@ -151,6 +151,12 @@ export interface Booking {
   roomId?: string
   /** Owning venue — set on real (server-backed) bookings; absent on legacy seeds. */
   venueId?: string
+  /** Linked canonical booking id, used to resume an interrupted payment. */
+  reservationId?: string
+  /** Payment gate state for real bookings; absent on legacy seed records. */
+  paymentStatus?: PaymentStatus
+  /** Server expiry of an unpaid payment hold, exposed for the countdown UI. */
+  paymentExpiresAt?: string
   pricePerHour: number
   /** Operator's decline reason (projected from the session), shown when cancelled. */
   declineReason?: string
@@ -224,6 +230,10 @@ export interface PlaySession {
   status: SessionStatus
   /** Court-hold sub-state once booked (drives the legacy Booking status). */
   hold?: "confirmed" | "pending"
+  /** Payment gate state for a linked booking, derived from BookingRecord. */
+  paymentStatus?: PaymentStatus
+  /** Server expiry of an unpaid payment hold, exposed for the countdown UI. */
+  paymentExpiresAt?: string
   /**
    * Epoch ms deadline for an unpaid court hold: once a court+slot is picked
    * (still `forming`), the slot is reserved until this time — see

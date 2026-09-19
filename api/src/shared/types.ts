@@ -224,6 +224,10 @@ export interface PlaySession {
   status: SessionStatus
   /** Court-hold sub-state once booked (drives the legacy Booking status). */
   hold?: "confirmed" | "pending"
+  /** Payment gate state for a linked booking, derived from BookingRecord. */
+  paymentStatus?: PaymentStatus
+  /** Server expiry of an unpaid payment hold, exposed for the countdown UI. */
+  paymentExpiresAt?: string
   /**
    * Epoch ms deadline for an unpaid court hold: once a court+slot is picked
    * (still `forming`), the slot is reserved until this time — see
