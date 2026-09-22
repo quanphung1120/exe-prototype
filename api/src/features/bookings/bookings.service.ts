@@ -37,6 +37,7 @@ import {
 } from "../../common/mongo-util.js"
 import { NotificationsService } from "../notifications/notifications.service.js"
 import { ProfileService } from "../players/profile.service.js"
+import { ClerkDirectoryService } from "../stream/clerk-directory.service.js"
 import {
   effectiveApproval,
   Venue,
@@ -113,6 +114,7 @@ export interface BookingStatusInfo {
   venueId: string
   status: BookingRecordStatus
   paymentStatus: PaymentStatus
+  holdExpiresAt?: string
   declineReason?: string
   cancelReason?: string
 }
@@ -199,8 +201,24 @@ export class BookingsService {
     @Inject(ProfileService) private readonly profiles: ProfileService,
     @Inject(NotificationsService)
     private readonly notifications: NotificationsService,
+    @Inject(ClerkDirectoryService)
+    private readonly clerkDirectory: ClerkDirectoryService,
     @Inject(ConfigService) private readonly config: ConfigService
   ) {}
+
+  /**
+   * Resolve the signed-in player's current Clerk display name. Profiles seeded
+   * before a player customizes them still contain the shared demo identity
+   * ("Nguyễn Minh"), so they are only a fallback when Clerk is unavailable.
+   */
+  private async resolveCustomer(
+    userId: string,
+    fallback: { name: string; initials: string }
+  ): Promise<{ name: string; initials: string }> {
+    const directoryUser = await this.clerkDirectory.getOne(userId)
+    const name = directoryUser?.name.trim()
+    return name ? { name, initials: initialsOf(name) } : fallback
+  }
 
   /** Decision #5's SLA window, minutes — overridable via `BOOKING_CONFIRM_SLA_MINUTES`. */
   private confirmSlaMinutes(): number {
@@ -305,9 +323,48 @@ export class BookingsService {
     const docs = await this.bookingModel
       .find({ venueId, status: { $ne: "expired" } })
       .sort({ createdAt: 1 })
-      .lean()
+      .lean<BookingRecord[]>()
+    await this.repairSeededCustomerNames(docs)
     const today = isoDateOf(vnNowIso())
     return docs.map((d) => reservationFromBooking(d, today))
+  }
+
+  /**
+   * Compatibility repair for app bookings created while every seeded profile
+   * shared the same demo name. It only contacts Clerk when that exact stale
+   * value is present, resolves all affected users in one request, and persists
+   * the correction so later venue polls stay local.
+   */
+  private async repairSeededCustomerNames(
+    docs: BookingRecord[]
+  ): Promise<void> {
+    const stale = docs.filter(
+      (doc) =>
+        doc.source === "app" &&
+        doc.userId &&
+        doc.customer.name === "Nguyễn Minh"
+    )
+    const userIds = [...new Set(stale.flatMap((doc) => doc.userId ?? []))]
+    if (!userIds.length) return
+
+    const users = await this.clerkDirectory.getMany(userIds)
+    const names = new Map(users.map((user) => [user.id, user.name.trim()]))
+    const writes: Parameters<Model<BookingDocument>["bulkWrite"]>[0] = []
+
+    for (const doc of stale) {
+      const name = doc.userId ? names.get(doc.userId) : undefined
+      if (!name || name === doc.customer.name) continue
+      const customer = { name, initials: initialsOf(name) }
+      doc.customer = customer
+      writes.push({
+        updateOne: {
+          filter: { bookingId: doc.bookingId, userId: doc.userId },
+          update: { $set: { customer } },
+        },
+      })
+    }
+
+    if (writes.length) await this.bookingModel.bulkWrite(writes)
   }
 
   /**
@@ -343,6 +400,7 @@ export class BookingsService {
           venueId: d.venueId,
           status: d.status,
           paymentStatus: d.paymentStatus,
+          holdExpiresAt: d.holdExpiresAt,
           declineReason: d.declineReason,
           cancelReason: d.cancelReason,
         },
@@ -872,6 +930,14 @@ export class BookingsService {
     }>(async () => {
       const doc = await this.bookingModel.findOne({ bookingId })
       if (!doc) return { doc: null, lateRefund: null }
+      let customerChanged = false
+      if (doc.source === "app" && doc.userId) {
+        const customer = await this.resolveCustomer(doc.userId, doc.customer)
+        customerChanged =
+          customer.name !== doc.customer.name ||
+          customer.initials !== doc.customer.initials
+        if (customerChanged) doc.customer = customer
+      }
       if (doc.status === "awaiting_payment") {
         doc.status = "pending"
         doc.paymentStatus = "paid"
@@ -908,7 +974,9 @@ export class BookingsService {
         }
       }
       // Already pending/confirmed/checked-in/completed — an idempotent no-op for
-      // a defensive double-call from a retried/replayed IPN.
+      // a defensive double-call from a retried/replayed IPN. The save remains
+      // useful for legacy bookings carrying the shared seeded demo name.
+      if (customerChanged) await doc.save()
       return { doc, lateRefund: null }
     })
 
@@ -1091,6 +1159,10 @@ export class BookingsService {
     }
 
     const profile = await this.profiles.getProfile(userId)
+    const customer = await this.resolveCustomer(userId, {
+      name: profile.user.name,
+      initials: profile.user.initials,
+    })
 
     const created = await this.writeWithOverlapGuard(
       venueId,
@@ -1111,10 +1183,7 @@ export class BookingsService {
           paymentStatus: "awaiting",
           userId,
           sessionId: input.sessionId,
-          customer: {
-            name: profile.user.name,
-            initials: profile.user.initials,
-          },
+          customer,
           holdExpiresAt: addMinutesToIso(vnNowIso(), HOLD_MIN),
         })
         const [doc] = await this.bookingModel.create([record], { session })
@@ -1128,7 +1197,7 @@ export class BookingsService {
     await this.upsertAppCustomer(
       venueId,
       userId,
-      profile.user.name,
+      customer.name,
       court.sport
     )
 

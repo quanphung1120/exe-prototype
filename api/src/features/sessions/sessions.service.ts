@@ -120,7 +120,12 @@ export class SessionsService {
       : undefined
     if (!info) return session
     const mapped = mapBookingStatus(info.status)
-    const next: PlaySessionData = { ...session, status: mapped.status }
+    const next: PlaySessionData = {
+      ...session,
+      status: mapped.status,
+      paymentStatus: info.paymentStatus,
+      paymentExpiresAt: info.holdExpiresAt,
+    }
     if (mapped.hold) next.hold = mapped.hold
     else delete next.hold
     if (info.status === "cancelled") {
@@ -214,6 +219,8 @@ export class SessionsService {
     delete next.hold
     delete next.cancelReason
     delete next.refunded
+    delete next.paymentStatus
+    delete next.paymentExpiresAt
     return next
   }
 

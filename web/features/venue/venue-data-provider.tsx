@@ -24,6 +24,9 @@ import {
 } from "@/lib/shared"
 
 import { useData } from "@/features/dashboard/data-provider"
+import { fetchVenueReservations } from "@/features/venue/venue-actions"
+
+const RESERVATIONS_POLL_MS = 10_000
 
 /**
  * Venue-scoped records and helpers. Read from the per-venue layout and bound
@@ -141,6 +144,41 @@ export function VenueDataProvider({
     seed.customers
   )
   const [blocks, setBlocks] = React.useState<CourtBlock[]>(seed.blocks ?? [])
+
+  // A paid booking can arrive while the operator keeps this layout open. The
+  // layout seed alone would stay stale, hiding both the pending-count badge and
+  // the approval row until a hard refresh. Keep the canonical reservation list
+  // synchronized, and refresh immediately when the tab/window regains focus.
+  React.useEffect(() => {
+    let cancelled = false
+    let polling = false
+
+    const poll = async () => {
+      if (polling) return
+      polling = true
+      try {
+        const fresh = await fetchVenueReservations(venueId)
+        if (!cancelled) setReservations(fresh)
+      } catch {
+        // A transient auth/API failure is retried on the next interval/focus.
+      } finally {
+        polling = false
+      }
+    }
+    const onFocusOrVisible = () => {
+      if (document.visibilityState === "visible") void poll()
+    }
+
+    const interval = setInterval(() => void poll(), RESERVATIONS_POLL_MS)
+    document.addEventListener("visibilitychange", onFocusOrVisible)
+    window.addEventListener("focus", onFocusOrVisible)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+      document.removeEventListener("visibilitychange", onFocusOrVisible)
+      window.removeEventListener("focus", onFocusOrVisible)
+    }
+  }, [venueId])
 
   const addBlock = React.useCallback((block: CourtBlock) => {
     setBlocks((current) =>

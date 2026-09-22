@@ -3,6 +3,8 @@
 import * as React from "react"
 import {
   Clock,
+  CreditCard,
+  Loader2,
   MapPin,
   MessageSquare,
   Plus,
@@ -76,6 +78,38 @@ import { useRouter } from "@/i18n/navigation"
 const DAY_MIN = 24 * 60
 
 const UPCOMING: BookingStatus[] = ["confirmed", "pending"]
+
+const isAwaitingPayment = (booking: Booking) =>
+  booking.paymentStatus === "awaiting"
+
+function usePaymentCountdown(
+  expiresAt: string | undefined,
+  active: boolean
+): number | null {
+  const [remaining, setRemaining] = React.useState<number | null>(null)
+
+  React.useEffect(() => {
+    if (!active || !expiresAt) return
+    const update = () => {
+      const seconds = Math.ceil((Date.parse(expiresAt) - Date.now()) / 1000)
+      setRemaining(Math.max(0, seconds))
+    }
+    const first = setTimeout(update, 0)
+    const interval = setInterval(update, 1000)
+    return () => {
+      clearTimeout(first)
+      clearInterval(interval)
+    }
+  }, [active, expiresAt])
+
+  return remaining
+}
+
+function formatCountdown(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  return `${minutes}:${String(remainder).padStart(2, "0")}`
+}
 
 /** Tint + ring per booking status, used for the calendar event blocks. */
 const bookingAccent: Record<BookingStatus, string> = {
@@ -165,9 +199,13 @@ export function BookingsView() {
   )
 
   const stats = {
-    week: inWeekStats.filter((b) => UPCOMING.includes(b.status)).length,
+    week: inWeekStats.filter(
+      (b) => UPCOMING.includes(b.status) && !isAwaitingPayment(b)
+    ).length,
     confirmed: inWeekStats.filter((b) => b.status === "confirmed").length,
-    pending: inWeekStats.filter((b) => b.status === "pending").length,
+    pending: inWeekStats.filter(
+      (b) => b.status === "pending" && !isAwaitingPayment(b)
+    ).length,
     played: past.length,
   }
 
@@ -454,7 +492,13 @@ function CalendarEvent({
 }) {
   const t = useTranslations("Bookings")
   const tc = useTranslations("Common")
-  const { cancelBooking, rebookFrom, addTeamToSession } = useBooking()
+  const {
+    cancelBooking,
+    rebookFrom,
+    addTeamToSession,
+    resumePayment,
+    resumingPaymentId,
+  } = useBooking()
   const router = useRouter()
   const [opening, startOpening] = React.useTransition()
 
@@ -484,6 +528,10 @@ function CalendarEvent({
   ).length
   const courtNo = booking.court.match(/\d+/)?.[0]
   const courtLabel = courtNo ? t("courtLabel", { n: courtNo }) : booking.court
+  const paymentRemaining = usePaymentCountdown(
+    booking.paymentExpiresAt,
+    isAwaitingPayment(booking)
+  )
 
   return (
     <div className="absolute inset-x-1 z-10" style={{ top: top + 1, height }}>
@@ -534,7 +582,10 @@ function CalendarEvent({
                     : sportLabel(booking.sport)}
                 </p>
               </div>
-              <StatusBadge status={booking.status} />
+              <StatusBadge
+                status={booking.status}
+                paymentStatus={booking.paymentStatus}
+              />
             </div>
 
             <div className="flex items-center gap-2">
@@ -554,7 +605,17 @@ function CalendarEvent({
               </span>
             </div>
 
-            {booking.status === "pending" ? (
+            {isAwaitingPayment(booking) ? (
+              <p className="rounded-2xl bg-chart-4/10 px-3 py-2 text-xs text-chart-4">
+                {paymentRemaining === 0
+                  ? t("paymentExpiredNote")
+                  : paymentRemaining != null
+                    ? t("paymentCountdown", {
+                        time: formatCountdown(paymentRemaining),
+                      })
+                    : t("paymentPendingNote")}
+              </p>
+            ) : booking.status === "pending" ? (
               <p className="rounded-2xl bg-chart-4/10 px-3 py-2 text-xs text-chart-4">
                 {t("pendingNote")}
               </p>
@@ -639,6 +700,30 @@ function CalendarEvent({
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
+                {isAwaitingPayment(booking) ? (
+                  <Button
+                    size="sm"
+                    className="w-full justify-start rounded-full"
+                    disabled={
+                      resumingPaymentId ===
+                      (booking.reservationId ?? booking.id)
+                    }
+                    onClick={() =>
+                      resumePayment(booking.reservationId ?? booking.id)
+                    }
+                  >
+                    {resumingPaymentId ===
+                    (booking.reservationId ?? booking.id) ? (
+                      <Loader2 className="animate-spin" />
+                    ) : (
+                      <CreditCard />
+                    )}
+                    {resumingPaymentId ===
+                    (booking.reservationId ?? booking.id)
+                      ? t("openingPayment")
+                      : t("continuePayment")}
+                  </Button>
+                ) : null}
                 {booking.venueId ? (
                   <Button
                     size="sm"
@@ -882,8 +967,17 @@ function BookingCard({ booking }: { booking: Booking }) {
   )
 }
 
-function StatusBadge({ status }: { status: BookingStatus }) {
+function StatusBadge({
+  status,
+  paymentStatus,
+}: {
+  status: BookingStatus
+  paymentStatus?: Booking["paymentStatus"]
+}) {
   const tc = useTranslations("Common")
+  const t = useTranslations("Bookings")
+  if (paymentStatus === "awaiting")
+    return <Badge variant="outline">{t("unpaid")}</Badge>
   const label = tc(`status.${status}`)
   if (status === "confirmed")
     return <Badge className="bg-brand/12 text-brand">{label}</Badge>

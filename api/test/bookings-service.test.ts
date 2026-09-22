@@ -18,6 +18,7 @@ import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { ProfileService } from "../src/features/players/profile.service.js"
+import { ClerkDirectoryService } from "../src/features/stream/clerk-directory.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { vnNowIso } from "../src/shared/index.js"
 import type {
@@ -141,6 +142,8 @@ interface Deps {
   overlapExisting?: unknown[]
   createdRecords?: unknown[]
   profile?: { user: { name: string; initials: string } }
+  directoryUser?: { id: string; name: string } | null
+  directoryUsers?: { id: string; name: string }[]
   confirmSlaMinutes?: number
   /** Whether `bookingModel.exists({ venueId })` reports a booking already on file. */
   bookingsExist?: boolean
@@ -155,6 +158,7 @@ async function makeService(deps: Deps = {}) {
   const venueDoc = deps.venueDoc ?? makeVenueDoc()
   const notifications: { userId: string; item: unknown }[] = []
   const created: unknown[] = []
+  const bulkWrites: unknown[] = []
 
   const findOneAndUpdateCalls: unknown[] = []
   const bookingModelMock = {
@@ -187,6 +191,10 @@ async function makeService(deps: Deps = {}) {
       created.push(...records)
       return Promise.resolve(records)
     },
+    bulkWrite: (writes: unknown[]) => {
+      bulkWrites.push(...writes)
+      return Promise.resolve({ modifiedCount: writes.length })
+    },
   }
   const venueModelMock = {
     findOne: () => makeQuery(venueDoc),
@@ -206,6 +214,10 @@ async function makeService(deps: Deps = {}) {
       return Promise.resolve()
     },
   }
+  const clerkDirectoryMock = {
+    getOne: () => Promise.resolve(deps.directoryUser ?? null),
+    getMany: () => Promise.resolve(deps.directoryUsers ?? []),
+  }
 
   const configMock = {
     get: (_key: string, fallback?: unknown) =>
@@ -221,6 +233,7 @@ async function makeService(deps: Deps = {}) {
       { provide: getConnectionToken(), useValue: connectionMock },
       { provide: ProfileService, useValue: profilesMock },
       { provide: NotificationsService, useValue: notificationsMock },
+      { provide: ClerkDirectoryService, useValue: clerkDirectoryMock },
       { provide: ConfigService, useValue: configMock },
     ],
   }).compile()
@@ -231,10 +244,28 @@ async function makeService(deps: Deps = {}) {
     notifications,
     created,
     findOneAndUpdateCalls,
+    bulkWrites,
   }
 }
 
 // ── createHold ───────────────────────────────────────────────────────────────
+
+void test("listForVenue repairs old demo customer names before returning the approval queue", async () => {
+  const record = makeBookingDoc({
+    status: "pending",
+    customer: { name: "Nguyễn Minh", initials: "NM" },
+  })
+  const { service, bulkWrites } = await makeService({
+    overlapExisting: [record],
+    directoryUsers: [{ id: "user-1", name: "Trần Gia Kiệt" }],
+  })
+
+  const reservations = await service.listForVenue("v9")
+
+  assert.equal(reservations[0]?.customer.name, "Trần Gia Kiệt")
+  assert.equal(reservations[0]?.customer.initials, "TK")
+  assert.equal(bulkWrites.length, 1)
+})
 
 void test("createHold creates an awaiting_payment booking with a 20-minute server hold", async () => {
   const { service, created } = await makeService({ overlapExisting: [] })
@@ -256,6 +287,24 @@ void test("createHold creates an awaiting_payment booking with a 20-minute serve
   // ~20 minutes out (allow slack for test runtime).
   assert.ok(holdMs - before >= 19 * 60_000 && holdMs - before <= 21 * 60_000)
   assert.equal(created.length, 1)
+})
+
+void test("createHold uses the signed-in player's Clerk name instead of the seeded demo profile", async () => {
+  const { service, created } = await makeService({
+    overlapExisting: [],
+    profile: { user: { name: "Nguyễn Minh", initials: "NM" } },
+    directoryUser: { id: "user-1", name: "Trần Gia Kiệt" },
+  })
+
+  await service.createHold("user-1", {
+    courtId: "v9c1",
+    dateKey: "2026-07-21",
+    start: "18:00",
+    durationMin: 60,
+  })
+
+  const record = created[0] as FakeBookingDoc
+  assert.deepEqual(record.customer, { name: "Trần Gia Kiệt", initials: "TK" })
 })
 
 void test("createHold adds the app booker to the venue's CRM customers once", async () => {
@@ -829,6 +878,31 @@ void test("confirmPayment is a no-op past awaiting_payment (idempotent against I
 
   assert.equal(doc?.status, "pending")
   assert.equal(bookingDoc.statusHistory.length, before)
+})
+
+void test("confirmPayment repairs the customer name on an existing paid booking", async () => {
+  const bookingDoc = makeBookingDoc({
+    status: "pending",
+    paymentStatus: "paid",
+    customer: { name: "Nguyễn Minh", initials: "NM" },
+  })
+  let saves = 0
+  bookingDoc.save = () => {
+    saves++
+    return Promise.resolve()
+  }
+  const { service } = await makeService({
+    bookingDoc,
+    directoryUser: { id: "user-1", name: "Trần Gia Kiệt" },
+  })
+
+  await service.confirmPayment("b1")
+
+  assert.deepEqual(bookingDoc.customer, {
+    name: "Trần Gia Kiệt",
+    initials: "TK",
+  })
+  assert.equal(saves, 1)
 })
 
 void test("confirmPayment queues a full refund when payment lands after the hold expired (no money kept for a dead booking)", async () => {

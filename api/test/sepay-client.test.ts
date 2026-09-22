@@ -32,6 +32,25 @@ function makeClient() {
   return new SepayClient(config)
 }
 
+void test("retrieveOrder unwraps the SePay envelope inside the Axios response", async (t) => {
+  const client = makeClient()
+  const sdk = (client as unknown as {
+    client: { order: { retrieve: (invoice: string) => Promise<unknown> } }
+  }).client
+  const order = {
+    order_invoice_number: "b1",
+    order_status: "CAPTURED",
+    order_amount: "200000.00",
+    order_currency: "VND",
+  }
+  t.mock.method(sdk.order, "retrieve", async (invoice: string) => {
+    assert.equal(invoice, "b1")
+    return { data: { data: order }, status: 200 }
+  })
+
+  assert.deepEqual(await client.retrieveOrder("b1"), order)
+})
+
 void test("verifyIpnAuth accepts the configured secret key", () => {
   const client = makeClient()
   assert.equal(client.verifyIpnAuth({ "x-secret-key": SECRET }), true)

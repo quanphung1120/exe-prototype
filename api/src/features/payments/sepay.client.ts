@@ -106,7 +106,9 @@ export class SepayClient implements SepayClientPort {
 
   async retrieveOrder(invoiceNumber: string): Promise<unknown> {
     const res = await this.client.order.retrieve(invoiceNumber)
-    return res.data
+    // Axios unwraps the HTTP body; SePay wraps the order in another `data`.
+    const body = res.data as { data?: unknown } | null
+    return body?.data
   }
 
   async cancelOrder(invoiceNumber: string): Promise<void> {

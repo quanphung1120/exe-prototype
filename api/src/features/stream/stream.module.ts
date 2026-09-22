@@ -51,6 +51,6 @@ import { STREAM_CLIENT, StreamService } from "./stream.service.js"
         }),
     },
   ],
-  exports: [StreamService],
+  exports: [StreamService, ClerkDirectoryService],
 })
 export class StreamModule {}

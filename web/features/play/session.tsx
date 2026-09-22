@@ -252,6 +252,11 @@ interface SessionContextValue {
    * discount code is forwarded to `startPaymentCheckout` unchanged.
    */
   pay: (discountCode?: string) => void
+  /** Resume checkout for an existing unpaid booking hold. */
+  resumePayment: (bookingId: string) => void
+  resumingPaymentId: string | null
+  /** Apply a server-confirmed payment to the in-memory booking immediately. */
+  markPaymentPaid: (bookingId: string) => void
   cancelBooking: (id: string) => void
   // ── Conflict (decision 2) ──
   slotBlocked: (slot: string) => boolean
@@ -416,6 +421,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   )
   const [paying, setPaying] = React.useState(false)
   const [checkoutError, setCheckoutError] = React.useState<string | null>(null)
+  const [resumingPaymentId, setResumingPaymentId] = React.useState<string | null>(null)
 
   // Cross-surface flow-back: the provider seeds its `sessions` once, so an
   // operator's approve/decline (persisted to the same DB) wouldn't otherwise
@@ -436,6 +442,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (
           server.status === local.status &&
           server.hold === local.hold &&
+          server.paymentStatus === local.paymentStatus &&
+          server.paymentExpiresAt === local.paymentExpiresAt &&
           server.cancelReason === local.cancelReason &&
           server.refunded === local.refunded
         )
@@ -444,6 +452,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           ...local,
           status: server.status,
           hold: server.hold,
+          paymentStatus: server.paymentStatus,
+          paymentExpiresAt: server.paymentExpiresAt,
           cancelReason: server.cancelReason,
           refunded: server.refunded,
         }
@@ -1925,6 +1935,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         ...linked,
         status: "booked",
         hold: "pending",
+        paymentStatus: "awaiting",
+        paymentExpiresAt: summary.holdExpiresAt,
         holdExpiresAt: undefined,
         courtId: court.id,
         courtLabel,
@@ -1971,6 +1983,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       level: userLevelForSport(sport),
       status: "booked",
       hold: "pending",
+      paymentStatus: "awaiting",
+      paymentExpiresAt: summary.holdExpiresAt,
       listed: false,
       fillIntent: "court",
       venue: court.name,
@@ -1991,6 +2005,48 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   const clearCheckoutError = () => setCheckoutError(null)
+
+  const resumePayment = (bookingId: string) => {
+    if (resumingPaymentId) return
+    setResumingPaymentId(bookingId)
+    void (async () => {
+      try {
+        const result = await startPaymentCheckout(bookingId)
+        if (!result.ok) {
+          toast.error(
+            result.status === 409
+              ? tb("pay.paymentExpired")
+              : tb("pay.checkoutFailed")
+          )
+          router.refresh()
+          return
+        }
+        savePreferredLocale(locale)
+        submitSepayCheckoutForm(result.data.fields, result.data.checkoutUrl)
+      } catch (err) {
+        console.error("Failed to resume SePay checkout", err)
+        toast.error(tb("pay.checkoutFailed"))
+      } finally {
+        setResumingPaymentId(null)
+      }
+    })()
+  }
+
+  const markPaymentPaid = React.useCallback((bookingId: string) => {
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.reservationId === bookingId
+          ? {
+              ...session,
+              status: "booked",
+              hold: "pending",
+              paymentStatus: "paid",
+              paymentExpiresAt: undefined,
+            }
+          : session
+      )
+    )
+  }, [])
 
   /**
    * Reserve the court (creating the DB hold on the first call; reusing it on
@@ -2171,6 +2227,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     checkoutError,
     clearCheckoutError,
     pay,
+    resumePayment,
+    resumingPaymentId,
+    markPaymentPaid,
     // Awaits a real server action internally (cancelBookingRecord) — wrapped
     // here so the exposed signature stays the void-returning event-handler
     // shape the rest of the UI expects; it handles/toasts its own failure,

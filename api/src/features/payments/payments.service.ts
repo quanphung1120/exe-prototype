@@ -79,7 +79,17 @@ interface RemoteOrder {
   order_status?: string
 }
 
-const PAID_REMOTE_STATUSES = new Set(["PAID", "paid"])
+// SePay's Order API uses `CAPTURED` for a successfully settled order. Keep
+// the legacy values too because sandbox/API versions have returned `PAID`
+// and `COMPLETED` in the past.
+const PAID_REMOTE_STATUSES = new Set(["CAPTURED", "PAID", "COMPLETED"])
+
+function isPaidRemoteStatus(status: unknown): boolean {
+  return (
+    typeof status === "string" &&
+    PAID_REMOTE_STATUSES.has(status.trim().toUpperCase())
+  )
+}
 
 /**
  * SePay checkout + IPN (VienTD-Review Phase 4). Owns the `payments`
@@ -263,12 +273,18 @@ export class PaymentsService {
     if (payment.userId && payment.userId !== userId) {
       throw new ForbiddenException("This payment belongs to another account")
     }
-    if (payment.status !== "awaiting") return toPaymentSummary(payment)
+    if (payment.status !== "awaiting") {
+      // The payment write and its booking/notification follow-through cannot
+      // be one Mongo transaction across these services. Repair a previously
+      // interrupted paid settlement on every authenticated status read.
+      if (payment.status === "paid") await this.finishPaidBooking(payment)
+      return toPaymentSummary(payment)
+    }
 
     try {
       const remote = (await this.sepay.retrieveOrder(payment.invoiceNumber)) as
         RemoteOrder | undefined
-      if (remote && PAID_REMOTE_STATUSES.has(remote.order_status ?? "")) {
+      if (remote && isPaidRemoteStatus(remote.order_status)) {
         const paid = await this.markPaid(payment.invoiceNumber, remote)
         if (paid) return toPaymentSummary(paid)
       }
@@ -405,22 +421,33 @@ export class PaymentsService {
         })
     }
 
-    const bookingDoc = await this.bookings.confirmPayment(updated.bookingId)
+    await this.finishPaidBooking(updated)
+    return updated
+  }
+
+  /**
+   * Complete the booking-side effects of a paid Payment. Both operations are
+   * idempotent: `confirmPayment` no-ops once the booking has left
+   * `awaiting_payment`, and notification delivery dedupes on its stable id.
+   * Keeping this retryable closes the gap where the payment write succeeded
+   * but the request stopped before the owner notification was stored.
+   */
+  private async finishPaidBooking(payment: PaymentDocument): Promise<void> {
+    const bookingDoc = await this.bookings.confirmPayment(payment.bookingId)
     // Only ping the venue when the payment actually produced a booking awaiting
     // their decision. A payment that landed after the hold expired confirms to
     // nobody — `confirmPayment` refunds it instead of moving it to `pending` —
     // so notifying the venue of an "approvable" booking would be misleading.
     if (bookingDoc?.status === "pending") {
-      await this.notifyVenue(bookingDoc.venueId, updated.bookingId).catch(
+      await this.notifyVenue(bookingDoc.venueId, payment.bookingId).catch(
         (err: unknown) => {
           // A notification failure must never undo a real payment — log and move on.
           this.logger.warn(
-            `Failed to notify venue ${bookingDoc.venueId} of paid booking ${updated.bookingId}: ${String(err)}`
+            `Failed to notify venue ${bookingDoc.venueId} of paid booking ${payment.bookingId}: ${String(err)}`
           )
         }
       )
     }
-    return updated
   }
 
   /** Notify the venue owner a booking just paid and is awaiting their decision. */
@@ -434,7 +461,7 @@ export class PaymentsService {
       id: `payment-paid-${bookingId}`,
       kind: "booking",
       text: "Có lượt đặt sân mới đã thanh toán — vui lòng duyệt trong vòng 30 phút (im lặng sẽ tự động duyệt).",
-      href: `/dashboard/venue/${venueId}/schedule`,
+      href: `/dashboard/venue/${venueId}/schedule?tab=reservations`,
     })
   }
 

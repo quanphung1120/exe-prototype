@@ -854,6 +854,30 @@ void test("byBooking reconciles an awaiting payment SePay already marked paid", 
   assert.deepEqual(confirmPaymentCalls, ["b1"])
 })
 
+void test("byBooking reconciles SePay's CAPTURED success status", async () => {
+  const { service, store, confirmPaymentCalls } = await makeService({
+    remoteOrder: { order_status: "CAPTURED" },
+    seedPayments: [
+      {
+        invoiceNumber: "b1",
+        bookingId: "b1",
+        venueId: "v9",
+        userId: "user-1",
+        amount: 200_000,
+        currency: "VND",
+        status: "awaiting",
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+
+  const result = await service.byBooking("user-1", "b1")
+
+  assert.equal(result.status, "paid")
+  assert.equal(store.get("b1")?.status, "paid")
+  assert.deepEqual(confirmPaymentCalls, ["b1"])
+})
+
 void test("byBooking leaves an awaiting payment alone when SePay still shows it pending", async () => {
   const { service, store } = await makeService({
     remoteOrder: { order_status: "PENDING" },
@@ -874,6 +898,38 @@ void test("byBooking leaves an awaiting payment alone when SePay still shows it 
   const result = await service.byBooking("user-1", "b1")
   assert.equal(result.status, "awaiting")
   assert.equal(store.get("b1")?.status, "awaiting")
+})
+
+void test("byBooking repairs booking confirmation and owner notification for an already-paid payment", async () => {
+  const { service, notifications, confirmPaymentCalls } = await makeService({
+    seedPayments: [
+      {
+        invoiceNumber: "b1",
+        bookingId: "b1",
+        venueId: "v9",
+        userId: "user-1",
+        amount: 200_000,
+        currency: "VND",
+        status: "paid",
+        save: () => Promise.resolve(),
+      },
+    ],
+  })
+
+  const result = await service.byBooking("user-1", "b1")
+
+  assert.equal(result.status, "paid")
+  assert.deepEqual(confirmPaymentCalls, ["b1"])
+  assert.equal(notifications.length, 1)
+  assert.deepEqual(notifications[0], {
+    userId: "owner-1",
+    item: {
+      id: "payment-paid-b1",
+      kind: "booking",
+      text: "Có lượt đặt sân mới đã thanh toán — vui lòng duyệt trong vòng 30 phút (im lặng sẽ tự động duyệt).",
+      href: "/dashboard/venue/v9/schedule?tab=reservations",
+    },
+  })
 })
 
 void test("byBooking rejects a caller who doesn't own the payment", async () => {
