@@ -43,9 +43,9 @@ void test("retrieveOrder unwraps the SePay envelope inside the Axios response", 
     order_amount: "200000.00",
     order_currency: "VND",
   }
-  t.mock.method(sdk.order, "retrieve", async (invoice: string) => {
+  t.mock.method(sdk.order, "retrieve", (invoice: string) => {
     assert.equal(invoice, "b1")
-    return { data: { data: order }, status: 200 }
+    return Promise.resolve({ data: { data: order }, status: 200 })
   })
 
   assert.deepEqual(await client.retrieveOrder("b1"), order)
