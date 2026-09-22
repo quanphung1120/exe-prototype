@@ -10,6 +10,7 @@ import { useRouter } from "@/i18n/navigation"
 import { openVenueChat } from "@/features/chat/stream-actions"
 import { formatVndFull } from "@/features/dashboard/data"
 import { getPaymentStatus } from "@/features/play/payment-actions"
+import { useSession } from "@/features/play/session"
 
 const POLL_MS = 2500
 const TIMEOUT_MS = 5 * 60 * 1000
@@ -29,6 +30,7 @@ type Phase = "waiting" | "paid" | "cancelled" | "timeout" | "error"
 export function PaymentReturnView({ bookingId }: { bookingId: string }) {
   const t = useTranslations("PaymentReturn")
   const router = useRouter()
+  const { markPaymentPaid } = useSession()
   const [phase, setPhase] = React.useState<Phase>("waiting")
   const [amount, setAmount] = React.useState<number | null>(null)
   const [originalAmount, setOriginalAmount] = React.useState<number | null>(
@@ -52,6 +54,11 @@ export function PaymentReturnView({ bookingId }: { bookingId: string }) {
         return
       }
       if (result.data.status === "paid") {
+        // The API has already settled the payment and moved the booking to
+        // pending approval. Update the persistent client provider immediately
+        // so navigating to Bookings cannot briefly show the pre-payment state
+        // while the dashboard seed is being refreshed.
+        markPaymentPaid(bookingId)
         setAmount(result.data.amount)
         setOriginalAmount(result.data.originalAmount ?? null)
         setDiscountCode(result.data.discountCode ?? null)
@@ -75,7 +82,7 @@ export function PaymentReturnView({ bookingId }: { bookingId: string }) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [bookingId])
+  }, [bookingId, markPaymentPaid])
 
   const goToBookings = () => router.push("/dashboard/bookings")
 

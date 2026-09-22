@@ -3,6 +3,7 @@ import { MongooseModule } from "@nestjs/mongoose"
 
 import { NotificationsModule } from "../notifications/notifications.module.js"
 import { PlayersModule } from "../players/players.module.js"
+import { StreamModule } from "../stream/stream.module.js"
 import { Venue, VenueSchema } from "../venues/venue.schema.js"
 import { BookingLock, BookingLockSchema } from "./booking-lock.schema.js"
 import { Booking, BookingSchema } from "./booking.schema.js"
@@ -30,6 +31,7 @@ import { BookingsService } from "./bookings.service.js"
     ]),
     PlayersModule,
     NotificationsModule,
+    StreamModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

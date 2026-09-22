@@ -36,7 +36,8 @@ import { demoChannelId, roomChannelId } from "@/features/chat/channel-ids"
 import { useRouter } from "@/i18n/navigation"
 
 /** How often the notification centre polls `GET /api/notifications`. */
-const POLL_MS = 30_000
+const POLL_MS = 10_000
+const FRESH_NOTIFICATION_MS = 60_000
 
 interface NotificationsContextValue {
   items: NotificationItem[]
@@ -122,9 +123,18 @@ export function NotificationsProvider({
           ...prev.filter((p) => !serverIds.has(p.id)),
         ]
       })
-      if (!firstPollRef.current) {
-        for (const r of records) {
-          if (!r.read && !seenServerRef.current.has(r.id)) toast(r.text)
+      for (const r of records) {
+        const createdAt = Date.parse(r.createdAt)
+        const freshOnMount =
+          firstPollRef.current &&
+          Number.isFinite(createdAt) &&
+          Date.now() - createdAt <= FRESH_NOTIFICATION_MS
+        if (
+          !r.read &&
+          !seenServerRef.current.has(r.id) &&
+          (!firstPollRef.current || freshOnMount)
+        ) {
+          toast(r.text)
         }
       }
       firstPollRef.current = false

@@ -108,7 +108,8 @@ export class ClerkDirectoryService {
     const primaryEmail = user.emailAddresses.find(
       (e) => e.id === user.primaryEmailAddressId
     )?.emailAddress
-    const name = fullName || primaryEmail?.split("@")[0] || "Người chơi"
+    const name =
+      fullName || user.username || primaryEmail?.split("@")[0] || "Người chơi"
 
     return {
       id: user.id,

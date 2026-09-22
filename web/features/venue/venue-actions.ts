@@ -68,6 +68,14 @@ export interface WalkInReservationInput {
   customerPhone: string
 }
 
+/** Fresh operator reservation list for the live approval queue. */
+export async function fetchVenueReservations(
+  venueId: string
+): Promise<Reservation[]> {
+  const seed = await api<VenueSeed>(`/api/venue/${venueId}/bundle`)
+  return seed.reservations
+}
+
 // An account's brand may own many venue branches (chi nhánh), so every branch-
 // scoped route carries the target `venueId` in the path (`/api/venues/:venueId/…`)
 // and the API authorizes the caller owns it. The same id also targets

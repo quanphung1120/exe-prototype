@@ -12,6 +12,7 @@ import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { ProfileService } from "../src/features/players/profile.service.js"
+import { ClerkDirectoryService } from "../src/features/stream/clerk-directory.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { addMinutesToIso, vnNowIso } from "../src/shared/index.js"
 import type { BookingRecordStatus, PaymentStatus } from "../src/shared/index.js"
@@ -138,6 +139,10 @@ async function makeService(bookings: FakeBooking[]) {
       },
       { provide: ProfileService, useValue: profilesMock },
       { provide: NotificationsService, useValue: notificationsMock },
+      {
+        provide: ClerkDirectoryService,
+        useValue: { getOne: () => Promise.resolve(null) },
+      },
       { provide: ConfigService, useValue: configMock },
     ],
   }).compile()

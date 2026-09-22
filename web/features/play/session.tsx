@@ -255,6 +255,8 @@ interface SessionContextValue {
   /** Resume checkout for an existing unpaid booking hold. */
   resumePayment: (bookingId: string) => void
   resumingPaymentId: string | null
+  /** Apply a server-confirmed payment to the in-memory booking immediately. */
+  markPaymentPaid: (bookingId: string) => void
   cancelBooking: (id: string) => void
   // ── Conflict (decision 2) ──
   slotBlocked: (slot: string) => boolean
@@ -2030,6 +2032,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     })()
   }
 
+  const markPaymentPaid = React.useCallback((bookingId: string) => {
+    setSessions((prev) =>
+      prev.map((session) =>
+        session.reservationId === bookingId
+          ? {
+              ...session,
+              status: "booked",
+              hold: "pending",
+              paymentStatus: "paid",
+              paymentExpiresAt: undefined,
+            }
+          : session
+      )
+    )
+  }, [])
+
   /**
    * Reserve the court (creating the DB hold on the first call; reusing it on
    * a retry), then hand off to SePay's real checkout — `startPaymentCheckout`
@@ -2211,6 +2229,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     pay,
     resumePayment,
     resumingPaymentId,
+    markPaymentPaid,
     // Awaits a real server action internally (cancelBookingRecord) — wrapped
     // here so the exposed signature stays the void-returning event-handler
     // shape the rest of the UI expects; it handles/toasts its own failure,
