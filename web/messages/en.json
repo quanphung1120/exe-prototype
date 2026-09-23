@@ -729,6 +729,9 @@
         "body": "One tap to book the court and notify everyone. Just show up and play."
       }
     },
+    "statsSection": {
+      "title": "Utilization rate"
+    },
     "stats": {
       "0": {
         "value": "3,200+",
@@ -837,19 +840,16 @@
         "title": "Product",
         "features": "Features",
         "howItWorks": "How it works",
+        "pricing": "Pricing",
         "faq": "FAQ"
       },
       "venues": {
         "title": "For venues",
-        "partner": "Partner program",
-        "demo": "Request a demo",
-        "analytics": "Analytics"
+        "overview": "Venue overview"
       },
       "company": {
         "title": "Company",
-        "about": "About",
-        "privacy": "Privacy",
-        "terms": "Terms"
+        "about": "About"
       },
       "copyright": "© 2026 Shuttio. Built for players.",
       "themeHint": "Press <kbd>L</kbd> to switch theme"

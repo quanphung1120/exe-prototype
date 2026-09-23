@@ -166,8 +166,8 @@ export default async function Page({
         </div>
 
         <section className={styles.stats}>
-          <p className={styles.eyebrow}>
-            SHUTTIO / {t("hero.badges.builtForYou")}
+          <p className={`${styles.eyebrow} ${styles.statsTitle}`}>
+            {t("statsSection.title")}
           </p>
           <dl>
             {[0, 1, 2].map((i) => (
@@ -273,24 +273,17 @@ export default async function Page({
             links={[
               { label: t("footer.product.features"), href: "#features" },
               { label: t("footer.product.howItWorks"), href: "#how-it-works" },
+              { label: t("footer.product.pricing"), href: "#pricing" },
               { label: t("footer.product.faq"), href: "#faq" },
             ]}
           />
           <FooterColumn
             title={t("footer.venues.title")}
-            links={[
-              { label: t("footer.venues.partner"), href: "#venues" },
-              { label: t("footer.venues.demo"), href: "#venues" },
-              { label: t("footer.venues.analytics"), href: "#venues" },
-            ]}
+            links={[{ label: t("footer.venues.overview"), href: "#venues" }]}
           />
           <FooterColumn
             title={t("footer.company.title")}
-            links={[
-              { label: t("footer.company.about"), href: "#about" },
-              { label: t("footer.company.privacy"), href: "#top" },
-              { label: t("footer.company.terms"), href: "#top" },
-            ]}
+            links={[{ label: t("footer.company.about"), href: "#about" }]}
           />
         </div>
         <div className={styles.footerBottom}>

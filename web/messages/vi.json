@@ -729,6 +729,9 @@
         "body": "Một chạm để đặt sân và thông báo cho mọi người. Chỉ việc đến và chơi."
       }
     },
+    "statsSection": {
+      "title": "Tỉ lệ sử dụng"
+    },
     "stats": {
       "0": {
         "value": "3.200+",
@@ -837,19 +840,16 @@
         "title": "Sản phẩm",
         "features": "Tính năng",
         "howItWorks": "Cách hoạt động",
+        "pricing": "Bảng giá",
         "faq": "Câu hỏi thường gặp"
       },
       "venues": {
         "title": "Dành cho địa điểm",
-        "partner": "Chương trình đối tác",
-        "demo": "Yêu cầu demo",
-        "analytics": "Phân tích"
+        "overview": "Tổng quan dành cho địa điểm"
       },
       "company": {
         "title": "Công ty",
-        "about": "Giới thiệu",
-        "privacy": "Bảo mật",
-        "terms": "Điều khoản"
+        "about": "Giới thiệu"
       },
       "copyright": "© 2026 Shuttio. Dành cho người chơi.",
       "themeHint": "Nhấn <kbd>L</kbd> để đổi giao diện"

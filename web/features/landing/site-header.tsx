@@ -16,8 +16,8 @@ const NAV_LINKS = [
   { key: "about", href: "#about" },
   { key: "features", href: "#features" },
   { key: "howItWorks", href: "#how-it-works" },
-  { key: "pricing", href: "#pricing" },
   { key: "venues", href: "#venues" },
+  { key: "pricing", href: "#pricing" },
   { key: "faq", href: "#faq" },
 ]
 

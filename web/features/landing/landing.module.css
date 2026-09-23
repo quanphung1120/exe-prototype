@@ -383,6 +383,14 @@
 .stats {
   padding: 90px 85px;
 }
+.statsTitle {
+  color: #fff;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  text-transform: none;
+}
 .stats dl {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -420,12 +428,28 @@
 .testimonials {
   position: relative;
   isolation: isolate;
-  padding: 100px 72px 125px;
-  background: linear-gradient(#030503, #087728 35%, #109a29 60%, #030503);
+  padding: 130px 72px 210px;
+  background: linear-gradient(
+    180deg,
+    #030503 0%,
+    #063817 16%,
+    #0a7025 34%,
+    #13ad2b 52%,
+    #108f27 70%,
+    #06451a 86%,
+    #030503 100%
+  );
+}
+.testimonials::before {
+  background-size: 28px 28px;
+  mask-image: linear-gradient(#000 0%, #000 32%, transparent 80%);
 }
 .testimonials .sectionHeading {
   margin-left: 0;
   text-align: left;
+}
+.testimonials h2 {
+  font-size: clamp(2rem, 2.5vw, 2.25rem);
 }
 .testimonials .eyebrow {
   color: #bdedaf;
@@ -433,27 +457,31 @@
 .quoteGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  gap: 18px;
 }
 .quoteGrid figure {
   display: flex;
   flex-direction: column;
-  padding: 26px 22px;
-  border: 1px solid #c8ff9c66;
-  border-bottom: 0;
-  border-radius: 0 28px 0 0;
-  background: #a2ff6b08;
+  padding: 16px 24px 32px 0;
+  border-top: 1px solid #d1ffbd99;
+  border-right: 1px solid #d1ffbd99;
+  border-radius: 0 30px 0 0;
 }
 .stars {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   color: #c3ff97;
+}
+.stars svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.5;
 }
 .quoteGrid blockquote {
   flex: 1;
-  font-size: 1rem;
-  line-height: 1.65;
-  margin: 20px 0 28px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin: 12px 0 28px;
 }
 .quoteGrid figcaption {
   display: flex;
@@ -725,7 +753,7 @@
     gap: 42px 25px;
   }
   .testimonials {
-    padding: 70px 28px;
+    padding: 90px 28px 140px;
   }
   .quoteGrid {
     grid-template-columns: 1fr;
@@ -858,12 +886,16 @@
 :global(html:not(.dark)) .stats dd {
   color: #238936;
 }
+:global(html:not(.dark)) .statsTitle {
+  color: #152018;
+}
 :global(html:not(.dark)) .testimonials {
   color: #142117;
   background: linear-gradient(
     #f4f8f2 0%,
-    #dff5d8 25%,
-    #b9eca8 62%,
+    #e9f5e5 24%,
+    #d7ecd0 55%,
+    #e5f3e1 78%,
     #f4f8f2 100%
   );
 }
@@ -871,9 +903,13 @@
   color: #237b32;
 }
 :global(html:not(.dark)) .quoteGrid figure {
-  border-color: #61ad5070;
-  background: #ffffffb8;
-  box-shadow: 0 18px 40px #204d2012;
+  padding: 24px;
+  border: 1px solid #83ad7b66;
+  border-radius: 22px;
+  background: linear-gradient(145deg, #ffffffeb, #f7fbf5d9);
+  box-shadow:
+    0 14px 34px #204d2014,
+    inset 0 1px 0 #ffffff;
 }
 :global(html:not(.dark)) .stars {
   color: #309241;
