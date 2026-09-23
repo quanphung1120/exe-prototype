@@ -27,7 +27,7 @@ export function Logo({
     <span className={cn("inline-flex items-center gap-2", className)}>
       <LogoMark className={cn("size-8", markClassName)} />
       <span className="font-heading text-xl font-bold tracking-tight">
-        SportMatch<span className="text-primary"> AI</span>
+        Shuttio
       </span>
     </span>
   )

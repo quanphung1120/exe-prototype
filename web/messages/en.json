@@ -9,7 +9,7 @@
     "next": "Next"
   },
   "Auth": {
-    "brand": "SportMatch AI",
+    "brand": "Shuttio",
     "tagline": "AI-powered court booking & player matchmaking",
     "or": "or",
     "emailLabel": "Email",
@@ -67,7 +67,7 @@
     }
   },
   "Common": {
-    "appName": "SportMatch AI",
+    "appName": "Shuttio",
     "allSports": "All",
     "filterSport": "Filter by sport",
     "sports": {
@@ -149,7 +149,7 @@
   },
   "WorkspaceSettings": {
     "title": "Workspace settings",
-    "playerDescription": "Update how you appear across SportMatch.",
+    "playerDescription": "Update how you appear across Shuttio.",
     "venueDescription": "Update your venue profile and team.",
     "playerScope": "Your player profile",
     "venueScope": "Active venue",
@@ -243,12 +243,12 @@
     "toggleTitle": "Toggle theme (L)"
   },
   "Meta": {
-    "titleDefault": "SportMatch AI — Find a court. Find your match.",
-    "titleTemplate": "%s · SportMatch AI",
-    "description": "SportMatch AI is your AI-powered court-booking assistant for racquet sports. Book badminton in seconds and get matched with players at your level. Early access is now open.",
-    "ogTitle": "SportMatch AI — Find a court. Find your match.",
+    "titleDefault": "Shuttio — Find a court. Find your match.",
+    "titleTemplate": "%s · Shuttio",
+    "description": "Shuttio is your AI-powered court-booking assistant for racquet sports. Book badminton in seconds and get matched with players at your level. Early access is now open.",
+    "ogTitle": "Shuttio — Find a court. Find your match.",
     "ogDescription": "AI-powered court booking and player matchmaking for racquet sports. Sign up for early access.",
-    "twitterTitle": "SportMatch AI — Find a court. Find your match.",
+    "twitterTitle": "Shuttio — Find a court. Find your match.",
     "twitterDescription": "AI-powered court booking and player matchmaking for racquet sports. Sign up for early access.",
     "keywords": [
       "court booking",
@@ -604,7 +604,8 @@
       "eyebrow": "AI matchmaking for racquet sports",
       "titleLine1": "Find a court.",
       "titleLine2": "Find your <accent>match</accent>.",
-      "subtitle": "Your AI booking assistant for racquet sports. Book badminton in seconds — and get matched with players at your level.",
+      "subtitle": "Easily find the right court and connect with players at your level.\nEverything you need to start a match is together in one place.",
+      "imageAlt": "Badminton shuttlecocks and a racket on dark green grass",
       "cta": "Get started",
       "socialProof": "1,000+ players joined",
       "sportsLabel": "Built for:",
@@ -617,10 +618,12 @@
       }
     },
     "aboutSection": {
-      "eyebrow": "About SportMatch AI",
-      "titleStrong": "An intelligent assistant behind every match —",
+      "leftImageAlt": "Badminton racket on a green court",
+      "rightImageAlt": "Badminton shuttlecock on a dark blue court",
+      "eyebrow": "About Shuttio",
+      "titleStrong": "An intelligent assistant behind every match",
       "titleMuted": "booking courts, matching players, and filling every empty slot for you.",
-      "body": "We believe playing should be the easy part. SportMatch AI handles the logistics — finding open courts near you, matching you with players at your level, and keeping your group in sync — so badminton is always one message away. From first-timers to club regulars, we're building the fastest way to get on court.",
+      "body": "We believe playing should be the easy part. Shuttio handles the logistics — finding open courts near you, matching you with players at your level, and keeping your group in sync — so badminton is always one message away. From first-timers to club regulars, we're building the fastest way to get on court.",
       "features": [
         {
           "title": "Fast",
@@ -738,17 +741,13 @@
       "2": {
         "value": "<60s",
         "label": "From request to booked"
-      },
-      "3": {
-        "value": "3",
-        "label": "Racquet sports supported"
       }
     },
     "venuesSection": {
       "eyebrow": "For venues & clubs",
       "titleLine1": "Fill every court.",
       "titleLine2": "Let the AI do the rest.",
-      "subtitle": "Connect your booking calendar and SportMatch AI quietly steers players into your open courts — matching, scheduling and reminding so you don't have to."
+      "subtitle": "Connect your booking calendar and Shuttio quietly steers players into your open courts — matching, scheduling and reminding so you don't have to."
     },
     "venueBenefits": {
       "0": {
@@ -785,8 +784,7 @@
       "playerRating": "Player rating"
     },
     "testimonialsSection": {
-      "eyebrow": "Loved by early testers",
-      "title": "Players are hooked.",
+      "title": "Customer reviews",
       "ratingAria": "Rated 5 out of 5 stars"
     },
     "testimonials": {
@@ -809,7 +807,7 @@
     },
     "faq": {
       "0": {
-        "question": "Which sports does SportMatch AI support?",
+        "question": "Which sports does Shuttio support?",
         "answer": "We're launching with badminton — the fastest-growing racquet sport in our community. More will be added based on where our community plays most."
       },
       "1": {
@@ -853,12 +851,12 @@
         "privacy": "Privacy",
         "terms": "Terms"
       },
-      "copyright": "© 2026 SportMatch AI. Built for players.",
+      "copyright": "© 2026 Shuttio. Built for players.",
       "themeHint": "Press <kbd>L</kbd> to switch theme"
     }
   },
   "Header": {
-    "homeAria": "SportMatch AI — home",
+    "homeAria": "Shuttio — home",
     "nav": {
       "about": "About",
       "features": "Features",
@@ -1003,7 +1001,7 @@
   },
   "Overview": {
     "metaTitle": "Dashboard",
-    "metaDescription": "Your SportMatch AI command center — next match, AI player suggestions, nearby courts, bookings and streak.",
+    "metaDescription": "Your Shuttio command center — next match, AI player suggestions, nearby courts, bookings and streak.",
     "greeting": "Good evening, {name}",
     "streakTeaser": "You're on a <streak>{count}-day streak</streak>. One match today keeps it alive.",
     "filterAll": "All",
@@ -1182,7 +1180,7 @@
     }
   },
   "VenueSetup": {
-    "metaTitle": "Set up your venue · SportMatch AI",
+    "metaTitle": "Set up your venue · Shuttio",
     "metaDescription": "Create your venue's branches to start taking bookings from players.",
     "title": "Set up your venue",
     "subtitle": "A few steps to get your venue ready to take bookings.",
@@ -1240,7 +1238,7 @@
     }
   },
   "VenueManage": {
-    "metaTitle": "Venues · SportMatch AI",
+    "metaTitle": "Venues · Shuttio",
     "metaDescription": "Manage the venues you operate — add, edit and remove venues and their courts, and switch which one the dashboard is scoped to.",
     "title": "Venues",
     "subtitle": "Add, edit and switch between the venues you operate.",
@@ -1377,7 +1375,7 @@
     "emptyDetail": "No price moves to make right now. New suggestions appear as demand shifts."
   },
   "VenueCommand": {
-    "metaTitle": "Command Center · SportMatch AI",
+    "metaTitle": "Command Center · Shuttio",
     "metaDescription": "Live overview of your venue — occupancy, revenue, courts in play, arrivals and the top AI recommendation.",
     "greeting": "Welcome back, {manager}",
     "subtitle": "Here is how {venue} is running right now.",

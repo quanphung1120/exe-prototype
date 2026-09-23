@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Link } from "@/i18n/navigation"
+import styles from "@/features/landing/landing.module.css"
 
 type Audience = "players" | "venues"
 
@@ -25,7 +26,8 @@ function PlanCard({ id, featured }: { id: Audience; featured: boolean }) {
         "relative flex h-full flex-col rounded-3xl border p-6 transition-all duration-300 hover:-translate-y-1 sm:p-8",
         featured
           ? "border-lime/50 bg-gradient-to-b from-primary/10 via-card to-lime/10 shadow-xl ring-1 shadow-lime/5 ring-lime/30"
-          : "border-border bg-card/80 shadow-sm backdrop-blur-sm hover:border-primary/30 hover:shadow-md"
+          : "border-border bg-card/80 shadow-sm backdrop-blur-sm hover:border-primary/30 hover:shadow-md",
+        featured ? styles.planFeatured : styles.plan
       )}
     >
       {featured && (
@@ -55,10 +57,16 @@ function PlanCard({ id, featured }: { id: Audience; featured: boolean }) {
       </p>
 
       <div className="mt-6 flex items-baseline gap-1.5 border-b border-border/60 pb-6">
-        <span className="font-sans text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
+        <span
+          data-plan-price
+          className="font-sans text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl"
+        >
           {t("price")}
         </span>
-        <span className="text-sm font-medium text-muted-foreground">
+        <span
+          data-plan-period
+          className="text-sm font-medium text-muted-foreground"
+        >
           {t("period")}
         </span>
       </div>
@@ -81,7 +89,7 @@ function PlanCard({ id, featured }: { id: Audience; featured: boolean }) {
         ))}
       </ul>
 
-      <div className="mt-8">
+      <div className="mt-8 text-foreground">
         <Button
           variant={featured ? "lime" : "outline"}
           size="lg"
