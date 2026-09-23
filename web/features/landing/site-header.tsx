@@ -16,12 +16,12 @@ const NAV_LINKS = [
   { key: "about", href: "#about" },
   { key: "features", href: "#features" },
   { key: "howItWorks", href: "#how-it-works" },
-  { key: "pricing", href: "#pricing" },
   { key: "venues", href: "#venues" },
+  { key: "pricing", href: "#pricing" },
   { key: "faq", href: "#faq" },
 ]
 
-export function SiteHeader() {
+export function SiteHeader({ className }: { className?: string }) {
   const t = useTranslations("Header")
   const [open, setOpen] = React.useState(false)
   const [scrolled, setScrolled] = React.useState(false)
@@ -58,7 +58,8 @@ export function SiteHeader() {
         "sticky top-0 z-50 w-full transition-colors duration-300",
         scrolled || open
           ? "border-b border-border bg-background/80 backdrop-blur-lg"
-          : "border-b border-transparent bg-background/0"
+          : "border-b border-transparent bg-background/0",
+        className
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">

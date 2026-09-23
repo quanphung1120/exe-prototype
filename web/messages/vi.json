@@ -9,7 +9,7 @@
     "next": "Sau"
   },
   "Auth": {
-    "brand": "SportMatch AI",
+    "brand": "Shuttio",
     "tagline": "Đặt sân & ghép cặp người chơi bằng AI",
     "or": "hoặc",
     "emailLabel": "Email",
@@ -67,7 +67,7 @@
     }
   },
   "Common": {
-    "appName": "SportMatch AI",
+    "appName": "Shuttio",
     "allSports": "Tất cả",
     "filterSport": "Lọc theo môn",
     "sports": {
@@ -149,7 +149,7 @@
   },
   "WorkspaceSettings": {
     "title": "Cài đặt không gian",
-    "playerDescription": "Cập nhật cách bạn hiển thị trên SportMatch.",
+    "playerDescription": "Cập nhật cách bạn hiển thị trên Shuttio.",
     "venueDescription": "Cập nhật hồ sơ địa điểm và đội ngũ của bạn.",
     "playerScope": "Hồ sơ người chơi",
     "venueScope": "Địa điểm đang chọn",
@@ -243,12 +243,12 @@
     "toggleTitle": "Đổi giao diện (L)"
   },
   "Meta": {
-    "titleDefault": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
-    "titleTemplate": "%s · SportMatch AI",
-    "description": "SportMatch AI là trợ lý đặt sân bằng AI cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
-    "ogTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
+    "titleDefault": "Shuttio — Tìm sân. Tìm đối thủ phù hợp.",
+    "titleTemplate": "%s · Shuttio",
+    "description": "Shuttio là trợ lý đặt sân bằng AI cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
+    "ogTitle": "Shuttio — Tìm sân. Tìm đối thủ phù hợp.",
     "ogDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký truy cập sớm.",
-    "twitterTitle": "SportMatch AI — Tìm sân. Tìm đối thủ phù hợp.",
+    "twitterTitle": "Shuttio — Tìm sân. Tìm đối thủ phù hợp.",
     "twitterDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký truy cập sớm.",
     "keywords": [
       "đặt sân",
@@ -604,7 +604,8 @@
       "eyebrow": "Ghép trận bằng AI cho các môn thể thao vợt",
       "titleLine1": "Tìm sân",
       "titleLine2": "Tìm <accent>đối thủ</accent> phù hợp.",
-      "subtitle": "Trợ lý đặt sân AI của Quý khách cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây — và được ghép với những người chơi cùng trình độ.",
+      "subtitle": "Dễ dàng tìm sân phù hợp và kết nối với đối thủ cùng trình độ.\nTất cả những gì bạn cần để bắt đầu một trận đấu đều có ngay trên một nền tảng.",
+      "imageAlt": "Những quả cầu lông và vợt trên mặt cỏ xanh",
       "cta": "Bắt đầu ngay",
       "socialProof": "1.000+ người chơi đã tham gia",
       "sportsLabel": "Dành cho:",
@@ -617,10 +618,12 @@
       }
     },
     "aboutSection": {
-      "eyebrow": "Về SportMatch AI",
-      "titleStrong": "Một trợ lý thông minh phía sau mỗi trận đấu —",
+      "leftImageAlt": "Vợt cầu lông trên sân xanh",
+      "rightImageAlt": "Quả cầu lông trên sân xanh đậm",
+      "eyebrow": "Về Shuttio",
+      "titleStrong": "Một trợ lý thông minh phía sau mỗi trận đấu",
       "titleMuted": "đặt sân, ghép người chơi và lấp đầy mọi khung giờ trống cho Quý khách.",
-      "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. SportMatch AI lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân.",
+      "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. Shuttio lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân.",
       "features": [
         {
           "title": "Nhanh chóng",
@@ -726,6 +729,9 @@
         "body": "Một chạm để đặt sân và thông báo cho mọi người. Chỉ việc đến và chơi."
       }
     },
+    "statsSection": {
+      "title": "Tỉ lệ sử dụng"
+    },
     "stats": {
       "0": {
         "value": "3.200+",
@@ -738,17 +744,13 @@
       "2": {
         "value": "<60 giây",
         "label": "Từ yêu cầu đến đặt xong"
-      },
-      "3": {
-        "value": "3",
-        "label": "Môn thể thao vợt được hỗ trợ"
       }
     },
     "venuesSection": {
       "eyebrow": "Dành cho địa điểm & câu lạc bộ",
       "titleLine1": "Lấp đầy mọi sân.",
       "titleLine2": "Để AI lo phần còn lại.",
-      "subtitle": "Kết nối lịch đặt sân của Quý khách và SportMatch AI sẽ âm thầm đưa người chơi vào những sân trống — ghép trận, sắp lịch và nhắc nhở để Quý khách không phải bận tâm."
+      "subtitle": "Kết nối lịch đặt sân của Quý khách và Shuttio sẽ âm thầm đưa người chơi vào những sân trống — ghép trận, sắp lịch và nhắc nhở để Quý khách không phải bận tâm."
     },
     "venueBenefits": {
       "0": {
@@ -785,8 +787,7 @@
       "playerRating": "Đánh giá người chơi"
     },
     "testimonialsSection": {
-      "eyebrow": "Được người dùng thử yêu thích",
-      "title": "Người chơi đã bị cuốn hút.",
+      "title": "Đánh giá từ khách hàng",
       "ratingAria": "Đánh giá 5 trên 5 sao"
     },
     "testimonials": {
@@ -809,7 +810,7 @@
     },
     "faq": {
       "0": {
-        "question": "SportMatch AI hỗ trợ những môn thể thao nào?",
+        "question": "Shuttio hỗ trợ những môn thể thao nào?",
         "answer": "Chúng tôi ra mắt với môn cầu lông — môn thể thao vợt đang phát triển nhanh nhất trong cộng đồng của chúng tôi. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất."
       },
       "1": {
@@ -839,26 +840,23 @@
         "title": "Sản phẩm",
         "features": "Tính năng",
         "howItWorks": "Cách hoạt động",
+        "pricing": "Bảng giá",
         "faq": "Câu hỏi thường gặp"
       },
       "venues": {
         "title": "Dành cho địa điểm",
-        "partner": "Chương trình đối tác",
-        "demo": "Yêu cầu demo",
-        "analytics": "Phân tích"
+        "overview": "Tổng quan dành cho địa điểm"
       },
       "company": {
         "title": "Công ty",
-        "about": "Giới thiệu",
-        "privacy": "Bảo mật",
-        "terms": "Điều khoản"
+        "about": "Giới thiệu"
       },
-      "copyright": "© 2026 SportMatch AI. Dành cho người chơi.",
+      "copyright": "© 2026 Shuttio. Dành cho người chơi.",
       "themeHint": "Nhấn <kbd>L</kbd> để đổi giao diện"
     }
   },
   "Header": {
-    "homeAria": "SportMatch AI — trang chủ",
+    "homeAria": "Shuttio — trang chủ",
     "nav": {
       "about": "Giới thiệu",
       "features": "Tính năng",
@@ -1003,7 +1001,7 @@
   },
   "Overview": {
     "metaTitle": "Tổng quan",
-    "metaDescription": "Trung tâm điều khiển SportMatch AI của bạn — trận kế tiếp, gợi ý người chơi từ AI, sân gần bạn, lịch đặt và chuỗi ngày.",
+    "metaDescription": "Trung tâm điều khiển Shuttio của bạn — trận kế tiếp, gợi ý người chơi từ AI, sân gần bạn, lịch đặt và chuỗi ngày.",
     "greeting": "Chào buổi tối, {name}",
     "streakTeaser": "Bạn đang có <streak>chuỗi {count} ngày</streak>. Chơi một trận hôm nay để giữ chuỗi.",
     "filterAll": "Tất cả",
@@ -1182,7 +1180,7 @@
     }
   },
   "VenueSetup": {
-    "metaTitle": "Thiết lập sân · SportMatch AI",
+    "metaTitle": "Thiết lập sân · Shuttio",
     "metaDescription": "Tạo các chi nhánh của địa điểm để bắt đầu nhận đặt sân từ người chơi.",
     "title": "Thiết lập sân của bạn",
     "subtitle": "Vài bước để địa điểm của Quý khách sẵn sàng nhận đặt sân.",
@@ -1240,7 +1238,7 @@
     }
   },
   "VenueManage": {
-    "metaTitle": "Địa điểm · SportMatch AI",
+    "metaTitle": "Địa điểm · Shuttio",
     "metaDescription": "Quản lý các địa điểm bạn vận hành — thêm, sửa, xóa địa điểm và sân, và chọn địa điểm đang hiển thị trên bảng điều khiển.",
     "title": "Địa điểm",
     "subtitle": "Thêm, sửa và chuyển đổi giữa các địa điểm bạn vận hành.",
@@ -1377,7 +1375,7 @@
     "emptyDetail": "Hiện chưa cần điều chỉnh giá. Đề xuất mới sẽ xuất hiện khi nhu cầu thay đổi."
   },
   "VenueCommand": {
-    "metaTitle": "Trung tâm điều hành · SportMatch AI",
+    "metaTitle": "Trung tâm điều hành · Shuttio",
     "metaDescription": "Tổng quan trực tiếp về cơ sở — công suất, doanh thu, sân đang chơi, khách đến và khuyến nghị AI hàng đầu.",
     "greeting": "Chào {manager}",
     "subtitle": "Tình hình vận hành của {venue} ngay lúc này.",

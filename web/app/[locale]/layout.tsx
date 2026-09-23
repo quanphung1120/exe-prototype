@@ -67,7 +67,7 @@ export async function generateMetadata({
     openGraph: {
       title: t("ogTitle"),
       description: t("ogDescription"),
-      siteName: "SportMatch AI",
+      siteName: "Shuttio",
       type: "website",
     },
     twitter: {
