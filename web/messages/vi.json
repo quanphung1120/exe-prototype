@@ -245,17 +245,17 @@
   "Meta": {
     "titleDefault": "Shuttio — Tìm sân. Tìm đối thủ phù hợp.",
     "titleTemplate": "%s · Shuttio",
-    "description": "Shuttio là trợ lý đặt sân bằng AI cho các môn thể thao vợt. Đặt sân cầu lông chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
+    "description": "Shuttio là trợ lý đặt sân cầu lông bằng AI. Đặt sân chỉ trong vài giây và được ghép với những người chơi cùng trình độ. Hiện đang mở truy cập sớm.",
     "ogTitle": "Shuttio — Tìm sân. Tìm đối thủ phù hợp.",
-    "ogDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký truy cập sớm.",
+    "ogDescription": "Đặt sân cầu lông và ghép người chơi bằng AI. Đăng ký truy cập sớm.",
     "twitterTitle": "Shuttio — Tìm sân. Tìm đối thủ phù hợp.",
-    "twitterDescription": "Đặt sân và ghép người chơi bằng AI cho các môn thể thao vợt. Đăng ký truy cập sớm.",
+    "twitterDescription": "Đặt sân cầu lông và ghép người chơi bằng AI. Đăng ký truy cập sớm.",
     "keywords": [
       "đặt sân",
       "ghép người chơi",
       "cầu lông",
       "trợ lý AI",
-      "thể thao vợt"
+      "sân cầu lông"
     ]
   },
   "Assistant": {
@@ -601,7 +601,7 @@
   },
   "Landing": {
     "hero": {
-      "eyebrow": "Ghép trận bằng AI cho các môn thể thao vợt",
+      "eyebrow": "Ghép trận cầu lông bằng AI",
       "titleLine1": "Tìm sân",
       "titleLine2": "Tìm <accent>đối thủ</accent> phù hợp.",
       "subtitle": "Dễ dàng tìm sân phù hợp và kết nối với đối thủ cùng trình độ.\nTất cả những gì bạn cần để bắt đầu một trận đấu đều có ngay trên một nền tảng.",
@@ -812,7 +812,7 @@
     "faq": {
       "0": {
         "question": "Shuttio hỗ trợ những môn thể thao nào?",
-        "answer": "Chúng tôi ra mắt với môn cầu lông — môn thể thao vợt đang phát triển nhanh nhất trong cộng đồng của chúng tôi. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất."
+        "answer": "Chúng tôi ra mắt với cầu lông — bộ môn đang phát triển nhanh nhất trong cộng đồng của chúng tôi. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất."
       },
       "1": {
         "question": "Trợ lý AI thực sự đặt sân như thế nào?",
@@ -836,7 +836,7 @@
       "subtitle": "Tạo tài khoản và bắt đầu đặt sân, ghép cặp với người chơi gần Quý khách."
     },
     "footer": {
-      "tagline": "Trợ lý đặt sân AI cho các môn thể thao vợt. Tìm sân, tìm đối thủ và cứ thế chơi thôi.",
+      "tagline": "Trợ lý đặt sân cầu lông bằng AI. Tìm sân, tìm đối thủ và cứ thế chơi thôi.",
       "product": {
         "title": "Sản phẩm",
         "features": "Tính năng",
