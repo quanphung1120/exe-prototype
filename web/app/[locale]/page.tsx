@@ -31,6 +31,14 @@ const TESTIMONIALS = [
   { name: "Daniel K.", initials: "DK" },
   { name: "Priya S.", initials: "PS" },
 ]
+const TRUSTED_CLUBS = [
+  "Phú Thọ Badminton",
+  "Tân Phú Smash Club",
+  "Rally Point",
+  "Ace Badminton",
+  "Celadon Sports Club",
+  "Saigon Shuttle Hub",
+]
 
 // Preserve the existing landing CTA, including hover and keyboard-focus styles.
 const ctaClassName =
@@ -77,12 +85,29 @@ export default async function Page({
         </section>
 
         <section className={styles.trust}>
-          <div>
+          <div className={styles.trustIntro}>
             <h2>{t("trust.caption")}</h2>
             <p>
               <ArrowUpRight aria-hidden="true" />
               {t("hero.socialProof")}
             </p>
+          </div>
+          <div className={styles.clubMarquee} aria-label={t("trust.clubsAria")}>
+            <div className={styles.clubTrack}>
+              {[0, 1].map((copy) => (
+                <div
+                  key={copy}
+                  className={styles.clubList}
+                  aria-hidden={copy === 1 ? "true" : undefined}
+                >
+                  {TRUSTED_CLUBS.map((club) => (
+                    <span key={`${copy}-${club}`} className={styles.club}>
+                      {club}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 

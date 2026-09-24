@@ -672,7 +672,8 @@
       }
     },
     "trust": {
-      "caption": "Được các câu lạc bộ và người chơi trong giới thể thao vợt tin dùng"
+      "caption": "Được các câu lạc bộ và người chơi trong giới cầu lông tin dùng",
+      "clubsAria": "Các câu lạc bộ cầu lông đang đồng hành cùng Shuttio"
     },
     "playerFeaturesSection": {
       "eyebrow": "Dành cho người chơi",

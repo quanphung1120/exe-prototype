@@ -672,7 +672,8 @@
       }
     },
     "trust": {
-      "caption": "Trusted by clubs and players across the racquet sports scene"
+      "caption": "Trusted by clubs and players across the badminton scene",
+      "clubsAria": "Badminton clubs partnering with Shuttio"
     },
     "playerFeaturesSection": {
       "eyebrow": "For players",
