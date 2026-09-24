@@ -110,7 +110,8 @@ export default async function Page({
                 src="/right-landing-page.jpg"
                 alt={t("aboutSection.rightImageAlt")}
                 fill
-                sizes="(min-width: 900px) 280px, 35vw"
+                sizes="(min-width: 900px) 360px, 35vw"
+                quality={100}
                 className="object-cover object-right"
               />
             </div>
