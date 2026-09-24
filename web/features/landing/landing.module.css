@@ -120,9 +120,9 @@
 }
 .trust {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(260px, 330px) minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 48px;
   padding: 90px 100px;
 }
@@ -153,7 +153,7 @@
   font-size: 1.65rem;
   text-transform: uppercase;
 }
-.trust p {
+.trustIntro > p {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -161,9 +161,58 @@
   font-size: 0.85rem;
   margin-top: 18px;
 }
-.trust p svg {
+.trustIntro > p svg {
   width: 19px;
   color: #7ff264;
+}
+.clubMarquee {
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+.clubTrack {
+  display: flex;
+  width: max-content;
+  animation: club-marquee 28s linear infinite;
+}
+.clubMarquee:hover .clubTrack {
+  animation-play-state: paused;
+}
+.clubList {
+  display: flex;
+  flex-shrink: 0;
+  gap: 24px;
+  align-items: center;
+  padding-right: 24px;
+}
+.club {
+  display: inline-flex;
+  align-items: center;
+  gap: 24px;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+}
+.club::after {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #78ef5c;
+  content: "";
+}
+@keyframes club-marquee {
+  to {
+    transform: translateX(-50%);
+  }
 }
 .lightPanel {
   width: 100vw;
@@ -683,7 +732,7 @@
   }
   .trust {
     padding: 65px 28px;
-    flex-direction: column;
+    grid-template-columns: 1fr;
     align-items: start;
     gap: 30px;
   }
@@ -848,7 +897,7 @@
     linear-gradient(90deg, #17451d0a 1px, transparent 1px);
 }
 :global(html:not(.dark)) .subtitle,
-:global(html:not(.dark)) .trust p,
+:global(html:not(.dark)) .trustIntro > p,
 :global(html:not(.dark)) .stats dt,
 :global(html:not(.dark)) .venues > div > p:not(.eyebrow),
 :global(html:not(.dark)) .venueBenefits p,
@@ -859,7 +908,8 @@
   box-shadow: 0 22px 56px #28592924;
 }
 :global(html:not(.dark)) .trust {
-  background: #f4f8f2;
+  background: #071007;
+  color: #f6f7f4;
 }
 :global(html:not(.dark)) .trust::before,
 :global(html:not(.dark)) .trust::after {
@@ -871,10 +921,29 @@
   );
 }
 :global(html:not(.dark)) .eyebrow,
-:global(html:not(.dark)) .trust p svg,
+:global(html:not(.dark)) .trustIntro > p svg,
 :global(html:not(.dark)) .venues h2 span,
 :global(html:not(.dark)) .venueBenefits svg {
   color: #218a35;
+}
+:global(html:not(.dark)) .trustIntro > p {
+  color: #98a496;
+}
+:global(html:not(.dark)) .club {
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clubTrack {
+    width: 100%;
+    animation: none;
+  }
+  .clubList:first-child {
+    flex-wrap: wrap;
+  }
+  .clubList[aria-hidden="true"] {
+    display: none;
+  }
 }
 :global(html:not(.dark)) .lightPanel {
   background: #ffffff;
