@@ -72,6 +72,7 @@ export type TrustTier = "trusted" | "reliable" | "new"
 export interface Court {
   id: string
   name: string
+  courtName?: string
   /** Cấp phường/xã — full Vietnamese name e.g. "Phường Bến Nghé", "Xã Tân Thông Hội" */
   ward: string
   /** Tỉnh/thành phố trực thuộc trung ương — e.g. "TP. Hồ Chí Minh", "Hà Nội" */
@@ -79,15 +80,15 @@ export interface Court {
   sports: SportKey[]
   surface: string
   pricePerHour: number
-  distanceKm: number
+  distanceKm: number | null
   rating: number
   openSlots: number
   nextSlot: string
   /** Share of today's slots still free, 0–100. */
   freePct: number
   /** Geographic position for the Find Courts map (WGS84). */
-  lat: number
-  lng: number
+  lat: number | null
+  lng: number | null
 }
 
 // ── Match rooms (Match Maker lobbies) ────────────────────────────────────────
@@ -103,7 +104,7 @@ export interface MatchRoom {
   format: "Singles" | "Doubles"
   venue: string
   ward: string
-  distanceKm: number
+  distanceKm: number | null
   day: string
   /** ISO date ("YYYY-MM-DD") for `day` (set on create; derived otherwise). */
   dayKey?: string
@@ -253,7 +254,7 @@ export interface PlaySession {
   fillIntent: "court" | "invite" | "find"
   venue: string
   ward: string
-  distanceKm: number
+  distanceKm: number | null
   pricePerHour: number
   result?: "W" | "L"
   score?: string
@@ -938,8 +939,8 @@ export interface VenuePin {
   ward: string
   province: string
   rating: number
-  lat: number
-  lng: number
+  lat: number | null
+  lng: number | null
 }
 
 /** The full hardcoded dataset the API serves and the web `DataProvider` holds. */

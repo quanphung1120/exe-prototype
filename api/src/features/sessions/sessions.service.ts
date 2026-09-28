@@ -123,6 +123,9 @@ export class SessionsService {
     const next: PlaySessionData = {
       ...session,
       status: mapped.status,
+      courtId: info.courtId,
+      courtLabel: info.courtName,
+      venueId: info.venueId,
       paymentStatus: info.paymentStatus,
       paymentExpiresAt: info.holdExpiresAt,
     }

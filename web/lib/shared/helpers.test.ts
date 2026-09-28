@@ -8,7 +8,53 @@ import {
   hashStr,
   isoDateOf,
   rangesOverlap,
+  courtNumberFor,
+  venueCourtToCourt,
+  sessionToBooking,
+  type PlaySession,
+  type Court,
+  type Venue,
+  type VenueCourt,
 } from "@/lib/shared"
+
+describe("booking court identity", () => {
+  const courts = [
+    { id: "a", name: "Club · Court 7", courtName: "Court 7" },
+    { id: "b", name: "Club · VIP 2", courtName: "VIP 2" },
+  ] as Court[]
+
+  it("uses the actual court name independently of catalog position", () => {
+    expect(courtNumberFor(courts, "a")).toBe("Court 7")
+    expect(courtNumberFor([...courts].reverse(), "a")).toBe("Court 7")
+    expect(courtNumberFor(courts, "b")).toBe("VIP 2")
+  })
+
+  it("does not invent Court 1 for a missing court", () => {
+    expect(courtNumberFor(courts, "removed")).toBe("")
+  })
+
+  it("projects the booked court instead of a stale draft venue", () => {
+    const booking = sessionToBooking(courts, {
+      courtId: "a",
+      courtLabel: "Court 7",
+      venue: "Club · VIP 2",
+      reservationId: "paid-booking",
+      status: "booked",
+      roster: [],
+    } as unknown as PlaySession)
+    expect(booking.venue).toBe("Club · Court 7")
+    expect(booking.court).toBe("Court 7")
+  })
+
+  it("preserves the operator court name in the discovery catalog", () => {
+    const projected = venueCourtToCourt(
+      { id: "v", name: "Club" } as Venue,
+      { id: "a", name: "VIP 2", utilToday: 0 } as VenueCourt
+    )
+    expect(projected.name).toBe("Club · VIP 2")
+    expect(courtNumberFor([projected], "a")).toBe("VIP 2")
+  })
+})
 
 /**
  * Characterization tests for the pure helpers in `web/lib/shared/helpers.ts`

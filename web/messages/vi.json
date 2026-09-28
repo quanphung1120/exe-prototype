@@ -1,5 +1,7 @@
 {
-  "RouteLoading": { "label": "Đang tải trang…" },
+  "RouteLoading": {
+    "label": "Đang tải trang…"
+  },
   "AdminPagination": {
     "label": "Phân trang",
     "range": "Hiển thị {from}–{to} trên {total} mục",
@@ -326,7 +328,7 @@
     "noCourts": "Không tìm thấy sân",
     "choose": "Chọn sân",
     "chosen": "Đã chọn",
-    "distance": "{km} km",
+    "distance": "≈ {km} km (đường chim bay)",
     "anyDay": "Ngày",
     "slotsFor": "Khung giờ trống",
     "taken": "Đã đặt",
@@ -450,7 +452,9 @@
   },
   "Shared": {
     "next": "kế tiếp {time}",
-    "perHour": "/giờ"
+    "perHour": "/giờ",
+    "distance": "≈ {km} km (đường chim bay)",
+    "distanceUnknown": "Chưa xác định khoảng cách"
   },
   "FindCourts": {
     "metaTitle": "Tìm sân",
@@ -458,7 +462,7 @@
     "allSports": "Tất cả môn",
     "empty": "Không có sân nào cho môn này gần đây. Hãy thử bộ lọc khác.",
     "nearby": "Gần đây · {count, plural, other {# sân}}",
-    "distance": "{km} km",
+    "distance": "≈ {km} km (đường chim bay)",
     "openSlots": "{count, plural, other {# khung trống hôm nay}}",
     "freePct": "Trống {pct}%",
     "perHour": "/giờ",
@@ -476,7 +480,8 @@
       "locating": "Đang định vị…",
       "on": "Gần bạn",
       "off": "Bật vị trí"
-    }
+    },
+    "distanceUnknown": "Chưa xác định khoảng cách"
   },
   "Calendar": {
     "views": {

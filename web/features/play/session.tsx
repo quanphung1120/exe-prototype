@@ -178,7 +178,7 @@ interface SessionContextValue {
     courtId?: string | null
     venue: string
     ward: string
-    distanceKm: number
+    distanceKm: number | null
     dayKey: string
     dayLabel: string
     slot: string
@@ -356,7 +356,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const courtFor = (sport: SportKey): Court =>
     [...COURTS]
       .filter((c) => c.sports.includes(sport))
-      .sort((a, b) => a.distanceKm - b.distanceKm)[0] ?? COURTS[0]
+      .sort(
+        (a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)
+      )[0] ?? COURTS[0]
 
   /** Faked partners: same level/sport preferred, then highest match %. */
   const pickPartners = (
@@ -421,7 +423,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   )
   const [paying, setPaying] = React.useState(false)
   const [checkoutError, setCheckoutError] = React.useState<string | null>(null)
-  const [resumingPaymentId, setResumingPaymentId] = React.useState<string | null>(null)
+  const [resumingPaymentId, setResumingPaymentId] = React.useState<
+    string | null
+  >(null)
 
   // Cross-surface flow-back: the provider seeds its `sessions` once, so an
   // operator's approve/decline (persisted to the same DB) wouldn't otherwise
@@ -441,6 +445,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (local.status === "forming" || local.holdExpiresAt) return local
         if (
           server.status === local.status &&
+          server.courtId === local.courtId &&
+          server.courtLabel === local.courtLabel &&
+          server.venueId === local.venueId &&
           server.hold === local.hold &&
           server.paymentStatus === local.paymentStatus &&
           server.paymentExpiresAt === local.paymentExpiresAt &&
@@ -451,6 +458,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         return {
           ...local,
           status: server.status,
+          courtId: server.courtId,
+          courtLabel: server.courtLabel,
+          venueId: server.venueId,
           hold: server.hold,
           paymentStatus: server.paymentStatus,
           paymentExpiresAt: server.paymentExpiresAt,
@@ -792,14 +802,24 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     () => new Set([...localJoinedIds, ...remoteJoinedIds]),
     [localJoinedIds, remoteJoinedIds]
   )
+  const roomForViewer = React.useCallback(
+    (session: PlaySession) => {
+      const room = sessionToRoom(session)
+      const court = COURTS.find((c) =>
+        room.courtId ? c.id === room.courtId : c.name === room.venue
+      )
+      return { ...room, distanceKm: court?.distanceKm ?? null }
+    },
+    [COURTS]
+  )
   const rooms = React.useMemo(
     () => [
       ...sessions
         .filter((s) => s.listed && s.status !== "cancelled")
-        .map(sessionToRoom),
-      ...otherRoomsRaw.map(sessionToRoom),
+        .map(roomForViewer),
+      ...otherRoomsRaw.map(roomForViewer),
     ],
-    [sessions, otherRoomsRaw]
+    [sessions, otherRoomsRaw, roomForViewer]
   )
   const joinedSessions = React.useMemo(
     () => [
@@ -819,8 +839,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     [sessions, localJoinedIds, otherRoomsRaw, remoteJoinedIds]
   )
   const joinedRooms = React.useMemo(
-    () => joinedSessions.map(sessionToRoom),
-    [joinedSessions]
+    () => joinedSessions.map(roomForViewer),
+    [joinedSessions, roomForViewer]
   )
   // Rooms (mine or someone else's) I've asked to join and am still awaiting
   // the host's approval on. My own doc never carries a `requested` entry for
@@ -914,7 +934,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     joinedSessions.find((s) => s.id === activeSessionId) ??
     joinedSessions[0] ??
     null
-  const activeRoom = activeSession ? sessionToRoom(activeSession) : null
+  const activeRoom = activeSession ? roomForViewer(activeSession) : null
   const bookings = React.useMemo(
     () =>
       sessions
@@ -964,7 +984,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const c = COURTS.find((x) => x.id === f.courtId)
       if (!c || room.venue !== c.name) return false
     }
-    if (f.maxDistanceKm !== null && room.distanceKm > f.maxDistanceKm)
+    if (
+      f.maxDistanceKm !== null &&
+      (room.distanceKm === null || room.distanceKm > f.maxDistanceKm)
+    )
       return false
     const dayKey = room.dayKey
     if (f.day === "today" && dayKey !== todayIso) return false
@@ -1264,7 +1287,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     courtId?: string | null
     venue: string
     ward: string
-    distanceKm: number
+    distanceKm: number | null
     dayKey: string
     dayLabel: string
     slot: string
@@ -1561,7 +1584,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         const exact = (r: MatchRoom) =>
           r.level === userLevelForSport(r.sport) ? 0 : 1
         if (exact(a) !== exact(b)) return exact(a) - exact(b)
-        if (a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm
+        if (a.distanceKm !== b.distanceKm)
+          return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)
         return b.joined / b.capacity - a.joined / a.capacity
       })[0]
       joinRoom(best)
@@ -1648,6 +1672,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const bookCourtForSession = (sessionId: string) => {
     const s = sessions.find((x) => x.id === sessionId)
     if (!s) return
+    if (s.reservationId) {
+      resumePayment(s.reservationId)
+      return
+    }
     // A room's proposed venue is not a reservation. Let the host choose the
     // court explicitly while keeping the room's schedule and roster linked.
     openBooking(null, { roomId: sessionId })
@@ -1734,7 +1762,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (steps[step] === "slot") startCourtHold()
     setStep((s) => Math.min(steps.length - 1, s + 1))
   }
-  const back = () => setStep((s) => Math.max(0, s - 1))
+  const back = () => {
+    // Once checkout has created a reservation, retries must pay that exact
+    // court and slot. Editing the draft would leave the old reservation linked.
+    if (sessions.some((s) => s.id === linkedId && s.reservationId)) return
+    setStep((s) => Math.max(0, s - 1))
+  }
 
   const setCourt = (cid: string) => {
     setCourtId(cid)
@@ -1811,6 +1844,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const courtLabel = courtNumberFor(court.id)
     const holdExpiresAt = Date.now() + HOLD_MS
     const existing = linkedId ? sessions.find((s) => s.id === linkedId) : null
+    if (existing?.reservationId) return
     if (existing) {
       const held: PlaySession = {
         ...existing,
@@ -1903,7 +1937,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     const dayLabel = locStr(dayLabelFor(draft.dayKey), locale)
     const sport = linked?.sport ?? court.sports[0]
-    const courtLabel = courtNumberFor(court.id)
     // Resolved up front (not after the server call) so a brand-new booking's
     // hold links to the same session id it's about to be created under.
     const roomId = linked?.id ?? newId("bk")
@@ -1926,6 +1959,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       return null
     }
     const summary = result.data
+    const courtLabel = summary.courtName
 
     if (linked) {
       // Transition an existing forming room into a held booking. It arrives

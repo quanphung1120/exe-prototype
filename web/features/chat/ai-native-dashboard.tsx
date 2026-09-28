@@ -1,5 +1,7 @@
 "use client"
 
+import { CourtDistance } from "@/features/dashboard/court-distance"
+
 import * as React from "react"
 import { useChat } from "@ai-sdk/react"
 import {
@@ -67,7 +69,6 @@ import {
   RecentChats,
 } from "@/features/chat/assistant-home"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
-import { type LatLng } from "@/features/play/court-map"
 import { Flip, gsap, prefersReducedMotion } from "@/features/landing/gsap"
 import { Streamdown } from "streamdown"
 import "streamdown/styles.css"
@@ -192,7 +193,7 @@ const useIsomorphicLayoutEffect =
 export function AiNativeDashboardView() {
   const t = useTranslations("AiDashboard")
   const locale = useLocale()
-  const { courts, user: USER } = useData()
+  const { courts, user: USER, requestLocation } = useData()
   const { openBooking } = useBooking()
   const {
     createInviteRoom,
@@ -224,49 +225,7 @@ export function AiNativeDashboardView() {
     null
   )
 
-  // The user's real position, attached to every request so the model can rank
-  // courts by actual distance (the seed `distanceKm` is static). Stays null if
-  // the browser denies/lacks geolocation — the server then falls back to seed.
-  const [userLoc, setUserLoc] = React.useState<LatLng | null>(null)
-
-  // Ask for a fix once on mount. Deferred a tick so the synchronous "no
-  // geolocation" path never calls setState inside the effect body
-  // (react-hooks/set-state-in-effect).
-  React.useEffect(() => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return
-    const id = setTimeout(() => {
-      navigator.geolocation.getCurrentPosition(
-        (pos) =>
-          setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => {},
-        { enableHighAccuracy: true, timeout: 10000 }
-      )
-    }, 0)
-    return () => clearTimeout(id)
-  }, [])
-
-  // Best-effort geolocation for a single request: return the cached fix if we
-  // have one, otherwise make a short on-demand attempt so an early "near me"
-  // query still gets real coordinates instead of silently falling back to the
-  // static seed distances. Resolves null (never rejects) when denied/unavailable.
-  const resolveLocation = React.useCallback(
-    () =>
-      new Promise<LatLng | null>((resolve) => {
-        if (userLoc) return resolve(userLoc)
-        if (typeof navigator === "undefined" || !navigator.geolocation)
-          return resolve(null)
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
-            setUserLoc(loc)
-            resolve(loc)
-          },
-          () => resolve(null),
-          { enableHighAccuracy: true, timeout: 8000 }
-        )
-      }),
-    [userLoc]
-  )
+  const resolveLocation = requestLocation
 
   const { getToken } = useAuth()
   // The transport resolves headers per request, so each send attaches a
@@ -505,8 +464,7 @@ export function AiNativeDashboardView() {
             lastPlayerResult.intent.locationLabel ??
             suggestedCourt?.ward ??
             "Near you",
-          distanceKm:
-            suggestedCourt?.distanceKm ?? selectedPlayers[0]?.distanceKm ?? 1,
+          distanceKm: suggestedCourt?.distanceKm ?? null,
           dayKey: schedule.dayKey,
           dayLabel: schedule.dayLabel,
           slot: schedule.slot,
@@ -1298,7 +1256,7 @@ function CourtCard({
         <p className="truncate text-sm font-medium">{court.name}</p>
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
           <MapPin className="size-3 shrink-0" />
-          {court.ward} · {court.distanceKm} km
+          {court.ward} · <CourtDistance courtId={court.id} />
         </p>
         <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">
           <Star className="size-3 fill-lime text-lime" />
@@ -1436,7 +1394,8 @@ function RoomCard({
           </p>
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="size-3 shrink-0" />
-            {room.venue} · {room.ward} · {room.distanceKm} km
+            {room.venue} · {room.ward} ·{" "}
+            <CourtDistance courtId={room.courtId} venue={room.venue} />
           </p>
         </div>
         <SportTag sport={room.sport} />

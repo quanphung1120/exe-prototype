@@ -35,9 +35,9 @@ export function CourtMap({
   onSelect,
   userLoc,
 }: {
-  courts: Court[]
+  courts: (Court & LatLng)[]
   /** One pin per branch (venue coords) — shown alongside the court price-pills. */
-  venues: VenuePin[]
+  venues: (VenuePin & LatLng)[]
   selectedId: string | null
   onSelect: (id: string) => void
   userLoc: LatLng | null

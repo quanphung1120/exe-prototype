@@ -397,12 +397,14 @@ export function chooseSuggestedCourt(
 ) {
   const pool = courts.filter((court) => !sport || court.sports.includes(sport))
   const byArea = locationLabel
-    ? pool.filter(
-        (court) => normalize(court.ward) === normalize(locationLabel)
-      )
+    ? pool.filter((court) => normalize(court.ward) === normalize(locationLabel))
     : []
   const candidates = byArea.length ? byArea : pool.length ? pool : courts
-  return [...candidates].sort((a, b) => a.distanceKm - b.distanceKm)[0] ?? null
+  return (
+    [...candidates].sort(
+      (a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)
+    )[0] ?? null
+  )
 }
 
 export function summarizeInviteDay(timeKey: MatchTimeKey | null) {

@@ -371,10 +371,10 @@ export function courtByVenue(courts: Court[], name: string): Court | undefined {
   return courts.find((c) => c.name === name)
 }
 
-/** Stable cosmetic "Court N" label from a court id. */
+/** Resolve the actual court label; catalog order is not a court number. */
 export function courtNumberFor(courts: Court[], courtId: string): string {
-  const i = courts.findIndex((c) => c.id === courtId)
-  return `Court ${i >= 0 ? i + 1 : 1}`
+  const court = courts.find((c) => c.id === courtId)
+  return court?.courtName ?? court?.name ?? ""
 }
 
 /** Map a stored day word/label to a real ISO date off `todayIso` (seed-build use). */
@@ -649,10 +649,13 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
 
 /** Project a session to the legacy Booking shape (Bookings view). */
 export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
+  const bookedCourt = s.reservationId
+    ? courts.find((c) => c.id === s.courtId)
+    : undefined
   return {
     id: s.id,
     sport: s.sport,
-    venue: s.venue,
+    venue: bookedCourt?.name ?? s.venue,
     court: s.courtLabel ?? (s.courtId ? courtNumberFor(courts, s.courtId) : ""),
     day: s.dayLabel,
     dayKey: s.dayKey,
@@ -729,7 +732,7 @@ function bookingToSession(
     fillIntent: "court",
     venue: b.venue,
     ward: court?.ward ?? "",
-    distanceKm: court?.distanceKm ?? 0,
+    distanceKm: court?.distanceKm ?? null,
     pricePerHour: b.pricePerHour,
     result: b.result,
     score: b.score,
@@ -1001,9 +1004,6 @@ export function utilizationHeatmap(seed: string): number[][] {
 
 // ── Unified court catalog (venue courts → discovery courts) ───────────────────
 
-/** Default map centre (Hồ Chí Minh City) for venues seeded without coordinates. */
-const HCMC_CENTRE = { lat: 10.7769, lng: 106.7009 }
-
 /**
  * Project one operator {@link VenueCourt} to a discovery {@link Court} so the
  * player-side finder/map and the venue operator read ONE court catalog: the id
@@ -1013,30 +1013,29 @@ const HCMC_CENTRE = { lat: 10.7769, lng: 106.7009 }
  */
 export function venueCourtToCourt(venue: Venue, court: VenueCourt): Court {
   const h = hashStr(`${venue.id}:${court.id}`)
-  // ±0.005° so a venue's courts don't stack on one exact marker.
-  const jitter = (n: number) => ((n % 200) - 100) / 20000
   const freePct = Math.max(0, Math.min(100, 100 - court.utilToday))
   return {
     id: court.id,
     name: `${venue.name} · ${court.name}`,
+    courtName: court.name,
     ward: venue.ward,
     province: venue.province,
     sports: [court.sport],
     surface: court.surface,
     pricePerHour: court.pricePerHour,
-    distanceKm: Math.round((1 + (h % 90) / 10) * 10) / 10,
+    distanceKm: null,
     rating: venue.rating,
     openSlots: Math.round((freePct / 100) * SLOT_TIMES.length),
     nextSlot: SLOT_TIMES[h % SLOT_TIMES.length],
     freePct,
-    lat: (venue.lat ?? HCMC_CENTRE.lat) + jitter(h),
-    lng: (venue.lng ?? HCMC_CENTRE.lng) + jitter(h >>> 7),
+    lat: venue.lat ?? null,
+    lng: venue.lng ?? null,
   }
 }
 
 /**
  * Project a venue to a single {@link VenuePin} for the Find Courts map, resolving
- * the same map-centre fallback as {@link venueCourtToCourt} (but with NO jitter —
+ * the same real venue coordinates as {@link venueCourtToCourt} —
  * a branch pin sits at the venue's exact coordinates) so even a court-less
  * branch still shows up at the right spot. (Discovery filtering — archived /
  * unapproved — is applied by the caller, `catalogVenues`.)
@@ -1048,8 +1047,8 @@ export function venueToPin(venue: Venue): VenuePin {
     ward: venue.ward,
     province: venue.province,
     rating: venue.rating,
-    lat: venue.lat ?? HCMC_CENTRE.lat,
-    lng: venue.lng ?? HCMC_CENTRE.lng,
+    lat: venue.lat ?? null,
+    lng: venue.lng ?? null,
   }
 }
 

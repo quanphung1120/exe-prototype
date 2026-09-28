@@ -191,6 +191,7 @@ function PriceBreakdown({
 export function BookView() {
   const t = useTranslations("Booking")
   const locale = useLocale()
+  const ts = useTranslations("Shared")
   const {
     open,
     closeBooking,
@@ -561,7 +562,7 @@ export function BookView() {
                 {[
                   {
                     label: t("where"),
-                    value: `${court.ward} · ${t("distance", { km: court.distanceKm })}`,
+                    value: `${court.ward} · ${court.distanceKm != null ? t("distance", { km: court.distanceKm }) : ts("distanceUnknown")}`,
                   },
                   {
                     label: t("when"),
@@ -618,7 +619,10 @@ export function BookView() {
                   <div className="flex items-center justify-between gap-3 text-base">
                     <span className="text-muted-foreground">{t("where")}</span>
                     <span className="text-right font-medium">
-                      {court.ward} · {t("distance", { km: court.distanceKm })}
+                      {court.ward} ·{" "}
+                      {court.distanceKm != null
+                        ? t("distance", { km: court.distanceKm })
+                        : ts("distanceUnknown")}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-3 text-base">
@@ -740,7 +744,10 @@ export function BookView() {
               if (stepName === "pay") clearCheckoutError()
               back()
             }}
-            disabled={paying}
+            disabled={
+              paying ||
+              Boolean(sessions.find((s) => s.id === roomId)?.reservationId)
+            }
           >
             {t("back")}
           </Button>
@@ -1038,6 +1045,7 @@ function CourtPickCard({
   onChoose: () => void
   t: ReturnType<typeof useTranslations>
 }) {
+  const ts = useTranslations("Shared")
   return (
     <div
       className={cn(
@@ -1068,7 +1076,10 @@ function CourtPickCard({
           <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="size-3 shrink-0" />
             <span className="truncate">
-              {court.ward} · {t("distance", { km: court.distanceKm })}
+              {court.ward} ·{" "}
+              {court.distanceKm != null
+                ? t("distance", { km: court.distanceKm })
+                : ts("distanceUnknown")}
             </span>
           </p>
         </div>
