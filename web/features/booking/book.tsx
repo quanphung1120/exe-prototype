@@ -310,13 +310,17 @@ export function BookView() {
 
   // Court step search
   const needle = courtQuery.trim().toLowerCase()
+  const linkedRoom = roomId ? sessions.find((s) => s.id === roomId) : undefined
+  const eligibleCourts = linkedRoom
+    ? COURTS.filter((c) => c.sports.includes(linkedRoom.sport))
+    : COURTS
   const courtResults = needle
-    ? COURTS.filter(
+    ? eligibleCourts.filter(
         (c) =>
           c.name.toLowerCase().includes(needle) ||
           c.ward.toLowerCase().includes(needle)
       )
-    : COURTS
+    : eligibleCourts
 
   // Confirm step — the typed reason (court-taken / self-overlap) or null.
   const conflict = draftConflict
@@ -331,7 +335,7 @@ export function BookView() {
 
   const canNext =
     stepName === "court"
-      ? Boolean(courtId)
+      ? eligibleCourts.some((c) => c.id === courtId)
       : stepName === "slot"
         ? Boolean(draft.slot) && !draftConflict
         : true

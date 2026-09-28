@@ -1648,8 +1648,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const bookCourtForSession = (sessionId: string) => {
     const s = sessions.find((x) => x.id === sessionId)
     if (!s) return
-    const cid = s.courtId ?? courtByVenue(s.venue)?.id ?? courtFor(s.sport).id
-    openBooking(cid, { roomId: sessionId })
+    // A room's proposed venue is not a reservation. Let the host choose the
+    // court explicitly while keeping the room's schedule and roster linked.
+    openBooking(null, { roomId: sessionId })
   }
 
   /**
