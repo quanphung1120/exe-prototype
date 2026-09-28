@@ -112,6 +112,8 @@ export interface RescheduleReservationInput {
 /** Status info a linked player session derives its view from (read-only). */
 export interface BookingStatusInfo {
   venueId: string
+  courtId: string
+  courtName: string
   status: BookingRecordStatus
   paymentStatus: PaymentStatus
   holdExpiresAt?: string
@@ -398,6 +400,8 @@ export class BookingsService {
         d.bookingId,
         {
           venueId: d.venueId,
+          courtId: d.courtId,
+          courtName: d.courtName,
           status: d.status,
           paymentStatus: d.paymentStatus,
           holdExpiresAt: d.holdExpiresAt,
@@ -1194,12 +1198,7 @@ export class BookingsService {
     // Same CRM sync the pre-Phase-3 cross-write used to do inline — an app
     // booker becomes a venue customer (visits/ltv/tier derive from completed
     // bookings, not from this write) the first time they book that venue.
-    await this.upsertAppCustomer(
-      venueId,
-      userId,
-      customer.name,
-      court.sport
-    )
+    await this.upsertAppCustomer(venueId, userId, customer.name, court.sport)
 
     return bookingSummaryFrom(created)
   }

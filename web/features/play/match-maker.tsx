@@ -1,5 +1,7 @@
 "use client"
 
+import { CourtDistance } from "@/features/dashboard/court-distance"
+
 import * as React from "react"
 import { useTranslations } from "next-intl"
 import {
@@ -161,7 +163,8 @@ function RoomCard({
         <span className="flex min-w-0 items-center gap-1.5">
           <MapPin className="size-3.5 shrink-0" />
           <span className="min-w-0 truncate">
-            {room.venue} · {address} · {room.distanceKm} km
+            {room.venue} · {address} ·{" "}
+            <CourtDistance courtId={room.courtId} venue={room.venue} />
           </span>
         </span>
         <span className="flex min-w-0 items-center gap-1.5">

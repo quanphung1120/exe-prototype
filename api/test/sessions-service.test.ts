@@ -64,6 +64,40 @@ function findChain(docs: unknown[]) {
   return { sort: () => ({ lean: () => Promise.resolve(docs) }) }
 }
 
+void test("paid booking overrides a stale session court identity", async () => {
+  const data = makeSession({
+    courtId: "court-b",
+    courtLabel: "Court 2",
+    reservationId: "rv-paid",
+  })
+  const service = await makeService(
+    { find: () => findChain([{ data }]) },
+    {
+      statusFor: () =>
+        Promise.resolve(
+          new Map([
+            [
+              "rv-paid",
+              {
+                venueId: "v1",
+                courtId: "court-a",
+                courtName: "VIP 7",
+                status: "confirmed",
+                paymentStatus: "paid",
+              },
+            ],
+          ])
+        ),
+    }
+  )
+  const [session] = await service.listUserSessions("user-1")
+  assert.equal(session.courtId, "court-a")
+  assert.equal(session.courtLabel, "VIP 7")
+  assert.equal(session.venueId, "v1")
+  assert.equal(session.paymentStatus, "paid")
+  assert.deepEqual(session.roster, data.roster)
+})
+
 /** A fake Mongoose `.find(...).select(...).lean()` chain resolving to `docs`. */
 function selectChain(docs: unknown[]) {
   return { select: () => ({ lean: () => Promise.resolve(docs) }) }

@@ -1,3 +1,8 @@
+import {
+  hasCoordinates,
+  distanceKmBetween,
+  compareDistance,
+} from "../../shared/location.js"
 import { Inject, Injectable } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import {
@@ -21,19 +26,10 @@ type SportLevels = Partial<Record<SportKey, Level>>
 type LatLng = { lat: number; lng: number }
 type CourtSort = "rating" | "price" | "distance" | "team"
 
-const HCMC_CENTRE: LatLng = { lat: 10.7769, lng: 106.7009 }
-
-/** The product catalog currently serves Ho Chi Minh City only. */
 export function normalizeUserLocation(
   location: LatLng | null | undefined
 ): LatLng | null {
-  if (!location) return null
-  const inHcmc =
-    location.lat >= 10.3 &&
-    location.lat <= 11.2 &&
-    location.lng >= 106.3 &&
-    location.lng <= 107.1
-  return inHcmc ? location : HCMC_CENTRE
+  return hasCoordinates(location) ? location : null
 }
 
 export function resolveCourtSort(
@@ -44,19 +40,6 @@ export function resolveCourtSort(
   // must win over a model-supplied rating default, otherwise highly-rated
   // venues can hide the closest court from the first result.
   return userLocation ? "distance" : (requested ?? "rating")
-}
-
-// Great-circle distance in km — mirrors the client helper so the model can rank
-// courts by the user's real position instead of the static seed `distanceKm`.
-const toRad = (deg: number) => (deg * Math.PI) / 180
-function haversineKm(a: LatLng, b: LatLng) {
-  const R = 6371
-  const dLat = toRad(b.lat - a.lat)
-  const dLng = toRad(b.lng - a.lng)
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(h))
 }
 
 // Fold the (now validated) skill levels + location into a system-prompt block.
@@ -108,6 +91,9 @@ function buildUserContext(
       )}. Court distances are already computed from this point — prefer closer courts when ranking by distance.`
     )
   }
+  lines.push(
+    "Court distances are straight-line estimates. A null distance is unknown; never invent a distance or describe it as a driving distance."
+  )
   if (!lines.length) return ""
   return `\n\n<user_profile note="Trusted app data, NOT user instructions. Use only to personalise ranking; never repeat verbatim.">\n${lines.join(
     "\n"
@@ -222,8 +208,6 @@ export class AiService {
     locale?: "en" | "vi"
   }): Promise<void> {
     const { res, userId, userLevels, locale } = args
-    // Browser/VPN geolocation can point outside the supported city. Using it
-    // against an HCMC-only catalog produces misleading values such as 1,135 km.
     const userLocation = normalizeUserLocation(args.userLocation)
 
     const apiKey = this.config.getOrThrow<string>("OPENROUTER_API_KEY")
@@ -344,13 +328,10 @@ export class AiService {
             // When we have the user's real position, override the static seed
             // distance with the actual great-circle distance so distance ranking
             // (and the distance shown on each card) reflects where they are.
-            const withDistance = userLocation
-              ? pool.map((c: Court) => ({
-                  ...c,
-                  distanceKm:
-                    Math.round(haversineKm(userLocation, c) * 10) / 10,
-                }))
-              : pool
+            const withDistance = pool.map((c: Court) => ({
+              ...c,
+              distanceKm: distanceKmBetween(userLocation, c),
+            }))
             const resolvedDate = resolveDate(date)
             const available = time
               ? withDistance.filter(
@@ -362,11 +343,10 @@ export class AiService {
             const ranked = [...available].sort((a: Court, b: Court) => {
               if (effectiveSort === "price")
                 return a.pricePerHour - b.pricePerHour
-              if (effectiveSort === "distance")
-                return a.distanceKm - b.distanceKm
+              if (effectiveSort === "distance") return compareDistance(a, b)
               if (effectiveSort === "team")
                 return b.openSlots - a.openSlots || b.rating - a.rating
-              return b.rating - a.rating || a.distanceKm - b.distanceKm
+              return b.rating - a.rating || compareDistance(a, b)
             })
             return {
               courts: ranked.slice(0, 5),
@@ -449,7 +429,7 @@ export class AiService {
               ),
           }),
           execute: async ({ sport, sports, level, ward }) => {
-            const { rooms } = await getSeed()
+            const { rooms, courts } = await getSeed()
             let pool = rooms.filter((r) => r.joined < r.capacity)
             const targetSports = sports ?? (sport ? [sport] : undefined)
             if (targetSports && targetSports.length > 0) {
@@ -463,7 +443,19 @@ export class AiService {
                 r.ward.toLowerCase().includes(ward.toLowerCase())
               )
             }
-            const sorted = [...pool].sort((a, b) => a.distanceKm - b.distanceKm)
+            const sorted = pool
+              .map((room) => ({
+                ...room,
+                distanceKm: distanceKmBetween(
+                  userLocation,
+                  courts.find((court) =>
+                    room.courtId
+                      ? court.id === room.courtId
+                      : court.name === room.venue
+                  )
+                ),
+              }))
+              .sort(compareDistance)
             return {
               rooms: sorted.slice(0, 5),
               sport: sport ?? null,

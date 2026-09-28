@@ -1,5 +1,7 @@
 "use client"
 
+import { CourtDistance } from "@/features/dashboard/court-distance"
+
 import * as React from "react"
 import { useTranslations } from "next-intl"
 import { ArrowDownRight, ArrowUpRight, Clock, MapPin, Star } from "lucide-react"
@@ -279,7 +281,7 @@ export function CourtRow({
         </div>
         <div className="flex items-center gap-2 truncate text-xs text-muted-foreground">
           <MapPin className="size-3" />
-          {court.ward} · {court.distanceKm} km
+          {court.ward} · <CourtDistance courtId={court.id} />
         </div>
       </div>
       <div className="hidden text-right sm:block">
@@ -332,7 +334,7 @@ export function RoomRow({
           <span aria-hidden>·</span>
           <span className="inline-flex items-center gap-0.5">
             <MapPin className="size-3" />
-            {room.distanceKm} km
+            <CourtDistance courtId={room.courtId} venue={room.venue} />
           </span>
         </div>
       </div>

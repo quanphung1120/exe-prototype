@@ -526,7 +526,7 @@ function CalendarEvent({
   const invited = booking.withPlayers.filter(
     (p) => p.status === "pending"
   ).length
-  const courtNo = booking.court.match(/\d+/)?.[0]
+  const courtNo = booking.court.match(/^Court (\d+)$/)?.[1]
   const courtLabel = courtNo ? t("courtLabel", { n: courtNo }) : booking.court
   const paymentRemaining = usePaymentCountdown(
     booking.paymentExpiresAt,
@@ -718,8 +718,7 @@ function CalendarEvent({
                     ) : (
                       <CreditCard />
                     )}
-                    {resumingPaymentId ===
-                    (booking.reservationId ?? booking.id)
+                    {resumingPaymentId === (booking.reservationId ?? booking.id)
                       ? t("openingPayment")
                       : t("continuePayment")}
                   </Button>
@@ -881,7 +880,7 @@ function BookingCard({ booking }: { booking: Booking }) {
     : whenKey
       ? tc(`when.${whenKey}`)
       : t(`records.${booking.id}.day`)
-  const courtNo = booking.court.match(/\d+/)?.[0]
+  const courtNo = booking.court.match(/^Court (\d+)$/)?.[1]
   const courtLabel = courtNo ? t("courtLabel", { n: courtNo }) : booking.court
 
   return (

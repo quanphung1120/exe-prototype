@@ -81,15 +81,17 @@ void test("court search defaults to distance when browser location is available"
   )
 })
 
-void test("court search normalizes out-of-city browser locations", () => {
+void test("court search preserves real locations outside HCMC", () => {
   assert.deepEqual(normalizeUserLocation({ lat: 10.77, lng: 106.7 }), {
     lat: 10.77,
     lng: 106.7,
   })
   assert.deepEqual(normalizeUserLocation({ lat: 21.03, lng: 105.83 }), {
-    lat: 10.7769,
-    lng: 106.7009,
+    lat: 21.03,
+    lng: 105.83,
   })
+  assert.equal(normalizeUserLocation(null), null)
+  assert.equal(normalizeUserLocation({ lat: 999, lng: 0 }), null)
 })
 
 void test("player-matching helper is faithfully duplicated in the api", () => {

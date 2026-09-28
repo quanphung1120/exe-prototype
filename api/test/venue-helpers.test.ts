@@ -199,11 +199,15 @@ void test("venueCourtToCourt is deterministic (SSR-safe)", () => {
   assert.deepEqual(a, b)
 })
 
-void test("venueCourtToCourt jitters distinct courts off one marker", () => {
+void test("venueCourtToCourt keeps the real venue location for every court", () => {
   const v = makeVenue()
   const c1 = venueCourtToCourt(v, makeCourt({ id: "v9c1" }))
   const c2 = venueCourtToCourt(v, makeCourt({ id: "v9c2" }))
-  assert.notEqual(`${c1.lat},${c1.lng}`, `${c2.lat},${c2.lng}`)
+  assert.equal(c1.lat, v.lat)
+  assert.equal(c1.lng, v.lng)
+  assert.equal(c2.lat, v.lat)
+  assert.equal(c2.lng, v.lng)
+  assert.equal(c1.distanceKm, null)
 })
 
 void test("venueCourtToCourt derives free slots from utilToday", () => {

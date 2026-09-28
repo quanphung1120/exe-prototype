@@ -1,5 +1,7 @@
 {
-  "RouteLoading": { "label": "Loading page…" },
+  "RouteLoading": {
+    "label": "Loading page…"
+  },
   "AdminPagination": {
     "label": "Pagination",
     "range": "Showing {from}–{to} of {total} items",
@@ -326,7 +328,7 @@
     "noCourts": "No courts found",
     "choose": "Choose",
     "chosen": "Chosen",
-    "distance": "{km} km",
+    "distance": "≈ {km} km (straight line)",
     "anyDay": "Day",
     "slotsFor": "Open slots",
     "taken": "Taken",
@@ -450,7 +452,9 @@
   },
   "Shared": {
     "next": "next {time}",
-    "perHour": "/h"
+    "perHour": "/h",
+    "distance": "≈ {km} km (straight line)",
+    "distanceUnknown": "Distance unavailable"
   },
   "FindCourts": {
     "metaTitle": "Find Courts",
@@ -458,7 +462,7 @@
     "allSports": "All sports",
     "empty": "No courts for this sport nearby. Try another filter.",
     "nearby": "Nearby · {count, plural, one {# court} other {# courts}}",
-    "distance": "{km} km",
+    "distance": "≈ {km} km (straight line)",
     "openSlots": "{count, plural, one {# slot open today} other {# slots open today}}",
     "freePct": "{pct}% free",
     "perHour": "/hour",
@@ -476,7 +480,8 @@
       "locating": "Locating…",
       "on": "Near you",
       "off": "Enable location"
-    }
+    },
+    "distanceUnknown": "Distance unavailable"
   },
   "Calendar": {
     "views": {

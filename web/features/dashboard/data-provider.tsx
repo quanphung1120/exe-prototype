@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { useUserLocation } from "@/hooks/use-user-location"
+import { distanceKmBetween } from "@/lib/shared/location"
 
 import {
   bookingDays as bookingDaysFn,
@@ -49,6 +51,9 @@ import {
  * venue profiles (account-level, used by the sidebar switcher/manager).
  */
 interface DataContextValue {
+  userLoc: ReturnType<typeof useUserLocation>["userLoc"]
+  geoStatus: ReturnType<typeof useUserLocation>["geoStatus"]
+  requestLocation: ReturnType<typeof useUserLocation>["requestLocation"]
   // ── Real-time anchor ──
   /** Server "now" as an ISO datetime (+07:00) — the render anchor (never Date.now()). */
   serverNow: string
@@ -124,11 +129,18 @@ export function DataProvider({
   seed: Seed
   children: React.ReactNode
 }) {
+  const { userLoc, geoStatus, requestLocation } = useUserLocation()
   const value = React.useMemo<DataContextValue>(() => {
-    const courts = seed.courts
+    const courts = seed.courts.map((court) => ({
+      ...court,
+      distanceKm: distanceKmBetween(userLoc, court),
+    }))
     const roster = buildRoster(seed.user, seed.players)
     const todayIso = isoDateOf(seed.serverNow)
     return {
+      userLoc,
+      geoStatus,
+      requestLocation,
       // Real-time anchor
       serverNow: seed.serverNow,
       todayIso,
@@ -163,7 +175,7 @@ export function DataProvider({
         courtDayGapsFn(courts, sessions, courtId, dayKey, ignoreId),
       sessionToBooking: (s) => sessionToBookingFn(courts, s),
     }
-  }, [seed])
+  }, [seed, userLoc, geoStatus, requestLocation])
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

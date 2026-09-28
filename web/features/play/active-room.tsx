@@ -1,5 +1,7 @@
 "use client"
 
+import { CourtDistance } from "@/features/dashboard/court-distance"
+
 import * as React from "react"
 import { useTranslations } from "next-intl"
 import {
@@ -279,7 +281,8 @@ function RoomDetail({
           <SectionLabel>{t("location")}</SectionLabel>
           <div className="flex flex-col gap-2 text-sm">
             <DetailRow icon={MapPin}>
-              {room.venue} · {address} · {room.distanceKm} km
+              {room.venue} · {address} ·{" "}
+              <CourtDistance courtId={room.courtId} venue={room.venue} />
             </DetailRow>
             <DetailRow icon={Clock}>
               {booked

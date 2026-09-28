@@ -41,6 +41,10 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SportTag } from "@/features/dashboard/shared"
 import {
+  AdminPagination as ReservationPagination,
+  useAdminPagination as useReservationPagination,
+} from "@/features/admin/pagination"
+import {
   MicroLabel,
   ReasonDialog,
   VenueEmpty,
@@ -296,7 +300,9 @@ export function VenueReservationsView({
   const [declineReason, setDeclineReason] = React.useState("")
 
   // ── Summary counts (against the source data, not the filtered slice) ──
-  const pendingCount = RESERVATIONS.filter((r) => r.status === "pending").length
+  const pendingCount = RESERVATIONS.filter(
+    (r) => effectiveStatus(r, decisions[r.id]) === "pending"
+  ).length
   const todayConfirmed = RESERVATIONS.filter(
     (r) =>
       r.day.en === "Today" &&
@@ -304,9 +310,16 @@ export function VenueReservationsView({
   ).length
 
   const data = React.useMemo(
-    () => RESERVATIONS.filter((r) => matchesFilter(r, filter)),
-    [filter, RESERVATIONS]
+    () =>
+      RESERVATIONS.filter((r) =>
+        matchesFilter(
+          { ...r, status: effectiveStatus(r, decisions[r.id]) },
+          filter
+        )
+      ),
+    [filter, RESERVATIONS, decisions]
   )
+  const pagination = useReservationPagination(data.length)
 
   const decide = React.useCallback(
     (r: Reservation, decision: Decision, reason?: string) => {
@@ -373,10 +386,28 @@ export function VenueReservationsView({
     data,
     columns,
     state: { sorting },
-    onSortingChange: setSorting,
+    onSortingChange: (updater) => {
+      setSorting(updater)
+      pagination.setPage(1)
+    },
+    getRowId: (row) => row.id,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
   })
+
+  // Keep approvals first across the entire result set before taking a page.
+  // Column sorting still applies within each status group.
+  const sortedRows = table.getSortedRowModel().rows
+  const needsApproval = (row: (typeof sortedRows)[number]) =>
+    effectiveStatus(row.original, decisions[row.original.id]) === "pending"
+  const orderedRows = [
+    ...sortedRows.filter(needsApproval),
+    ...sortedRows.filter((row) => !needsApproval(row)),
+  ]
+  const pageRows = orderedRows.slice(
+    pagination.offset,
+    pagination.offset + pagination.pageSize
+  )
 
   const FILTERS: { key: FilterKey; count?: number }[] = [
     { key: "all", count: RESERVATIONS.length },
@@ -418,7 +449,13 @@ export function VenueReservationsView({
         title={t("listTitle")}
         icon={Users}
         action={
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
+          <Tabs
+            value={filter}
+            onValueChange={(v) => {
+              setFilter(v as FilterKey)
+              pagination.setPage(1)
+            }}
+          >
             <TabsList variant="line" className="flex-wrap">
               {FILTERS.map((f) => (
                 <TabsTrigger key={f.key} value={f.key}>
@@ -470,8 +507,8 @@ export function VenueReservationsView({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => {
+            {pageRows.length ? (
+              pageRows.map((row) => {
                 const decision = decisions[row.original.id]
                 return (
                   <TableRow
@@ -507,6 +544,9 @@ export function VenueReservationsView({
             )}
           </TableBody>
         </Table>
+        <div className="mt-4 border-t border-border pt-4">
+          <ReservationPagination pagination={pagination} />
+        </div>
       </VenuePanel>
 
       {/* Manual refund queue — SePay has no refund API, so every computed

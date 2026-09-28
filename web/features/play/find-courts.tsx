@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 
+import { compareDistance, hasCoordinates } from "@/lib/shared/location"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,19 +22,18 @@ import { useData } from "@/features/dashboard/data-provider"
 import { useBooking } from "@/features/booking/booking"
 import { useSportFilter } from "@/features/dashboard/sport-filter"
 import { SportTag } from "@/features/dashboard/shared"
-import { CourtMap, type LatLng } from "@/features/play/court-map"
+import { CourtMap } from "@/features/play/court-map"
 
 type SortKey = "distance" | "price" | "rating"
-type GeoStatus = "locating" | "on" | "off"
 
 const SORTS: SortKey[] = ["distance", "price", "rating"]
 const TOTAL_DAILY_SLOTS = 8
 
-/** A court paired with its distance to the player (or the static fallback). */
-type CourtItem = { court: Court; distanceKm: number }
+/** A court paired with its distance to the player, if location is available. */
+type CourtItem = { court: Court; distanceKm: number | null }
 
 const COMPARE: Record<SortKey, (a: CourtItem, b: CourtItem) => number> = {
-  distance: (a, b) => a.distanceKm - b.distanceKm,
+  distance: compareDistance,
   price: (a, b) => a.court.pricePerHour - b.court.pricePerHour,
   rating: (a, b) => b.court.rating - a.court.rating,
 }
@@ -50,19 +50,6 @@ function courtAddress(court: Pick<Court, "ward" | "province">) {
   return [court.ward, court.province].filter(Boolean).join(", ")
 }
 
-const toRad = (deg: number) => (deg * Math.PI) / 180
-
-/** Great-circle distance in km between two coordinates. */
-function haversineKm(a: LatLng, b: LatLng) {
-  const R = 6371
-  const dLat = toRad(b.lat - a.lat)
-  const dLng = toRad(b.lng - a.lng)
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(h))
-}
-
 /** Open Google Maps driving directions to a court in a new tab. */
 function openDirections(court: Court) {
   const url = `https://www.google.com/maps/dir/?api=1&destination=${court.lat},${court.lng}`
@@ -72,48 +59,19 @@ function openDirections(court: Court) {
 export function FindCourtsView() {
   const t = useTranslations("FindCourts")
   const { sport } = useSportFilter()
-  const { courts: COURTS, venuePins } = useData()
+  const {
+    courts: COURTS,
+    venuePins,
+    userLoc,
+    geoStatus,
+    requestLocation,
+  } = useData()
   const [sort, setSort] = React.useState<SortKey>("distance")
   const [query, setQuery] = React.useState("")
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
-  const [userLoc, setUserLoc] = React.useState<LatLng | null>(null)
-  const [geoStatus, setGeoStatus] = React.useState<GeoStatus>("locating")
+  const locate = () => void requestLocation()
 
-  // Ask the browser for a location fix. setState only fires in the async
-  // callbacks, never synchronously — so this is safe to call from an effect.
-  const requestLocation = React.useCallback(() => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      // No geolocation here (e.g. insecure origin) — leave the spinner state
-      // and re-enable the button instead of spinning forever.
-      setGeoStatus("off")
-      return
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setGeoStatus("on")
-      },
-      () => setGeoStatus("off"),
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-  }, [])
-
-  // Try once on mount; the player can retry from the map button. Deferred so
-  // the synchronous "no geolocation" status update never fires inside the
-  // effect body (react-hooks/set-state-in-effect).
-  React.useEffect(() => {
-    const id = setTimeout(requestLocation, 0)
-    return () => clearTimeout(id)
-  }, [requestLocation])
-
-  const locate = React.useCallback(() => {
-    setGeoStatus("locating")
-    requestLocation()
-  }, [requestLocation])
-
-  // Filter by sport + search, attach the live distance, then sort. The search
-  // box invites "address or name" but only matches court name behind the
-  // scenes. Distances fall back to the static field until location is shared.
+  // Filter by sport and address/name, then sort by the shared live distances.
   const items = React.useMemo(() => {
     const q = normalize(query)
     return COURTS.filter((c) => sport === "all" || c.sports.includes(sport))
@@ -125,12 +83,15 @@ export function FindCourtsView() {
       )
       .map((court) => ({
         court,
-        distanceKm: userLoc ? haversineKm(userLoc, court) : court.distanceKm,
+        distanceKm: court.distanceKm,
       }))
       .sort(COMPARE[sort])
-  }, [COURTS, sport, sort, userLoc, query])
+  }, [COURTS, sport, sort, query])
 
-  const mapCourts = React.useMemo(() => items.map((i) => i.court), [items])
+  const mapCourts = React.useMemo(
+    () => items.map((i) => i.court).filter(hasCoordinates),
+    [items]
+  )
 
   // Derive the live selection rather than syncing state in an effect — a court
   // dropped by the sport filter simply stops being selected.
@@ -144,7 +105,7 @@ export function FindCourtsView() {
       <div className="relative h-[320px] overflow-hidden bg-card shadow-md ring-1 ring-foreground/5 lg:col-span-7 lg:h-full dark:ring-foreground/10">
         <CourtMap
           courts={mapCourts}
-          venues={venuePins}
+          venues={venuePins.filter(hasCoordinates)}
           selectedId={selectedId_}
           onSelect={setSelectedId}
           userLoc={userLoc}
@@ -251,7 +212,7 @@ function CourtCard({
   onSelect,
 }: {
   court: Court
-  distanceKm: number
+  distanceKm: number | null
   active: boolean
   onSelect: () => void
 }) {
@@ -293,7 +254,9 @@ function CourtCard({
             <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted-foreground">
               <MapPin className="size-3" />
               {courtAddress(court)} ·{" "}
-              {t("distance", { km: Math.round(distanceKm * 10) / 10 })}
+              {distanceKm != null
+                ? t("distance", { km: distanceKm })
+                : t("distanceUnknown")}
               <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground tabular-nums shadow-sm ring-1 ring-foreground/5">
                 <Star className="size-3 fill-lime text-lime" />
                 {court.rating}
@@ -346,6 +309,7 @@ function CourtCard({
                 variant="outline"
                 className="h-9 rounded-full"
                 onClick={() => openDirections(court)}
+                disabled={!hasCoordinates(court)}
               >
                 <Navigation className="size-3.5" />
                 <span className="hidden sm:inline">{t("directions")}</span>
