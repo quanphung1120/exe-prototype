@@ -1965,7 +1965,7 @@
   },
   "Assessment": {
     "metaTitle": "Skill Assessment",
-    "metaDescription": "Assess your racquet sport skill level before you start playing.",
+    "metaDescription": "Assess your badminton skill level before you start playing.",
     "loading": {
       "title": "Checking skill profile",
       "description": "We are reading saved results on this device."
@@ -2091,7 +2091,7 @@
   "Profile": {
     "dialogDescription": "Displays player profile and skill level",
     "playerDialogDescription": "View player profile and stats",
-    "bio": "Passionate about racquet sports, always looking for worthy opponents to play and improve my skills. Play well, socialize, reliable!",
+    "bio": "Passionate about badminton, always looking for worthy opponents to play and improve my skills. Play well, socialize, reliable!",
     "yourLevel": "Your skill level",
     "redoSkills": "Redo skills assessment",
     "playerLevel": "Skill level",
