@@ -1965,7 +1965,7 @@
   },
   "Assessment": {
     "metaTitle": "Đánh giá trình độ",
-    "metaDescription": "Đánh giá trình độ bộ môn thể thao của bạn trước khi bắt đầu chơi.",
+    "metaDescription": "Đánh giá trình độ cầu lông của bạn trước khi bắt đầu chơi.",
     "loading": {
       "title": "Đang kiểm tra hồ sơ trình độ",
       "description": "Chúng tôi đang đọc kết quả đã lưu trên thiết bị này."
@@ -2091,7 +2091,7 @@
   "Profile": {
     "dialogDescription": "Hiển thị thông tin cá nhân và trình độ của người chơi",
     "playerDialogDescription": "Xem hồ sơ và thống kê người chơi",
-    "bio": "Đam mê các môn thể thao vợt, luôn tìm kiếm đối thủ xứng tầm để giao lưu và nâng cao trình độ. Chơi hay, giao lưu vui vẻ, đáng tin cậy!",
+    "bio": "Đam mê cầu lông, luôn tìm kiếm đối thủ xứng tầm để giao lưu và nâng cao trình độ. Chơi hay, giao lưu vui vẻ, đáng tin cậy!",
     "yourLevel": "Trình độ của bạn",
     "redoSkills": "Đánh giá lại trình độ",
     "playerLevel": "Trình độ",
