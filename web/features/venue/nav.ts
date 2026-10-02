@@ -17,7 +17,7 @@ export type VenueSectionKey =
  * workspace from a pathname; actual links carry a concrete `[venueId]` and are
  * built with {@link venueBase}.
  */
-export const VENUE_BASE_PREFIX = "/dashboard/venue"
+export const VENUE_BASE_PREFIX = "/app/venue"
 
 export function venueBase(venueId: string): string {
   return `${VENUE_BASE_PREFIX}/${venueId}`

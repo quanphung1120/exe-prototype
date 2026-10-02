@@ -17,7 +17,7 @@ import type {
 // the same host/port and auth as reads and callers can just `catch` a message.
 
 function revalidateAdmin() {
-  revalidatePath("/dashboard/admin", "layout")
+  revalidatePath("/app/admin", "layout")
 }
 
 export async function approveBrand(brandId: string): Promise<void> {

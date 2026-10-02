@@ -121,7 +121,7 @@ export function NewChatDialog({
     })
       .then(({ id }) => {
         handleOpenChange(false)
-        router.push(`/dashboard/chat?channel=${id}`)
+        router.push(`/app/chat?channel=${id}`)
       })
       .catch(() => {
         setCreating(false)

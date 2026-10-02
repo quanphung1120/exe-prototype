@@ -198,7 +198,7 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
           }
       const venueId = await provisionVenue(payload)
       toast.success(t("toast.done", { name: branches[0]?.name ?? "" }))
-      router.replace(`/dashboard/venue/${venueId}`)
+      router.replace(`/app/venue/${venueId}`)
       router.refresh()
     } catch (e) {
       setSubmitting(false)

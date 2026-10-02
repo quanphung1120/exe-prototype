@@ -84,14 +84,14 @@ export function PaymentReturnView({ bookingId }: { bookingId: string }) {
     }
   }, [bookingId, markPaymentPaid])
 
-  const goToBookings = () => router.push("/dashboard/bookings")
+  const goToBookings = () => router.push("/app/bookings")
 
   const [opening, startOpening] = React.useTransition()
   const messageVenue = () => {
     startOpening(async () => {
       try {
         const { id } = await openVenueChat({ bookingId })
-        router.push(`/dashboard/chat?channel=${id}`)
+        router.push(`/app/chat?channel=${id}`)
       } catch {
         toast.error(t("messageVenueFailed"))
       }

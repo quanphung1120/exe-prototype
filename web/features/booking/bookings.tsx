@@ -506,7 +506,7 @@ function CalendarEvent({
     startOpening(async () => {
       try {
         const { id } = await openVenueChat({ venueId: booking.venueId })
-        router.push(`/dashboard/chat?channel=${id}`)
+        router.push(`/app/chat?channel=${id}`)
       } catch {
         toast.error(t("messageVenueFailed"))
       }

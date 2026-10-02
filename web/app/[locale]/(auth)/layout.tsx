@@ -18,7 +18,7 @@ export default async function AuthLayout({
 
   // Already signed in? Skip the auth pages entirely.
   const session = await getServerSession()
-  if (session) redirect({ href: "/dashboard", locale })
+  if (session) redirect({ href: "/app", locale })
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-background px-4 py-12">

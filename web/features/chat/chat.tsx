@@ -84,7 +84,7 @@ export function ChatView({
   initialChannelId?: string
   /**
    * Set when this view is the venue operator's per-venue inbox
-   * (`/dashboard/venue/[venueId]/messages`) rather than a player's own chat —
+   * (`/app/venue/[venueId]/messages`) rather than a player's own chat —
    * scopes the channel list to that venue's chats and flips the header/row
    * rendering to the operator's perspective (see `VenueInboxContext`).
    */
@@ -206,7 +206,7 @@ function ChatShell({ children }: { children: React.ReactNode }) {
 
 /**
  * Watches `initialChannelId` and makes it the active channel on mount — used to
- * deep-link into a specific room/DM via `/dashboard/chat?channel=<id>`. Renders
+ * deep-link into a specific room/DM via `/app/chat?channel=<id>`. Renders
  * nothing; a missing/inaccessible channel is ignored (the list's default
  * selection stands).
  */

@@ -131,8 +131,8 @@ export default async function LocaleLayout({
         <ClerkProvider
           signInUrl={"/" + locale + "/sign-in"}
           signUpUrl={"/" + locale + "/sign-up"}
-          signInFallbackRedirectUrl={"/" + locale + "/dashboard"}
-          signUpFallbackRedirectUrl={"/" + locale + "/dashboard"}
+          signInFallbackRedirectUrl={"/" + locale + "/app"}
+          signUpFallbackRedirectUrl={"/" + locale + "/app"}
           afterSignOutUrl={"/" + locale}
         >
           <NextIntlClientProvider messages={messages}>

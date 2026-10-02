@@ -35,7 +35,7 @@ export default async function SetupPage({
   // into its workspace.
   if (!branch) {
     const venue = await fetchMyVenue()
-    if (venue) redirect({ href: "/dashboard/venue", locale })
+    if (venue) redirect({ href: "/app/venue", locale })
   }
 
   return <SetupWizard addingBranch={Boolean(branch)} />

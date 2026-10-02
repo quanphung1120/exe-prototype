@@ -138,7 +138,7 @@ export class RoomsService {
       id: `room-request-${roomId}-${userId}-${randomUUID()}`,
       kind: "match",
       text: `${profile.user.name} muốn tham gia phòng "${room.title}" của bạn.`,
-      href: "/dashboard/play",
+      href: "/app/play",
     })
   }
 
@@ -179,7 +179,7 @@ export class RoomsService {
         id: `room-declined-${roomId}-${targetUserId}-${randomUUID()}`,
         kind: "match",
         text: `Chủ phòng đã từ chối yêu cầu tham gia "${room.title}".`,
-        href: "/dashboard/play",
+        href: "/app/play",
       })
       await this.removeChatMemberBestEffort(hostUserId, roomId, targetUserId)
       return
@@ -207,7 +207,7 @@ export class RoomsService {
       id: `room-approved-${roomId}-${targetUserId}-${randomUUID()}`,
       kind: "match",
       text: `Chủ phòng đã duyệt yêu cầu tham gia "${room.title}" của bạn.`,
-      href: "/dashboard/play",
+      href: "/app/play",
     })
     await this.addChatMemberBestEffort(hostUserId, roomId, targetUserId)
   }

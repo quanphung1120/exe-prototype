@@ -80,7 +80,7 @@ export function SignUpForm() {
       })
       if (res.status === "complete") {
         await setActive({ session: res.createdSessionId })
-        router.push("/dashboard")
+        router.push("/app")
         router.refresh()
         return
       }

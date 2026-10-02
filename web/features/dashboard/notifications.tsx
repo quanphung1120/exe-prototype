@@ -182,7 +182,7 @@ export function NotificationsProvider({
             text: t("newTeamChat", { title }),
             time: t("justNow"),
             read: false,
-            href: "/dashboard/chat",
+            href: "/app/chat",
             chatId: roomChannelId(room.id),
           }
         }),
@@ -274,7 +274,7 @@ export function NotificationsButton() {
       const channel = item.chatId.startsWith("room-")
         ? item.chatId
         : demoChannelId(item.chatId, user.id)
-      router.push(`/dashboard/chat?channel=${channel}`)
+      router.push(`/app/chat?channel=${channel}`)
     } else if (item.href) {
       router.push(item.href)
     }

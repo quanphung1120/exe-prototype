@@ -71,7 +71,7 @@ export function ChannelListItem({
   // not the venue's own name (every row in this list is already scoped to
   // one venue). Player-side rows are unaffected (channel.data?.venueId is
   // only set on venue-chat channels, and `inbox` is only true in the
-  // operator's /dashboard/venue/[venueId]/messages view).
+  // operator's /app/venue/[venueId]/messages view).
   const venueChatOther = inbox && isVenueChat ? other : undefined
 
   const title =

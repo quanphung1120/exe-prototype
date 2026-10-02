@@ -32,7 +32,7 @@ export function PaymentSuccessView({ bookingId }: { bookingId: string }) {
       const preferred = readPreferredLocale()
       if (preferred && preferred !== locale) {
         setRedirecting(true)
-        router.replace(`/dashboard/payment/success/${bookingId}`, {
+        router.replace(`/app/payment/success/${bookingId}`, {
           locale: preferred,
         })
       } else {

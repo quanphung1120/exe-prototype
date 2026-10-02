@@ -224,7 +224,7 @@ function RoomDetail({
     // The room's chat channel already exists — created host-only the moment
     // the room was, with real members added/removed as join requests are
     // approved/declined/left (Phase 9 G2) — so this just deep-links into it.
-    router.push(`/dashboard/chat?channel=room-${room.id}`)
+    router.push(`/app/chat?channel=room-${room.id}`)
     onClose()
   }
 
@@ -311,7 +311,7 @@ function RoomDetail({
                 size="xs"
                 className="rounded-full"
                 onClick={() => {
-                  router.push("/dashboard/bookings")
+                  router.push("/app/bookings")
                   onClose()
                 }}
               >

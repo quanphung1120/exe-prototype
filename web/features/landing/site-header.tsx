@@ -32,7 +32,7 @@ export function SiteHeader({ className }: { className?: string }) {
   const { isSignedIn, isLoaded } = useUser()
   const isAuthed = isLoaded && Boolean(isSignedIn)
   const authCta = isAuthed
-    ? { href: "/dashboard", label: t("demo") }
+    ? { href: "/app", label: t("demo") }
     : { href: "/sign-in", label: t("login") }
 
   React.useEffect(() => {

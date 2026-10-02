@@ -125,7 +125,7 @@ function overlaps(
 
 /**
  * Provides venue-scoped data fetched from the per-venue layout.
- * Mounted in `/dashboard/venue/[venueId]/layout.tsx` so all venue-workspace
+ * Mounted in `/app/venue/[venueId]/layout.tsx` so all venue-workspace
  * pages have access to venue data via `useVenueData()`.
  */
 export function VenueDataProvider({

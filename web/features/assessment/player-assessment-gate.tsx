@@ -76,7 +76,7 @@ export function PlayerAssessmentGate({
   const [hasAssessment, setHasAssessment] = React.useState(false)
 
   React.useEffect(() => {
-    if (lockedOut) router.replace("/dashboard/venue")
+    if (lockedOut) router.replace("/app/venue")
   }, [lockedOut, router])
 
   React.useEffect(() => {

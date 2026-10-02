@@ -29,28 +29,28 @@ export interface NavItem<K extends string = string> {
 export const NAV: NavItem<SectionKey>[] = [
   {
     key: "dashboard",
-    href: "/dashboard",
+    href: "/app",
     label: "Dashboard",
     icon: LayoutDashboard,
     caption: "Your court at a glance",
   },
   {
     key: "play",
-    href: "/dashboard/play",
+    href: "/app/play",
     label: "Play",
     icon: Sparkles,
     caption: "Browse open rooms or find a court",
   },
   {
     key: "chat",
-    href: "/dashboard/chat",
+    href: "/app/chat",
     label: "Chat",
     icon: MessageSquare,
     caption: "Coordinate your next match",
   },
   {
     key: "bookings",
-    href: "/dashboard/bookings",
+    href: "/app/bookings",
     label: "Bookings",
     icon: CalendarCheck,
     caption: "Upcoming and past matches",
@@ -58,7 +58,7 @@ export const NAV: NavItem<SectionKey>[] = [
   },
   {
     key: "book",
-    href: "/dashboard/book",
+    href: "/app/book",
     label: "Book a court",
     icon: CalendarPlus,
     caption: "Reserve your slot",
@@ -67,7 +67,7 @@ export const NAV: NavItem<SectionKey>[] = [
 ]
 
 export function isNavActive(href: string, pathname: string): boolean {
-  if (href === "/dashboard") return pathname === "/dashboard"
+  if (href === "/app") return pathname === "/app"
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 

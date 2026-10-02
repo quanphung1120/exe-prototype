@@ -12,14 +12,14 @@ import { ADMIN_BASE_PREFIX, ADMIN_NAV } from "@/features/admin/nav"
  * sidebar always agree, with no provider to keep in sync.
  *
  * The venue workspace is **per-venue**: each venue gets its own URL subtree at
- * `/dashboard/venue/[venueId]/*`, so the active venue is the `[venueId]` in the
+ * `/app/venue/[venueId]/*`, so the active venue is the `[venueId]` in the
  * path — not a cookie. Switching venues is a plain navigation. The admin
  * workspace carries no id — it's one cross-tenant surface, not per-venue.
  */
 export type Workspace = "player" | "venue" | "admin"
 
 /** The workspace a pathname belongs to. Admin is checked first — a specific
- * prefix must win over the player nav's `/dashboard` fallback. */
+ * prefix must win over the player nav's `/app` fallback. */
 export function workspaceForPath(pathname: string): Workspace {
   if (
     pathname === ADMIN_BASE_PREFIX ||
@@ -31,7 +31,7 @@ export function workspaceForPath(pathname: string): Workspace {
 
 /** Extract the `[venueId]` from a venue-workspace pathname, or null. */
 export function venueIdFromPath(pathname: string): string | null {
-  const match = pathname.match(/^\/dashboard\/venue\/([^/]+)/)
+  const match = pathname.match(/^\/app\/venue\/([^/]+)/)
   return match ? match[1] : null
 }
 
@@ -49,7 +49,7 @@ export interface NavContext {
  * Resolve everything the sidebar and topbar need for the current route in one
  * place: which nav to render, which item is active, the matching i18n namespace,
  * and the active venue id. The venue/admin bases must be checked before the
- * player nav, whose `/dashboard` home would otherwise also match those paths.
+ * player nav, whose `/app` home would otherwise also match those paths.
  */
 export function navContext(pathname: string): NavContext {
   const workspace = workspaceForPath(pathname)

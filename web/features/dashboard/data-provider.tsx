@@ -46,7 +46,7 @@ import {
  * API rather than a web module.
  *
  * Venue-operator records are **not** here — they are per-venue and provided by
- * {@link VenueDataProvider} under each `/dashboard/venue/[venueId]` subtree. The
+ * {@link VenueDataProvider} under each `/app/venue/[venueId]` subtree. The
  * one exception is {@link DataContextValue.venues}, the operator's *list* of
  * venue profiles (account-level, used by the sidebar switcher/manager).
  */

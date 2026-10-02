@@ -63,11 +63,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  AssistantSideRail,
-  QuickActions,
-  RecentChats,
-} from "@/features/chat/assistant-home"
+import { DashboardWelcome } from "@/features/dashboard/dashboard-welcome"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
 import { Flip, gsap, prefersReducedMotion } from "@/features/landing/gsap"
 import { Streamdown } from "streamdown"
@@ -433,7 +429,7 @@ export function AiNativeDashboardView() {
     // The channel was already created host-only by `createInviteRoom` (via
     // `session.tsx`'s `openRoomChat`) the moment the room was — just deep-link
     // into it.
-    router.push(`/dashboard/chat?channel=room-${inviteState.roomId}`)
+    router.push(`/app/chat?channel=room-${inviteState.roomId}`)
   }
 
   const inviteToChat = () => {
@@ -566,32 +562,10 @@ export function AiNativeDashboardView() {
   // layout below as soon as the first message lands.
   if (showWelcome) {
     return (
-      <div className="mx-auto flex w-full max-w-7xl items-start gap-6 px-2 py-4 xl:gap-10">
-        <div className="flex min-h-[calc(100vh-9.5rem)] min-w-0 flex-1 flex-col justify-center gap-8">
-          <section className="pt-4">
-            <h1 className="font-heading text-4xl leading-[1.05] font-bold tracking-tight sm:text-5xl lg:text-6xl">
-              {t.rich("welcomeTitle", {
-                accent: (chunks) => (
-                  <span className="text-brand">{chunks}</span>
-                ),
-              })}
-            </h1>
-            <p className="mt-5 max-w-md text-base text-muted-foreground sm:text-lg">
-              {t("welcomeSubtitle")}
-            </p>
-          </section>
-
-          <div className="w-full">{composer}</div>
-
-          <QuickActions onPick={(text) => void submit(text)} />
-
-          <RecentChats onPick={(text) => void submit(text)} />
-        </div>
-
-        <AssistantSideRail />
-
+      <>
+        <DashboardWelcome composer={composer} onPrompt={(text) => void submit(text)} onBook={openBooking} />
         {profileDialog}
-      </div>
+      </>
     )
   }
 

@@ -8,7 +8,7 @@ import { getServerSession } from "@/lib/auth-server"
  * only checks the Clerk `publicMetadata.role` (RBAC, granted manually in the
  * Clerk dashboard, never by app code — see `ClerkAuthGuard`'s docstring on the
  * api side). A non-admin is sent back to their own dashboard rather than a
- * bare 404, since `/dashboard/admin` is a real route for the right caller.
+ * bare 404, since `/app/admin` is a real route for the right caller.
  */
 export default async function AdminWorkspaceLayout({
   children,
@@ -20,7 +20,7 @@ export default async function AdminWorkspaceLayout({
   const { locale } = await params
   const session = await getServerSession()
   if (session?.user.role !== "admin") {
-    redirect("/" + locale + "/dashboard")
+    redirect("/" + locale + "/app")
   }
   return <>{children}</>
 }

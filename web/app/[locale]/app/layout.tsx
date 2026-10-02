@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation"
 import { fetchSeed } from "@/lib/api"
 import { getServerSession } from "@/lib/auth-server"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
-import { AppSidebar } from "@/features/dashboard/app-sidebar"
 import { AuthUserProvider } from "@/features/dashboard/auth-user"
 import { StreamChatProvider } from "@/features/chat/stream-provider"
 import { DataProvider } from "@/features/dashboard/data-provider"
@@ -13,7 +11,7 @@ import { PlayerAssessmentGate } from "@/features/assessment/player-assessment-ga
 import { PlayerChrome } from "@/features/dashboard/player-chrome"
 import { SessionProvider } from "@/features/play/session"
 import { SportFilterProvider } from "@/features/dashboard/sport-filter"
-import { DashboardTopbar } from "@/features/dashboard/topbar"
+import { DashboardFrame } from "@/features/dashboard/dashboard-frame"
 
 // The seed is fetched per request from the Hono API, so the dashboard renders
 // dynamically (and `next build` never reaches for the API).
@@ -66,15 +64,7 @@ export default async function DashboardLayout({
                     accountType={seed.accountType}
                     isAdmin={session.user.role === "admin"}
                   >
-                    <SidebarProvider className="font-geist h-svh">
-                      <AppSidebar />
-                      <SidebarInset className="overflow-hidden">
-                        <DashboardTopbar />
-                        <main className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-                          {children}
-                        </main>
-                      </SidebarInset>
-                    </SidebarProvider>
+                    <DashboardFrame>{children}</DashboardFrame>
                     <PlayerChrome />
                   </PlayerAssessmentGate>
                 </SportFilterProvider>

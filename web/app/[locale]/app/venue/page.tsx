@@ -2,8 +2,8 @@ import { fetchMyVenue } from "@/lib/api"
 import { venueBase } from "@/features/venue/nav"
 import { redirect } from "@/i18n/navigation"
 
-// The venue workspace lives under `/dashboard/venue/[venueId]`. A bare
-// `/dashboard/venue` resolves the caller's own venue and redirects into it — or
+// The venue workspace lives under `/app/venue/[venueId]`. A bare
+// `/app/venue` resolves the caller's own venue and redirects into it — or
 // to the setup wizard when the account hasn't provisioned one yet.
 export const dynamic = "force-dynamic"
 

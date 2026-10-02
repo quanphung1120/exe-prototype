@@ -56,7 +56,7 @@ import {
 } from "@/features/chat/stream-actions"
 
 /** The dedicated booking-wizard route the Play / book actions navigate to. */
-const BOOK_PATH = "/dashboard/book"
+const BOOK_PATH = "/app/book"
 
 // How long the faked partner search runs before it finds someone.
 const SEARCH_MS = 1800
@@ -247,7 +247,7 @@ interface SessionContextValue {
    * Reserve the court (if not already held) and redirect to SePay's real
    * checkout — a hidden-form POST, so this actually navigates the browser
    * away. Payment confirmation happens out-of-band (SePay's IPN); the player
-   * lands back on `/dashboard/bookings/[bookingId]`, which polls
+   * lands back on `/app/bookings/[bookingId]`, which polls
    * `GET /api/payments/by-booking/:id` for the result. An optional applied
    * discount code is forwarded to `startPaymentCheckout` unchanged.
    */
@@ -2091,7 +2091,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    * submitted here, navigating the browser away from the app entirely.
    * Payment confirmation happens out-of-band (SePay's IPN → the API's
    * `BookingsService#confirmPayment`); this function never sees a "success" —
-   * the player lands back on `/dashboard/bookings/[bookingId]`
+   * the player lands back on `/app/bookings/[bookingId]`
    * (`payment-return.tsx`), which polls for the result.
    */
   const pay = (discountCode?: string) => {

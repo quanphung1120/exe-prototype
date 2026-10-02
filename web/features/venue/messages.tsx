@@ -7,7 +7,7 @@ import { useVenueData } from "@/features/venue/venue-data-provider"
 
 /**
  * The venue operator's per-venue inbox — every player↔venue chat for this
- * venue, in the same `ChatView` shell the player-side `/dashboard/chat`
+ * venue, in the same `ChatView` shell the player-side `/app/chat`
  * uses, scoped via `venueInboxId` (see `chat.tsx`/`VenueInboxContext`).
  */
 export function VenueMessagesView() {

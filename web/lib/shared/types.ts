@@ -332,7 +332,7 @@ export interface NotificationItem {
   read: boolean
   /** In-app destination opened when the notification is clicked. */
   href?: string
-  /** Chat to select when clicked (paired with an href to `/dashboard/chat`). */
+  /** Chat to select when clicked (paired with an href to `/app/chat`). */
   chatId?: string
   /**
    * ISO datetime this notification was created — present only on items

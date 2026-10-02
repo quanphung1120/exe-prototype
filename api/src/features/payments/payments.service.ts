@@ -461,7 +461,7 @@ export class PaymentsService {
       id: `payment-paid-${bookingId}`,
       kind: "booking",
       text: "Có lượt đặt sân mới đã thanh toán — vui lòng duyệt trong vòng 30 phút (im lặng sẽ tự động duyệt).",
-      href: `/dashboard/venue/${venueId}/schedule?tab=reservations`,
+      href: `/app/venue/${venueId}/schedule?tab=reservations`,
     })
   }
 
