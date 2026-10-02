@@ -125,6 +125,9 @@
       "label": "Book a court",
       "caption": "Pick a slot and reserve"
     },
+    "admin": "Admin",
+    "account": "Account",
+    "logout": "Sign out",
     "group": "Play"
   },
   "Sidebar": {
@@ -1127,7 +1130,9 @@
     "deleting": "Deleting…",
     "leaving": "Leaving…",
     "cancel": "Cancel",
-    "removeFailed": "Couldn't remove the conversation, please try again"
+    "removeFailed": "Couldn't remove the conversation, please try again",
+    "emptyTitle": "Start chatting",
+    "emptyHint": "Pick a conversation on the left or start a new one."
   },
   "Notifications": {
     "title": "Notifications",

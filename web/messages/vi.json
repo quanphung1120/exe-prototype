@@ -125,6 +125,9 @@
       "label": "Đặt sân",
       "caption": "Chọn khung giờ và đặt sân"
     },
+    "admin": "Quản trị",
+    "account": "Tài khoản",
+    "logout": "Đăng xuất",
     "group": "Chơi"
   },
   "Sidebar": {
@@ -1127,7 +1130,9 @@
     "deleting": "Đang xóa…",
     "leaving": "Đang rời…",
     "cancel": "Hủy",
-    "removeFailed": "Không thể xóa cuộc trò chuyện, thử lại nhé"
+    "removeFailed": "Không thể xóa cuộc trò chuyện, thử lại nhé",
+    "emptyTitle": "Bắt đầu trò chuyện",
+    "emptyHint": "Chọn một cuộc trò chuyện bên trái hoặc tạo cuộc trò chuyện mới."
   },
   "Notifications": {
     "title": "Thông báo",

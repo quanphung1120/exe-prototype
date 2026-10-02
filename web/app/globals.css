@@ -209,6 +209,39 @@
       transparent 78%
     );
   }
+
+  /*
+   * Player chat palette — scoped to `.player-chat` (set on the ChatShell only
+   * for `/app/chat`) so the venue operator inbox keeps the neutral theme.
+   * Mirrors the `/app` home: blue #2046ed, neon #a5ff12, pink #e959bd.
+   */
+  .player-chat {
+    --pc-blue: #2046ed;
+    --pc-blue-strong: #173bc8;
+    --pc-neon: #a5ff12;
+    --pc-neon-ink: #173bc8;
+    --pc-pink: #e959bd;
+    --pc-bg: #ffffff;
+    --pc-surface: #eef2ff;
+    --pc-surface-2: #f6f8ff;
+    --pc-ink: #10214a;
+    --pc-muted: #52619d;
+    --pc-border: #dbe1ff;
+  }
+
+  .dark .player-chat {
+    --pc-blue: #3b5bff;
+    --pc-blue-strong: #cdd8ff;
+    --pc-neon: #b6ff3d;
+    --pc-neon-ink: #10214a;
+    --pc-pink: #f06cc9;
+    --pc-bg: #0b1224;
+    --pc-surface: #101a33;
+    --pc-surface-2: #0e1730;
+    --pc-ink: #eef2ff;
+    --pc-muted: #9fb0dd;
+    --pc-border: #22315c;
+  }
 }
 
 /* Hide the native scrollbar while keeping the area scrollable (the calendars) */

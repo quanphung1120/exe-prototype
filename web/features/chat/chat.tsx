@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { useTranslations } from "next-intl"
 import { ArrowLeft, MapPin, Users } from "lucide-react"
 import {
@@ -93,6 +94,9 @@ export function ChatView({
   const t = useTranslations("Chat")
   const status = useStreamChatStatus()
   const client = useStreamClient()
+  // Player chat gets the /app palette; the venue operator inbox keeps the
+  // neutral dashboard theme (no `venueInboxId` prop = player).
+  const player = !venueInboxId
 
   const [profileInitials, setProfileInitials] = React.useState<string | null>(
     null
@@ -117,8 +121,13 @@ export function ChatView({
 
   if (!client) {
     return (
-      <ChatShell>
-        <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+      <ChatShell player={player}>
+        <div
+          className={cn(
+            "flex flex-1 items-center justify-center p-8 text-center text-sm",
+            player ? "text-[var(--pc-muted)]" : "text-muted-foreground"
+          )}
+        >
           {status === "connecting" ? t("loading") : t("unavailable")}
         </div>
       </ChatShell>
@@ -133,7 +142,10 @@ export function ChatView({
         <WithComponents overrides={COMPONENT_OVERRIDES}>
           <aside
             className={cn(
-              "w-full shrink-0 flex-col sm:flex sm:w-72 sm:border-r sm:border-border",
+              "w-full shrink-0 flex-col sm:flex sm:border-r",
+              player
+                ? "bg-[var(--pc-surface)] sm:w-80 sm:border-[var(--pc-border)]"
+                : "sm:w-72 sm:border-border",
               pane === "conversation" ? "hidden sm:flex" : "flex"
             )}
           >
@@ -158,17 +170,15 @@ export function ChatView({
           <section
             className={cn(
               "min-w-0 flex-1 flex-col",
+              player && "bg-[var(--pc-bg)]",
               pane === "list" ? "hidden sm:flex" : "flex"
             )}
           >
-            <Channel>
-              <TeamChannelHeader
-                currentUserId={userId}
-                onOpenProfile={openProfile}
-              />
-              <MessageList />
-              <Composer />
-            </Channel>
+            <ActiveConversation
+              player={player}
+              currentUserId={userId}
+              onOpenProfile={openProfile}
+            />
           </section>
 
           <InitialChannel id={initialChannelId} />
@@ -184,7 +194,7 @@ export function ChatView({
 
   return (
     <StreamChatBoundary>
-      <ChatShell>
+      <ChatShell player={player}>
         {venueInboxId ? (
           <VenueInboxContext.Provider value={true}>
             {body}
@@ -198,9 +208,83 @@ export function ChatView({
 }
 
 /** The two-pane layout the chat lives in — no card wrapper, sits directly on the dashboard background. */
-function ChatShell({ children }: { children: React.ReactNode }) {
+function ChatShell({
+  player,
+  children,
+}: {
+  player: boolean
+  children: React.ReactNode
+}) {
   return (
-    <div className="flex h-full min-h-[28rem] overflow-hidden">{children}</div>
+    <div
+      className={cn(
+        "flex h-full min-h-[28rem] overflow-hidden",
+        player && "player-chat bg-[var(--pc-bg)] text-[var(--pc-ink)]"
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+/**
+ * The conversation pane. With no active channel it shows the player-chat
+ * invitation; otherwise it mounts the Stream `<Channel>` with our header,
+ * message list and composer. Reading the active channel from `useChatContext`
+ * here (not in `ChatView`) keeps the hooks unconditional.
+ */
+function ActiveConversation({
+  player,
+  currentUserId,
+  onOpenProfile,
+}: {
+  player: boolean
+  currentUserId: string
+  onOpenProfile: (initials: string) => void
+}) {
+  const { channel } = useChatContext()
+  if (!channel) return <ConversationInvite player={player} />
+  return (
+    <Channel>
+      <TeamChannelHeader
+        currentUserId={currentUserId}
+        onOpenProfile={onOpenProfile}
+      />
+      <MessageList />
+      <Composer />
+    </Channel>
+  )
+}
+
+/** Empty conversation pane: an invite + a small badminton asset (player only). */
+function ConversationInvite({ player }: { player: boolean }) {
+  const t = useTranslations("Chat")
+  if (!player) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
+        {t("emptyTitle")}
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+      <Image
+        src="/58f807168247ee67c3cc674f3c7df3619d1d9941.png"
+        alt=""
+        width={140}
+        height={140}
+        aria-hidden
+        className="h-auto w-28 opacity-90"
+      />
+      <div className="space-y-1">
+        <p className="font-heading text-lg font-bold text-[var(--pc-blue-strong)]">
+          {t("emptyTitle")}
+        </p>
+        <p className="max-w-xs text-sm text-[var(--pc-muted)]">
+          {t("emptyHint")}
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -253,7 +337,14 @@ function TeamChannelHeader({
   const t = useTranslations("Chat")
   const { channel, members } = useChannelStateContext()
   const inbox = React.useContext(VenueInboxContext)
+  const player = !inbox
   const { showList } = React.useContext(MobilePaneContext)
+
+  const nameClass = cn("truncate font-medium", player && "text-[var(--pc-ink)]")
+  const subClass = cn(
+    "inline-flex items-center gap-1 text-xs",
+    player ? "text-[var(--pc-muted)]" : "text-muted-foreground"
+  )
 
   const memberList = Object.values(members ?? {})
   const isGroup = memberList.length > 2
@@ -273,12 +364,22 @@ function TeamChannelHeader({
   const venueChat = Boolean(channel.data?.venueId)
 
   return (
-    <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+    <header
+      className={cn(
+        "flex items-center justify-between gap-3 border-b px-4 py-3",
+        player ? "border-[var(--pc-border)] bg-[var(--pc-bg)]" : "border-border"
+      )}
+    >
       <div className="flex min-w-0 items-center gap-1">
         <button
           type="button"
           aria-label={t("backToChats")}
-          className="-ml-1 rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground sm:hidden"
+          className={cn(
+            "-ml-1 rounded-full p-1.5 sm:hidden",
+            player
+              ? "text-[var(--pc-muted)] hover:bg-[var(--pc-surface)] hover:text-[var(--pc-ink)]"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
           onClick={showList}
         >
           <ArrowLeft className="size-5" />
@@ -287,7 +388,7 @@ function TeamChannelHeader({
           <div className="flex min-w-0 items-center gap-3">
             <ChatAvatar name={name} />
             <div className="min-w-0">
-              <p className="truncate font-medium">{name}</p>
+              <p className={nameClass}>{name}</p>
               <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <MapPin className="size-3" />
                 {t("venueChat")}
@@ -298,7 +399,7 @@ function TeamChannelHeader({
           <div className="flex min-w-0 items-center gap-3">
             <ChatAvatar name={name} />
             <div className="min-w-0">
-              <p className="truncate font-medium">{name}</p>
+              <p className={nameClass}>{name}</p>
               <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Users className="size-3" />
                 {t("members", { count: memberList.length })}
@@ -321,9 +422,7 @@ function TeamChannelHeader({
               ) : null}
             </ChatAvatar>
             <div className="min-w-0">
-              <p className="truncate font-medium">
-                {other?.user?.name ?? name}
-              </p>
+              <p className={nameClass}>{other?.user?.name ?? name}</p>
               <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 {other?.user?.online ? (
                   <>
