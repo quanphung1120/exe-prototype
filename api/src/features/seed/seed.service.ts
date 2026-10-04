@@ -92,7 +92,7 @@ export class SeedService {
     // carries a zeroed, no-query fallback bundle never rendered before that
     // redirect (`emptyBundle` — no player-surface component reads `seed.venue`).
     // `activeVenueId` defaults to the first branch; the web overrides it from the
-    // `/dashboard/venue/[venueId]` URL segment.
+    // `/app/venue/[venueId]` URL segment.
     const { brand, venues } = workspace
     const activeVenueId = venues[0]?.id ?? null
     const venue = activeVenueId

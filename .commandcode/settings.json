@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "powershell",
+      "Shell(pnpm:*)",
+      "Shell(node -v)",
+      "Shell(npm:*)",
+      "Shell(where:*)",
+      "Shell(dir:*)",
+      "Shell(node_modules.bintsc.cmd:*)",
+      "Shell(node_modules.bineslint.cmd:*)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

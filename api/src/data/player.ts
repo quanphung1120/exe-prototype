@@ -532,7 +532,7 @@ export const NOTIFICATIONS: NotificationItem[] = [
     text: "New message in Badminton Crew",
     time: "12m",
     read: false,
-    href: "/dashboard/chat",
+    href: "/app/chat",
     chatId: "ch1",
   },
   {
@@ -541,7 +541,7 @@ export const NOTIFICATIONS: NotificationItem[] = [
     text: "AI matched you with Trần Huy for badminton tonight",
     time: "2h",
     read: false,
-    href: "/dashboard/match-maker",
+    href: "/app/match-maker",
   },
   {
     id: "n3",
@@ -549,6 +549,6 @@ export const NOTIFICATIONS: NotificationItem[] = [
     text: "Court 3 at Shuttle Republic confirmed · 18:30",
     time: "5h",
     read: true,
-    href: "/dashboard/bookings",
+    href: "/app/bookings",
   },
 ]

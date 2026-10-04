@@ -32,6 +32,6 @@ export default async function AssessmentPage({
   ])
   // "Both" accounts still need the venue wizard when they haven't provisioned
   // one yet — the assessment always comes first in that ordering.
-  const nextPath = accountType !== "player" && !venue ? "/setup" : "/dashboard"
+  const nextPath = accountType !== "player" && !venue ? "/setup" : "/app"
   return <SkillsAssessmentView initial={initial} nextPath={nextPath} />
 }

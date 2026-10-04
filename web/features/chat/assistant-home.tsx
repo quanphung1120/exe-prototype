@@ -69,7 +69,7 @@ export function RecentChats({ onPick }: { onPick: (text: string) => void }) {
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">{t("recentChats")}</h2>
         <Link
-          href="/dashboard/chat"
+          href="/app/chat"
           className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           {t("viewAll")}
@@ -189,7 +189,7 @@ export function AssistantSideRail() {
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">{t("upcomingBookings")}</h2>
           <Link
-            href="/dashboard/bookings"
+            href="/app/bookings"
             className="flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             {t("viewAll")}

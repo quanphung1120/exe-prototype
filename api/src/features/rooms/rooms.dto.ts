@@ -1,4 +1,4 @@
-import { IsIn, IsNotEmpty, IsString } from "class-validator"
+import { IsIn, IsNotEmpty, IsString, Matches } from "class-validator"
 
 export class RoomIdParamDto {
   @IsString()
@@ -18,4 +18,9 @@ export type RoomRequestDecision = (typeof ROOM_REQUEST_DECISIONS)[number]
 export class RoomRequestDecisionBodyDto {
   @IsIn(ROOM_REQUEST_DECISIONS)
   decision: RoomRequestDecision
+}
+
+export class ChannelIdParamDto {
+  @Matches(/^[\w-]{1,64}$/, { message: "Invalid channel id" })
+  channelId: string
 }

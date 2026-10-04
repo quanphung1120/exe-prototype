@@ -6,20 +6,34 @@ import { useLocale } from "next-intl"
 
 import { useRouter } from "@/i18n/navigation"
 import { readPreferredLocale } from "@/lib/locale-preference"
-import { PaymentReturnView } from "@/features/booking/payment-return"
+import {
+  PaymentReturnView,
+  type PaymentFailReason,
+  type PaymentOutcome,
+} from "@/features/booking/payment-return"
 
 /**
- * Landed on straight after a real SePay checkout (`successUrl` in the API's
- * `PaymentsService#checkout` → `${SEPAY_RETURN_URL}/<bookingId>`). That return
- * URL is static, so SePay always brings the player back in the default locale
- * (`vi`). Before rendering the payment result, we read the locale the player
- * was actually on — stashed in `localStorage` right before the redirect (see
- * `savePreferredLocale` in `session.tsx#pay`) — and, if it differs from the
- * locale in the URL, replace to the matching prefix so the whole return
- * experience stays in their language. Only then does {@link PaymentReturnView}
- * take over the payment-status polling.
+ * Landed on straight after a real SePay checkout — the API's
+ * `PaymentsService#checkout` points SePay's `success_url` at
+ * `/app/payment/success/<bookingId>` and its `error_url`/`cancel_url` at
+ * `/app/payment/failed/<bookingId>?reason=…` (see api `return-urls.ts`).
+ * Those return URLs are static, so SePay always brings the player back in the
+ * default locale (`vi`). Before rendering the result, we read the locale the
+ * player was actually on — stashed in `localStorage` right before the redirect
+ * (see `savePreferredLocale` in `session.tsx#pay`) — and, if it differs from
+ * the URL's, replace to the matching prefix (keeping the same return path) so
+ * the whole return experience stays in their language. Only then does
+ * {@link PaymentReturnView} take over.
  */
-export function PaymentSuccessView({ bookingId }: { bookingId: string }) {
+export function PaymentReturnPage({
+  bookingId,
+  outcome,
+  reason,
+}: {
+  bookingId: string
+  outcome: PaymentOutcome
+  reason?: PaymentFailReason
+}) {
   const locale = useLocale()
   const router = useRouter()
   // `null` until the client has decided; `false` means "stay here and render".
@@ -32,25 +46,33 @@ export function PaymentSuccessView({ bookingId }: { bookingId: string }) {
       const preferred = readPreferredLocale()
       if (preferred && preferred !== locale) {
         setRedirecting(true)
-        router.replace(`/dashboard/payment/success/${bookingId}`, {
-          locale: preferred,
-        })
+        const path =
+          outcome === "success"
+            ? `/app/payment/success/${bookingId}`
+            : `/app/payment/failed/${bookingId}?reason=${reason ?? "error"}`
+        router.replace(path, { locale: preferred })
       } else {
         setRedirecting(false)
       }
     }, 0)
     return () => clearTimeout(id)
-  }, [bookingId, locale, router])
+  }, [bookingId, locale, outcome, reason, router])
 
   // While deciding (or mid-redirect), show a spinner rather than flashing the
   // wrong-locale payment screen for a frame.
   if (redirecting !== false) {
     return (
-      <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 py-16 text-center">
-        <Loader2 className="size-10 animate-spin text-brand" />
+      <div className="grid min-h-full place-items-center bg-[#f6f9ff] px-4 py-16">
+        <Loader2 className="size-10 animate-spin text-[#2046ed]" />
       </div>
     )
   }
 
-  return <PaymentReturnView bookingId={bookingId} />
+  return (
+    <PaymentReturnView
+      bookingId={bookingId}
+      outcome={outcome}
+      reason={reason}
+    />
+  )
 }

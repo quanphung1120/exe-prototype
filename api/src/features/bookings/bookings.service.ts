@@ -994,7 +994,7 @@ export class BookingsService {
           id: `booking-late-refund-${bookingId}`,
           kind: "booking",
           text,
-          href: "/dashboard/bookings",
+          href: "/app/bookings",
         })
         .catch((err: unknown) => {
           this.logger.warn(

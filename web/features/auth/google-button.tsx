@@ -43,7 +43,7 @@ export function GoogleButton() {
       await signIn.authenticateWithRedirect({
         strategy: "oauth_google",
         redirectUrl: "/" + locale + "/sso-callback",
-        redirectUrlComplete: "/" + locale + "/dashboard",
+        redirectUrlComplete: "/" + locale + "/app",
       })
     } catch {
       // authenticateWithRedirect navigates away on success; only failures land

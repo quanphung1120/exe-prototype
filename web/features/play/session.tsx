@@ -11,6 +11,7 @@ import {
   addDaysIso,
   capacityFor,
   durationOf,
+  initialsOf,
   levelMatches,
   locStr,
   rangesOverlap,
@@ -37,6 +38,7 @@ import {
   type AssessmentSport,
 } from "@/features/assessment/player-assessment"
 import { saveSession } from "@/features/play/session-actions"
+import { removeGroupMember } from "@/features/chat/group-actions"
 import {
   cancelBookingRecord,
   createBookingHold,
@@ -56,7 +58,7 @@ import {
 } from "@/features/chat/stream-actions"
 
 /** The dedicated booking-wizard route the Play / book actions navigate to. */
-const BOOK_PATH = "/dashboard/book"
+const BOOK_PATH = "/app/book"
 
 // How long the faked partner search runs before it finds someone.
 const SEARCH_MS = 1800
@@ -123,6 +125,18 @@ export interface QuickJoinFilters {
   day: "today" | "today-tomorrow"
   format: "Singles" | "Doubles" | "any"
   level: "my" | "any" | Level
+}
+
+/**
+ * Options for arming the booking wizard. `linked` passes a session created in
+ * the same tick (its `setSessions` write hasn't flushed yet), so the wizard
+ * can prefill from it instead of looking `roomId` up in stale state.
+ */
+type BookingOpts = {
+  roomId?: string
+  fillMode?: FillMode
+  invitees?: string[]
+  linked?: PlaySession
 }
 
 interface SessionContextValue {
@@ -193,6 +207,12 @@ interface SessionContextValue {
   setRoomCapacity: (sessionId: string, capacity: number) => void
   invitePlayer: (sessionId: string, initials: string) => void
   kickPlayer: (sessionId: string, initials: string) => void
+  /** Start a match (session + booking wizard) from a community group chat. */
+  createGroupSession: (input: {
+    channelId: string
+    title: string
+    members: { id: string; name: string }[]
+  }) => string
   fillRoom: (session: PlaySession) => void
   managerOpen: boolean
   setManagerOpen: (open: boolean) => void
@@ -215,15 +235,9 @@ interface SessionContextValue {
   steps: string[]
   step: number
   draft: BookingDraft
-  openBooking: (
-    courtId: string | null,
-    opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
-  ) => void
+  openBooking: (courtId: string | null, opts?: BookingOpts) => void
   /** Arm the wizard without navigating (used by the book page on cold load). */
-  armBooking: (
-    courtId: string | null,
-    opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
-  ) => void
+  armBooking: (courtId: string | null, opts?: BookingOpts) => void
   bookCourtForSession: (sessionId: string) => void
   addTeamToSession: (sessionId: string) => void
   addPlayersToSession: (sessionId: string, initials: string[]) => number
@@ -247,7 +261,7 @@ interface SessionContextValue {
    * Reserve the court (if not already held) and redirect to SePay's real
    * checkout — a hidden-form POST, so this actually navigates the browser
    * away. Payment confirmation happens out-of-band (SePay's IPN); the player
-   * lands back on `/dashboard/bookings/[bookingId]`, which polls
+   * lands back on `/app/bookings/[bookingId]`, which polls
    * `GET /api/payments/by-booking/:id` for the result. An optional applied
    * discount code is forwarded to `startPaymentCheckout` unchanged.
    */
@@ -604,16 +618,22 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    * approved (by initials) roster member. Cross-user join/approve/decline/
    * leave (Phase 9 G2) no longer call this: `RoomsService` adds/removes real
    * members server-side as part of deciding a request or a member leaving —
-   * see `rooms-actions.ts`. Mock players (the entire `MATCH_SUGGESTIONS`
-   * pool) aren't Stream users, so the guard below skips them.
+   * see `rooms-actions.ts`. Only roster entries that are real users (carry
+   * a Clerk `userId`) are Stream members; client-only mock invitees aren't,
+   * so they're skipped. A session booked from a community group chat
+   * (`chatChannelId`) removes the member from that group, not a room chat.
    */
-  const removeRealRoomMember = (sessionId: string, memberId: string) => {
-    if (MATCH_SUGGESTIONS.some((p) => p.initials === memberId)) return
-    void removeRoomMember({ roomId: sessionId, memberId }).catch(
-      (err: unknown) => {
-        console.error("Failed to remove room member", err)
-      }
-    )
+  const removeRealRoomMember = (
+    session: PlaySession,
+    player: SessionPlayer
+  ) => {
+    if (!player.userId) return
+    const request = session.chatChannelId
+      ? removeGroupMember(session.chatChannelId, player.userId)
+      : removeRoomMember({ roomId: session.id, memberId: player.userId })
+    void request.catch((err: unknown) => {
+      console.error("Failed to remove room member", err)
+    })
   }
 
   /** Host freezes a room's chat on cancel — keeps history, blocks sends. */
@@ -1398,6 +1418,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   const kickPlayer = (sessionId: string, initials: string) => {
     if (initials === USER.initials) return
+    const session = sessions.find((s) => s.id === sessionId)
+    const player = session?.roster.find((p) => p.initials === initials)
     clearTimersFor(sessionId)
     setSessions((prev) =>
       prev.map((s) =>
@@ -1406,7 +1428,69 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           : s
       )
     )
-    removeRealRoomMember(sessionId, initials)
+    if (session) {
+      persist({
+        ...session,
+        roster: session.roster.filter((p) => p.initials !== initials),
+      })
+      if (player) removeRealRoomMember(session, player)
+    }
+  }
+
+  /**
+   * Start a match from a community group chat (`group-*`): a session whose
+   * roster is the group's members (all confirmed — they're already together
+   * in the group), linked back to the group via `chatChannelId` instead of
+   * getting its own room chat, then open the booking wizard for it. Returns
+   * the new session id.
+   */
+  const createGroupSession = ({
+    channelId,
+    title,
+    members,
+  }: {
+    channelId: string
+    title: string
+    /** The group's other members (Clerk id + display name). */
+    members: { id: string; name: string }[]
+  }): string => {
+    const id = newId("grp")
+    const session: PlaySession = {
+      id,
+      title,
+      sport: "badminton",
+      format: members.length + 1 >= 4 ? "Doubles" : "Singles",
+      courtId: null,
+      dayKey: todayIso,
+      dayLabel: locStr(dayLabelFor(todayIso), locale),
+      slot: null,
+      durationMin: 60,
+      courtLabel: null,
+      host: { name: userName, initials: USER.initials },
+      capacity: Math.max(members.length + 1, 2),
+      roster: [
+        { name: userName, initials: USER.initials, rsvp: "host" },
+        ...members.map((m): SessionPlayer => ({
+          name: m.name,
+          initials: initialsOf(m.name),
+          rsvp: "going",
+          userId: m.id,
+        })),
+      ],
+      level: "any",
+      status: "forming",
+      listed: false,
+      fillIntent: "court",
+      venue: "",
+      ward: "",
+      distanceKm: null,
+      pricePerHour: 0,
+      chatChannelId: channelId,
+    }
+    setSessions((prev) => [session, ...prev])
+    persist(session)
+    openBooking(null, { roomId: id, linked: session })
+    return id
   }
 
   /**
@@ -1630,12 +1714,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    * book page itself calls this on a cold load to default to a fresh, courtless
    * booking instead of showing a stale draft.
    */
-  const armBooking = (
-    cid: string | null,
-    opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
-  ) => {
+  const armBooking = (cid: string | null, opts?: BookingOpts) => {
     const rid = opts?.roomId ?? null
-    const linked = rid ? (sessions.find((s) => s.id === rid) ?? null) : null
+    const linked =
+      opts?.linked ??
+      (rid ? (sessions.find((s) => s.id === rid) ?? null) : null)
     setPlayOpen(false)
     setCourtId(cid)
     setLinkedId(rid)
@@ -1660,10 +1743,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   /** Arm the wizard and navigate to the dedicated booking page. */
-  const openBooking = (
-    cid: string | null,
-    opts?: { roomId?: string; fillMode?: FillMode; invitees?: string[] }
-  ) => {
+  const openBooking = (cid: string | null, opts?: BookingOpts) => {
     armBooking(cid, opts)
     router.push(BOOK_PATH)
   }
@@ -2091,7 +2171,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    * submitted here, navigating the browser away from the app entirely.
    * Payment confirmation happens out-of-band (SePay's IPN → the API's
    * `BookingsService#confirmPayment`); this function never sees a "success" —
-   * the player lands back on `/dashboard/bookings/[bookingId]`
+   * the player lands back on `/app/bookings/[bookingId]`
    * (`payment-return.tsx`), which polls for the result.
    */
   const pay = (discountCode?: string) => {
@@ -2222,6 +2302,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setRoomCapacity,
     invitePlayer,
     kickPlayer,
+    createGroupSession,
     fillRoom,
     managerOpen,
     setManagerOpen,

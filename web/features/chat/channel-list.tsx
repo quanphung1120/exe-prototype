@@ -4,7 +4,14 @@ import * as React from "react"
 import type { PropsWithChildren } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Loader2, LogOut, MoreVertical, Trash2 } from "lucide-react"
+import {
+  Loader2,
+  LogOut,
+  MessageSquarePlus,
+  MoreVertical,
+  Search,
+  Trash2,
+} from "lucide-react"
 import type { Channel } from "stream-chat"
 import type {
   ChannelListItemUIProps,
@@ -31,11 +38,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 import { ChatAvatar } from "@/features/chat/chat-avatar"
+import { NewChatDialog } from "@/features/chat/new-chat-dialog"
 import { leaveConversation } from "@/features/chat/stream-actions"
 import { MobilePaneContext } from "@/features/chat/mobile-pane-context"
 import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
+import { usePlayerChatSearch } from "@/features/chat/player-chat-search-context"
 
 /**
  * Custom conversation-list row, replacing Stream's ChannelListItemUI (wired
@@ -56,6 +65,7 @@ export function ChannelListItem({
   const locale = useLocale()
   const { client } = useChatContext()
   const inbox = React.useContext(VenueInboxContext)
+  const player = !inbox
   const { showConversation } = React.useContext(MobilePaneContext)
 
   const members = Object.values(channel.state.members ?? {})
@@ -71,7 +81,7 @@ export function ChannelListItem({
   // not the venue's own name (every row in this list is already scoped to
   // one venue). Player-side rows are unaffected (channel.data?.venueId is
   // only set on venue-chat channels, and `inbox` is only true in the
-  // operator's /dashboard/venue/[venueId]/messages view).
+  // operator's /app/venue/[venueId]/messages view).
   const venueChatOther = inbox && isVenueChat ? other : undefined
 
   const title =
@@ -94,8 +104,14 @@ export function ChannelListItem({
         role="option"
         aria-selected={active}
         className={cn(
-          "flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors",
-          active ? "bg-secondary/60" : "hover:bg-muted/40"
+          "flex w-full items-center gap-3 rounded-[22px] p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-[-2px]",
+          player
+            ? active
+              ? "bg-[var(--pc-accent-soft)] text-[var(--pc-accent-strong)] focus-visible:outline-[var(--pc-accent)]"
+              : "text-[var(--pc-list-ink)] hover:translate-x-1 hover:bg-[var(--pc-list-hover)] focus-visible:outline-[var(--pc-accent)]"
+            : active
+              ? "bg-secondary/60"
+              : "hover:bg-muted/40"
         )}
         onClick={(event) => {
           if (onSelect) onSelect(event)
@@ -108,17 +124,35 @@ export function ChannelListItem({
           image={avatarUser?.image}
           className="size-10 shrink-0"
         >
-          {avatarUser?.online ? <AvatarBadge className="bg-brand" /> : null}
+          {avatarUser?.online ? (
+            <AvatarBadge
+              className={player ? "bg-[var(--pc-online)]" : "bg-brand"}
+            />
+          ) : null}
         </ChatAvatar>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <p className={cn("truncate text-sm", hasUnread && "font-semibold")}>
+            <p
+              className={cn(
+                "truncate text-sm",
+                hasUnread && "font-semibold",
+                player &&
+                  (active
+                    ? "text-[var(--pc-accent-strong)]"
+                    : "text-[var(--pc-list-ink)]")
+              )}
+            >
               {title}
             </p>
             {lastMessage?.created_at && (
               <span
                 className={cn(
-                  "shrink-0 text-[11px] text-muted-foreground",
+                  "shrink-0 text-[11px]",
+                  player
+                    ? active
+                      ? "text-[var(--pc-accent-strong)]/70"
+                      : "text-[var(--pc-list-muted)]"
+                    : "text-muted-foreground",
                   // Make room for the hover menu so the two never overlap.
                   canRemove && "sm:group-hover/row:opacity-0"
                 )}
@@ -132,14 +166,29 @@ export function ChannelListItem({
                 emits its own <p>. Inline it so truncate can ellipsize. */}
             <div
               className={cn(
-                "truncate text-xs text-muted-foreground [&_p]:inline",
-                hasUnread && "font-medium text-foreground"
+                "truncate text-xs [&_p]:inline",
+                player
+                  ? active
+                    ? "text-[var(--pc-accent-strong)]/80"
+                    : hasUnread
+                      ? "font-medium text-[var(--pc-list-ink)]"
+                      : "text-[var(--pc-list-muted)]"
+                  : hasUnread
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground"
               )}
             >
               {latestMessagePreview}
             </div>
             {hasUnread && (
-              <span className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-brand-foreground">
+              <span
+                className={cn(
+                  "flex size-4.5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
+                  player
+                    ? "bg-[var(--pc-blue)] text-white"
+                    : "bg-brand text-brand-foreground"
+                )}
+              >
                 {unread}
               </span>
             )}
@@ -172,6 +221,8 @@ function ChannelRowMenu({
   const t = useTranslations("Chat")
   const name = title ?? t("metaTitle")
   const { channel: activeChannel, setActiveChannel } = useChatContext()
+  const player = !React.useContext(VenueInboxContext)
+  const active = activeChannel?.cid === channel.cid
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [pending, setPending] = React.useState(false)
@@ -199,7 +250,15 @@ function ChannelRowMenu({
           aria-label={t("rowMenuLabel")}
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none data-popup-open:bg-background/80 data-popup-open:opacity-100",
+            "absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full transition-colors focus-visible:opacity-100 focus-visible:outline-none data-popup-open:opacity-100",
+            player
+              ? cn(
+                  active
+                    ? "text-[var(--pc-accent-strong)]"
+                    : "text-[var(--pc-list-muted)]",
+                  "hover:bg-[var(--pc-blue)] hover:text-white data-popup-open:bg-[var(--pc-blue)]"
+                )
+              : "text-muted-foreground hover:bg-background/80 hover:text-foreground data-popup-open:bg-background/80",
             "opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100"
           )}
         >
@@ -265,14 +324,48 @@ function ChannelRowMenu({
 }
 
 /**
- * No-op override for Stream's ChannelListUI header slot: the "Chats" title
- * duplicated the dashboard topbar's page title, and the new-chat button now
- * lives there too (see `NewChatAction` in features/dashboard/section-actions).
- * Kept as an explicit override (rather than omitted) so WithComponents
- * doesn't fall back to Stream's own default header.
+ * Player chat list header: the "Chat" title plus the single "New chat" CTA that
+ * opens `NewChatDialog`. The operator's venue inbox hides it — that page owns
+ * its own heading — via `VenueInboxContext`.
  */
 export function ChannelListHeader() {
-  return null
+  const inbox = React.useContext(VenueInboxContext)
+  const { query, setQuery } = usePlayerChatSearch()
+  const t = useTranslations("Chat")
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+
+  if (inbox) return null
+
+  return (
+    <div className="border-b border-[var(--pc-list-border)] px-4 pt-5 pb-4 sm:px-5">
+      <div className="flex flex-col gap-3">
+        <h2 className="truncate font-heading text-2xl font-black tracking-tight text-[var(--pc-list-ink)]">
+          {t("metaTitle")}
+        </h2>
+        <Button
+          type="button"
+          size="sm"
+          className="min-h-11 w-full rounded-full bg-[#a5ff12] px-4 font-bold text-[#173bc8] shadow-[3px_3px_0_var(--pc-pink)] transition-transform hover:-translate-y-0.5 hover:brightness-95"
+          onClick={() => setDialogOpen(true)}
+        >
+          <MessageSquarePlus className="size-4" />
+          <span>{t("newChat")}</span>
+        </Button>
+      </div>
+      <label className="mt-4 flex h-11 items-center gap-2 rounded-full border border-[var(--pc-list-border)] bg-[var(--pc-surface-2)] px-4 text-[var(--pc-list-muted)] transition-colors focus-within:border-[var(--pc-accent)]">
+        <Search className="size-4 shrink-0" aria-hidden />
+        <span className="sr-only">{t("listSearchPlaceholder")}</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t("listSearchPlaceholder")}
+          className="min-w-0 flex-1 bg-transparent text-sm text-[var(--pc-list-ink)] outline-none placeholder:text-[var(--pc-list-muted)]"
+        />
+      </label>
+      <NewChatDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+    </div>
+  )
 }
 
 /**
@@ -285,33 +378,41 @@ export function ChannelListShell({
   loading,
 }: PropsWithChildren<ChannelListUIProps>) {
   const { t } = useTranslationContext("ChannelListShell")
+  const inbox = React.useContext(VenueInboxContext)
+  const player = !inbox
 
   if (error) {
     return (
-      <p className="p-4 text-center text-xs text-muted-foreground">
+      <p
+        className={cn(
+          "p-4 text-center text-xs",
+          player ? "text-[var(--pc-list-muted)]" : "text-muted-foreground"
+        )}
+      >
         {t("Error loading channels")}
       </p>
     )
   }
   if (loading) {
     return (
-      <div className="flex flex-col gap-1 p-2">
-        {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="flex items-center gap-3 p-3">
-            <Skeleton className="size-10 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-3 w-2/3" />
-              <Skeleton className="h-3 w-full" />
-            </div>
-          </div>
-        ))}
+      <div
+        role="status"
+        className={cn(
+          "grid place-items-center p-8",
+          player && "flex-1 bg-[var(--pc-surface)]"
+        )}
+      >
+        <Spinner />
       </div>
     )
   }
   return (
     <div
       role="listbox"
-      className="no-scrollbar flex flex-col gap-0.5 overflow-y-auto p-2"
+      className={cn(
+        "no-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2",
+        player && "bg-[var(--pc-surface)]"
+      )}
     >
       {children}
     </div>
@@ -334,6 +435,7 @@ export function ChannelListPaginator({
   loadNextPage,
 }: PropsWithChildren<LoadMorePaginatorProps>) {
   const sentinelRef = React.useRef<HTMLDivElement>(null)
+  const player = !React.useContext(VenueInboxContext)
 
   React.useEffect(() => {
     const sentinel = sentinelRef.current
@@ -361,7 +463,12 @@ export function ChannelListPaginator({
           aria-hidden={!isLoading}
         >
           {isLoading && (
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            <Loader2
+              className={cn(
+                "size-4 animate-spin",
+                player ? "text-[var(--pc-list-muted)]" : "text-muted-foreground"
+              )}
+            />
           )}
         </div>
       )}
@@ -370,7 +477,7 @@ export function ChannelListPaginator({
 }
 
 /** Today → HH:mm; this week → weekday; older → short date. */
-function formatListTimestamp(date: Date, locale: string): string {
+export function formatListTimestamp(date: Date, locale: string): string {
   const now = new Date()
   const sameDay = date.toDateString() === now.toDateString()
   if (sameDay) {

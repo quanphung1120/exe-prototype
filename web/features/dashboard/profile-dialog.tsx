@@ -1,12 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { RotateCcw, Shield, Star } from "lucide-react"
-import { initialsOf } from "@/lib/shared"
+import { initialsOf, type RatingSummary } from "@/lib/shared"
 
 import { cn } from "@/lib/utils"
-import { useRouter } from "@/i18n/navigation"
+import { useRouter, usePathname } from "@/i18n/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 
@@ -69,6 +69,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useAuthUser } from "@/features/dashboard/auth-user"
+import { playerRatingSummary } from "@/features/chat/group-actions"
 import { useData } from "@/features/dashboard/data-provider"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { LevelChip, SportDot } from "@/features/dashboard/shared"
@@ -119,18 +120,6 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
   const bio = tProfile("bio")
 
   const badminton = assessment?.results?.badminton
-
-  const reviewPool = REVIEW_POOL.filter((r) => r.initials !== USER.initials)
-  const reviewSeed = USER.initials
-    .split("")
-    .reduce((s, c) => s + c.charCodeAt(0), 0)
-  const reviews = [0, 1, 2].map(
-    (i) => reviewPool[(reviewSeed + i) % reviewPool.length]
-  )
-  const avgRating =
-    Math.round(
-      (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10
-    ) / 10
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -226,75 +215,7 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
               </span>
             </div>
 
-            <div className="mt-5 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                  {tProfile("reviewsLabel")}
-                </h4>
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Star
-                        key={i}
-                        className={cn(
-                          "size-3",
-                          i < Math.round(avgRating)
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-muted-foreground/25"
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <span className="font-mono text-[11px] font-bold text-foreground tabular-nums">
-                    {avgRating.toFixed(1)}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    · {tProfile("ratingsCount", { count: reviews.length })}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2.5">
-                {reviews.map((review, i) => (
-                  <div
-                    key={i}
-                    className="flex flex-col gap-2 rounded-2xl bg-muted/40 p-3.5 ring-1 ring-foreground/5 dark:ring-foreground/10"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Avatar className="size-7 shrink-0">
-                        <AvatarFallback className="bg-secondary text-[10px] font-bold text-secondary-foreground">
-                          {review.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-foreground">
-                          {review.author}
-                        </p>
-                        <div className="mt-0.5 flex items-center gap-1">
-                          {Array.from({ length: 5 }, (_, j) => (
-                            <Star
-                              key={j}
-                              className={cn(
-                                "size-2.5",
-                                j < review.rating
-                                  ? "fill-amber-400 text-amber-400"
-                                  : "text-muted-foreground/25"
-                              )}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                        {review.ago}
-                      </span>
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      {review.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <PlayerReviews userId={sUser.id} open={open} />
           </div>
         </div>
       </DialogContent>
@@ -316,6 +237,8 @@ export function PlayerProfileDialog({
   const tProfile = useTranslations("Profile")
   const tc = useTranslations("Common")
   const { players, playerByInitials } = useData()
+  const pathname = usePathname()
+  const playScope = pathname === "/app/play"
 
   const fullPlayer = initials
     ? players.find((p) => p.initials === initials)
@@ -343,7 +266,12 @@ export function PlayerProfileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90svh] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+      <DialogContent
+        className={cn(
+          "flex max-h-[90svh] max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md",
+          playScope && "player-play-overlay"
+        )}
+      >
         <DialogHeader className="sr-only">
           <DialogTitle>{tProfile("viewProfile")}</DialogTitle>
           <DialogDescription>
@@ -510,5 +438,135 @@ export function PlayerProfileDialog({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * A real player's peer reviews (`/api/ratings/users/:id/summary`) — average,
+ * count and newest reviews left after played matches. Fetched each time the
+ * profile opens; shows an empty state until the player has been rated.
+ */
+function PlayerReviews({ userId, open }: { userId: string; open: boolean }) {
+  const tProfile = useTranslations("Profile")
+  const locale = useLocale()
+  const [state, setState] = React.useState<{
+    userId: string
+    summary: RatingSummary | null
+    /** When the summary was fetched — the "x days ago" reference point. */
+    fetchedAt: number
+  } | null>(null)
+
+  React.useEffect(() => {
+    if (!open || !userId) return
+    let active = true
+    void playerRatingSummary(userId)
+      .then((summary) => {
+        if (active) setState({ userId, summary, fetchedAt: Date.now() })
+      })
+      .catch(() => {
+        if (active) setState({ userId, summary: null, fetchedAt: Date.now() })
+      })
+    return () => {
+      active = false
+    }
+  }, [open, userId])
+
+  const loading = state?.userId !== userId
+  const summary = state?.summary ?? null
+  const average = summary?.average ?? 0
+  const relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" })
+  const ago = (iso: string) => {
+    const days = Math.round(
+      (Date.parse(iso) - (state?.fetchedAt ?? 0)) / 86_400_000
+    )
+    if (Math.abs(days) < 1) return relative.format(0, "day")
+    if (Math.abs(days) < 30) return relative.format(days, "day")
+    return relative.format(Math.round(days / 30), "month")
+  }
+
+  return (
+    <div className="mt-5 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+          {tProfile("reviewsLabel")}
+        </h4>
+        {summary?.count ? (
+          <div className="flex items-center gap-1.5">
+            <Stars value={average} className="size-3" />
+            <span className="font-mono text-[11px] font-bold text-foreground tabular-nums">
+              {average.toFixed(1)}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              · {tProfile("ratingsCount", { count: summary.count })}
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      {loading ? (
+        <div className="flex flex-col gap-2.5">
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="h-20 animate-pulse rounded-2xl bg-muted/50"
+            />
+          ))}
+        </div>
+      ) : !summary?.count ? (
+        <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
+          {summary ? tProfile("noReviews") : tProfile("reviewsUnavailable")}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {summary.recent.map((review, i) => (
+            <div
+              key={i}
+              className="flex flex-col gap-2 rounded-2xl bg-muted/40 p-3.5 ring-1 ring-foreground/5 dark:ring-foreground/10"
+            >
+              <div className="flex items-center gap-2.5">
+                <Avatar className="size-7 shrink-0">
+                  <AvatarFallback className="bg-secondary text-[10px] font-bold text-secondary-foreground">
+                    {initialsOf(review.raterName)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold text-foreground">
+                    {review.raterName}
+                  </p>
+                  <Stars value={review.stars} className="mt-0.5 size-2.5" />
+                </div>
+                <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                  {ago(review.createdAt)}
+                </span>
+              </div>
+              {review.comment ? (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {review.comment}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Five stars, filled up to the rounded `value`. */
+function Stars({ value, className }: { value: number; className?: string }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }, (_, i) => (
+        <Star
+          key={i}
+          className={cn(
+            className,
+            i < Math.round(value)
+              ? "fill-amber-400 text-amber-400"
+              : "text-muted-foreground/25"
+          )}
+        />
+      ))}
+    </div>
   )
 }

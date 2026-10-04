@@ -33,7 +33,7 @@ export function PlayChooser() {
       desc: t("findTeammatesDesc"),
       onClick: () => {
         closePlay()
-        router.push("/dashboard/play")
+        router.push("/app/play")
       },
     },
   ]

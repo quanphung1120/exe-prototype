@@ -245,7 +245,7 @@ function makeService(deps: Deps = {}) {
     },
   }
   const configMock = {
-    getOrThrow: () => "http://localhost:3000/dashboard/bookings",
+    getOrThrow: () => "http://localhost:3000/app/bookings",
   }
   const applyUsageCalls: string[] = []
   const discountsMock = {
@@ -927,7 +927,7 @@ void test("byBooking repairs booking confirmation and owner notification for an 
       id: "payment-paid-b1",
       kind: "booking",
       text: "Có lượt đặt sân mới đã thanh toán — vui lòng duyệt trong vòng 30 phút (im lặng sẽ tự động duyệt).",
-      href: "/dashboard/venue/v9/schedule?tab=reservations",
+      href: "/app/venue/v9/schedule?tab=reservations",
     },
   })
 })

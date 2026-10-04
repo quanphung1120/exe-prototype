@@ -36,6 +36,13 @@ when done.
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) |
 REJECTED (with one-line rationale)
 
+## UI plans
+
+| Plan | Title | Status |
+|------|-------|--------|
+| [023](023-restyle-player-bookings.md) | Restyle lịch đặt sân theo `/app` và `/app/chat`: header xanh chung, nội dung trắng, calendar và overlay đồng bộ | TODO |
+| [024](024-restyle-player-play.md) | Remake style `/app/play` theo `/app`: header xanh, nền trắng, map/card và dialogs đồng bộ, giữ đầy đủ chức năng | TODO |
+
 ## Dependency notes
 
 - 002 after 001: so the first CI run is green (001 changes only web deps).

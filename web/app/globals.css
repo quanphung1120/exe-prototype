@@ -209,6 +209,99 @@
       transparent 78%
     );
   }
+
+  /* Player chat: white surfaces with the shared header's electric blue only. */
+  .player-chat,
+  .player-chat-dialog {
+    --pc-accent: #2046ed;
+    --pc-accent-strong: #173bc8;
+    --pc-accent-soft: #e8f0fe;
+    --pc-accent-soft-strong: #d6e4ff;
+    --pc-accent-ink: #ffffff;
+    --pc-blue: #2046ed;
+    --pc-pink: #dbe1ff;
+    --pc-online: #2046ed;
+    --pc-bg: #ffffff;
+    --pc-surface: #ffffff;
+    --pc-surface-2: #f1f3f5;
+    --pc-ink: #142050;
+    --pc-muted: #596783;
+    --pc-border: #e5e7eb;
+    --pc-list-ink: #142050;
+    --pc-list-muted: #596783;
+    --pc-list-hover: #f3f4f6;
+    --pc-list-border: #e5e7eb;
+    --pc-header: #ffffff;
+    --pc-header-ink: #142050;
+    --pc-header-muted: #596783;
+    --pc-bubble-in: #f1f3f5;
+    --pc-bubble-out: #2046ed;
+    --pc-bubble-out-ink: #ffffff;
+  }
+
+  /* Player bookings: white surfaces with the shared header blue + neon CTA.
+     The overlay twin covers popovers/dialogs that render through a portal,
+     outside the `.player-bookings` subtree. */
+  .player-bookings,
+  .player-bookings-overlay {
+    --background: #ffffff;
+    --foreground: #142050;
+    --card: #ffffff;
+    --card-foreground: #142050;
+    --popover: #ffffff;
+    --popover-foreground: #142050;
+    --primary: #2046ed;
+    --primary-foreground: #ffffff;
+    --secondary: #f1f3f5;
+    --secondary-foreground: #142050;
+    --muted: #f1f3f5;
+    --muted-foreground: #596783;
+    --accent: #f1f3f5;
+    --accent-foreground: #142050;
+    --border: #e5e7eb;
+    --input: #e5e7eb;
+    --ring: #2046ed;
+    --brand: #2046ed;
+    --brand-foreground: #ffffff;
+  }
+
+  /* Player play: same white surfaces, header blue and neon CTA as home/bookings.
+     The overlay twin covers dialogs/sheets/dock that render through a portal,
+     outside the `.player-play` subtree. */
+  .player-play,
+  .player-play-overlay {
+    --background: #ffffff;
+    --foreground: #142050;
+    --card: #ffffff;
+    --card-foreground: #142050;
+    --popover: #ffffff;
+    --popover-foreground: #142050;
+    --primary: #2046ed;
+    --primary-foreground: #ffffff;
+    --secondary: #f1f3f5;
+    --secondary-foreground: #142050;
+    --muted: #f1f3f5;
+    --muted-foreground: #596783;
+    --accent: #f1f3f5;
+    --accent-foreground: #142050;
+    --border: #e5e7eb;
+    --input: #e5e7eb;
+    --ring: #2046ed;
+    --brand: #2046ed;
+    --brand-foreground: #ffffff;
+    --lime: #a5ff12;
+    --lime-foreground: #173bc8;
+    --play-blue: #2046ed;
+    --play-blue-hover: #173bc8;
+    --play-neon: #a5ff12;
+    --play-neon-foreground: #173bc8;
+  }
+}
+
+.player-chat [data-slot="avatar-fallback"],
+.player-chat-dialog [data-slot="avatar-fallback"] {
+  background-image: linear-gradient(135deg, #2046ed, #173bc8);
+  color: #ffffff;
 }
 
 /* Hide the native scrollbar while keeping the area scrollable (the calendars) */

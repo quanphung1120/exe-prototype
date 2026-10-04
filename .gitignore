@@ -40,3 +40,5 @@ api/src/generated/
 
 # local pnpm store
 .pnpm-store/
+
+image/

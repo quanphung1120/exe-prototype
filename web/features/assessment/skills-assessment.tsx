@@ -31,7 +31,7 @@ const SPORT_EMOJI: Record<AssessmentSport, string> = {
 
 export function SkillsAssessmentView({
   initial = null,
-  nextPath = "/dashboard",
+  nextPath = "/app",
 }: {
   /** The player's server-persisted assessment (Mongo), passed by the page. */
   initial?: PlayerAssessment | null

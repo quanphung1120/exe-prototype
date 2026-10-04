@@ -14,6 +14,7 @@ import {
 import type { UIMessage } from "ai"
 import { useAuth } from "@clerk/nextjs"
 import {
+  ArrowLeft,
   ArrowUp,
   CheckCheck,
   ChevronDown,
@@ -24,6 +25,7 @@ import {
   Loader2,
   MapPin,
   Plus,
+  RotateCcw,
   Shield,
   Sparkles,
   Star,
@@ -63,11 +65,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  AssistantSideRail,
-  QuickActions,
-  RecentChats,
-} from "@/features/chat/assistant-home"
+import { DashboardWelcome } from "@/features/dashboard/dashboard-welcome"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
 import { Flip, gsap, prefersReducedMotion } from "@/features/landing/gsap"
 import { Streamdown } from "streamdown"
@@ -207,6 +205,9 @@ export function AiNativeDashboardView() {
   const router = useRouter()
 
   const [input, setInput] = React.useState("")
+  // The thread's back button returns to the regular /app home without
+  // discarding the conversation; sending a message (or "Continue") resumes it.
+  const [atHome, setAtHome] = React.useState(false)
   const [selectedIds, setSelectedIds] = React.useState<string[]>([])
   const [profile, setProfile] = React.useState<string | null>(null)
   const [inviteState, setInviteState] = React.useState<{
@@ -249,6 +250,7 @@ export function AiNativeDashboardView() {
   React.useEffect(() => {
     const handleClear = () => {
       setMessages([])
+      setAtHome(false)
       setInput("")
       setSelectedIds([])
       setInviteState({ status: "idle", roomId: null })
@@ -291,7 +293,7 @@ export function AiNativeDashboardView() {
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  const showWelcome = messages.length === 0
+  const showWelcome = messages.length === 0 || atHome
 
   // Collect court IDs that were successfully booked via the AI chat in this
   // session, so tapping "Book" on an earlier findCourts card doesn't open the
@@ -330,8 +332,10 @@ export function AiNativeDashboardView() {
       ease: "power3.inOut",
     })
 
-    const intro = scrollRef.current
-      ? gsap.from(scrollRef.current.children, {
+    // Messages live in the scroller's inner centred column.
+    const column = scrollRef.current?.firstElementChild
+    const intro = column
+      ? gsap.from(column.children, {
           opacity: 0,
           y: 12,
           duration: 0.4,
@@ -390,9 +394,10 @@ export function AiNativeDashboardView() {
     if (!trimmed || isLoading) return
     // Capture the centered composer's geometry while it's still on screen, so
     // the Flip effect can animate it down once this message swaps in the thread.
-    if (messages.length === 0 && !prefersReducedMotion()) {
+    if (showWelcome && !prefersReducedMotion()) {
       composerFlip.current = Flip.getState('[data-flip-id="ai-composer"]')
     }
+    setAtHome(false)
     // A new query starts a fresh result context — clear selections, the open
     // profile, and any invite state (incl. a pending invite timer) carried over
     // from the previous search, so the invite bar can't show a stale "sent"
@@ -433,7 +438,7 @@ export function AiNativeDashboardView() {
     // The channel was already created host-only by `createInviteRoom` (via
     // `session.tsx`'s `openRoomChat`) the moment the room was — just deep-link
     // into it.
-    router.push(`/dashboard/chat?channel=room-${inviteState.roomId}`)
+    router.push(`/app/chat?channel=room-${inviteState.roomId}`)
   }
 
   const inviteToChat = () => {
@@ -515,10 +520,10 @@ export function AiNativeDashboardView() {
   const composer = (
     <div
       data-flip-id="ai-composer"
-      className="rounded-[2rem] bg-card p-2 ring-1 ring-foreground/5 dark:ring-foreground/10"
+      className="rounded-[2rem] bg-white p-2 shadow-[0_8px_28px_#14205012] ring-1 ring-[#e3eafa] transition-shadow focus-within:ring-2 focus-within:ring-[#2046ed]/40"
     >
       <div className="flex items-end gap-2">
-        <Sparkles className="mb-4 ml-3 size-5 shrink-0 text-foreground/80" />
+        <Sparkles className="mb-4 ml-3 size-5 shrink-0 text-[#2046ed]" />
         <Textarea
           ref={inputRef}
           value={input}
@@ -530,7 +535,7 @@ export function AiNativeDashboardView() {
             }
           }}
           placeholder={isLoading ? t("thinking") : t("inputPlaceholder")}
-          aria-label="Ask SportMatch AI"
+          aria-label={t("assistantName")}
           disabled={isLoading}
           className="max-h-32 min-h-12 flex-1 border-0 bg-transparent py-3.5 pr-0 pl-1 text-base shadow-none focus-visible:ring-0 sm:text-lg"
         />
@@ -540,8 +545,8 @@ export function AiNativeDashboardView() {
         <Button
           type="button"
           size="icon"
-          className="mb-1 rounded-full bg-foreground text-background hover:bg-foreground/90"
-          aria-label="Send"
+          className="mb-1 rounded-full bg-[#2046ed] text-white hover:bg-[#173bc8]"
+          aria-label={t("send")}
           onClick={() => void submit(input)}
           disabled={isLoading || !input.trim()}
         >
@@ -566,179 +571,250 @@ export function AiNativeDashboardView() {
   // layout below as soon as the first message lands.
   if (showWelcome) {
     return (
-      <div className="mx-auto flex w-full max-w-7xl items-start gap-6 px-2 py-4 xl:gap-10">
-        <div className="flex min-h-[calc(100vh-9.5rem)] min-w-0 flex-1 flex-col justify-center gap-8">
-          <section className="pt-4">
-            <h1 className="font-heading text-4xl leading-[1.05] font-bold tracking-tight sm:text-5xl lg:text-6xl">
-              {t.rich("welcomeTitle", {
-                accent: (chunks) => (
-                  <span className="text-brand">{chunks}</span>
-                ),
-              })}
-            </h1>
-            <p className="mt-5 max-w-md text-base text-muted-foreground sm:text-lg">
-              {t("welcomeSubtitle")}
-            </p>
-          </section>
-
-          <div className="w-full">{composer}</div>
-
-          <QuickActions onPick={(text) => void submit(text)} />
-
-          <RecentChats onPick={(text) => void submit(text)} />
-        </div>
-
-        <AssistantSideRail />
-
+      <>
+        <DashboardWelcome
+          composer={composer}
+          onPrompt={(text) => void submit(text)}
+          onBook={openBooking}
+          onResume={messages.length ? () => setAtHome(false) : undefined}
+        />
         {profileDialog}
-      </div>
+      </>
     )
   }
 
-  // Active conversation — thread scrolls, composer pinned at the bottom.
+  // Active conversation — the same player chrome as Play / Bookings (blue +
+  // lime on #f6f9ff): an assistant bar on top, the thread scrolling in a
+  // centred column, and the invite bar + composer pinned at the bottom.
   return (
-    <div className="mx-auto flex h-[calc(100vh-8.5rem)] w-full max-w-3xl flex-col">
+    <div className="player-play flex h-full flex-col bg-[#f6f9ff] text-[#0b1224]">
+      <div className="shrink-0 border-b border-[#eaf0fc] bg-white/80">
+        <div className="mx-auto flex w-full max-w-4xl items-center gap-3 px-4 py-3 sm:px-6">
+          <button
+            type="button"
+            onClick={() => setAtHome(true)}
+            aria-label={t("backHome")}
+            title={t("backHome")}
+            className="grid size-9 shrink-0 place-items-center rounded-full border-2 border-lime text-brand transition-colors hover:bg-lime/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <ArrowLeft className="size-5" />
+          </button>
+          <AiAvatar className="size-10" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-heading text-base leading-tight font-black">
+              {t("assistantName")}
+            </p>
+            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              {isLoading ? (
+                <>
+                  <Loader2 className="size-3 animate-spin text-brand" />
+                  {t("thinking")}
+                </>
+              ) : (
+                <>
+                  <span className="size-1.5 rounded-full bg-[#22c55e]" />
+                  {t("assistantOnline")}
+                </>
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent("clear-ai-chat"))
+            }
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border-2 border-lime px-3.5 text-xs font-bold text-brand transition-colors hover:bg-lime/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <RotateCcw className="size-3.5" />
+            <span className="hidden sm:inline">{t("clearChat")}</span>
+          </button>
+        </div>
+      </div>
+
       <div
         ref={scrollRef}
-        className="no-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto px-1 py-2"
+        className="no-scrollbar min-h-0 flex-1 overflow-y-auto"
       >
-        {messages.map((msg, index) => (
-          <ChatMessageRow
-            key={msg.id}
-            message={msg}
-            selectedIds={selectedIds}
-            // Only the latest turn's clarify chips stay tappable, and never
-            // while a response is streaming.
-            interactive={!isLoading && index === messages.length - 1}
-            isStreaming={isLoading && index === messages.length - 1}
-            onChoose={(text) => void submit(text)}
-            onTogglePlayer={togglePlayer}
-            onOpenProfile={(p) => setProfile(p.initials)}
-            onBook={(courtId) => {
-              if (aiBookedCourtIds.has(courtId)) {
-                toast.info("Already booked via chat — check My Bookings.")
-                return
-              }
-              openBooking(courtId)
-            }}
-            onJoinRoom={joinRoom}
-          />
-        ))}
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 sm:px-6">
+          {messages.map((msg, index) => (
+            <ChatMessageRow
+              key={msg.id}
+              message={msg}
+              selectedIds={selectedIds}
+              // Only the latest turn's clarify chips stay tappable, and never
+              // while a response is streaming.
+              interactive={!isLoading && index === messages.length - 1}
+              isStreaming={isLoading && index === messages.length - 1}
+              onChoose={(text) => void submit(text)}
+              onTogglePlayer={togglePlayer}
+              onOpenProfile={(p) => setProfile(p.initials)}
+              onBook={(courtId) => {
+                if (aiBookedCourtIds.has(courtId)) {
+                  toast.info(t("alreadyBooked"))
+                  return
+                }
+                openBooking(courtId)
+              }}
+              onJoinRoom={joinRoom}
+            />
+          ))}
 
-        {/* Pulse while waiting for first token */}
-        {isLoading && messages[messages.length - 1]?.role === "user" ? (
-          <div className="flex justify-start">
-            <div className="flex items-center gap-2 rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm text-muted-foreground sm:text-base">
-              <Loader2 className="size-3.5 animate-spin text-brand" />
-              {t("thinking")}
+          {/* Pulse while waiting for first token */}
+          {isLoading && messages[messages.length - 1]?.role === "user" ? (
+            <div className="flex items-start gap-3">
+              <AiAvatar />
+              <div className={cn(AI_BUBBLE, "flex items-center gap-2")}>
+                <Loader2 className="size-3.5 animate-spin text-brand" />
+                {t("thinking")}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-4xl shrink-0 flex-col gap-2 px-4 pt-2 pb-4 sm:px-6">
+        {lastPlayerResult ? (
+          <div className="rounded-3xl border border-[#eaf0fc] bg-white px-3.5 py-2.5 shadow-[0_3px_16px_#14205008]">
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedPlayers.length ? (
+                <>
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {t("selectedCount", { count: selectedPlayers.length })}
+                  </span>
+                  {selectedPlayers.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => togglePlayer(p)}
+                      className="inline-flex items-center gap-1 rounded-full bg-[#f4f7fc] px-2.5 py-1 text-xs font-semibold text-[#173bc8] transition-colors hover:bg-lime/40"
+                    >
+                      {p.name}
+                      <X className="size-3" />
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground">
+                  {t("selectPlayersInvite")}
+                </span>
+              )}
+              <div className="ml-auto flex shrink-0 gap-2">
+                {inviteState.status === "sent" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => void openGroupChat()}
+                  >
+                    <Sparkles />
+                    {t("openGroupChat")}
+                  </Button>
+                ) : (
+                  <>
+                    {eligibleRooms.length > 0 ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="rounded-full"
+                              disabled={
+                                !selectedPlayers.length ||
+                                inviteState.status === "sending"
+                              }
+                            >
+                              <UserPlus />
+                              {t("addToExistingRoom")}
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent
+                          align="end"
+                          className="player-play-overlay w-56"
+                        >
+                          {eligibleRooms.map((room) => {
+                            const open =
+                              room.capacity - activeRoster(room).length
+                            return (
+                              <DropdownMenuItem
+                                key={room.id}
+                                onClick={() => addToRoom(room)}
+                              >
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate font-medium">
+                                    {room.title}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {room.dayLabel} ·{" "}
+                                    {t("roomSpotsOpen", { count: open })}
+                                  </span>
+                                </div>
+                              </DropdownMenuItem>
+                            )
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      className="rounded-full"
+                      onClick={inviteToChat}
+                      disabled={
+                        !selectedPlayers.length ||
+                        inviteState.status === "sending"
+                      }
+                    >
+                      <Users />
+                      {inviteState.status === "sending"
+                        ? t("sending")
+                        : t("inviteToGroupChat")}
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         ) : null}
+
+        {composer}
       </div>
-
-      {lastPlayerResult ? (
-        <div className="shrink-0 border-t border-border/60 bg-background px-3 py-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedPlayers.length ? (
-              <>
-                <span className="text-xs text-muted-foreground">
-                  {t("selectedCount", { count: selectedPlayers.length })}
-                </span>
-                {selectedPlayers.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => togglePlayer(p)}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-xs"
-                  >
-                    {p.name}
-                    <X className="size-3 text-muted-foreground" />
-                  </button>
-                ))}
-              </>
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                {t("selectPlayersInvite")}
-              </span>
-            )}
-            <div className="ml-auto flex shrink-0 gap-2">
-              {inviteState.status === "sent" ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => void openGroupChat()}
-                >
-                  <Sparkles />
-                  {t("openGroupChat")}
-                </Button>
-              ) : (
-                <>
-                  {eligibleRooms.length > 0 ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="rounded-full"
-                            disabled={
-                              !selectedPlayers.length ||
-                              inviteState.status === "sending"
-                            }
-                          >
-                            <UserPlus />
-                            {t("addToExistingRoom")}
-                          </Button>
-                        }
-                      />
-                      <DropdownMenuContent align="end" className="w-56">
-                        {eligibleRooms.map((room) => {
-                          const open = room.capacity - activeRoster(room).length
-                          return (
-                            <DropdownMenuItem
-                              key={room.id}
-                              onClick={() => addToRoom(room)}
-                            >
-                              <div className="flex min-w-0 flex-col">
-                                <span className="truncate font-medium">
-                                  {room.title}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {room.dayLabel} · {open} open
-                                </span>
-                              </div>
-                            </DropdownMenuItem>
-                          )
-                        })}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : null}
-                  <Button
-                    size="sm"
-                    className="rounded-full"
-                    onClick={inviteToChat}
-                    disabled={
-                      !selectedPlayers.length ||
-                      inviteState.status === "sending"
-                    }
-                  >
-                    <Users />
-                    {inviteState.status === "sending"
-                      ? t("sending")
-                      : t("inviteToGroupChat")}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="shrink-0 pt-1 pb-2">{composer}</div>
 
       {profileDialog}
     </div>
+  )
+}
+
+// ─── Shared chat chrome ───────────────────────────────────────────────────────
+
+/** White assistant bubble — the AI's side of the thread. */
+const AI_BUBBLE =
+  "max-w-[85%] rounded-3xl rounded-tl-md border border-[#eaf0fc] bg-white px-5 py-3 text-sm text-[#0b1224] shadow-[0_3px_16px_#14205008] sm:text-base"
+
+/** Option chip the user taps to answer (clarify / retry suggestions). */
+const CHOICE_CHIP =
+  "inline-flex items-center rounded-full border-2 border-lime bg-white px-4 py-2 text-sm font-semibold text-brand transition-colors hover:bg-lime/30 disabled:cursor-not-allowed disabled:opacity-50"
+
+/** Small heading above a block of tool results (courts / players / rooms). */
+const RESULT_LABEL =
+  "flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-[#596783] uppercase"
+
+/** White result card, matching the court/room cards on Play. */
+const RESULT_CARD =
+  "rounded-3xl border border-[#eaf0fc] bg-white shadow-[0_3px_16px_#14205008]"
+
+/** The assistant's avatar: a lime disc with the sparkle mark. */
+function AiAvatar({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "grid size-8 shrink-0 place-items-center rounded-full bg-[#a5ff12] text-[#173bc8] shadow-[0_4px_12px_#a5ff1255]",
+        className
+      )}
+    >
+      <Sparkles className="size-[45%]" />
+    </span>
   )
 }
 
@@ -772,7 +848,7 @@ function ChatMessageRow({
       .join("")
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-3xl rounded-br-md bg-primary px-5 py-3 text-sm text-primary-foreground sm:text-base">
+        <div className="max-w-[85%] rounded-3xl rounded-tr-md bg-[#2046ed] px-5 py-3 text-sm whitespace-pre-wrap text-white shadow-[0_6px_18px_#2046ed2e] sm:text-base">
           {text}
         </div>
       </div>
@@ -784,109 +860,115 @@ function ChatMessageRow({
   const parts = message.parts ?? []
 
   return (
-    <div className="flex flex-col gap-3">
-      {parts.map((part, i) => {
-        if (isReasoningUIPart(part)) {
-          if (!part.text.trim()) return null
-          return (
-            <ThinkingBlock
-              key={i}
-              text={part.text}
-              done={part.state !== "streaming"}
-            />
-          )
-        }
+    <div className="flex items-start gap-3">
+      <AiAvatar className="mt-0.5" />
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        {parts.map((part, i) => {
+          if (isReasoningUIPart(part)) {
+            if (!part.text.trim()) return null
+            return (
+              <ThinkingBlock
+                key={i}
+                text={part.text}
+                done={part.state !== "streaming"}
+              />
+            )
+          }
 
-        if (isTextUIPart(part)) {
-          if (!part.text) return null
-          return (
-            <div key={i} className="flex justify-start">
-              <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base">
-                <Streamdown animated isAnimating={isStreaming}>
-                  {part.text}
-                </Streamdown>
+          if (isTextUIPart(part)) {
+            if (!part.text) return null
+            return (
+              <div key={i} className="flex justify-start">
+                <div className={AI_BUBBLE}>
+                  <Streamdown animated isAnimating={isStreaming}>
+                    {part.text}
+                  </Streamdown>
+                </div>
               </div>
-            </div>
-          )
-        }
-
-        if (isToolUIPart(part)) {
-          const isDone = part.state === "output-available"
-          const result = isDone
-            ? toolResult((part as { output: unknown }).output)
-            : null
-
-          if (isDone && result?.kind === "courts") {
-            return (
-              <CourtChatResult
-                key={i}
-                courts={result.value.courts}
-                sortBy={result.value.sortBy}
-                onBook={onBook}
-              />
             )
           }
 
-          if (isDone && result?.kind === "players") {
-            return (
-              <PlayerChatResult
-                key={i}
-                players={result.value.players}
-                selectedIds={selectedIds}
-                onToggle={onTogglePlayer}
-                onOpenProfile={onOpenProfile}
-              />
-            )
-          }
+          if (isToolUIPart(part)) {
+            const isDone = part.state === "output-available"
+            const result = isDone
+              ? toolResult((part as { output: unknown }).output)
+              : null
 
-          if (isDone && result?.kind === "rooms") {
-            return (
-              <RoomChatResult
-                key={i}
-                rooms={result.value.rooms}
-                onJoin={onJoinRoom}
-              />
-            )
-          }
+            if (isDone && result?.kind === "courts") {
+              return (
+                <CourtChatResult
+                  key={i}
+                  courts={result.value.courts}
+                  sortBy={result.value.sortBy}
+                  onBook={onBook}
+                />
+              )
+            }
 
-          if (isDone && result?.kind === "clarify") {
-            return (
-              <ClarifyChatResult
-                key={i}
-                question={result.value.question}
-                options={result.value.options}
-                disabled={!interactive}
-                onChoose={onChoose}
-              />
-            )
-          }
+            if (isDone && result?.kind === "players") {
+              return (
+                <PlayerChatResult
+                  key={i}
+                  players={result.value.players}
+                  selectedIds={selectedIds}
+                  onToggle={onTogglePlayer}
+                  onOpenProfile={onOpenProfile}
+                />
+              )
+            }
 
-          if (isDone && result?.kind === "assessment") {
-            return (
-              <RequestAssessmentChatResult key={i} sport={result.value.sport} />
-            )
-          }
+            if (isDone && result?.kind === "rooms") {
+              return (
+                <RoomChatResult
+                  key={i}
+                  rooms={result.value.rooms}
+                  onJoin={onJoinRoom}
+                />
+              )
+            }
 
-          if (isDone && result?.kind === "booking") {
-            return (
-              <BookingChatResult
-                key={i}
-                booking={result.value}
-                disabled={!interactive}
-                onChoose={onChoose}
-              />
-            )
-          }
+            if (isDone && result?.kind === "clarify") {
+              return (
+                <ClarifyChatResult
+                  key={i}
+                  question={result.value.question}
+                  options={result.value.options}
+                  disabled={!interactive}
+                  onChoose={onChoose}
+                />
+              )
+            }
 
-          if (!isDone) {
-            return <SearchingIndicator key={i} toolName={getToolName(part)} />
+            if (isDone && result?.kind === "assessment") {
+              return (
+                <RequestAssessmentChatResult
+                  key={i}
+                  sport={result.value.sport}
+                />
+              )
+            }
+
+            if (isDone && result?.kind === "booking") {
+              return (
+                <BookingChatResult
+                  key={i}
+                  booking={result.value}
+                  disabled={!interactive}
+                  onChoose={onChoose}
+                />
+              )
+            }
+
+            if (!isDone) {
+              return <SearchingIndicator key={i} toolName={getToolName(part)} />
+            }
+
+            return null
           }
 
           return null
-        }
-
-        return null
-      })}
+        })}
+      </div>
     </div>
   )
 }
@@ -913,7 +995,7 @@ function ThinkingBlock({ text, done }: { text: string; done: boolean }) {
   }, [text, done])
 
   return (
-    <div className="rounded-3xl bg-muted/40 p-3 ring-1 ring-foreground/5 dark:ring-foreground/10">
+    <div className="rounded-3xl border border-dashed border-[#d6e0f7] bg-white/70 p-3">
       <button
         type="button"
         onClick={() => done && setCollapsed((c) => !c)}
@@ -971,7 +1053,7 @@ function SearchingIndicator({ toolName }: { toolName: string }) {
             ? t("bookingCourt")
             : t("working")
   return (
-    <div className="flex items-center gap-2 self-start rounded-full bg-muted/60 px-3.5 py-2 text-xs text-muted-foreground ring-1 ring-foreground/5 sm:text-sm">
+    <div className="flex items-center gap-2 self-start rounded-full border border-[#eaf0fc] bg-white px-3.5 py-2 text-xs font-medium text-muted-foreground shadow-[0_3px_16px_#14205008] sm:text-sm">
       <Loader2 className="size-3.5 animate-spin text-brand" />
       {label}
     </div>
@@ -996,18 +1078,16 @@ function ClarifyChatResult({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex justify-start">
-        <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base">
-          {question}
-        </div>
+        <div className={AI_BUBBLE}>{question}</div>
       </div>
-      <div className="flex flex-wrap gap-2 pl-1">
+      <div className="flex flex-wrap gap-2">
         {options.map((option) => (
           <button
             key={option}
             type="button"
             disabled={disabled}
             onClick={() => onChoose(option)}
-            className="inline-flex items-center rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
+            className={CHOICE_CHIP}
           >
             {option}
           </button>
@@ -1027,15 +1107,14 @@ function RequestAssessmentChatResult({ sport }: { sport: SportKey }) {
   return (
     <div className="flex flex-col gap-3 self-start">
       <div className="flex justify-start">
-        <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm sm:text-base">
+        <div className={AI_BUBBLE}>
           {t("requireAssessment", { sport: tc(`sports.${sport}`) })}
         </div>
       </div>
-      <div className="pl-1">
+      <div>
         <Button
           onClick={() => router.push(PLAYER_ASSESSMENT_PATH)}
-          variant="outline"
-          className="rounded-full px-4 py-2 text-sm shadow-sm sm:text-base"
+          className="h-10 rounded-full bg-lime px-5 text-sm font-bold text-lime-foreground hover:bg-lime/90"
         >
           {t("completeAssessment")}
         </Button>
@@ -1055,24 +1134,27 @@ function BookingChatResult({
   disabled: boolean
   onChoose: (text: string) => void
 }) {
+  const t = useTranslations("AiDashboard")
   if (!booking.success) {
     return (
       <div className="flex flex-col gap-2">
         <div className="flex justify-start">
-          <div className="max-w-[85%] rounded-3xl rounded-bl-md bg-muted px-5 py-3 text-sm text-muted-foreground sm:text-base">
-            {booking.reason ?? "Booking failed — please try again."}
+          <div className={cn(AI_BUBBLE, "text-muted-foreground")}>
+            {booking.reason ?? t("bookingFailed")}
           </div>
         </div>
         {booking.suggestTime ? (
-          <div className="flex flex-wrap gap-2 pl-1">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={disabled}
-              onClick={() => onChoose(`Book at ${booking.suggestTime} instead`)}
-              className="inline-flex items-center rounded-full border border-border bg-background px-4 py-2 text-sm text-foreground shadow-sm transition-colors hover:border-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
+              onClick={() =>
+                onChoose(t("bookAtInstead", { time: booking.suggestTime! }))
+              }
+              className={CHOICE_CHIP}
             >
               <Clock className="mr-1.5 size-3.5" />
-              Try {booking.suggestTime}
+              {t("tryTime", { time: booking.suggestTime })}
             </button>
           </div>
         ) : null}
@@ -1087,31 +1169,37 @@ function BookingChatResult({
     hrs > 0 && rem > 0 ? `${hrs}h ${rem}m` : hrs > 0 ? `${hrs}h` : `${rem}m`
 
   return (
-    <div className="flex flex-col gap-2.5 rounded-3xl bg-brand/5 p-4 ring-1 ring-brand/20 sm:p-5">
+    <div className="relative isolate flex max-w-md flex-col gap-3 overflow-hidden rounded-3xl bg-[#2046ed] p-5 text-white shadow-[0_10px_30px_#2046ed33]">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -top-10 -right-10 -z-10 size-32 rounded-full border-[16px] border-[#a5ff12]/20"
+      />
       <div className="flex items-center gap-2">
-        <div className="grid size-7 shrink-0 place-items-center rounded-full bg-brand/10">
-          <CheckCheck className="size-3.5 text-brand" />
+        <div className="grid size-7 shrink-0 place-items-center rounded-full bg-[#a5ff12] text-[#173bc8]">
+          <CheckCheck className="size-3.5" />
         </div>
-        <span className="font-heading text-sm font-semibold sm:text-base">
-          Booking confirmed
+        <span className="text-[11px] font-bold tracking-[0.14em] text-[#a5ff12] uppercase">
+          {t("bookingConfirmed")}
         </span>
       </div>
-      <div className="flex flex-col gap-1.5 text-sm sm:text-base">
-        <p className="font-medium">{booking.court}</p>
-        <p className="flex items-center gap-1 text-xs text-muted-foreground sm:text-sm">
+      <div className="flex flex-col gap-1.5">
+        <p className="font-heading text-lg leading-snug font-black">
+          {booking.court}
+        </p>
+        <p className="flex items-center gap-1.5 text-xs text-white/80 sm:text-sm">
           <MapPin className="size-3.5 shrink-0" />
           {booking.ward}
         </p>
-        <p className="flex items-center gap-1 text-xs text-muted-foreground sm:text-sm">
+        <p className="flex items-center gap-1.5 text-xs text-white/80 sm:text-sm">
           <Clock className="size-3.5 shrink-0" />
           {booking.date} · {booking.time} · {durationLabel}
         </p>
       </div>
-      <div className="flex items-center justify-between border-t border-brand/10 pt-2.5">
-        <span className="font-mono text-[10px] tracking-wider text-muted-foreground uppercase sm:text-xs">
+      <div className="flex items-center justify-between border-t border-white/15 pt-3">
+        <span className="font-mono text-[10px] tracking-wider text-white/70 uppercase sm:text-xs">
           {booking.bookingId}
         </span>
-        <span className="font-heading text-sm font-bold tabular-nums sm:text-base">
+        <span className="font-heading text-lg font-black text-[#a5ff12] tabular-nums">
           {booking.totalPrice != null ? formatVnd(booking.totalPrice) : "—"}
         </span>
       </div>
@@ -1166,7 +1254,8 @@ function CourtChatResult({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <p className="pl-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
+      <p className={RESULT_LABEL}>
+        <MapPin className="size-3.5 text-brand" />
         {t("topCourtsRanked", { count: courts.length, sortBy: rankLabel })}
       </p>
       <div className="relative">
@@ -1187,27 +1276,27 @@ function CourtChatResult({
         </div>
         {!atStart ? (
           <>
-            <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-muted/50 to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-[#f6f9ff] to-transparent" />
             <button
               type="button"
               onClick={() => nudge(-1)}
-              aria-label="Previous"
-              className="absolute top-1/2 left-1 z-10 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-card/80 shadow ring-1 ring-foreground/10 backdrop-blur-sm"
+              aria-label={t("prevResults")}
+              className="absolute top-1/2 left-1 z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full border-2 border-lime bg-white text-brand shadow-md transition-colors hover:bg-lime"
             >
-              <ChevronLeft className="size-3.5" />
+              <ChevronLeft className="size-4" />
             </button>
           </>
         ) : null}
         {!atEnd ? (
           <>
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-muted/50 to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[#f6f9ff] to-transparent" />
             <button
               type="button"
               onClick={() => nudge(1)}
-              aria-label="Next"
-              className="absolute top-1/2 right-1 z-10 grid size-6 -translate-y-1/2 place-items-center rounded-full bg-card/80 shadow ring-1 ring-foreground/10 backdrop-blur-sm"
+              aria-label={t("nextResults")}
+              className="absolute top-1/2 right-1 z-10 grid size-9 -translate-y-1/2 place-items-center rounded-full border-2 border-lime bg-white text-brand shadow-md transition-colors hover:bg-lime"
             >
-              <ChevronRight className="size-3.5" />
+              <ChevronRight className="size-4" />
             </button>
           </>
         ) : null}
@@ -1241,31 +1330,34 @@ function CourtCard({
   return (
     <div
       className={cn(
-        "flex shrink-0 snap-start flex-col gap-3 rounded-3xl bg-muted/50 p-3 ring-1 ring-foreground/5 dark:ring-foreground/10",
-        solo ? "w-full" : "w-60"
+        RESULT_CARD,
+        "flex shrink-0 snap-start flex-col gap-3 p-3",
+        solo ? "w-full max-w-sm" : "w-64"
       )}
     >
-      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/5">
+      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-[#f4f7fc]">
         <CourtImage court={court} className="absolute inset-0 h-full w-full" />
-        <span className="absolute top-2 left-2 rounded-full bg-background/85 px-2 py-0.5 text-xs font-semibold backdrop-blur">
+        <span className="absolute top-2 left-2 grid h-6 min-w-6 place-items-center rounded-full bg-[#a5ff12] px-2 text-xs font-black text-[#173bc8] shadow">
           #{rank}
         </span>
       </div>
 
       <div className="flex flex-col gap-1">
-        <p className="truncate text-sm font-medium">{court.name}</p>
+        <p className="truncate font-heading text-base font-bold">
+          {court.name}
+        </p>
         <p className="flex items-center gap-1 text-xs text-muted-foreground">
           <MapPin className="size-3 shrink-0" />
           {court.ward} · <CourtDistance courtId={court.id} />
         </p>
-        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-semibold">
-          <Star className="size-3 fill-lime text-lime" />
+        <div className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-[#f4f7fc] px-2 py-0.5 text-xs font-semibold">
+          <Star className="size-3 fill-[#f5b400] text-[#f5b400]" />
           {court.rating}
           <span className="text-[10px] font-medium text-muted-foreground">
             {tf(`score.${scoreWord}`)}
           </span>
         </div>
-        <div className="mt-1.5 flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+        <div className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-[#16a34a]">
           <Clock className="size-3 shrink-0" />
           {tad("availableFrom", { time: court.nextSlot })}
           <span className="font-normal text-muted-foreground">
@@ -1274,22 +1366,21 @@ function CourtCard({
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
-        <span className="font-heading text-base font-bold tabular-nums">
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-[#eaf0fc] pt-3">
+        <span className="font-heading text-lg font-black text-brand tabular-nums">
           {formatVnd(court.pricePerHour)}
-          <span className="text-xs font-normal text-muted-foreground">
+          <span className="text-xs font-medium text-muted-foreground">
             {ts("perHour")}
           </span>
         </span>
+        <Button
+          size="sm"
+          className="h-9 rounded-full bg-lime px-4 font-bold text-lime-foreground hover:bg-lime/90"
+          onClick={() => onBook(court.id)}
+        >
+          {ta("book")}
+        </Button>
       </div>
-
-      <Button
-        size="sm"
-        className="rounded-full"
-        onClick={() => onBook(court.id)}
-      >
-        {ta("book")}
-      </Button>
     </div>
   )
 }
@@ -1307,18 +1398,20 @@ function PlayerChatResult({
   onToggle: (p: PlayerMatchResult) => void
   onOpenProfile: (p: PlayerMatchResult) => void
 }) {
+  const t = useTranslations("AiDashboard")
   if (!players.length) {
     return (
-      <div className="rounded-3xl border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted-foreground">
-        No matching players found. Try broadening the area or time.
+      <div className="rounded-3xl border border-dashed border-[#d6e0f7] bg-white px-4 py-8 text-center text-sm text-muted-foreground">
+        {t("noPlayersFound")}
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <p className="pl-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-        {players.length} players matched
+    <div className="flex flex-col gap-2.5">
+      <p className={RESULT_LABEL}>
+        <Users className="size-3.5 text-brand" />
+        {t("playersMatched", { count: players.length })}
       </p>
       {players.map((player) => (
         <PlayerChatCard
@@ -1345,15 +1438,15 @@ function RoomChatResult({
   const t = useTranslations("AiDashboard")
   if (!rooms.length) {
     return (
-      <div className="rounded-3xl border border-dashed border-border bg-background px-4 py-8 text-center text-sm text-muted-foreground">
+      <div className="rounded-3xl border border-dashed border-[#d6e0f7] bg-white px-4 py-8 text-center text-sm text-muted-foreground">
         {t("noRoomsFound")}
       </div>
     )
   }
   return (
-    <div className="flex flex-col gap-2">
-      <p className="pl-1 font-mono text-[10px] tracking-wider text-muted-foreground uppercase">
-        <Zap className="mr-1 inline size-3 text-brand" />
+    <div className="flex flex-col gap-2.5">
+      <p className={RESULT_LABEL}>
+        <Zap className="size-3.5 text-brand" />
         {t("quickMatchRooms", { count: rooms.length })}
       </p>
       {rooms.map((room) => (
@@ -1372,13 +1465,14 @@ function RoomCard({
 }) {
   const t = useTranslations("AiDashboard")
   const tm = useTranslations("MatchMaker")
+  const ts = useTranslations("Shared")
   const { joinedIds, requestedIds } = useSession()
   const open = room.capacity - room.joined
   const isJoined = joinedIds.has(room.id)
   const isRequested = requestedIds.has(room.id)
 
   return (
-    <div className="flex flex-col gap-3 rounded-3xl border border-border bg-background p-3 shadow-sm">
+    <div className={cn(RESULT_CARD, "flex flex-col gap-3 p-4")}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="flex min-w-0 items-center gap-1.5 truncate font-heading text-sm font-semibold">
@@ -1417,21 +1511,23 @@ function RoomCard({
           <Users className="size-3 shrink-0" />
           {t("roomCapacity", { joined: room.joined, capacity: room.capacity })}
           {open > 0 ? (
-            <span className="text-emerald-600 dark:text-emerald-400">
+            <span className="font-semibold text-[#16a34a]">
               · {t("roomSpotsOpen", { count: open })}
             </span>
           ) : null}
         </span>
       </div>
 
-      <div className="flex items-center justify-between border-t border-border pt-2.5">
-        <span className="font-heading text-sm font-bold tabular-nums">
+      <div className="flex items-center justify-between border-t border-[#eaf0fc] pt-3">
+        <span className="font-heading text-base font-black text-brand tabular-nums">
           {formatVnd(room.pricePerHour)}
-          <span className="text-xs font-normal text-muted-foreground">/hr</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            {ts("perHour")}
+          </span>
         </span>
         <Button
           size="sm"
-          className="rounded-full"
+          className="h-9 rounded-full px-4 font-bold"
           variant={isJoined ? "secondary" : room.demo ? "outline" : "default"}
           disabled={isRequested || room.demo}
           title={room.demo ? tm("demoJoin") : undefined}
@@ -1469,6 +1565,7 @@ function PlayerChatCard({
   onToggle: () => void
   onOpenProfile: () => void
 }) {
+  const t = useTranslations("AiDashboard")
   return (
     <article
       role="button"
@@ -1480,22 +1577,27 @@ function PlayerChatCard({
           onOpenProfile()
         }
       }}
-      className="grid cursor-pointer gap-3 rounded-3xl border border-border bg-background p-3 text-left shadow-sm transition-shadow hover:shadow-md"
+      className={cn(
+        RESULT_CARD,
+        "grid cursor-pointer gap-3 p-4 text-left transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        selected && "border-[#2046ed] ring-2 ring-[#2046ed]"
+      )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Avatar className="size-10">
-            <AvatarFallback className="bg-secondary text-sm font-semibold text-secondary-foreground">
+          <Avatar className="size-11">
+            <AvatarFallback className="bg-[#2046ed] text-sm font-bold text-[#a5ff12]">
               {player.initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h3 className="truncate font-heading font-semibold">
-                {player.name}
-              </h3>
+              <h3 className="truncate font-heading font-bold">{player.name}</h3>
               {player.online ? (
-                <span className="size-1.5 rounded-full bg-brand" aria-hidden />
+                <span
+                  className="size-2 rounded-full bg-[#22c55e]"
+                  aria-hidden
+                />
               ) : null}
             </div>
             <p className="truncate text-xs text-muted-foreground">
@@ -1509,7 +1611,7 @@ function PlayerChatCard({
       <div className="flex flex-wrap gap-1.5">
         <SportTag sport={player.sport} />
         <LevelChip level={player.level} />
-        <Badge variant="outline" className="text-xs">
+        <Badge className="bg-[#f4f7fc] text-xs text-[#173bc8]">
           {player.preferredArea}
         </Badge>
         <span
@@ -1527,14 +1629,19 @@ function PlayerChatCard({
         </span>
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
+      <div className="flex items-center justify-between gap-2 border-t border-[#eaf0fc] pt-3">
         <p className="truncate text-xs text-muted-foreground">
           {player.reason}
         </p>
         <Button
           size="sm"
-          variant={selected ? "secondary" : "default"}
-          className="shrink-0 rounded-full"
+          aria-pressed={selected}
+          className={cn(
+            "h-9 shrink-0 rounded-full px-4 font-bold",
+            selected
+              ? "bg-[#2046ed] text-white hover:bg-[#173bc8]"
+              : "bg-lime text-lime-foreground hover:bg-lime/90"
+          )}
           onClick={(e) => {
             e.stopPropagation()
             onToggle()
@@ -1545,7 +1652,7 @@ function PlayerChatCard({
           ) : (
             <Plus className="size-3.5" />
           )}
-          {selected ? "Selected" : "Select"}
+          {selected ? t("selected") : t("select")}
         </Button>
       </div>
     </article>

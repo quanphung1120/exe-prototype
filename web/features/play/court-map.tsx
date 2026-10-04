@@ -28,13 +28,33 @@ const HCMC = { longitude: 106.7009, latitude: 10.7769, zoom: 11.2 }
  * glides the camera to it. When the player shares their location it shows as a
  * pulsing dot and the camera fits both them and the courts in view.
  */
-export function CourtMap({
+// Memoized: Mapbox re-positions every Marker on each render, so a parent that
+// re-renders often (session/matchmaking ticks) would otherwise keep the main
+// thread busy and make unrelated UI (e.g. topbar popups) feel laggy. `onSelect`
+// is excluded from the comparison — callers pass inline/unstable callbacks, and
+// the latest one is read through a ref.
+export const CourtMap = React.memo(
+  CourtMapImpl,
+  (prev, next) =>
+    prev.forceDark === next.forceDark &&
+    prev.blueMarkers === next.blueMarkers &&
+    prev.courts === next.courts &&
+    prev.venues === next.venues &&
+    prev.selectedId === next.selectedId &&
+    prev.userLoc === next.userLoc
+)
+
+function CourtMapImpl({
+  forceDark = false,
+  blueMarkers = false,
   courts,
   venues,
   selectedId,
   onSelect,
   userLoc,
 }: {
+  forceDark?: boolean
+  blueMarkers?: boolean
   courts: (Court & LatLng)[]
   /** One pin per branch (venue coords) — shown alongside the court price-pills. */
   venues: (VenuePin & LatLng)[]
@@ -46,6 +66,10 @@ export function CourtMap({
   const fittedRef = React.useRef(false)
   const { resolvedTheme } = useTheme()
   const [hoverVenueId, setHoverVenueId] = React.useState<string | null>(null)
+  const onSelectRef = React.useRef(onSelect)
+  React.useEffect(() => {
+    onSelectRef.current = onSelect
+  })
 
   // Glide the camera to the active court whenever the selection changes.
   React.useEffect(() => {
@@ -86,14 +110,21 @@ export function CourtMap({
 
   if (!TOKEN) {
     return (
-      <div className="grid h-full place-items-center bg-card px-6 text-center text-sm text-muted-foreground">
+      <div
+        className={cn(
+          "grid h-full place-items-center px-6 text-center text-sm",
+          forceDark
+            ? "bg-[#101a33] text-[#9fb0dd]"
+            : "bg-card text-muted-foreground"
+        )}
+      >
         Set <code className="mx-1 font-mono">NEXT_PUBLIC_BOXMAP_TOKEN</code> to
         enable the map.
       </div>
     )
   }
 
-  const dark = resolvedTheme === "dark"
+  const dark = forceDark || resolvedTheme === "dark"
 
   return (
     <Map
@@ -172,7 +203,7 @@ export function CourtMap({
             style={{ zIndex: active ? 3 : 1 }}
             onClick={(e: MarkerEvent<MouseEvent>) => {
               e.originalEvent.stopPropagation()
-              onSelect(c.id)
+              onSelectRef.current(c.id)
             }}
           >
             <button
@@ -187,18 +218,21 @@ export function CourtMap({
               ) : null}
               <span
                 className={cn(
-                  "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-md ring-2 transition-transform",
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-md ring-2 transition-transform",
                   active
                     ? "scale-110 bg-brand text-brand-foreground ring-brand-foreground/40"
-                    : "bg-foreground text-background ring-background/70"
+                    : blueMarkers
+                      ? "bg-brand text-brand-foreground ring-white/90"
+                      : "bg-foreground text-background ring-background/70"
                 )}
               >
+                {blueMarkers ? <MapPin className="size-3.5" /> : null}
                 {formatVnd(c.pricePerHour)}
               </span>
               <span
                 className={cn(
                   "-mt-0.5 size-2 rotate-45 shadow-md",
-                  active ? "bg-brand" : "bg-foreground"
+                  active || blueMarkers ? "bg-brand" : "bg-foreground"
                 )}
               />
             </button>

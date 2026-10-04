@@ -108,14 +108,14 @@ export function AppSidebar() {
   const handleSignOut = () => void signOut({ redirectUrl: "/" + locale })
 
   const switchToPlayer = () => {
-    router.push("/dashboard")
+    router.push("/app")
     handleNavigate()
   }
 
   // Switch to the admin workspace — only reachable when the sidebar renders
   // the entry below, which is itself gated on the Clerk role.
   const switchToAdmin = () => {
-    router.push("/dashboard/admin")
+    router.push("/app/admin")
     handleNavigate()
   }
 

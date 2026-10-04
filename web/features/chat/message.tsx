@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useLocale } from "next-intl"
 import { Check, CheckCheck, SmilePlus, Trash2 } from "lucide-react"
 import {
   MessageText,
@@ -25,6 +26,7 @@ import {
 import { ChatAvatar } from "@/features/chat/chat-avatar"
 import { playerInitialsFromStreamId } from "@/features/chat/channel-ids"
 import { useOpenChatProfile } from "@/features/chat/profile-context"
+import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
 
 /** The quick-reaction set; types are Stream's built-in reaction types. */
 const QUICK_REACTIONS = [
@@ -58,6 +60,9 @@ export function ChatMessage() {
   const { t } = useTranslationContext("ChatMessage")
   const { members } = useChannelStateContext("ChatMessage")
   const openProfile = useOpenChatProfile()
+  const locale = useLocale()
+  // The operator inbox keeps its neutral visual variant.
+  const player = !React.useContext(VenueInboxContext)
   const [hovered, setHovered] = React.useState(false)
   const [pickerOpen, setPickerOpen] = React.useState(false)
 
@@ -93,7 +98,7 @@ export function ChatMessage() {
   return (
     <div
       className={cn(
-        "flex w-full gap-2 px-1",
+        "group/message flex w-full gap-2 px-1",
         mine ? "justify-end" : "justify-start",
         firstOfGroup ? "mt-3" : "mt-0.5"
       )}
@@ -126,7 +131,14 @@ export function ChatMessage() {
                 onOpenProfile={showProfile}
               />
             )}
-            <div className="rounded-2xl bg-muted/60 px-3.5 py-2 text-sm text-muted-foreground italic">
+            <div
+              className={cn(
+                "rounded-2xl px-3.5 py-2 text-sm italic",
+                player
+                  ? "bg-[var(--pc-bubble-in)] text-[var(--pc-muted)]"
+                  : "bg-muted/60 text-muted-foreground"
+              )}
+            >
               {t("Message deleted")}
             </div>
           </div>
@@ -150,8 +162,12 @@ export function ChatMessage() {
               className={cn(
                 "min-w-0 rounded-3xl px-4 py-2",
                 mine
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-foreground",
+                  ? player
+                    ? "bg-[var(--pc-bubble-out)] text-[var(--pc-bubble-out-ink)]"
+                    : "bg-primary text-primary-foreground"
+                  : player
+                    ? "bg-[var(--pc-bubble-in)] text-[var(--pc-ink)]"
+                    : "bg-muted text-foreground",
                 failed && "opacity-70",
                 lastOfGroup && (mine ? "rounded-br-md" : "rounded-bl-md")
               )}
@@ -170,7 +186,7 @@ export function ChatMessage() {
                 its popover is open. */}
             <div
               className={cn(
-                "flex shrink-0 items-center transition-opacity",
+                "flex shrink-0 items-center transition-opacity group-focus-within/message:opacity-100",
                 hovered || pickerOpen ? "opacity-100" : "opacity-0"
               )}
             >
@@ -232,8 +248,12 @@ export function ChatMessage() {
                   className={cn(
                     "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs",
                     own
-                      ? "border-brand/40 bg-brand/10"
-                      : "border-border bg-card hover:bg-muted"
+                      ? player
+                        ? "border-[var(--pc-accent-soft-strong)] bg-[var(--pc-accent-soft)]"
+                        : "border-brand/40 bg-brand/10"
+                      : player
+                        ? "border-[var(--pc-border)] bg-[var(--pc-bg)] hover:bg-[var(--pc-surface-2)]"
+                        : "border-border bg-card hover:bg-muted"
                   )}
                   onClick={(event) => {
                     void handleReaction(type, event)
@@ -271,11 +291,21 @@ export function ChatMessage() {
         ) : (
           lastOfGroup &&
           !deleted && (
-            <div className="mt-0.5 flex items-center gap-1 px-1 text-[11px] text-muted-foreground">
+            <div
+              className={cn(
+                "mt-0.5 flex items-center gap-1 px-1 text-[11px]",
+                player ? "text-[var(--pc-muted)]" : "text-muted-foreground"
+              )}
+            >
               {/* Delivery receipt, WhatsApp-style: ✓ delivered, ✓✓ read. */}
               {mine &&
                 (readByOthers ? (
-                  <CheckCheck className="size-3.5 text-brand" />
+                  <CheckCheck
+                    className={cn(
+                      "size-3.5",
+                      player ? "text-[var(--pc-accent-strong)]" : "text-brand"
+                    )}
+                  />
                 ) : (
                   <Check
                     className={cn(
@@ -284,7 +314,24 @@ export function ChatMessage() {
                     )}
                   />
                 ))}
-              <MessageTimestamp customClass="text-[11px] text-muted-foreground" />
+              {player && message.created_at ? (
+                <time
+                  dateTime={new Date(message.created_at).toISOString()}
+                  title={new Intl.DateTimeFormat(locale, {
+                    dateStyle: "full",
+                    timeStyle: "short",
+                  }).format(new Date(message.created_at))}
+                  className="text-[11px] text-[var(--pc-muted)]"
+                >
+                  {new Intl.DateTimeFormat(locale, {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  }).format(new Date(message.created_at))}
+                </time>
+              ) : (
+                <MessageTimestamp customClass="text-[11px] text-muted-foreground" />
+              )}
               {isMessageEdited(message) && <span>· {t("Edited")}</span>}
             </div>
           )

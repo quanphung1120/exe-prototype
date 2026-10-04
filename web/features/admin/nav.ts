@@ -13,7 +13,7 @@ export type AdminSectionKey =
   "overview" | "venues" | "bookings" | "discounts" | "refunds" | "approvals"
 
 /** Every admin route lives under this prefix — one cross-tenant surface, not per-venue. */
-export const ADMIN_BASE_PREFIX = "/dashboard/admin"
+export const ADMIN_BASE_PREFIX = "/app/admin"
 
 /**
  * The admin's sidebar — mirrors the player {@link NAV}/venue `venueNav` shape

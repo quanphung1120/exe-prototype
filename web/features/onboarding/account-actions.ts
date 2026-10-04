@@ -13,5 +13,5 @@ export async function chooseAccountType(
     method: "PUT",
     body: { accountType },
   })
-  revalidatePath("/dashboard", "layout")
+  revalidatePath("/app", "layout")
 }

@@ -1,0 +1,374 @@
+KỊCH BẢN DEMO MVP SHUTTIO CHO GIẢNG VIÊN
+======================================
+
+Thời lượng đề xuất: 20–25 phút, chưa tính hỏi đáp.
+Mục tiêu: chứng minh một luồng đặt sân cầu lông xuyên suốt giữa người chơi,
+chủ sân và quản trị viên; sau đó giới thiệu các chức năng hỗ trợ.
+
+Câu chuyện chính:
+“Một sinh viên muốn chơi cầu lông nhưng chưa có đủ người và chưa đặt sân.
+Bạn ấy dùng Shuttio để tìm người chơi, lập nhóm, chọn sân và thanh toán.
+Chủ sân nhận yêu cầu, duyệt và quản lý lịch trên cùng hệ thống.”
+
+THỨ TỰ TỔNG QUÁT
+Trang giới thiệu → Đăng nhập/chọn vai trò → Đánh giá trình độ → Trợ lý AI
+→ Tìm sân → Tạo nhóm/xin tham gia → Chat nhóm → Đặt sân từ nhóm
+→ Thanh toán → Chủ sân duyệt → Người chơi kiểm tra lịch
+→ Vận hành sân → Thống kê/khách hàng → Quản trị → Tổng kết.
+
+
+A. CHUẨN BỊ TRƯỚC BUỔI DEMO — KHÔNG TRÌNH CHIẾU PHẦN NÀY
+-------------------------------------------------------
+1. Chuẩn bị bốn phiên đăng nhập riêng bằng các browser profile khác nhau:
+   - P1: người chơi chính, đóng vai chủ nhóm.
+   - P2: người chơi thứ hai, xin tham gia nhóm và gửi tin nhắn.
+   - V: chủ sân, có quyền quản lý đúng địa điểm sẽ được đặt.
+   - A: quản trị viên, có quyền vào khu vực Quản trị.
+   Đặt tên cửa sổ rõ ràng để chuyển vai nhanh, tránh đăng xuất liên tục.
+
+2. Chuẩn bị dữ liệu và ghi sẵn vào giấy:
+   - Tên địa điểm: _______________________________
+   - Tên sân cụ thể: ______________________________
+   - Ngày chơi tương lai: _________________________
+   - Giờ bắt đầu/kết thúc: ________________________
+   - Tên nhóm: “Cầu lông demo MVP”.
+   - Mã giảm giá thử nghiệm còn hiệu lực: __________
+   Chọn một sân thuộc địa điểm đã được duyệt, có tọa độ đúng, đang hoạt động
+   và có khung giờ trống phù hợp. Không dùng phòng mẫu không cho tham gia.
+
+3. Chuẩn bị thêm các dữ liệu riêng để không phá luồng chính:
+   - Trên 10 yêu cầu đặt sân tại địa điểm của V để show chuyển trang.
+   - Ít nhất một yêu cầu đang chờ chủ sân duyệt.
+   - Một đơn thử nghiệm riêng để minh họa từ chối/hủy, nếu cần.
+   - Một địa điểm chờ quản trị viên duyệt.
+   - Dữ liệu lịch sử để biểu đồ và danh sách khách hàng có nội dung.
+   Những dữ liệu dựng sẵn phải được giới thiệu là dữ liệu demo.
+
+4. Chạy thử đúng luồng chính một lần trước buổi báo cáo:
+   - Đăng nhập, AI, bản đồ và chat hoạt động.
+   - Cho phép trình duyệt truy cập vị trí; máy dùng HTTPS hoặc localhost.
+   - Kiểm tra SePay sandbox và callback thanh toán hoạt động.
+   - Sau thanh toán, xác nhận đơn xuất hiện ở đúng tài khoản chủ sân.
+   - Xác nhận tên sân, ngày và giờ ở phía người chơi và chủ sân giống nhau.
+   - Không nhập khóa API, tài khoản ngân hàng hoặc thông tin bí mật vào file này.
+
+5. Chuẩn bị phương án dự phòng:
+   - Một đơn đã thanh toán trong môi trường thử nghiệm, đang chờ duyệt.
+   - Một nhóm thật đã có P1 và P2, có lịch sử tin nhắn.
+   - Một câu hỏi AI đã chạy ổn; quay video ngắn luồng thanh toán thành công.
+   - Phóng to trình duyệt đủ đọc trên máy chiếu; tắt thông báo cá nhân.
+
+
+B. KỊCH BẢN TRÌNH CHIẾU CHÍNH
+----------------------------
+
+BƯỚC 01 — GIỚI THIỆU BÀI TOÁN [45 giây]
+Vai: chưa cần đăng nhập. Màn hình: trang giới thiệu.
+
+THAO TÁC:
+- Mở trang chủ, show tên Shuttio và phần giới thiệu giá trị sản phẩm.
+- Cuộn ngắn qua phần tính năng; không đọc toàn bộ landing page.
+
+LỜI DẪN:
+“Shuttio giúp người chơi cầu lông tìm sân, tìm người chơi cùng và tổ chức
+một buổi chơi. Ở phía chủ sân, hệ thống hỗ trợ nhận đặt sân và quản lý lịch.
+Em sẽ demo một tình huống hoàn chỉnh thay vì chỉ giới thiệu từng màn hình.”
+
+ĐIỂM CẦN CHỈ: hai nhóm sử dụng chính là người chơi và chủ sân; quản trị viên
+hỗ trợ quản lý nền tảng.
+
+
+BƯỚC 02 — ĐĂNG NHẬP, CHỌN VAI TRÒ VÀ HỒ SƠ [1 phút]
+Vai: P1. Màn hình: Đăng nhập → chọn vai trò nếu là tài khoản mới.
+
+THAO TÁC:
+- Đăng nhập tài khoản demo P1 đã chuẩn bị.
+- Nếu dùng tài khoản mới, show lựa chọn người chơi/chủ sân hoặc cả hai.
+- Mở hồ sơ tài khoản để giới thiệu thông tin người chơi.
+
+LỜI DẪN:
+“Mỗi vai trò có khu vực làm việc phù hợp. Người chơi có hồ sơ để hỗ trợ
+việc tìm người chơi cùng và quản lý các buổi chơi của mình.”
+
+LƯU Ý: tài khoản đã hoàn tất onboarding có thể vào thẳng dashboard;
+không mất thời gian tìm lại màn hình chọn vai trò nếu nó không xuất hiện.
+
+
+BƯỚC 03 — ĐÁNH GIÁ TRÌNH ĐỘ CẦU LÔNG [1 phút]
+Vai: P1. Màn hình: Đánh giá trình độ, đường dẫn /assessment.
+
+THAO TÁC:
+- Mở bài đánh giá, show một vài câu hỏi về trình độ.
+- Hoàn thành ngắn gọn và chỉ kết quả đánh giá.
+- Dùng kết quả này để chuyển sang câu chuyện tìm người phù hợp.
+
+LỜI DẪN:
+“Người dùng tự đánh giá trình độ để hệ thống có thêm thông tin khi gợi ý
+người chơi. Đây là đánh giá theo câu trả lời, không phải chứng nhận chuyên môn.”
+
+
+BƯỚC 04 — TRỢ LÝ AI TÌM SÂN/TÌM NGƯỜI CHƠI [1–2 phút]
+Vai: P1. Màn hình: Dashboard, đường dẫn /dashboard.
+
+THAO TÁC:
+- Nhập: “Tìm sân cầu lông gần tôi, giá dưới 200.000 đồng/giờ.”
+  Điều chỉnh ngân sách theo dữ liệu đã chuẩn bị để có kết quả.
+- Chỉ các thẻ gợi ý: tên sân, giá, địa chỉ và khoảng cách nếu đã có vị trí.
+- Hỏi thêm: “Tôi muốn tìm người chơi cầu lông cùng trình độ.”
+- Show thông tin gợi ý hoặc câu hỏi làm rõ nhu cầu của trợ lý.
+
+LỜI DẪN:
+“Người dùng có thể diễn đạt nhu cầu bằng ngôn ngữ tự nhiên. Trợ lý hỗ trợ
+tìm kiếm và đưa ra lựa chọn; người dùng vẫn xem lại thông tin trước khi đặt.”
+
+ĐIỂM CẦN CHỈ: gợi ý có dữ liệu sân/người chơi để tiếp tục thao tác,
+không chỉ là một đoạn văn trả lời.
+Không cam kết AI luôn cho cùng một kết quả hoặc luôn có người phù hợp.
+
+
+BƯỚC 05 — TÌM SÂN TRÊN BẢN ĐỒ VÀ DANH SÁCH [1 phút]
+Vai: P1. Màn hình: Chơi → Sân, đường dẫn /dashboard/play.
+
+THAO TÁC:
+- Tìm địa điểm đã chuẩn bị theo tên hoặc địa chỉ.
+- Chọn một thẻ sân để show vị trí trên bản đồ.
+- Show sắp xếp theo khoảng cách, giá hoặc đánh giá.
+- Chỉ tên sân cụ thể và giá; ở bước này chưa thanh toán.
+
+LỜI DẪN:
+“Ngoài AI, người dùng có thể tự tìm và so sánh sân. Khoảng cách được tính
+từ vị trí người xem đến tọa độ địa điểm, theo đường chim bay.”
+
+ĐIỂM CẦN CHỈ: nếu chưa cấp vị trí hoặc sân thiếu tọa độ, hệ thống báo
+chưa xác định khoảng cách, không tự đưa ra một số km giả.
+
+
+BƯỚC 06 — TẠO NHÓM CHƯA ĐẶT SÂN VÀ DUYỆT THÀNH VIÊN [2 phút]
+Vai: P1 → P2 → P1. Màn hình: Chơi → Phòng.
+
+THAO TÁC:
+- P1 bấm tạo phòng/nhóm, nhập tên “Cầu lông demo MVP”.
+- Chọn trình độ, số người và lịch dự kiến theo biểu mẫu. Tạo nhóm.
+- Chỉ trạng thái nhóm chưa đặt sân: thông tin dự kiến chưa phải đơn đặt.
+- Chuyển sang P2, tìm đúng nhóm vừa tạo và gửi yêu cầu tham gia.
+- Quay lại P1, mở quản lý nhóm và duyệt yêu cầu của P2.
+- Chỉ danh sách thành viên đã cập nhật.
+
+LỜI DẪN:
+“Người dùng có thể tập hợp đội trước, đặt sân sau. Chủ nhóm kiểm soát
+người tham gia, thay vì bất kỳ ai cũng tự vào nhóm ngay.”
+
+ĐIỂM CẦN CHỈ: dùng hai tài khoản khác nhau để chứng minh luồng gửi yêu cầu
+và phê duyệt thực sự, không chỉ mở một hộp thoại.
+
+
+BƯỚC 07 — CHAT ĐỂ CHỐT BUỔI CHƠI [45 giây]
+Vai: P1 và P2. Màn hình: Chat của nhóm, /dashboard/chat.
+
+THAO TÁC:
+- Từ nhóm, bấm mở chat.
+- P1 gửi: “Nhóm mình chốt sân và giờ như lịch dự kiến nhé.”
+- P2 trả lời: “Mình tham gia được.”
+- Chỉ tin nhắn xuất hiện ở hai phiên đăng nhập.
+
+LỜI DẪN:
+“Sau khi ghép nhóm, các thành viên có thể trao đổi ngay trong ứng dụng
+để thống nhất lịch và địa điểm.”
+
+
+BƯỚC 08 — ĐẶT SÂN NGAY TỪ NHÓM [1–2 phút]
+Vai: P1, chủ nhóm. Màn hình: quản lý nhóm → Đặt sân.
+
+THAO TÁC:
+- Bấm Đặt sân trong nhóm chưa có sân.
+- Chỉ bước chọn sân xuất hiện; chọn đúng sân cụ thể đã chuẩn bị.
+- Chọn ngày, giờ bắt đầu và thời lượng.
+- Chỉ lịch trống/bận và tổng tiền.
+- Sang bước xác nhận; đọc rõ tên sân, ngày, giờ và danh sách người chơi.
+
+LỜI DẪN:
+“Chủ nhóm chủ động chọn sân phù hợp rồi kiểm tra lịch. Đơn đặt vẫn gắn
+với nhóm đã tạo, không cần lập lại danh sách thành viên.”
+
+ĐIỂM CẦN CHỈ: tên sân đã chọn sẽ được đối chiếu lại sau thanh toán.
+Không nói “đã giữ sân trên máy chủ” chỉ vì vừa chọn một ô lịch.
+
+
+BƯỚC 09 — MÃ GIẢM GIÁ VÀ THANH TOÁN [1–2 phút]
+Vai: P1. Màn hình: xác nhận/thanh toán → SePay → quay lại ứng dụng.
+
+THAO TÁC:
+- Nếu đã chuẩn bị mã hợp lệ, nhập mã và chỉ tổng tiền trước/sau giảm.
+- Bấm thanh toán, show giao diện thanh toán SePay thử nghiệm.
+- Hoàn tất đúng quy trình sandbox đã chạy thử trước buổi demo.
+- Khi quay lại ứng dụng, chờ trạng thái thanh toán được xác nhận.
+- Mở lịch đặt, chỉ đơn vừa tạo và trạng thái đang chờ chủ sân duyệt.
+
+LỜI DẪN:
+“Đây là giao dịch trong môi trường thử nghiệm. Thanh toán thành công và
+chủ sân xác nhận là hai bước riêng; hệ thống theo dõi từng trạng thái.”
+
+ĐIỂM CẦN CHỈ: đúng sân, đúng lịch, đúng tổng tiền; không gọi đơn chưa được
+xác nhận thanh toán là đã thanh toán thành công.
+
+
+BƯỚC 10 — CHỦ SÂN NHẬN VÀ DUYỆT ĐƠN [1–2 phút]
+Vai: V. Màn hình: Lịch sân → tab Đặt sân.
+
+THAO TÁC:
+- Mở khu vực quản lý đúng địa điểm của đơn vừa đặt.
+- Chỉ số lượng yêu cầu chờ duyệt và các yêu cầu này ở đầu danh sách.
+- Show phân trang: mặc định 10 dòng, đổi 20/50 hoặc chuyển trang.
+- Chọn bộ lọc chờ duyệt để tìm đơn của P1.
+- Đối chiếu người đặt, tên sân, ngày, giờ và giá; bấm Duyệt.
+- Chuyển sang tab Lịch để show khung giờ tương ứng.
+
+LỜI DẪN:
+“Chủ sân ưu tiên xử lý yêu cầu đang chờ. Khi dữ liệu nhiều, danh sách
+được phân trang, có bộ lọc và vẫn đưa các yêu cầu cần xử lý lên trước.”
+
+ĐIỂM CẦN CHỈ: thao tác trên chính đơn P1 vừa tạo, không một đơn khác.
+
+
+BƯỚC 11 — QUAY LẠI NGƯỜI CHƠI, KHÉP KÍN LUỒNG [1 phút]
+Vai: P1. Màn hình: Lịch đặt /dashboard/bookings và thông báo.
+
+THAO TÁC:
+- Mở lịch đặt, chọn đơn vừa được chủ sân duyệt.
+- Chỉ trạng thái mới, tên sân, ngày và giờ.
+- Đối chiếu với bước 08 và lịch bên chủ sân.
+- Mở chuông thông báo để show thông báo liên quan nếu đã nhận.
+- Nếu dữ liệu chưa kịp cập nhật, chờ một nhịp rồi tải lại trang.
+
+LỜI DẪN:
+“Luồng chính đã hoàn tất: tạo nhóm, đặt sân, thanh toán và được chủ sân
+xác nhận. Hai phía cùng theo dõi một lịch đặt nhất quán.”
+
+
+BƯỚC 12 — CHỨC NĂNG VẬN HÀNH CỦA CHỦ SÂN [2 phút]
+Vai: V. Màn hình: Trung tâm điều hành → Sân → Lịch sân → Tin nhắn.
+
+THAO TÁC THEO THỨ TỰ:
+1. Trung tâm điều hành: chỉ các chỉ số và lịch hoạt động đang hiển thị.
+2. Sân: mở form thêm/sửa sân, show tên sân, giá và trạng thái hoạt động.
+   Dùng sân demo riêng nếu cần lưu thay đổi.
+3. Lịch sân: mở một khung trống để show thêm khách vãng lai.
+4. Mở chức năng chặn khung giờ/bảo trì và phần nhập lý do.
+5. Mở một đơn thử nghiệm để show đổi lịch/hủy theo trạng thái cho phép.
+6. Tin nhắn: show kênh trao đổi giữa địa điểm và người chơi.
+
+LỜI DẪN:
+“Chủ sân quản lý cả khách đặt trên app lẫn khách đến trực tiếp, đồng thời
+có thể chặn lịch khi bảo trì và trao đổi với khách.”
+
+LƯU Ý: chỉ cần mở form để giới thiệu các thao tác phụ; nói rõ là đang
+giới thiệu form nếu chưa bấm lưu. Không hủy hoặc đổi lịch đơn chính.
+
+
+BƯỚC 13 — THỐNG KÊ VÀ KHÁCH HÀNG [1 phút]
+Vai: V. Màn hình: Phân tích → Khách hàng.
+
+THAO TÁC:
+- Show biểu đồ doanh thu, mức sử dụng sân và khung giờ có nhu cầu.
+- Chuyển sang danh sách khách hàng; mở thông tin một khách.
+- Chỉ lịch sử/chỉ số đang có trên màn hình.
+
+LỜI DẪN:
+“Dữ liệu vận hành giúp chủ sân theo dõi hoạt động và khách hàng.
+Các số liệu lịch sử đang trình chiếu là dữ liệu demo, không phải kết quả
+kinh doanh thực tế của một đơn vị đang sử dụng sản phẩm.”
+
+
+BƯỚC 14 — QUẢN TRỊ TOÀN HỆ THỐNG [2 phút]
+Vai: A. Màn hình: /dashboard/admin.
+
+THAO TÁC THEO THỨ TỰ:
+1. Tổng quan: show các chỉ số cấp hệ thống.
+2. Venue & thương hiệu: show danh sách thương hiệu và chi nhánh.
+3. Phê duyệt: mở địa điểm demo đang chờ; xem thông tin và duyệt.
+   Nêu khác biệt: admin duyệt địa điểm, chủ sân duyệt yêu cầu đặt sân.
+4. Đặt sân & thanh toán: tìm/đối chiếu đơn vừa demo.
+5. Mã giảm giá: show mã đã dùng và form tạo/chỉnh sửa mã.
+6. Hàng đợi hoàn tiền: show một bản ghi demo và thao tác xác nhận xử lý.
+
+LỜI DẪN:
+“Quản trị viên quản lý địa điểm, giao dịch và các hoạt động hỗ trợ của
+toàn nền tảng, trong khi chủ sân chỉ vận hành địa điểm của mình.”
+
+LƯU Ý VỀ HOÀN TIỀN:
+- Hiện tại hoàn tiền là quy trình xử lý thủ công, không tự chuyển tiền
+  về ngân hàng chỉ bằng việc bấm nút trong app.
+- Chỉ xác nhận đã xử lý khi giao dịch hoàn tương ứng thực sự đã được
+  thực hiện trong quy trình thử nghiệm. Nếu chưa, chỉ mở form giới thiệu.
+
+
+BƯỚC 15 — KẾT THÚC VÀ MỜI HỎI ĐÁP [45 giây]
+Màn hình: quay về lịch đặt đã xác nhận của P1.
+
+LỜI KẾT:
+“MVP đã kết nối ba vai trò trong một quy trình: người chơi tìm sân và
+tổ chức nhóm, chủ sân xử lý đặt sân và vận hành, quản trị viên quản lý
+nền tảng. Điểm em muốn nhấn mạnh là luồng từ nhu cầu đến lịch đặt được
+xác nhận đã đi xuyên suốt qua các vai trò, thay vì chỉ có giao diện mẫu.
+Em xin nhận góp ý của thầy/cô về trải nghiệm và phạm vi MVP.”
+
+
+C. XỬ LÝ TÌNH HUỐNG KHI DEMO
+---------------------------
+- AI chậm hoặc lỗi:
+  Chờ khoảng 15–20 giây rồi chuyển sang tìm sân bằng bộ lọc.
+  Nói: “Em chuyển sang luồng tìm trực tiếp; chức năng đặt sân không phụ
+  thuộc hoàn toàn vào trợ lý AI.” Không bấm gửi lặp lại liên tục.
+
+- Không có quyền vị trí hoặc bản đồ không tải:
+  Show danh sách, tìm theo tên/địa chỉ. Nói rõ chưa có vị trí nên không
+  hiển thị khoảng cách; không dùng số km ước lượng để thay thế.
+
+- Khung giờ dự kiến đã bị đặt:
+  Chọn khung giờ trống dự phòng; đọc lại ngày/giờ mới trước thanh toán.
+
+- Thanh toán/callback chậm:
+  Không tạo thêm nhiều đơn. Chuyển sang đơn sandbox đã thanh toán chuẩn bị
+  sẵn để demo bước chủ sân duyệt; nói rõ đây là đơn dự phòng từ lần chạy thử.
+  Có thể mở video đã quay, đồng thời giới thiệu rõ đó là video dự phòng.
+
+- Yêu cầu tham gia hoặc chat chưa cập nhật:
+  Chờ ngắn rồi tải lại hai phía. Nếu dịch vụ chưa hoạt động, dùng nhóm
+  chuẩn bị sẵn và nói rõ đang giới thiệu dữ liệu đã có.
+
+- Chưa đủ dữ liệu để chuyển trang hoặc xem biểu đồ:
+  Show bộ chọn số dòng và giao diện; không nói rằng đã chứng minh chuyển
+  trang nếu thực tế chỉ có một trang. Nên xử lý việc thiếu dữ liệu từ trước.
+
+
+D. NẾU GIẢNG VIÊN CHỈ CHO 10 PHÚT
+---------------------------------
+0:00–0:30  Giới thiệu bài toán và ba vai trò.
+0:30–1:15  Show kết quả đánh giá đã có + một yêu cầu tìm sân bằng AI.
+1:15–2:45  Nhóm chưa đặt sân → chọn sân → chọn lịch → xác nhận.
+2:45–4:15  Thanh toán sandbox; dùng phương án dự phòng nếu callback chậm.
+4:15–5:45  Chủ sân: chờ duyệt lên đầu → phân trang → duyệt đơn.
+5:45–6:30  Người chơi: đối chiếu tên sân/lịch và trạng thái xác nhận.
+6:30–7:30  Chủ sân: lịch, quản lý sân, thống kê và khách hàng.
+7:30–9:15  Admin: địa điểm, phê duyệt, giao dịch, mã giảm giá, hoàn tiền.
+9:15–10:00 Tổng kết, mời hỏi đáp.
+
+Bản 10 phút dùng sẵn tài khoản, kết quả đánh giá và nhóm đã có thành viên.
+Ưu tiên hoàn thành luồng chính; chỉ giới thiệu ngắn các màn hình còn lại.
+
+
+E. TỰ KIỂM TRA TRƯỚC KHI KẾT THÚC
+----------------------------------
+[ ] Đã nói rõ bài toán và đối tượng sử dụng.
+[ ] Đã chỉ ra khác biệt giữa gợi ý AI và thao tác đặt sân có xác nhận.
+[ ] Đã show nhóm chưa đặt sân có thể chọn sân để đặt.
+[ ] Đã đối chiếu cùng một đơn ở người chơi và chủ sân.
+[ ] Đã phân biệt thanh toán thành công với chủ sân đã duyệt.
+[ ] Đã show ưu tiên chờ duyệt và phân trang.
+[ ] Đã giới thiệu quản lý sân, lịch, chat, thống kê và khách hàng.
+[ ] Đã giới thiệu vai trò quản trị, mã giảm giá và hoàn tiền thủ công.
+[ ] Đã nói rõ phần nào là dữ liệu demo hoặc phương án dự phòng.
+
+Ghi chú: kịch bản được xây dựng từ các màn hình và luồng trong mã nguồn
+hiện tại. Cần chạy thử trên đúng môi trường trình chiếu; sự tồn tại của
+màn hình không thay thế việc xác minh cấu hình các dịch vụ tích hợp.

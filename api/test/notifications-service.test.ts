@@ -50,7 +50,7 @@ void test("create inserts a notification with the producer's id as notifId", asy
     id: "booking-approved-b1",
     kind: "booking",
     text: "Chủ sân đã duyệt đặt sân của bạn.",
-    href: "/dashboard/bookings",
+    href: "/app/bookings",
   })
 
   assert.deepEqual(created, {
@@ -58,7 +58,7 @@ void test("create inserts a notification with the producer's id as notifId", asy
     notifId: "booking-approved-b1",
     kind: "booking",
     text: "Chủ sân đã duyệt đặt sân của bạn.",
-    href: "/dashboard/bookings",
+    href: "/app/bookings",
     read: false,
   })
 })
@@ -115,7 +115,7 @@ void test("list maps lean docs to NotificationRecord, newest first", async () =>
                 notifId: "booking-approved-b1",
                 kind: "booking",
                 text: "Chủ sân đã duyệt đặt sân của bạn.",
-                href: "/dashboard/bookings",
+                href: "/app/bookings",
                 read: false,
                 createdAt,
               },
@@ -133,7 +133,7 @@ void test("list maps lean docs to NotificationRecord, newest first", async () =>
       id: "booking-approved-b1",
       kind: "booking",
       text: "Chủ sân đã duyệt đặt sân của bạn.",
-      href: "/dashboard/bookings",
+      href: "/app/bookings",
       read: false,
       createdAt: createdAt.toISOString(),
     },

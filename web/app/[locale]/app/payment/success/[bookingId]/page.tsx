@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { PaymentSuccessView } from "@/features/booking/payment-success"
+import { PaymentReturnPage } from "@/features/booking/payment-success"
 
-// Landed on straight after a real SePay checkout — `successUrl` in
-// `PaymentsService#checkout` (api) points here, `${SEPAY_RETURN_URL}/<bookingId>`.
-// SePay always returns in the default locale; `PaymentSuccessView` restores the
-// player's original locale (stashed in localStorage) before showing the result.
+// Landed on straight after a successful SePay checkout — `success_url` in
+// `PaymentsService#checkout` (api, see `return-urls.ts`) points here,
+// `${SEPAY_RETURN_URL}/success/<bookingId>`. SePay always returns in the
+// default locale; `PaymentReturnPage` restores the player's original locale
+// (stashed in localStorage) before showing the result.
 export async function generateMetadata({
   params,
 }: {
@@ -24,5 +25,5 @@ export default async function PaymentSuccessPage({
 }) {
   const { locale, bookingId } = await params
   setRequestLocale(locale)
-  return <PaymentSuccessView bookingId={bookingId} />
+  return <PaymentReturnPage bookingId={bookingId} outcome="success" />
 }

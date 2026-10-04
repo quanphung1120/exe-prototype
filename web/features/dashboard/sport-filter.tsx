@@ -93,7 +93,12 @@ export function SportFilter({ className }: { className?: string }) {
           </Button>
         }
       />
-      <DropdownMenuContent align="start" className="min-w-40">
+      {/* Portaled menu escapes the `.player-play` subtree, so re-apply its
+          palette. SportFilter is only rendered on the play page. */}
+      <DropdownMenuContent
+        align="start"
+        className="player-play-overlay min-w-40"
+      >
         <DropdownMenuRadioGroup
           value={sport}
           onValueChange={(val) => setSport(val as SportSelection)}

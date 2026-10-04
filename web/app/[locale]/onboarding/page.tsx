@@ -31,7 +31,7 @@ export default async function OnboardingPage({
   const accountType = await fetchAccountType()
   if (accountType) {
     redirect({
-      href: accountType === "venue" ? "/dashboard/venue" : "/dashboard",
+      href: accountType === "venue" ? "/app/venue" : "/app",
       locale,
     })
   }

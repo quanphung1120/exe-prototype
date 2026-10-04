@@ -125,6 +125,9 @@
       "label": "Đặt sân",
       "caption": "Chọn khung giờ và đặt sân"
     },
+    "admin": "Quản trị",
+    "account": "Tài khoản",
+    "logout": "Đăng xuất",
     "group": "Chơi"
   },
   "Sidebar": {
@@ -328,6 +331,28 @@
     "noCourts": "Không tìm thấy sân",
     "choose": "Chọn sân",
     "chosen": "Đã chọn",
+    "filter": {
+      "area": "Khu vực",
+      "ward": "Chọn quận / huyện",
+      "distance": "Khoảng cách",
+      "any": "Tất cả",
+      "price": "Giá / giờ",
+      "minPrice": "Giá thấp nhất",
+      "maxPrice": "Giá cao nhất",
+      "province": "Tỉnh / thành phố",
+      "allProvinces": "Tất cả tỉnh / thành",
+      "time": "Thời gian",
+      "anyDay": "Mọi ngày",
+      "period": {
+        "all": "Cả ngày",
+        "morning": "Buổi sáng (06–12h)",
+        "afternoon": "Buổi chiều (12–17h)",
+        "evening": "Buổi tối (17–23h)"
+      },
+      "surface": "Mặt sân",
+      "apply": "Tìm sân",
+      "reset": "Đặt lại"
+    },
     "distance": "≈ {km} km (đường chim bay)",
     "anyDay": "Ngày",
     "slotsFor": "Khung giờ trống",
@@ -428,7 +453,44 @@
     "busy": "Đã đặt",
     "free": "Trống",
     "freeAt": "Trống từ {time}",
-    "yourSlot": "Khung của bạn"
+    "yourSlot": "Khung của bạn",
+    "title": "Đặt sân",
+    "subtitle": "Tìm sân trống gần Quý khách, chọn khung giờ và thanh toán — trong cùng một nơi.",
+    "tabCourts": "Sân",
+    "tabRooms": "Phòng",
+    "view": {
+      "list": "Danh sách",
+      "map": "Bản đồ"
+    },
+    "nearMe": "Tìm sân quanh đây",
+    "locating": "Đang định vị…",
+    "sortLabel": "Sắp xếp: {sort}",
+    "sort": {
+      "distance": "Gần nhất",
+      "price": "Giá thấp nhất",
+      "rating": "Đánh giá cao"
+    },
+    "slotSubtitle": "Chọn khung giờ và đặt sân",
+    "grid": {
+      "today": "Hôm nay",
+      "prevDay": "Ngày trước",
+      "nextDay": "Ngày sau",
+      "free": "Sân trống",
+      "mine": "Sân bạn chọn",
+      "busy": "Sân đã có lịch",
+      "cell": "{court}, {time}",
+      "confirm": "Xác nhận",
+      "none": "--:--",
+      "weekdays": [
+        "Thứ Hai",
+        "Thứ Ba",
+        "Thứ Tư",
+        "Thứ Năm",
+        "Thứ Sáu",
+        "Thứ Bảy",
+        "Chủ Nhật"
+      ]
+    }
   },
   "Session": {
     "toast": {
@@ -476,6 +538,25 @@
       "price": "Giá",
       "rating": "Đánh giá"
     },
+    "filters": {
+      "title": "Bộ lọc",
+      "clear": "Xoá lọc",
+      "all": "Tất cả",
+      "surface": "Bề mặt sân",
+      "price": "Giá mỗi giờ",
+      "rating": "Đánh giá",
+      "distance": "Khoảng cách",
+      "priceLt150": "Dưới 150K",
+      "price150to250": "150K – 250K",
+      "price250to350": "250K – 350K",
+      "priceGte350": "Trên 350K",
+      "rating3": "Từ 3★",
+      "rating4": "Từ 4★",
+      "rating45": "Từ 4.5★",
+      "distance2": "Trong 2 km",
+      "distance5": "Trong 5 km",
+      "distance10": "Trong 10 km"
+    },
     "geo": {
       "locating": "Đang định vị…",
       "on": "Gần bạn",
@@ -493,7 +574,15 @@
     "prev": "Trước",
     "next": "Sau",
     "more": "+{count} nữa",
-    "weekdaysShort": ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+    "weekdaysShort": [
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "CN"
+    ],
     "monthsShort": [
       "Th1",
       "Th2",
@@ -545,6 +634,11 @@
       "confirmed": "Đã xác nhận",
       "pending": "Chờ xác nhận",
       "played": "Đã chơi"
+    },
+    "nextUp": {
+      "title": "Trận sắp tới",
+      "view": "Xem trên lịch",
+      "empty": "Chưa có trận nào sắp tới. Đặt sân để lên lịch trận kế tiếp nhé!"
     },
     "calendar": {
       "title": "Lịch",
@@ -602,7 +696,16 @@
     "errorBody": "Đã có lỗi khi kiểm tra thanh toán. Vui lòng kiểm tra lại trong Đặt sân của tôi.",
     "viewBookings": "Xem đặt sân của tôi",
     "messageVenue": "Nhắn tin cho sân",
-    "messageVenueFailed": "Không mở được cuộc trò chuyện với sân"
+    "messageVenueFailed": "Không mở được cuộc trò chuyện với sân",
+    "bookingRef": "Mã đặt sân",
+    "backHome": "Về trang chủ",
+    "metaTitleFailed": "Thanh toán chưa thành công",
+    "failedTitle": "Thanh toán thất bại",
+    "failedBody": "Giao dịch không thành công và quý khách chưa bị trừ tiền. Sân vẫn được giữ đến khi hết thời gian giữ chỗ — vui lòng thử thanh toán lại.",
+    "userCancelledTitle": "Đã huỷ thanh toán",
+    "userCancelledBody": "Quý khách đã huỷ giao dịch trên SePay. Sân vẫn được giữ đến khi hết thời gian giữ chỗ — có thể thanh toán lại ngay.",
+    "retryPayment": "Thanh toán lại",
+    "openingPayment": "Đang mở thanh toán…"
   },
   "Landing": {
     "hero": {
@@ -1108,6 +1211,8 @@
     "loading": "Đang kết nối trò chuyện…",
     "unavailable": "Trò chuyện hiện không khả dụng.",
     "newChat": "Cuộc trò chuyện mới",
+    "listSearchPlaceholder": "Tìm cuộc trò chuyện…",
+    "listNoResults": "Không tìm thấy cuộc trò chuyện phù hợp.",
     "searchPlaceholder": "Tìm theo tên hoặc email…",
     "searchHint": "Nhập ít nhất 3 ký tự",
     "noResults": "Không tìm thấy người dùng nào",
@@ -1127,7 +1232,11 @@
     "deleting": "Đang xóa…",
     "leaving": "Đang rời…",
     "cancel": "Hủy",
-    "removeFailed": "Không thể xóa cuộc trò chuyện, thử lại nhé"
+    "removeFailed": "Không thể xóa cuộc trò chuyện, thử lại nhé",
+    "emptyTitle": "Bắt đầu trò chuyện",
+    "emptyHint": "Chọn một cuộc trò chuyện bên trái hoặc tạo cuộc trò chuyện mới.",
+    "playerEmptyTitle": "Chọn một cuộc trò chuyện",
+    "playerEmptyHint": "Nhắn với bạn chơi, nhóm hoặc sân thể thao của bạn."
   },
   "Notifications": {
     "title": "Thông báo",
@@ -1878,23 +1987,6 @@
     },
     "recentChats": "Trò chuyện gần đây",
     "viewAll": "Xem tất cả",
-    "recent": {
-      "booking": {
-        "title": "Trợ lý đặt sân",
-        "desc": "Tìm và đặt sân tại quận Tân Bình",
-        "time": "2 giờ trước"
-      },
-      "players": {
-        "title": "Tìm người chơi",
-        "desc": "Người chơi trình trung cấp gần tôi",
-        "time": "Hôm qua"
-      },
-      "summary": {
-        "title": "Tóm tắt tuần",
-        "desc": "Tổng kết hoạt động của bạn tuần này",
-        "time": "2 ngày trước"
-      }
-    },
     "upcomingBookings": "Lịch đặt sắp tới",
     "playersCount": "{count} người chơi",
     "status": {
@@ -1966,7 +2058,28 @@
     "roomSpotsOpen": "còn {count} chỗ",
     "joinRoom": "Tham gia",
     "joined": "Đã tham gia",
-    "requested": "Đã yêu cầu…"
+    "requested": "Đã yêu cầu…",
+    "assistantName": "Trợ lý Shuttio",
+    "assistantOnline": "Sẵn sàng hỗ trợ",
+    "send": "Gửi",
+    "bookingFailed": "Đặt sân chưa thành công — vui lòng thử lại.",
+    "bookAtInstead": "Đặt lúc {time} thay thế",
+    "tryTime": "Thử {time}",
+    "bookingConfirmed": "Đã đặt sân",
+    "prevResults": "Kết quả trước",
+    "nextResults": "Kết quả tiếp",
+    "noPlayersFound": "Không tìm thấy người chơi phù hợp. Thử mở rộng khu vực hoặc thời gian.",
+    "playersMatched": "{count} người chơi phù hợp",
+    "select": "Chọn",
+    "selected": "Đã chọn",
+    "alreadyBooked": "Sân này đã được đặt qua trò chuyện — xem trong Lịch đặt.",
+    "recentEmpty": "Chưa có cuộc trò chuyện nào. Tham gia một trận hoặc nhắn tin cho sân để bắt đầu.",
+    "recentUnavailable": "Không tải được trò chuyện lúc này. Vui lòng thử lại sau.",
+    "openChat": "Mở trò chuyện",
+    "recentAttachment": "Đã gửi tệp đính kèm",
+    "recentNoMessages": "Chưa có tin nhắn",
+    "backHome": "Về trang chủ",
+    "resumeChat": "Tiếp tục trò chuyện với trợ lý"
   },
   "Assessment": {
     "metaTitle": "Đánh giá trình độ",
@@ -2107,7 +2220,9 @@
     "kmAway": "Cách {km} km",
     "viewProfile": "Xem hồ sơ",
     "reviewsLabel": "Đánh giá",
-    "ratingsCount": "{count} đánh giá"
+    "ratingsCount": "{count} đánh giá",
+    "noReviews": "Chưa có đánh giá nào. Đánh giá sẽ xuất hiện sau khi bạn chơi cùng người khác.",
+    "reviewsUnavailable": "Không tải được đánh giá lúc này."
   },
   "Onboarding": {
     "metaTitle": "Chọn vai trò của Quý khách",
@@ -2335,5 +2450,73 @@
       "confirm": "Xoá",
       "pending": "Đang xoá..."
     }
+  },
+  "GroupInfo": {
+    "open": "Thông tin nhóm",
+    "untitled": "Nhóm trò chuyện",
+    "groupName": "Tên nhóm",
+    "rename": "Đổi tên nhóm",
+    "renamed": "Đã đổi tên nhóm",
+    "renameFailed": "Không đổi được tên nhóm",
+    "save": "Lưu",
+    "cancel": "Huỷ",
+    "membersCount": "{count} thành viên",
+    "members": "Thành viên",
+    "addMembers": "Thêm",
+    "add": "Thêm",
+    "added": "Đã thêm {name} vào nhóm",
+    "addFailed": "Không thêm được thành viên",
+    "searchPlaceholder": "Tìm theo tên hoặc email (tối thiểu 3 ký tự)",
+    "noResults": "Không tìm thấy người dùng phù hợp",
+    "you": "bạn",
+    "groupOwner": "Chủ nhóm",
+    "roomHost": "Chủ phòng",
+    "online": "Đang hoạt động",
+    "offline": "Ngoại tuyến",
+    "aMember": "thành viên",
+    "remove": "Xoá khỏi nhóm",
+    "removeMember": "Xoá {name} khỏi nhóm",
+    "removeTitle": "Xoá {name} khỏi nhóm?",
+    "removeBody": "Người này sẽ không còn xem hay gửi tin nhắn trong nhóm, và được gỡ khỏi trận của nhóm (nếu có).",
+    "removed": "Đã xoá {name} khỏi nhóm",
+    "removeFailed": "Không xoá được thành viên",
+    "leave": "Rời nhóm",
+    "leaveTitle": "Rời nhóm “{name}”?",
+    "leaveBody": "Bạn sẽ không nhận tin nhắn từ nhóm này nữa. Các thành viên khác vẫn giữ nhóm.",
+    "leaveRoomBody": "Bạn sẽ rời phòng chơi và nhóm trò chuyện của phòng.",
+    "left": "Đã rời nhóm",
+    "leaveFailed": "Không rời được nhóm",
+    "hostCannotLeave": "Chủ phòng không thể rời nhóm — hãy huỷ phòng trong trang Chơi.",
+    "matchTitle": "Trận của nhóm",
+    "matchUnavailable": "Không tải được thông tin trận lúc này.",
+    "notBooked": "Nhóm chưa đặt sân",
+    "notBookedHint": "Chọn sân và khung giờ cho cả nhóm — mọi thành viên sẽ được thêm vào trận.",
+    "waitHostBook": "Đang chờ chủ nhóm chọn sân và đặt lịch cho cả nhóm.",
+    "bookForGroup": "Đặt sân cho nhóm",
+    "continuePayment": "Tiếp tục thanh toán",
+    "court": "Sân {n}",
+    "statusConfirmed": "Đã xác nhận",
+    "statusPendingApproval": "Chờ chủ sân duyệt",
+    "statusAwaitingPayment": "Chờ thanh toán",
+    "statusPlayed": "Đã chơi xong",
+    "rate": "Đánh giá",
+    "ratedTitle": "Bạn đã đánh giá người này",
+    "rateHint": "Trận đã kết thúc — hãy đánh giá những người đã chơi cùng bạn.",
+    "rateTitle": "Đánh giá {name}",
+    "rateDescription": "Chia sẻ trải nghiệm chơi cùng — đánh giá giúp cộng đồng ghép trận tốt hơn.",
+    "starsLabel": "Số sao",
+    "starsValue": "{count} sao",
+    "starWords": {
+      "1": "Không hài lòng",
+      "2": "Tạm được",
+      "3": "Ổn",
+      "4": "Rất tốt",
+      "5": "Tuyệt vời"
+    },
+    "commentPlaceholder": "Nhận xét thêm (không bắt buộc)",
+    "submitRating": "Gửi đánh giá",
+    "ratedToast": "Đã gửi đánh giá cho {name}",
+    "rateFailed": "Không gửi được đánh giá",
+    "bookUnavailable": "Chưa mở được trận của nhóm — vui lòng tải lại trang rồi thử lại."
   }
 }

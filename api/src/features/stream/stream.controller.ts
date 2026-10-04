@@ -1,12 +1,22 @@
-import { Body, Controller, Delete, Get, Post, Query } from "@nestjs/common"
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Patch,
+  Post,
+  Query,
+} from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
 import { UserThrottle } from "../../common/user-throttler.guard.js"
 import { ClerkDirectoryService } from "./clerk-directory.service.js"
 import {
+  AddGroupMembersBodyDto,
   CreateConversationBodyDto,
   CreateRoomBodyDto,
   LeaveConversationBodyDto,
+  RenameGroupBodyDto,
   RoomFreezeBodyDto,
   RoomMemberBodyDto,
   TokenBodyDto,
@@ -57,6 +67,26 @@ export class StreamController {
   @Post("rooms/freeze")
   async freeze(@UserId() userId: string, @Body() body: RoomFreezeBodyDto) {
     await this.stream.freezeRoomChannel(userId, body.channelId)
+    return { ok: true }
+  }
+
+  /** Rename a group chat — any member may. */
+  @Patch("groups/name")
+  async renameGroup(
+    @UserId() userId: string,
+    @Body() body: RenameGroupBodyDto
+  ) {
+    await this.stream.renameGroup(userId, body.channelId, body.name)
+    return { ok: true }
+  }
+
+  /** Group creator adds real users to their community group. */
+  @Post("groups/members")
+  async addGroupMembers(
+    @UserId() userId: string,
+    @Body() body: AddGroupMembersBodyDto
+  ) {
+    await this.stream.addGroupMembers(userId, body.channelId, body.memberIds)
     return { ok: true }
   }
 

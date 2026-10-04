@@ -501,7 +501,7 @@ export function decisionNotification(
   reason?: string,
   auto = false
 ): NotificationItem | null {
-  const base = { time: "Vừa xong", read: false, href: "/dashboard/bookings" }
+  const base = { time: "Vừa xong", read: false, href: "/app/bookings" }
   if (status === "cancelled" && prevStatus === "pending" && reason) {
     return {
       id: `booking-declined-${reservationId}`,

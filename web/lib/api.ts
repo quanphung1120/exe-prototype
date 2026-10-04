@@ -201,7 +201,7 @@ export async function fetchBranchesSummary(): Promise<BranchSummary[]> {
 
 /**
  * Fetch one branch's full venue-operator bundle for the venue workspace. The
- * branch is the `[venueId]` segment of the `/dashboard/venue/[venueId]` URL; the
+ * branch is the `[venueId]` segment of the `/app/venue/[venueId]` URL; the
  * API authorizes the caller owns it. A 404 (unknown venue) or 403 (another
  * account's) both surface the not-found page — the dashboard layout redirects
  * fresh accounts to setup first, and the switcher only ever offers owned branches.

@@ -5,7 +5,7 @@ import { AuthenticateWithRedirectCallback } from "@clerk/nextjs"
 
 export default function SSOCallbackPage() {
   const locale = useLocale()
-  const dashboard = "/" + locale + "/dashboard"
+  const dashboard = "/" + locale + "/app"
 
   return (
     <div className="flex min-h-40 items-center justify-center">

@@ -32,7 +32,7 @@ export function SignInForm() {
       })
       if (res.status === "complete") {
         await setActive({ session: res.createdSessionId })
-        router.push("/dashboard")
+        router.push("/app")
         router.refresh()
         return
       }

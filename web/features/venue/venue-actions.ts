@@ -91,7 +91,7 @@ export async function provisionVenue(input: VenueSetupInput): Promise<string> {
     method: "POST",
     body: JSON.stringify(input),
   })
-  revalidatePath("/dashboard", "layout")
+  revalidatePath("/app", "layout")
   return seed.info.id
 }
 
@@ -103,8 +103,8 @@ export async function updateVenue(
     method: "PUT",
     body: JSON.stringify(input),
   })
-  revalidatePath(`/dashboard/venue/${id}`, "layout")
-  revalidatePath("/dashboard", "layout")
+  revalidatePath(`/app/venue/${id}`, "layout")
+  revalidatePath("/app", "layout")
   return venue
 }
 
@@ -116,8 +116,8 @@ export async function updateVenue(
  */
 export async function archiveVenue(id: string): Promise<void> {
   await api(`/api/venues/${id}`, { method: "DELETE" })
-  revalidatePath(`/dashboard/venue/${id}`, "layout")
-  revalidatePath("/dashboard", "layout")
+  revalidatePath(`/app/venue/${id}`, "layout")
+  revalidatePath("/app", "layout")
 }
 
 /** Restore a previously archived branch (clears `archived`). */
@@ -126,8 +126,8 @@ export async function restoreVenue(id: string): Promise<Venue> {
     method: "PUT",
     body: JSON.stringify({ archived: false }),
   })
-  revalidatePath(`/dashboard/venue/${id}`, "layout")
-  revalidatePath("/dashboard", "layout")
+  revalidatePath(`/app/venue/${id}`, "layout")
+  revalidatePath("/app", "layout")
   return venue
 }
 
@@ -139,7 +139,7 @@ export async function addCourt(
     method: "POST",
     body: JSON.stringify(input),
   })
-  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  revalidatePath(`/app/venue/${venueId}`, "layout")
   return court
 }
 
@@ -155,7 +155,7 @@ export async function updateCourt(
       body: JSON.stringify(input),
     }
   )
-  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  revalidatePath(`/app/venue/${venueId}`, "layout")
   return court
 }
 
@@ -164,7 +164,7 @@ export async function deleteCourt(
   courtId: string
 ): Promise<void> {
   await api(`/api/venues/${venueId}/courts/${courtId}`, { method: "DELETE" })
-  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  revalidatePath(`/app/venue/${venueId}`, "layout")
 }
 
 export async function addWalkInReservation(
@@ -178,7 +178,7 @@ export async function addWalkInReservation(
       body: JSON.stringify(input),
     }
   )
-  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  revalidatePath(`/app/venue/${venueId}`, "layout")
   return reservation
 }
 
@@ -197,7 +197,7 @@ async function setReservationStatus(
     `/api/venues/${venueId}/reservations/${reservationId}/status`,
     { method: "PUT", body: JSON.stringify({ status, reason }) }
   )
-  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  revalidatePath(`/app/venue/${venueId}`, "layout")
   return reservation
 }
 
@@ -257,7 +257,7 @@ export async function rescheduleReservation(
     `/api/venues/${venueId}/reservations/${reservationId}`,
     { method: "PUT", body: JSON.stringify(input) }
   )
-  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  revalidatePath(`/app/venue/${venueId}`, "layout")
   return reservation
 }
 
@@ -279,7 +279,7 @@ export async function createCustomer(
       body: JSON.stringify(input),
     }
   )
-  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  revalidatePath(`/app/venue/${venueId}`, "layout")
   return customer
 }
 
@@ -305,7 +305,7 @@ export async function addCourtBlock(
     method: "POST",
     body: JSON.stringify(input),
   })
-  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  revalidatePath(`/app/venue/${venueId}`, "layout")
   return block
 }
 
@@ -315,5 +315,5 @@ export async function removeCourtBlock(
   blockId: string
 ): Promise<void> {
   await api(`/api/venues/${venueId}/blocks/${blockId}`, { method: "DELETE" })
-  revalidatePath(`/dashboard/venue/${venueId}`, "layout")
+  revalidatePath(`/app/venue/${venueId}`, "layout")
 }
