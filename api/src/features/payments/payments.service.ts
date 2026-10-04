@@ -30,6 +30,7 @@ import {
   type SepayIpnHeaders,
   type SepayIpnPayload,
 } from "./sepay.client.js"
+import { paymentReturnUrls } from "./return-urls.js"
 
 /** The shape `PaymentsController` returns from checkout/by-booking. */
 export interface PaymentSummary {
@@ -203,7 +204,7 @@ export class PaymentsService {
       invoiceNumber: payment.invoiceNumber,
       amountVnd: payment.amount,
       description: `Thanh toan dat san ${booking.courtName} - ${bookingId}`,
-      successUrl: `${this.returnUrl}/${bookingId}`,
+      ...paymentReturnUrls(this.returnUrl, bookingId),
     })
     payment.checkoutUrl = checkoutUrl
     await payment.save()

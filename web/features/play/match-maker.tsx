@@ -52,7 +52,7 @@ export function RoomsView() {
   const visibleRooms = rooms.filter((r) => sport === "all" || r.sport === sport)
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="no-scrollbar flex flex-col gap-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
       {/* Room grid */}
       {visibleRooms.length ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -76,8 +76,8 @@ export function RoomsView() {
           })}
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-3 rounded-4xl bg-card px-4 py-14 text-center shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
-          <div className="grid size-11 place-items-center rounded-2xl bg-brand/12 text-brand">
+        <div className="flex flex-col items-center gap-3 rounded-[28px] border border-dashed border-border bg-card px-4 py-14 text-center">
+          <div className="grid size-11 place-items-center rounded-2xl bg-brand/10 text-brand">
             <Users className="size-5" />
           </div>
           <p className="text-sm text-muted-foreground">{t("emptyRooms")}</p>
@@ -135,7 +135,7 @@ function RoomCard({
   const day = roomDayLabel(room.day, tc)
 
   return (
-    <div className="flex flex-col gap-4 rounded-4xl bg-card p-5 shadow-md ring-1 ring-foreground/5 transition-shadow hover:shadow-lg dark:ring-foreground/10">
+    <div className="flex flex-col gap-4 rounded-[28px] border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -160,6 +160,12 @@ function RoomCard({
       </div>
 
       <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5 font-medium text-foreground">
+          <Clock className="size-3.5 shrink-0 text-brand" />
+          <span className="min-w-0 truncate">
+            {day} · {room.time}
+          </span>
+        </span>
         <span className="flex min-w-0 items-center gap-1.5">
           <MapPin className="size-3.5 shrink-0" />
           <span className="min-w-0 truncate">
@@ -167,16 +173,10 @@ function RoomCard({
             <CourtDistance courtId={room.courtId} venue={room.venue} />
           </span>
         </span>
-        <span className="flex min-w-0 items-center gap-1.5">
-          <Clock className="size-3.5 shrink-0" />
-          <span className="min-w-0 truncate">
-            {day} · {room.time}
-          </span>
-        </span>
       </div>
 
       {/* Fill meter */}
-      <div className="flex items-center justify-between gap-3 rounded-3xl bg-muted/50 p-2.5">
+      <div className="flex items-center justify-between gap-3 rounded-2xl bg-secondary p-2.5">
         <div className="flex items-center gap-2">
           <AvatarGroup>
             {room.players.map((p, i) => (
@@ -220,7 +220,7 @@ function RoomCard({
         {requested ? (
           <Button
             size="sm"
-            variant="secondary"
+            variant="ghost"
             onClick={onLeave}
             onMouseEnter={() => setLeaveHint(true)}
             onMouseLeave={() => setLeaveHint(false)}
@@ -228,7 +228,9 @@ function RoomCard({
             onBlur={() => setLeaveHint(false)}
             className={cn(
               "ml-auto shrink-0 rounded-full",
-              leaveHint && "bg-destructive/10 text-destructive"
+              leaveHint
+                ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
+                : "bg-amber-500/12 text-amber-700 hover:bg-amber-500/15"
             )}
           >
             {leaveHint ? (
@@ -246,7 +248,7 @@ function RoomCard({
         ) : joined ? (
           <Button
             size="sm"
-            variant="secondary"
+            variant="ghost"
             onClick={onLeave}
             onMouseEnter={() => setLeaveHint(true)}
             onMouseLeave={() => setLeaveHint(false)}
@@ -254,7 +256,9 @@ function RoomCard({
             onBlur={() => setLeaveHint(false)}
             className={cn(
               "ml-auto shrink-0 rounded-full",
-              leaveHint && "bg-destructive/10 text-destructive"
+              leaveHint
+                ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
+                : "bg-brand/10 text-brand hover:bg-brand/15"
             )}
           >
             {leaveHint ? (
@@ -272,7 +276,7 @@ function RoomCard({
         ) : (
           <Button
             size="sm"
-            className="ml-auto shrink-0 rounded-full text-base font-semibold"
+            className="ml-auto shrink-0 rounded-full font-semibold"
             variant={full || conflict || room.demo ? "outline" : "default"}
             disabled={full || conflict || room.demo}
             title={room.demo ? t("demoJoin") : undefined}

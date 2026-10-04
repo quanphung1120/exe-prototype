@@ -1,24 +1,20 @@
 "use client"
 
-import { useLocale, useTranslations } from "next-intl"
-import { useClerk } from "@clerk/nextjs"
-import { Menu } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { useAuthUser } from "@/features/dashboard/auth-user"
-import { useData } from "@/features/dashboard/data-provider"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ActiveRoomPill } from "@/features/play/active-room"
 import { NotificationsButton } from "@/features/dashboard/notifications"
+import { AccountMenu } from "@/features/dashboard/account-menu"
 import { SectionActions } from "@/features/dashboard/section-actions"
 import { navContext } from "@/features/dashboard/workspace"
 import { Link, usePathname } from "@/i18n/navigation"
 
-/** Primary links in the blue `/app` + `/app/chat` header (active state follows the route). */
+/** Primary links in the shared blue player header. */
 const PLAYER_HEADER_NAV = [
   { key: "dashboard", href: "/app" },
   { key: "play", href: "/app/play" },
@@ -26,23 +22,46 @@ const PLAYER_HEADER_NAV = [
   { key: "bookings", href: "/app/bookings" },
 ] as const
 
+/** Header icon buttons — same 44px circle as the avatar so the three line up. */
+const HEADER_ICON_BUTTON =
+  "size-11 rounded-full bg-white/10 text-white hover:bg-white/20 hover:text-white aria-expanded:bg-white/20 aria-expanded:text-white dark:hover:bg-white/20 [&_svg:not([class*='size-'])]:size-5 [&>span]:bg-[#a5ff12] [&>span]:text-[#123bd7]"
+
 /** Sticky dashboard header — its title and actions track the active workspace. */
 export function DashboardTopbar() {
   const pathname = usePathname()
   const { ns, active, workspace } = navContext(pathname)
   const tNav = useTranslations(ns)
   const tPlayerNav = useTranslations("Nav")
-  const locale = useLocale()
-  const { openUserProfile, signOut } = useClerk()
-  const user = useAuthUser()
-  const { venues } = useData()
 
-  if (pathname === "/app" || pathname === "/app/chat") {
-    const activeKey = pathname === "/app/chat" ? "chat" : "dashboard"
+  if (
+    pathname === "/app" ||
+    pathname === "/app/play" ||
+    pathname === "/app/chat" ||
+    pathname === "/app/bookings" ||
+    pathname === "/app/book" ||
+    pathname.startsWith("/app/payment/")
+  ) {
+    const activeKey =
+      pathname === "/app/chat"
+        ? "chat"
+        : pathname === "/app/bookings"
+          ? "bookings"
+          : pathname === "/app/play"
+            ? "play"
+            : pathname === "/app"
+              ? "dashboard"
+              : undefined
     return (
       <header className="z-20 grid h-[88px] shrink-0 grid-cols-[1fr_auto_1fr] items-center bg-[#2046ed] px-5 text-white md:px-10 xl:px-[7.5%]">
-        <Link href="/app" className="shrink-0 justify-self-start" aria-label="Shuttio home">
-          <Logo className="text-white" markClassName="size-12 !text-[#a5ff12]" />
+        <Link
+          href="/app"
+          className="shrink-0 justify-self-start"
+          aria-label="Shuttio home"
+        >
+          <Logo
+            className="text-white"
+            markClassName="size-12 !text-[#a5ff12]"
+          />
         </Link>
         <nav className="hidden items-center gap-9 text-sm md:flex">
           {PLAYER_HEADER_NAV.map((item) => (
@@ -61,27 +80,16 @@ export function DashboardTopbar() {
             </Link>
           ))}
         </nav>
-        <div className="flex items-center justify-self-end gap-2">
-          <NotificationsButton />
-          <ThemeToggle />
-          <LocaleSwitcher />
-          <DropdownMenu>
-            <DropdownMenuTrigger className="grid size-11 place-items-center rounded-full bg-[#a5ff12] text-[#123bd7]" aria-label="Mở menu">
-              <Menu className="size-6" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-52">
-              {PLAYER_HEADER_NAV.map((item) => (
-                <DropdownMenuItem key={item.key} render={<Link href={item.href} />}>
-                  {tPlayerNav(`${item.key}.label`)}
-                </DropdownMenuItem>
-              ))}
-              {venues.map((venue) => <DropdownMenuItem key={venue.id} render={<Link href={`/app/venue/${venue.id}`} />}>{venue.name}</DropdownMenuItem>)}
-              {user.role === "admin" && <DropdownMenuItem render={<Link href="/app/admin" />}>{tPlayerNav("admin")}</DropdownMenuItem>}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => openUserProfile()}>{tPlayerNav("account")}</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void signOut({ redirectUrl: `/${locale}` })}>{tPlayerNav("logout")}</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="flex items-center gap-3 justify-self-end">
+          <NotificationsButton
+            className={HEADER_ICON_BUTTON}
+            popupClassName="player-play-overlay"
+          />
+          <LocaleSwitcher
+            className={HEADER_ICON_BUTTON}
+            popupClassName="player-play-overlay"
+          />
+          <AccountMenu />
         </div>
       </header>
     )
@@ -101,7 +109,7 @@ export function DashboardTopbar() {
       {workspace === "player" ? <ActiveRoomPill /> : null}
       <NotificationsButton />
       <LocaleSwitcher />
-      <ThemeToggle />
+      <ThemeToggle className="size-8" />
       <SectionActions workspace={workspace} sectionKey={active.key} />
     </header>
   )

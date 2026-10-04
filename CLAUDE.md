@@ -37,7 +37,7 @@ cd api && pnpm test                                    # all tests (test/*.test.
 node --import tsx --test test/auth.test.ts             # a single test file
 ```
 
-To run both apps together, use Docker Compose from the repo root: `docker compose up --build` (bind-mounts source for hot reload; `web` reaches `api` inside the compose network via `API_URL=http://api:6969`). There is no root `package.json` — each app owns its own Prettier config (`.prettierrc`/`.prettierignore`) and `pnpm format` script; run it from inside `api/` or `web/`.
+To run both apps together, use Docker Compose from the repo root: `docker compose up --build --watch` (Compose Watch syncs source into the containers for hot reload — a plain bind mount does not deliver file events on Docker Desktop for Windows; a `package.json`/lockfile change triggers a rebuild; `web` reaches `api` inside the compose network via `API_URL=http://api:6969`). There is no root `package.json` — each app owns its own Prettier config (`.prettierrc`/`.prettierignore`) and `pnpm format` script; run it from inside `api/` or `web/`.
 
 **API dev caveat:** the api dev script must stay `nest start --watch --no-shell` — without `--no-shell`, watch-mode reloads leave the old server holding the port (EADDRINUSE), especially inside the `node:26-slim` container where `ps` is absent.
 

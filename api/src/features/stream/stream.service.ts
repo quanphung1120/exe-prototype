@@ -43,6 +43,25 @@ export const demoChannelId = (chatId: string, userId: string) =>
 /** Channel id for a room's real chat — mirrors the web's `roomChannelId`. */
 export const roomChannelId = (roomId: string) => `room-${roomId}`
 
+/** Upper bound on a community group's size (creator included). */
+export const MAX_GROUP_MEMBERS = 16
+
+/**
+ * A group conversation (vs a DM or a player↔venue chat): a community group,
+ * a room chat, or any channel with 3+ members (e.g. the seeded demo crew).
+ */
+export function isGroupChannel(
+  channelId: string,
+  membership: { memberIds: string[]; isVenueChat: boolean }
+): boolean {
+  if (membership.isVenueChat || channelId.startsWith("dm-")) return false
+  return (
+    channelId.startsWith("group-") ||
+    channelId.startsWith("room-") ||
+    membership.memberIds.length > 2
+  )
+}
+
 /** Deterministic DM channel id for a user pair (order-independent). */
 export const dmChannelId = (a: string, b: string) =>
   `dm-${createHash("sha256").update([a, b].sort().join(":")).digest("hex").slice(0, 40)}`
@@ -334,6 +353,117 @@ export class StreamService {
     await this.client
       .channel("messaging", channelId)
       .updatePartial({ set: { frozen: true } })
+  }
+
+  // ── Group management (rename / add members) ─────────────────────────────
+  // Shared by community groups (`group-*`) and room chats (`room-*`). Room
+  // membership itself still flows through `RoomsService` (join/approve/
+  // leave); only community groups take members added directly here.
+
+  /**
+   * A channel's creator, member ids and kind — the one read every group
+   * mutation authorizes against. Throws 404 for an unknown channel.
+   */
+  async channelMembership(channelId: string): Promise<{
+    createdBy: string | null
+    memberIds: string[]
+    isVenueChat: boolean
+  }> {
+    const channel = this.client.channel("messaging", channelId)
+    try {
+      const state = await channel.query({
+        state: true,
+        watch: false,
+        presence: false,
+        messages: { limit: 0 },
+      })
+      return {
+        createdBy:
+          state.channel.created_by?.id ?? state.channel.created_by_id ?? null,
+        memberIds: (state.members ?? [])
+          .map((m) => m.user_id ?? m.user?.id)
+          .filter((id): id is string => Boolean(id)),
+        isVenueChat: Boolean(state.channel.venueId),
+      }
+    } catch (err) {
+      const status =
+        (err as { status?: number; StatusCode?: number })?.status ??
+        (err as { status?: number; StatusCode?: number })?.StatusCode
+      if (status === 404)
+        throw new NotFoundException("Cuộc trò chuyện không tồn tại")
+      throw err
+    }
+  }
+
+  /** {@link channelMembership}, throwing 403 unless `userId` is a member. */
+  async assertMember(userId: string, channelId: string) {
+    const membership = await this.channelMembership(channelId)
+    if (!membership.memberIds.includes(userId)) {
+      throw new ForbiddenException("Bạn không có trong cuộc trò chuyện này")
+    }
+    return membership
+  }
+
+  /**
+   * Rename a group chat. Any member may (Messenger/Zalo-style); DMs and venue
+   * chats have no editable name — they're titled by the other party.
+   */
+  async renameGroup(
+    userId: string,
+    channelId: string,
+    name: string
+  ): Promise<void> {
+    const trimmed = name.trim()
+    if (!trimmed) throw new BadRequestException("Tên nhóm không được để trống")
+    const membership = await this.assertMember(userId, channelId)
+    if (!isGroupChannel(channelId, membership)) {
+      throw new BadRequestException("Chỉ có thể đổi tên nhóm trò chuyện")
+    }
+    await this.client
+      .channel("messaging", channelId)
+      .updatePartial({ set: { name: trimmed } })
+  }
+
+  /**
+   * Add real users to a community group — the group's creator only. Room
+   * chats are excluded: their members come from the room roster (join
+   * request → host approval), which this would bypass.
+   */
+  async addGroupMembers(
+    userId: string,
+    channelId: string,
+    memberIds: string[]
+  ): Promise<void> {
+    if (!channelId.startsWith("group-")) {
+      throw new BadRequestException(
+        "Chỉ có thể thêm thành viên vào nhóm trò chuyện"
+      )
+    }
+    const membership = await this.channelMembership(channelId)
+    if (membership.createdBy !== userId) {
+      throw new ForbiddenException("Chỉ chủ nhóm mới có quyền thêm thành viên")
+    }
+    const ids = [...new Set(memberIds)].filter(
+      (id) => !membership.memberIds.includes(id)
+    )
+    if (!ids.length) return
+    if (membership.memberIds.length + ids.length > MAX_GROUP_MEMBERS) {
+      throw new BadRequestException(
+        `Nhóm tối đa ${MAX_GROUP_MEMBERS} thành viên`
+      )
+    }
+    const users = await this.directory.getMany(ids)
+    if (users.length !== ids.length) {
+      throw new NotFoundException("Không tìm thấy người dùng")
+    }
+    await this.client.upsertUsers(
+      users.map((u) => ({
+        id: u.id,
+        name: u.name,
+        ...(u.image ? { image: u.image } : {}),
+      }))
+    )
+    await this.client.channel("messaging", channelId).addMembers(ids)
   }
 
   // ── Community chat: DMs/groups + venue chat ──────────────────────────────

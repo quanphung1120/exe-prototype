@@ -252,6 +252,12 @@ export interface PlaySession {
   pricePerHour: number
   result?: "W" | "L"
   score?: string
+  /**
+   * Stream channel id of the community group chat this session was booked
+   * from (`group-*`), when a group's members booked a court together. Room
+   * chats (`room-<id>`) don't need it — their channel id derives from `id`.
+   */
+  chatChannelId?: string
   /** Seed liquidity (from the demo ROOMS catalog) — browsable but never joinable/bookable. */
   demo?: boolean
 }
@@ -296,6 +302,59 @@ export interface Stats {
 }
 
 // ── Activity feed ────────────────────────────────────────────────────────────
+
+// ── Group chats ──────────────────────────────────────────────────────────────
+
+/**
+ * The match a group chat is coordinating — resolved server-side from the
+ * group's linked PlaySession (`GET /api/rooms/by-channel/:channelId`) so every
+ * member (not just the host who owns the session doc) sees the same state.
+ */
+export interface GroupMatch {
+  sessionId: string
+  /** Clerk id of the session's host (its owner). */
+  hostUserId: string
+  title: string
+  status: SessionStatus
+  venue: string
+  courtLabel: string | null
+  dayKey: string
+  slot: string | null
+  durationMin: number
+  startAt?: string
+  endAt?: string
+  hold?: "confirmed" | "pending"
+  paymentStatus?: PaymentStatus
+  /** A court is held/paid for this match (not just proposed). */
+  booked: boolean
+  /** The match has been played (completed, or a booked slot whose end has passed). */
+  ended: boolean
+  /** Clerk ids of everyone who played (host + confirmed roster) — who may rate whom. */
+  participantIds: string[]
+}
+
+export interface GroupMatchResult {
+  match: GroupMatch | null
+  /** The caller may start/finish booking a court for this group now. */
+  canBook: boolean
+}
+
+// ── Player ratings ───────────────────────────────────────────────────────────
+
+/** One peer review left after a played match. */
+export interface PlayerReview {
+  stars: number
+  comment?: string
+  raterName: string
+  createdAt: string
+}
+
+/** A player's aggregate peer rating (for profiles). */
+export interface RatingSummary {
+  average: number
+  count: number
+  recent: PlayerReview[]
+}
 
 export type ActivityKind = "match-found" | "win" | "loss" | "booking" | "rating"
 

@@ -14,9 +14,11 @@ import type { Model } from "mongoose"
 
 import {
   activeRoster,
+  type GroupMatchResult,
   type PlaySession as PlaySessionData,
   type SessionPlayer,
 } from "../../shared/index.js"
+import { toGroupMatch } from "./group-match.js"
 
 import { NotificationsService } from "../notifications/notifications.service.js"
 import { ProfileService } from "../players/profile.service.js"
@@ -237,6 +239,63 @@ export class RoomsService {
     } catch (err) {
       this.logChatFailure("leave", roomId, err)
     }
+  }
+
+  /**
+   * The match a group chat is coordinating, readable by any member of the
+   * chat (not just the host who owns the session doc). A room chat
+   * (`room-<id>`) maps to its room; a community group maps to the latest
+   * non-cancelled session booked from it (`data.chatChannelId`). `canBook`
+   * says whether the caller may start/finish booking a court now — only the
+   * group's owner: the chat's creator while the group has no live match, or
+   * the match's host while it isn't booked yet. Other members wait for them.
+   */
+  async groupMatch(
+    userId: string,
+    channelId: string
+  ): Promise<GroupMatchResult> {
+    const membership = await this.stream.assertMember(userId, channelId)
+    const doc = await this.findChannelSessionDoc(channelId)
+    if (!doc) {
+      return {
+        match: null,
+        canBook:
+          (channelId.startsWith("group-") || channelId.startsWith("room-")) &&
+          membership.createdBy === userId,
+      }
+    }
+    const match = toGroupMatch(doc.userId, doc.data, Date.now())
+    return {
+      match,
+      canBook:
+        match.status !== "cancelled" &&
+        !match.booked &&
+        match.hostUserId === userId,
+    }
+  }
+
+  /** The session behind a group chat, or null — see {@link groupMatch}. */
+  async findChannelSessionDoc(
+    channelId: string
+  ): Promise<PlaySessionDocument | null> {
+    if (channelId.startsWith("room-")) {
+      // Only the host persists a room, but a defensive oldest-first sort keeps
+      // the pick deterministic should a stray copy ever exist.
+      const room = await this.sessionModel
+        .findOne({ sessionId: channelId.slice("room-".length) })
+        .sort(ORDER)
+        .lean<PlaySessionDocument>()
+      // A disbanded room's chat outlives it; a match the host then books from
+      // that chat links back via `chatChannelId`, like a community group's.
+      if (room) return room
+    }
+    return this.sessionModel
+      .findOne({
+        "data.chatChannelId": channelId,
+        "data.status": { $ne: "cancelled" },
+      })
+      .sort({ createdAt: -1, _id: -1 })
+      .lean<PlaySessionDocument>()
   }
 
   /** Best-effort: add the newly-approved member to the room's real chat. */

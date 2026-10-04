@@ -29,8 +29,11 @@ cd api && pnpm install && pnpm dev   # :6969
 Or bring both up together with Docker Compose from the repo root:
 
 ```bash
-docker compose up --build
+docker compose up --build --watch
 ```
+
+`--watch` syncs source edits into the containers, so Next.js and Nest hot-reload
+without rebuilding. Only a `package.json`/lockfile change triggers a rebuild.
 
 ## Common tasks
 

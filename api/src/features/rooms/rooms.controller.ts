@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put } from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
 import {
+  ChannelIdParamDto,
   RoomIdParamDto,
   RoomRequestDecisionBodyDto,
   RoomRequestParamDto,
@@ -20,6 +21,12 @@ export class RoomsController {
   @Get()
   list() {
     return this.rooms.listRooms()
+  }
+
+  /** The match a group chat is coordinating — any member of the chat may read it. */
+  @Get("by-channel/:channelId")
+  groupMatch(@UserId() userId: string, @Param() param: ChannelIdParamDto) {
+    return this.rooms.groupMatch(userId, param.channelId)
   }
 
   /** Ask to join a room — takes a `requested` seat pending the host's decision. */

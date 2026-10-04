@@ -4,7 +4,14 @@ import * as React from "react"
 import type { PropsWithChildren } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { Loader2, LogOut, MessageSquarePlus, MoreVertical, Trash2 } from "lucide-react"
+import {
+  Loader2,
+  LogOut,
+  MessageSquarePlus,
+  MoreVertical,
+  Search,
+  Trash2,
+} from "lucide-react"
 import type { Channel } from "stream-chat"
 import type {
   ChannelListItemUIProps,
@@ -31,12 +38,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 import { ChatAvatar } from "@/features/chat/chat-avatar"
 import { NewChatDialog } from "@/features/chat/new-chat-dialog"
 import { leaveConversation } from "@/features/chat/stream-actions"
 import { MobilePaneContext } from "@/features/chat/mobile-pane-context"
 import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
+import { usePlayerChatSearch } from "@/features/chat/player-chat-search-context"
 
 /**
  * Custom conversation-list row, replacing Stream's ChannelListItemUI (wired
@@ -96,11 +104,11 @@ export function ChannelListItem({
         role="option"
         aria-selected={active}
         className={cn(
-          "flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors",
+          "flex w-full items-center gap-3 rounded-[22px] p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-[-2px]",
           player
             ? active
-              ? "bg-[var(--pc-neon)] text-[var(--pc-neon-ink)] shadow-sm"
-              : "hover:bg-[var(--pc-surface-2)]"
+              ? "bg-[var(--pc-accent-soft)] text-[var(--pc-accent-strong)] focus-visible:outline-[var(--pc-accent)]"
+              : "text-[var(--pc-list-ink)] hover:translate-x-1 hover:bg-[var(--pc-list-hover)] focus-visible:outline-[var(--pc-accent)]"
             : active
               ? "bg-secondary/60"
               : "hover:bg-muted/40"
@@ -116,11 +124,24 @@ export function ChannelListItem({
           image={avatarUser?.image}
           className="size-10 shrink-0"
         >
-          {avatarUser?.online ? <AvatarBadge className={player ? "bg-[var(--pc-blue)]" : "bg-brand"} /> : null}
+          {avatarUser?.online ? (
+            <AvatarBadge
+              className={player ? "bg-[var(--pc-online)]" : "bg-brand"}
+            />
+          ) : null}
         </ChatAvatar>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <p className={cn("truncate text-sm", hasUnread && "font-semibold", player && !active && "text-[var(--pc-ink)]")}>
+            <p
+              className={cn(
+                "truncate text-sm",
+                hasUnread && "font-semibold",
+                player &&
+                  (active
+                    ? "text-[var(--pc-accent-strong)]"
+                    : "text-[var(--pc-list-ink)]")
+              )}
+            >
               {title}
             </p>
             {lastMessage?.created_at && (
@@ -129,8 +150,8 @@ export function ChannelListItem({
                   "shrink-0 text-[11px]",
                   player
                     ? active
-                      ? "text-[var(--pc-neon-ink)]/70"
-                      : "text-[var(--pc-muted)]"
+                      ? "text-[var(--pc-accent-strong)]/70"
+                      : "text-[var(--pc-list-muted)]"
                     : "text-muted-foreground",
                   // Make room for the hover menu so the two never overlap.
                   canRemove && "sm:group-hover/row:opacity-0"
@@ -148,10 +169,10 @@ export function ChannelListItem({
                 "truncate text-xs [&_p]:inline",
                 player
                   ? active
-                    ? "text-[var(--pc-neon-ink)]/80"
+                    ? "text-[var(--pc-accent-strong)]/80"
                     : hasUnread
-                      ? "font-medium text-[var(--pc-ink)]"
-                      : "text-[var(--pc-muted)]"
+                      ? "font-medium text-[var(--pc-list-ink)]"
+                      : "text-[var(--pc-list-muted)]"
                   : hasUnread
                     ? "font-medium text-foreground"
                     : "text-muted-foreground"
@@ -164,9 +185,7 @@ export function ChannelListItem({
                 className={cn(
                   "flex size-4.5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold",
                   player
-                    ? active
-                      ? "bg-[var(--pc-blue)] text-white"
-                      : "bg-[var(--pc-neon)] text-[var(--pc-neon-ink)]"
+                    ? "bg-[var(--pc-blue)] text-white"
                     : "bg-brand text-brand-foreground"
                 )}
               >
@@ -202,6 +221,8 @@ function ChannelRowMenu({
   const t = useTranslations("Chat")
   const name = title ?? t("metaTitle")
   const { channel: activeChannel, setActiveChannel } = useChatContext()
+  const player = !React.useContext(VenueInboxContext)
+  const active = activeChannel?.cid === channel.cid
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [pending, setPending] = React.useState(false)
@@ -229,7 +250,15 @@ function ChannelRowMenu({
           aria-label={t("rowMenuLabel")}
           onClick={(e) => e.stopPropagation()}
           className={cn(
-            "absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none data-popup-open:bg-background/80 data-popup-open:opacity-100",
+            "absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full transition-colors focus-visible:opacity-100 focus-visible:outline-none data-popup-open:opacity-100",
+            player
+              ? cn(
+                  active
+                    ? "text-[var(--pc-accent-strong)]"
+                    : "text-[var(--pc-list-muted)]",
+                  "hover:bg-[var(--pc-blue)] hover:text-white data-popup-open:bg-[var(--pc-blue)]"
+                )
+              : "text-muted-foreground hover:bg-background/80 hover:text-foreground data-popup-open:bg-background/80",
             "opacity-100 sm:opacity-0 sm:group-hover/row:opacity-100"
           )}
         >
@@ -301,26 +330,39 @@ function ChannelRowMenu({
  */
 export function ChannelListHeader() {
   const inbox = React.useContext(VenueInboxContext)
+  const { query, setQuery } = usePlayerChatSearch()
   const t = useTranslations("Chat")
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
   if (inbox) return null
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-[var(--pc-border)] px-3 py-3">
-      <h2 className="truncate font-heading text-lg font-bold tracking-tight text-[var(--pc-blue-strong)]">
-        {t("metaTitle")}
-      </h2>
-      <Button
-        type="button"
-        size="sm"
-        className="shrink-0 rounded-full bg-[var(--pc-neon)] text-[var(--pc-neon-ink)] shadow-sm hover:brightness-95"
-        onClick={() => setDialogOpen(true)}
-      >
-        <MessageSquarePlus className="size-4" />
-        <span className="hidden sm:inline">{t("newChat")}</span>
-        <span className="sr-only sm:hidden">{t("newChat")}</span>
-      </Button>
+    <div className="border-b border-[var(--pc-list-border)] px-4 pt-5 pb-4 sm:px-5">
+      <div className="flex flex-col gap-3">
+        <h2 className="truncate font-heading text-2xl font-black tracking-tight text-[var(--pc-list-ink)]">
+          {t("metaTitle")}
+        </h2>
+        <Button
+          type="button"
+          size="sm"
+          className="min-h-11 w-full rounded-full bg-[#a5ff12] px-4 font-bold text-[#173bc8] shadow-[3px_3px_0_var(--pc-pink)] transition-transform hover:-translate-y-0.5 hover:brightness-95"
+          onClick={() => setDialogOpen(true)}
+        >
+          <MessageSquarePlus className="size-4" />
+          <span>{t("newChat")}</span>
+        </Button>
+      </div>
+      <label className="mt-4 flex h-11 items-center gap-2 rounded-full border border-[var(--pc-list-border)] bg-[var(--pc-surface-2)] px-4 text-[var(--pc-list-muted)] transition-colors focus-within:border-[var(--pc-accent)]">
+        <Search className="size-4 shrink-0" aria-hidden />
+        <span className="sr-only">{t("listSearchPlaceholder")}</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t("listSearchPlaceholder")}
+          className="min-w-0 flex-1 bg-transparent text-sm text-[var(--pc-list-ink)] outline-none placeholder:text-[var(--pc-list-muted)]"
+        />
+      </label>
       <NewChatDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   )
@@ -341,7 +383,12 @@ export function ChannelListShell({
 
   if (error) {
     return (
-      <p className="p-4 text-center text-xs text-muted-foreground">
+      <p
+        className={cn(
+          "p-4 text-center text-xs",
+          player ? "text-[var(--pc-list-muted)]" : "text-muted-foreground"
+        )}
+      >
         {t("Error loading channels")}
       </p>
     )
@@ -349,20 +396,13 @@ export function ChannelListShell({
   if (loading) {
     return (
       <div
+        role="status"
         className={cn(
-          "flex flex-col gap-1 p-2",
-          player && "flex-1 bg-[var(--pc-bg)]"
+          "grid place-items-center p-8",
+          player && "flex-1 bg-[var(--pc-surface)]"
         )}
       >
-        {Array.from({ length: 4 }, (_, i) => (
-          <div key={i} className="flex items-center gap-3 p-3">
-            <Skeleton className="size-10 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-3 w-2/3" />
-              <Skeleton className="h-3 w-full" />
-            </div>
-          </div>
-        ))}
+        <Spinner />
       </div>
     )
   }
@@ -371,7 +411,7 @@ export function ChannelListShell({
       role="listbox"
       className={cn(
         "no-scrollbar flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2",
-        player && "bg-[var(--pc-bg)]"
+        player && "bg-[var(--pc-surface)]"
       )}
     >
       {children}
@@ -395,6 +435,7 @@ export function ChannelListPaginator({
   loadNextPage,
 }: PropsWithChildren<LoadMorePaginatorProps>) {
   const sentinelRef = React.useRef<HTMLDivElement>(null)
+  const player = !React.useContext(VenueInboxContext)
 
   React.useEffect(() => {
     const sentinel = sentinelRef.current
@@ -422,7 +463,12 @@ export function ChannelListPaginator({
           aria-hidden={!isLoading}
         >
           {isLoading && (
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            <Loader2
+              className={cn(
+                "size-4 animate-spin",
+                player ? "text-[var(--pc-list-muted)]" : "text-muted-foreground"
+              )}
+            />
           )}
         </div>
       )}
@@ -431,7 +477,7 @@ export function ChannelListPaginator({
 }
 
 /** Today → HH:mm; this week → weekday; older → short date. */
-function formatListTimestamp(date: Date, locale: string): string {
+export function formatListTimestamp(date: Date, locale: string): string {
   const now = new Date()
   const sameDay = date.toDateString() === now.toDateString()
   if (sameDay) {

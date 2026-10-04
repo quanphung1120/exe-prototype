@@ -258,7 +258,13 @@ const kindIcon: Record<
 }
 
 /** Topbar bell with an unread badge and a popover list of notifications. */
-export function NotificationsButton() {
+export function NotificationsButton({
+  className,
+  popupClassName,
+}: {
+  className?: string
+  popupClassName?: string
+}) {
   const t = useTranslations("Notifications")
   const { items, unreadCount, markRead, markAllRead } = useNotifications()
   const user = useAuthUser()
@@ -289,7 +295,7 @@ export function NotificationsButton() {
             variant="ghost"
             size="icon-sm"
             aria-label={t("title")}
-            className="relative"
+            className={cn("relative", className)}
           />
         }
       >
@@ -300,7 +306,7 @@ export function NotificationsButton() {
           </span>
         ) : null}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
+      <PopoverContent align="end" className={cn("w-80 p-0", popupClassName)}>
         <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
           <p className="text-sm font-semibold">{t("title")}</p>
           {unreadCount > 0 ? (

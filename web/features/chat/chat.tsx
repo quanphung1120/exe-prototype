@@ -3,7 +3,7 @@
 import * as React from "react"
 import Image from "next/image"
 import { useTranslations } from "next-intl"
-import { ArrowLeft, MapPin, Users } from "lucide-react"
+import { ArrowLeft, Info, MapPin, Users } from "lucide-react"
 import {
   Channel,
   ChannelList,
@@ -25,6 +25,10 @@ import {
 } from "@/features/chat/channel-list"
 import { Composer } from "@/features/chat/composer"
 import {
+  GroupInfoSheet,
+  isGroupConversation,
+} from "@/features/chat/group-info-sheet"
+import {
   ChatDateSeparator,
   ChatEmptyState,
   ChatLoadingIndicator,
@@ -45,13 +49,14 @@ import {
 import { ChatProfileContext } from "@/features/chat/profile-context"
 import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
+import { PlayerChatSearchContext } from "@/features/chat/player-chat-search-context"
 
 export { VenueInboxContext }
 
 /**
  * Every visual piece the SDK renders is replaced with our own component here;
  * the vendor stylesheet is NOT imported (structural layout for the SDK's
- * container divs lives in globals.css). Slot names follow ComponentContext.
+ * container divs lives in stream-provider.tsx). Slot names follow ComponentContext.
  */
 const COMPONENT_OVERRIDES = {
   MessageUI: ChatMessage,
@@ -94,9 +99,14 @@ export function ChatView({
   const t = useTranslations("Chat")
   const status = useStreamChatStatus()
   const client = useStreamClient()
-  // Player chat gets the /app palette; the venue operator inbox keeps the
+  // Player chat uses the homepage palette; the venue operator inbox keeps the
   // neutral dashboard theme (no `venueInboxId` prop = player).
   const player = !venueInboxId
+  const [searchQuery, setSearchQuery] = React.useState("")
+  const searchContext = React.useMemo(
+    () => ({ query: searchQuery, setQuery: setSearchQuery }),
+    [searchQuery]
+  )
 
   const [profileInitials, setProfileInitials] = React.useState<string | null>(
     null
@@ -122,13 +132,15 @@ export function ChatView({
   if (!client) {
     return (
       <ChatShell player={player}>
-        <div
-          className={cn(
-            "flex flex-1 items-center justify-center p-8 text-center text-sm",
-            player ? "text-[var(--pc-muted)]" : "text-muted-foreground"
-          )}
-        >
-          {status === "connecting" ? t("loading") : t("unavailable")}
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div
+            className={cn(
+              "flex flex-1 items-center justify-center p-8 text-center text-sm",
+              player ? "text-[var(--pc-list-muted)]" : "text-muted-foreground"
+            )}
+          >
+            {status === "connecting" ? t("loading") : t("unavailable")}
+          </div>
         </div>
       </ChatShell>
     )
@@ -137,59 +149,87 @@ export function ChatView({
   const userId = client.userID as string
 
   const body = (
-    <MobilePaneContext.Provider value={paneCtx}>
-      <ChatProfileContext.Provider value={openProfile}>
-        <WithComponents overrides={COMPONENT_OVERRIDES}>
-          <aside
-            className={cn(
-              "w-full shrink-0 flex-col sm:flex sm:border-r",
-              player
-                ? "bg-[var(--pc-surface)] sm:w-80 sm:border-[var(--pc-border)]"
-                : "sm:w-72 sm:border-border",
-              pane === "conversation" ? "hidden sm:flex" : "flex"
-            )}
-          >
-            <ChannelList
-              filters={
-                venueInboxId
-                  ? {
-                      type: "messaging",
-                      members: { $in: [userId] },
-                      venueId: venueInboxId,
-                    }
-                  : { type: "messaging", members: { $in: [userId] } }
-              }
-              sort={{ last_message_at: -1 }}
-              options={{ state: true, watch: true }}
-              Paginator={ChannelListPaginator}
-            />
-          </aside>
+    <PlayerChatSearchContext.Provider value={searchContext}>
+      <MobilePaneContext.Provider value={paneCtx}>
+        <ChatProfileContext.Provider value={openProfile}>
+          <WithComponents overrides={COMPONENT_OVERRIDES}>
+            <aside
+              className={cn(
+                "min-h-0 w-full shrink-0 flex-col sm:flex sm:border-r",
+                player
+                  ? "bg-[var(--pc-surface)] sm:w-72 sm:border-[var(--pc-list-border)] lg:w-80 xl:w-[22rem]"
+                  : "sm:w-72 sm:border-border",
+                pane === "conversation" ? "hidden sm:flex" : "flex"
+              )}
+            >
+              <ChannelList
+                filters={
+                  venueInboxId
+                    ? {
+                        type: "messaging",
+                        members: { $in: [userId] },
+                        venueId: venueInboxId,
+                      }
+                    : { type: "messaging", members: { $in: [userId] } }
+                }
+                sort={{ last_message_at: -1 }}
+                options={{ state: true, watch: true }}
+                renderChannels={
+                  player && searchQuery.trim()
+                    ? (channels, channelPreview) => {
+                        const term = normalizeSearchText(searchQuery)
+                        const matches = channels.filter((channel) =>
+                          [
+                            channel.data?.name,
+                            ...Object.values(channel.state.members ?? {}).map(
+                              (member) => member.user?.name
+                            ),
+                          ].some((value) =>
+                            normalizeSearchText(String(value ?? "")).includes(
+                              term
+                            )
+                          )
+                        )
+                        return matches.length ? (
+                          matches.map(channelPreview)
+                        ) : (
+                          <p className="px-4 py-6 text-center text-sm text-[var(--pc-list-muted)]">
+                            {t("listNoResults")}
+                          </p>
+                        )
+                      }
+                    : undefined
+                }
+                Paginator={ChannelListPaginator}
+              />
+            </aside>
 
-          {/* Active conversation. No <Window> — it only exists to coordinate
+            {/* Active conversation. No <Window> — it only exists to coordinate
             with a Thread pane we don't render. */}
-          <section
-            className={cn(
-              "min-w-0 flex-1 flex-col",
-              player && "bg-[var(--pc-bg)]",
-              pane === "list" ? "hidden sm:flex" : "flex"
-            )}
-          >
-            <ActiveConversation
-              player={player}
-              currentUserId={userId}
-              onOpenProfile={openProfile}
-            />
-          </section>
+            <section
+              className={cn(
+                "min-h-0 min-w-0 flex-1 flex-col",
+                player && "bg-[var(--pc-bg)] text-[var(--pc-ink)]",
+                pane === "list" ? "hidden sm:flex" : "flex"
+              )}
+            >
+              <ActiveConversation
+                player={player}
+                currentUserId={userId}
+                onOpenProfile={openProfile}
+              />
+            </section>
 
-          <InitialChannel id={initialChannelId} />
-        </WithComponents>
-        <PlayerProfileDialog
-          initials={profileInitials}
-          open={profileOpen}
-          onOpenChange={setProfileOpen}
-        />
-      </ChatProfileContext.Provider>
-    </MobilePaneContext.Provider>
+            <InitialChannel id={initialChannelId} />
+          </WithComponents>
+          <PlayerProfileDialog
+            initials={profileInitials}
+            open={profileOpen}
+            onOpenChange={setProfileOpen}
+          />
+        </ChatProfileContext.Provider>
+      </MobilePaneContext.Provider>
+    </PlayerChatSearchContext.Provider>
   )
 
   return (
@@ -207,6 +247,14 @@ export function ChatView({
   )
 }
 
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLocaleLowerCase()
+    .trim()
+}
+
 /** The two-pane layout the chat lives in — no card wrapper, sits directly on the dashboard background. */
 function ChatShell({
   player,
@@ -218,8 +266,8 @@ function ChatShell({
   return (
     <div
       className={cn(
-        "flex h-full min-h-[28rem] overflow-hidden",
-        player && "player-chat bg-[var(--pc-bg)] text-[var(--pc-ink)]"
+        "flex h-full min-h-0 min-w-0 overflow-hidden",
+        player && "player-chat bg-[var(--pc-surface)] text-[var(--pc-list-ink)]"
       )}
     >
       {children}
@@ -259,6 +307,7 @@ function ActiveConversation({
 /** Empty conversation pane: an invite + a small badminton asset (player only). */
 function ConversationInvite({ player }: { player: boolean }) {
   const t = useTranslations("Chat")
+  const { showList } = React.useContext(MobilePaneContext)
   if (!player) {
     return (
       <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-muted-foreground">
@@ -267,22 +316,34 @@ function ConversationInvite({ player }: { player: boolean }) {
     )
   }
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
-      <Image
-        src="/58f807168247ee67c3cc674f3c7df3619d1d9941.png"
-        alt=""
-        width={140}
-        height={140}
-        aria-hidden
-        className="h-auto w-28 opacity-90"
-      />
-      <div className="space-y-1">
-        <p className="font-heading text-lg font-bold text-[var(--pc-blue-strong)]">
-          {t("emptyTitle")}
-        </p>
-        <p className="max-w-xs text-sm text-[var(--pc-muted)]">
-          {t("emptyHint")}
-        </p>
+    <div className="flex min-h-0 flex-1 flex-col bg-[var(--pc-bg)] text-[var(--pc-ink)]">
+      <div className="flex items-center gap-1 border-b border-[var(--pc-border)] p-2 sm:hidden">
+        <button
+          type="button"
+          aria-label={t("backToChats")}
+          className="grid size-11 place-items-center rounded-full text-[var(--pc-ink)] hover:bg-[var(--pc-surface-2)]"
+          onClick={showList}
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center gap-5 bg-[radial-gradient(circle_at_center,#2046ed1a_0%,transparent_60%)] p-8 text-center">
+        <Image
+          src="/58f807168247ee67c3cc674f3c7df3619d1d9941.png"
+          alt=""
+          width={140}
+          height={140}
+          aria-hidden
+          className="h-auto w-36 -rotate-6 drop-shadow-[6px_6px_0_#dbe1ff]"
+        />
+        <div className="space-y-1">
+          <p className="font-heading text-2xl font-black text-[var(--pc-accent)]">
+            {t("playerEmptyTitle")}
+          </p>
+          <p className="max-w-xs text-sm text-[var(--pc-muted)]">
+            {t("playerEmptyHint")}
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -296,7 +357,7 @@ function ConversationInvite({ player }: { player: boolean }) {
  */
 function InitialChannel({ id }: { id?: string }) {
   const { client, setActiveChannel } = useChatContext()
-  const { showConversation } = React.useContext(MobilePaneContext)
+  const { showConversation, showList } = React.useContext(MobilePaneContext)
 
   React.useEffect(() => {
     if (!id) return
@@ -311,12 +372,13 @@ function InitialChannel({ id }: { id?: string }) {
         }
       })
       .catch(() => {
-        // Channel doesn't exist yet / no access — leave the list's pick active.
+        // A missing deep link must return to the list on one-pane viewports.
+        if (!cancelled) showList()
       })
     return () => {
       cancelled = true
     }
-  }, [id, client, setActiveChannel, showConversation])
+  }, [id, client, setActiveChannel, showConversation, showList])
 
   return null
 }
@@ -335,15 +397,19 @@ function TeamChannelHeader({
   onOpenProfile: (initials: string) => void
 }) {
   const t = useTranslations("Chat")
+  const tg = useTranslations("GroupInfo")
   const { channel, members } = useChannelStateContext()
   const inbox = React.useContext(VenueInboxContext)
   const player = !inbox
   const { showList } = React.useContext(MobilePaneContext)
 
-  const nameClass = cn("truncate font-medium", player && "text-[var(--pc-ink)]")
+  const nameClass = cn(
+    "truncate font-semibold",
+    player && "text-[var(--pc-header-ink)]"
+  )
   const subClass = cn(
     "inline-flex items-center gap-1 text-xs",
-    player ? "text-[var(--pc-muted)]" : "text-muted-foreground"
+    player ? "text-[var(--pc-header-muted)]" : "text-muted-foreground"
   )
 
   const memberList = Object.values(members ?? {})
@@ -362,12 +428,19 @@ function TeamChannelHeader({
   // below — the profile-dialog button stays disabled there since
   // `playerInitialsFromStreamId` returns null for a real Clerk id.
   const venueChat = Boolean(channel.data?.venueId)
+  const showGroupInfo =
+    player && isGroupConversation(channel.id, memberList.length, venueChat)
+  const [infoOpen, setInfoOpen] = React.useState(false)
+
+  const onlineDot = player ? "bg-[var(--pc-online)]" : "bg-brand"
 
   return (
     <header
       className={cn(
-        "flex items-center justify-between gap-3 border-b px-4 py-3",
-        player ? "border-[var(--pc-border)] bg-[var(--pc-bg)]" : "border-border"
+        "flex items-center justify-between gap-3 border-b px-3 py-2.5 sm:px-4 sm:py-3",
+        player
+          ? "border-[var(--pc-border)] bg-[var(--pc-header)] text-[var(--pc-header-ink)]"
+          : "border-border"
       )}
     >
       <div className="flex min-w-0 items-center gap-1">
@@ -375,9 +448,10 @@ function TeamChannelHeader({
           type="button"
           aria-label={t("backToChats")}
           className={cn(
-            "-ml-1 rounded-full p-1.5 sm:hidden",
+            "-ml-1.5 grid size-11 shrink-0 place-items-center rounded-full",
+            "sm:hidden",
             player
-              ? "text-[var(--pc-muted)] hover:bg-[var(--pc-surface)] hover:text-[var(--pc-ink)]"
+              ? "text-[var(--pc-header-ink)] hover:bg-[var(--pc-surface-2)]"
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           )}
           onClick={showList}
@@ -389,28 +463,39 @@ function TeamChannelHeader({
             <ChatAvatar name={name} />
             <div className="min-w-0">
               <p className={nameClass}>{name}</p>
-              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <p className={subClass}>
                 <MapPin className="size-3" />
                 {t("venueChat")}
               </p>
             </div>
           </div>
-        ) : isGroup ? (
-          <div className="flex min-w-0 items-center gap-3">
+        ) : isGroup || showGroupInfo ? (
+          <button
+            type="button"
+            disabled={!showGroupInfo}
+            onClick={() => setInfoOpen(true)}
+            className={cn(
+              "-m-1 flex min-w-0 items-center gap-3 rounded-xl p-1 text-left transition-colors disabled:cursor-default disabled:hover:bg-transparent",
+              player ? "hover:bg-[var(--pc-surface-2)]" : "hover:bg-muted/40"
+            )}
+          >
             <ChatAvatar name={name} />
             <div className="min-w-0">
               <p className={nameClass}>{name}</p>
-              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <p className={subClass}>
                 <Users className="size-3" />
                 {t("members", { count: memberList.length })}
               </p>
             </div>
-          </div>
+          </button>
         ) : (
           <button
             type="button"
             disabled={!otherInitials}
-            className="-m-1 flex min-w-0 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+            className={cn(
+              "-m-1 flex min-w-0 items-center gap-3 rounded-xl p-1 text-left transition-colors disabled:cursor-default disabled:hover:bg-transparent",
+              player ? "hover:bg-[var(--pc-surface-2)]" : "hover:bg-muted/40"
+            )}
             onClick={() => otherInitials && onOpenProfile(otherInitials)}
           >
             <ChatAvatar
@@ -418,15 +503,15 @@ function TeamChannelHeader({
               image={other?.user?.image}
             >
               {other?.user?.online ? (
-                <AvatarBadge className="bg-brand" />
+                <AvatarBadge className={onlineDot} />
               ) : null}
             </ChatAvatar>
             <div className="min-w-0">
               <p className={nameClass}>{other?.user?.name ?? name}</p>
-              <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              <p className={subClass}>
                 {other?.user?.online ? (
                   <>
-                    <span className="size-1.5 rounded-full bg-brand" />
+                    <span className={cn("size-1.5 rounded-full", onlineDot)} />
                     {t("online")}
                   </>
                 ) : (
@@ -437,6 +522,24 @@ function TeamChannelHeader({
           </button>
         )}
       </div>
+      {showGroupInfo ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setInfoOpen(true)}
+            aria-label={tg("open")}
+            title={tg("open")}
+            className="grid size-10 shrink-0 place-items-center rounded-full border-2 border-[#a5ff12] text-[var(--pc-accent)] transition-colors hover:bg-[#a5ff12]/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--pc-accent)]"
+          >
+            <Info className="size-5" />
+          </button>
+          <GroupInfoSheet
+            open={infoOpen}
+            onOpenChange={setInfoOpen}
+            currentUserId={currentUserId}
+          />
+        </>
+      ) : null}
     </header>
   )
 }

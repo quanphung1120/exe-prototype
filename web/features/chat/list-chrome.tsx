@@ -1,6 +1,6 @@
 "use client"
 
-import type * as React from "react"
+import * as React from "react"
 import { useLocale } from "next-intl"
 import { ArrowDown, Loader2, MessagesSquare } from "lucide-react"
 import type {
@@ -20,6 +20,7 @@ import {
 } from "stream-chat-react"
 
 import { cn } from "@/lib/utils"
+import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
 
 /**
  * Custom replacements for MessageList's chrome (wired via WithComponents in
@@ -34,6 +35,7 @@ import { cn } from "@/lib/utils"
  */
 export function ChatDateSeparator({ date, floating }: DateSeparatorProps) {
   const locale = useLocale()
+  const player = !React.useContext(VenueInboxContext)
   return (
     <div
       className={cn(
@@ -43,7 +45,10 @@ export function ChatDateSeparator({ date, floating }: DateSeparatorProps) {
     >
       <span
         className={cn(
-          "rounded-full bg-muted px-3 py-0.5 text-[11px] font-medium text-muted-foreground",
+          "rounded-full px-3 py-0.5 text-[11px] font-medium",
+          player
+            ? "bg-[var(--pc-surface-2)] text-[var(--pc-muted)]"
+            : "bg-muted text-muted-foreground",
           floating && "shadow-sm ring-1 ring-foreground/5"
         )}
       >
@@ -75,6 +80,7 @@ export function ChatTypingIndicator({
 }: TypingIndicatorProps) {
   const { client } = useChatContext("ChatTypingIndicator")
   const { typing = {} } = useTypingContext("ChatTypingIndicator") ?? {}
+  const player = !React.useContext(VenueInboxContext)
 
   const names = Object.values(typing)
     .filter((event) => event.user?.id !== client.userID)
@@ -84,7 +90,12 @@ export function ChatTypingIndicator({
 
   if (!isMessageListScrolledToBottom || names.length === 0) return null
   return (
-    <p className="px-4 pb-1 text-xs text-muted-foreground italic">
+    <p
+      className={cn(
+        "px-4 pb-1 text-xs italic",
+        player ? "text-[var(--pc-muted)]" : "text-muted-foreground"
+      )}
+    >
       {names.length === 1
         ? t("{{ user }} is typing...", { user: names[0] })
         : t("{{ users }} and more are typing...", {
@@ -100,14 +111,30 @@ export function ChatUnreadSeparator({
   unreadCount,
 }: UnreadMessagesSeparatorProps) {
   const { t } = useTranslationContext("ChatUnreadSeparator")
+  const player = !React.useContext(VenueInboxContext)
   return (
     <div className="my-2 flex items-center gap-3 px-2">
-      <span className="h-px flex-1 bg-brand/40" />
-      <span className="text-[11px] font-medium text-brand">
+      <span
+        className={cn(
+          "h-px flex-1",
+          player ? "bg-[var(--pc-accent-soft-strong)]" : "bg-brand/40"
+        )}
+      />
+      <span
+        className={cn(
+          "text-[11px] font-medium",
+          player ? "text-[var(--pc-accent-strong)]" : "text-brand"
+        )}
+      >
         {t("Unread messages")}
         {showCount && unreadCount ? ` (${unreadCount})` : ""}
       </span>
-      <span className="h-px flex-1 bg-brand/40" />
+      <span
+        className={cn(
+          "h-px flex-1",
+          player ? "bg-[var(--pc-accent-soft-strong)]" : "bg-brand/40"
+        )}
+      />
     </div>
   )
 }
@@ -122,11 +149,17 @@ export function ChatUnreadNotification({
     "ChatUnreadNotification"
   )
   const { t } = useTranslationContext("ChatUnreadNotification")
+  const player = !React.useContext(VenueInboxContext)
   return (
     <div className="absolute inset-x-0 top-2 z-10 flex justify-center">
       <button
         type="button"
-        className="rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground shadow-md hover:opacity-90"
+        className={cn(
+          "rounded-full px-3 py-1 text-xs font-medium shadow-md hover:opacity-90",
+          player
+            ? "bg-[var(--pc-accent)] text-[var(--pc-accent-ink)]"
+            : "bg-primary text-primary-foreground"
+        )}
         onClick={() => {
           void jumpToFirstUnreadMessage(queryMessageLimit)
         }}
@@ -144,13 +177,19 @@ export function ChatScrollToBottom({
   isNotAtLatestMessageSet,
   onClick,
 }: ScrollToLatestMessageButtonProps) {
+  const player = !React.useContext(VenueInboxContext)
   if (isMessageListScrolledToBottom && !isNotAtLatestMessageSet) return null
   return (
     <div className="absolute right-4 bottom-3 z-10">
       <button
         type="button"
         aria-label="Scroll to latest message"
-        className="flex size-9 items-center justify-center rounded-full bg-card text-foreground shadow-md ring-1 ring-foreground/10 hover:bg-muted"
+        className={cn(
+          "flex size-9 items-center justify-center rounded-full shadow-md ring-1",
+          player
+            ? "bg-[var(--pc-blue)] text-white ring-[var(--pc-blue)] hover:bg-[#173bc8]"
+            : "bg-card text-foreground ring-foreground/10 hover:bg-muted"
+        )}
         onClick={onClick}
       >
         <ArrowDown className="size-4" />
@@ -162,12 +201,25 @@ export function ChatScrollToBottom({
 /** Empty message list / no channels. */
 export function ChatEmptyState({ listType }: EmptyStateIndicatorProps) {
   const { t } = useTranslationContext("ChatEmptyState")
+  const player = !React.useContext(VenueInboxContext)
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-      <div className="flex size-12 items-center justify-center rounded-full bg-brand/10 text-brand">
+      <div
+        className={cn(
+          "flex size-12 items-center justify-center rounded-full",
+          player
+            ? "bg-[var(--pc-accent-soft)] text-[var(--pc-accent-strong)]"
+            : "bg-brand/10 text-brand"
+        )}
+      >
         <MessagesSquare className="size-6" />
       </div>
-      <p className="text-sm text-muted-foreground">
+      <p
+        className={cn(
+          "text-sm",
+          player ? "text-[var(--pc-muted)]" : "text-muted-foreground"
+        )}
+      >
         {listType === "channel"
           ? t("You have no channels currently")
           : t("Nothing yet...")}
@@ -187,9 +239,15 @@ export function ChatMessagePanel({ children }: React.PropsWithChildren) {
 
 /** Spinner used by the list while paginating. */
 export function ChatLoadingIndicator() {
+  const player = !React.useContext(VenueInboxContext)
   return (
     <div className="flex justify-center p-3">
-      <Loader2 className="size-4 animate-spin text-muted-foreground" />
+      <Loader2
+        className={cn(
+          "size-4 animate-spin",
+          player ? "text-[var(--pc-muted)]" : "text-muted-foreground"
+        )}
+      />
     </div>
   )
 }

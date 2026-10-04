@@ -1,138 +1,82 @@
-# Plan 022: Restyle trang trò chuyện người chơi theo `/vi/app`
+# Plan 022: Restyle chat người chơi theo ảnh tham chiếu
 
-## Mục tiêu và trạng thái
+## Mục tiêu và phạm vi
 
-- **Trạng thái:** Chưa triển khai. File này là kế hoạch; không thay đổi UI trong bước lập kế hoạch.
-- **Route đích:** `/[locale]/app/chat`, gồm `/vi/app/chat`, `/en/app/chat` và deep link `?channel=<id>`.
-- **Nguồn style:** Trang `/[locale]/app` hiện tại, đặc biệt header xanh dương, xanh neon, trắng/đen, hình khối bo tròn, nét kẻ sân và các asset cầu lông trong `web/public`.
-- **Phạm vi chức năng:** Chỉ thay đổi trình bày và bố cục. Stream Chat, Clerk, API, quyền truy cập, dữ liệu hội thoại và cách gửi tin giữ nguyên.
-- **Không thuộc phạm vi:** `/app/venue/[venueId]/messages`, AI chat trên `/app`, giao diện đặt sân/chơi, API và schema.
+- **Trạng thái:** Đã triển khai phần bố cục và restyle chat người chơi. Tìm kiếm/tab hội thoại cần một thiết kế truy vấn Stream riêng; không hiển thị điều khiển giả.
+- **Đích:** `/[locale]/app/chat` (gồm `vi`, `en` và `?channel=<id>`). Dùng `image/chat-restyle.png` làm tham chiếu cho bố cục, nhịp khoảng cách, màu và trạng thái. Giữ thương hiệu, dữ liệu và nhãn thực tế của Shuttio trong ứng dụng.
+- **Kết quả mong muốn:** Trên desktop là một khung làm việc ba vùng: thanh điều hướng ứng dụng, danh sách hội thoại, hội thoại đang mở. Khi rời chat sang trang khác hoặc quay lại, shell ứng dụng, chiều cao màn hình, điều hướng và vùng cuộn của trang đích vẫn hoạt động đúng.
+- **Ranh giới:** Chỉ sửa trình bày chat người chơi và phần shell cần thiết cho route này. Không đổi API, Stream Chat, quyền truy cập, dữ liệu, luồng gửi tin, AI chat hay giao diện `/app/venue/[venueId]/messages`.
 
 ## Hiện trạng đã kiểm tra
 
-1. `web/app/[locale]/app/chat/page.tsx` là trang server mỏng, truyền `searchParams.channel` vào `ChatView`. Không cần thay routing hoặc metadata.
-2. `web/features/dashboard/dashboard-frame.tsx` chỉ dùng layout toàn màn hình cho `/app`; mọi trang khác có `AppSidebar`, topbar trung tính và `main` có padding. Đây là nguyên nhân lớn nhất khiến `/app/chat` không cùng ngôn ngữ thị giác với trang chủ.
-3. `web/features/dashboard/topbar.tsx` đã có header xanh cho `/app` với logo, bốn liên kết, thông báo, theme, locale và menu tài khoản. `/app/chat` vẫn vào nhánh header cũ. `NewChatAction` hiện được hiển thị bởi `SectionActions` trong nhánh này.
-4. `web/features/chat/chat.tsx` dựng giao diện hai cột, dùng `ChatView` chung cho chat người chơi và hộp thư chủ sân. `WithComponents` thay toàn bộ UI nhìn thấy được của Stream bằng các component nội bộ; không nhập CSS giao diện của Stream.
-5. `channel-list.tsx`, `message.tsx`, `composer.tsx`, `list-chrome.tsx`, `chat-avatar.tsx` đang chủ yếu dùng token trung tính hoặc xanh lá cũ (`bg-muted`, `bg-primary`, `bg-brand`). `ChatAvatar` ưu tiên ảnh thật và fallback chữ cái; phải giữ quy tắc này.
-6. Trên mobile, `MobilePaneContext` điều khiển hai trạng thái `list` và `conversation`. Deep link mở thẳng hội thoại. Nút quay lại trong `TeamChannelHeader` đưa người dùng về danh sách.
-7. `Composer` hỗ trợ Enter để gửi, Shift+Enter xuống dòng, typing indicator và chặn gửi khi phòng bị đóng. Những hành vi này không thay đổi.
-8. Ứng dụng có theme sáng/tối, `next-intl` cho `vi`/`en`, `NewChatDialog` để tìm người dùng và tạo DM/nhóm. Các trạng thái tải, lỗi, không có hội thoại nằm trong các component chat hiện tại.
+1. `web/features/dashboard/dashboard-frame.tsx` đang coi `/app/chat` như trang chủ: ẩn `AppSidebar`, dùng `DashboardTopbar` cao 88px và `main` full bleed. Điều này trái với ảnh, nơi sidebar là cột trái của khung chat.
+2. `web/features/dashboard/topbar.tsx` dùng header xanh cho cả `/app` và `/app/chat`. `AppSidebar` hiện có link chat, active state theo route, badge chưa đọc và menu tài khoản. Không cần tạo một bộ điều hướng khác chỉ để giống ảnh.
+3. `web/features/chat/chat.tsx` có hai pane danh sách/hội thoại, một pane trên mobile, và dùng chung `ChatView` cho hộp thư chủ sân. `ChannelListHeader` đã chứa CTA tạo chat; `NewChatDialog` có luồng tạo DM/nhóm.
+4. `web/app/globals.css` có token `.player-chat` xanh dương/neon theo style cũ. Các thành phần chat đang dùng token này hoặc token toàn cục. `Composer` hiện chỉ gửi văn bản; ảnh tham chiếu có nút gọi, video, đính kèm, emoji nhưng các khả năng đó chưa được xác nhận trong UI hiện tại.
+5. `web/app/[locale]/app/chat/page.tsx` chỉ truyền `searchParams.channel` vào `ChatView`; không cần đổi URL. Layout chung trong `web/app/[locale]/app/layout.tsx` giữ các provider qua điều hướng. Guide Next.js trong `web/node_modules/next/dist/docs/01-app/01-getting-started/03-layouts-and-pages.md` xác nhận shared layout được giữ khi chuyển trang; cần xử lý khác biệt theo route tại shell mà không làm rò style sang route khác.
+6. Workspace đang có thay đổi ở `.commandcode/taste/taste.md` và `.gitignore`; không chạm vào các file đó khi thực hiện plan.
 
-## Hướng thiết kế
+## Đọc ảnh tham chiếu thành yêu cầu UI
 
-### 1. Hệ màu và chữ
+| Vùng | Chi tiết cần thể hiện | Ràng buộc |
+|---|---|---|
+| Khung tổng thể | Nền ngoài sáng rất nhạt; bề mặt chat trắng, bo góc lớn, viền mảnh và bóng nhẹ. Ba vùng được ngăn bằng viền dọc nhẹ. | Khung nằm trong `SidebarInset` hiện có, không thêm card lồng nhiều lớp hoặc gây tràn viewport. |
+| Điều hướng trái | Logo ở trên, mục Trò chuyện active với nền xanh bạc hà và vạch xanh; các mục khác và tài khoản ở cuối. | Tái dùng `AppSidebar`/`Nav` và quyền hiện có. Giữ độ rộng, cơ chế thu gọn, mobile drawer của sidebar chung; chỉ scope phần trang trí cho route chat. Không sao chép nhãn hay menu từ ảnh nếu app không có route tương ứng. |
+| Danh sách giữa | Tiêu đề “Trò chuyện”, nút tạo mới xanh lá, ô tìm kiếm, tab Tất cả/Nhóm/Cá nhân, hàng chat có avatar, preview, thời gian, badge chưa đọc, trạng thái active xanh nhạt. | Cột khoảng 300–340px ở desktop nếu không gian cho phép. Search/tab phải lọc dữ liệu thật và làm việc với phân trang Stream; nếu chưa triển khai logic trong cùng đợt thì không render điều khiển giả. |
+| Hội thoại phải | Header có avatar, tên và trạng thái; các nút hành động tròn; vùng tin thoáng, date pill giữa, bubble nhận xám nhạt, bubble gửi xanh bạc hà nhạt, timestamp và read receipt; composer pill ở đáy với nút gửi xanh. | Chỉ hiển thị search/gọi/video/đính kèm/emoji khi có hành vi thật; không biến icon trang trí thành nút bấm không hoạt động. Giữ avatar, tên và nội dung thật từ Stream. |
+| Màu và chữ | Trắng/xám rất nhạt làm nền, chữ xanh đen, xanh ngọc/xanh lá cho active, online, badge và gửi; bo góc mềm, icon nét mảnh. | Màu được định nghĩa trong `.player-chat` cho light/dark, tương phản đủ đọc. Không đổi token toàn app hoặc áp màu xanh header cũ lên ảnh mới. |
 
-| Vai trò | Light mode | Dark mode | Cách dùng |
-|---|---|---|---|
-| Xanh chủ đạo | `#2046ed` | xanh sáng có tương phản phù hợp | Header, tiêu đề, viền, tin nhắn của mình, nút gửi |
-| Xanh neon | `#a5ff12` | xanh neon giảm độ gắt nếu cần | Hội thoại đang chọn, badge chưa đọc, CTA chính |
-| Nền trang | `#fff` / xanh rất nhạt | đen xanh đậm | Vùng nội dung chat |
-| Mực chữ | xanh đậm gần `#173bc8` / đen | trắng ngà | Tiêu đề, nội dung và nhãn phụ |
-| Điểm nhấn hồng | `#e959bd` | hồng vừa phải | Chỉ dùng ở chi tiết trang trí hoặc hover, không dùng cho văn bản chức năng |
-
-Tạo token *scoped* cho player chat (ví dụ `.player-chat`) trong CSS module hoặc một vùng có prefix rõ ràng. Không đổi `--primary`, `--brand`, `--lime` toàn app vì các trang khác vẫn dùng hệ màu hiện tại. Nội dung chat cần đọc lâu, nên ưu tiên nền đơn giản và tương phản hơn trang hero.
-
-### 2. Bố cục desktop
+Sơ đồ desktop mục tiêu (cột trái là shell chung, hai cột phải thuộc chat):
 
 ```text
-┌──────────────── Header xanh giống /app ────────────────┐
-│ Logo       AI  Chơi  [Trò chuyện]  Lịch đặt     tiện ích │
-├───────────────────┬─────────────────────────────────────┤
-│ Danh sách chat    │ Tên người/nhóm + trạng thái         │
-│ Tiêu đề + CTA mới │─────────────────────────────────────│
-│ Tìm kiếm/lọc (*)  │ Tin nhắn, mốc ngày, chưa đọc         │
-│ Các hội thoại     │                                     │
-│                   │─────────────────────────────────────│
-│                   │ Ô nhập bo tròn + nút gửi             │
-└───────────────────┴─────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│ AppSidebar │ Danh sách hội thoại │ Hội thoại đang chọn         │
+│ logo/nav   │ tiêu đề + tạo mới   │ header + trạng thái         │
+│           │ tìm/lọc             │ lịch sử tin (cuộn riêng)    │
+│ tài khoản  │ các hàng (cuộn)     │ composer neo ở đáy          │
+└───────────────────────────────────────────────────────────────┘
 ```
 
-- Header cao tương ứng trang chủ (`88px`). Chỉ phần danh sách và lịch sử tin nhắn cuộn độc lập. Composer neo ở đáy vùng hội thoại; không để toàn trang cuộn khi gõ tin.
-- Cột trái rộng khoảng `320–360px` khi desktop. Cột phải chiếm phần còn lại, có giới hạn chiều rộng nội dung tin để dòng không quá dài trên màn hình lớn.
-- Cột trái có nền xanh dương rất nhạt, cột phải trắng; ranh giới là viền xanh mảnh. Không dựng thêm một card bọc toàn trang, vì `ChatShell` hiện đã theo hướng phẳng.
-- Trạng thái chưa chọn hội thoại hiển thị lời mời bắt đầu trò chuyện, CTA “Cuộc trò chuyện mới”, và một asset trang trí cầu lông có kích thước vừa. Không dùng nhân vật minh họa làm avatar người dùng.
-- `(*)` Tìm kiếm/lọc hội thoại chỉ đưa vào nếu tận dụng được danh sách đang có và không làm sai phân trang/lọc của Stream. Nếu cần thêm logic không nhỏ, để ngoài scope restyle; không vẽ ô tìm kiếm giả.
+## Quyết định về bố cục khi chuyển trang
 
-### 3. Bố cục mobile/tablet
+1. `DashboardFrame` cần nhánh route rõ ràng: `home`, `playerChat`, `other`. Chỉ `playerChat` hiện `AppSidebar` và ẩn topbar xanh; `home` giữ layout hiện tại; `other` giữ sidebar, topbar và padding hiện tại. Không sửa chiều rộng mặc định của sidebar hoặc `SidebarInset` toàn ứng dụng.
+2. Đặt chat trong vùng nội dung còn lại của shell: `h-svh`, `min-h-0`, `min-w-0`, `overflow-hidden` xuyên suốt `SidebarInset` → `main` → `ChatShell`. Chỉ danh sách và lịch sử tin cuộn; header từng cột và composer cố định trong cột. Không dùng `position: fixed` cho composer hay chiều cao tính cứng theo header cũ.
+3. Dùng một lớp scope theo route cho điều hướng chat nếu cần active style giống ảnh. `AppSidebar` vẫn là component chung; style route khác không bị ảnh hưởng. Trên mobile sidebar mở bằng drawer/trigger của ứng dụng, còn chat giữ cơ chế một pane tại một thời điểm. Tránh để sidebar, list và conversation cùng chen ngang ở 768px.
+4. Khi chuyển `/app/chat` ↔ `/app`, `/app/play`, `/app/bookings`, shell có thể đổi kiểu theo route nhưng không để lại padding, nền, sidebar hoặc topbar của chat trên trang đích. Với deep link `?channel=...`, refresh và back/forward, pane và active route phải đúng; không ép remount provider Stream hay mất trạng thái điều hướng ngoài ý muốn.
 
-- Dưới `sm`: giữ cơ chế một pane mỗi lần. Danh sách chiếm toàn bộ chiều rộng; chọn hội thoại mở nội dung; nút quay lại có vùng chạm tối thiểu `44px`.
-- Ở tablet: cân nhắc breakpoint `md` cho hai cột nếu chiều rộng thực tế đủ; không ép cột 288px + nội dung chật trên màn hình 640px. Chọn breakpoint sau khi kiểm tra thực tế tại 640, 768 và 1024px.
-- Header xanh cần gọn: logo, thông báo, menu; các liên kết chính chuyển vào menu như trang chủ. CTA tạo chat vẫn dễ tìm trong đầu danh sách, không phụ thuộc vào topbar bị thu gọn.
-- Composer dùng `safe-area-inset-bottom` trên thiết bị có thanh hệ thống; khi bàn phím ảo mở, tin mới và ô nhập vẫn thấy được.
+## Kế hoạch triển khai
 
-### 4. Các thành phần cần restyle
+### A. Baseline và shell
 
-| Thành phần | Thay đổi dự kiến | Giữ nguyên |
-|---|---|---|
-| Header điều hướng | Tái sử dụng header xanh `/app`, active state cho “Trò chuyện”; menu và icon có focus/hover rõ | Link, thông báo, theme, locale, tài khoản |
-| Đầu danh sách | Tiêu đề đậm xanh, CTA “Cuộc trò chuyện mới” xanh neon, bộ đếm nếu có dữ liệu thật | `NewChatDialog` và luồng tạo DM/nhóm |
-| Hàng hội thoại | Avatar thật, pill active xanh neon, preview và thời gian dễ đọc, badge chưa đọc tương phản | Chọn channel, trạng thái online, menu xoá/rời, phân trang |
-| Đầu hội thoại | Nền xanh hoặc trắng theo mẫu thống nhất, tên/ảnh và trạng thái, viền phân tách | Nhánh DM, nhóm, chat với sân và mở profile |
-| Tin nhắn | Tin mình màu xanh dương; tin người khác nền trắng/xanh nhạt với viền mềm; góc bo và khoảng cách theo nhóm | Quote, đính kèm, phản ứng, xoá, timestamp, read receipts |
-| Mốc ngày/chưa đọc/typing | Pill nhỏ, đường kẻ xanh nhạt, badge neon có độ tương phản | Nội dung và vị trí do Stream quản lý |
-| Composer | Thanh nhập bo tròn, nút gửi neon hoặc xanh dương; trạng thái disabled/frozen rõ | Enter, Shift+Enter, typing event, send API |
-| Trạng thái trống/tải/lỗi | Thông điệp dễ hiểu, asset trang trí nhỏ, nút hành động khi phù hợp | Không bịa hội thoại/tin nhắn mẫu |
-| Dialog tạo chat | Màu nút, chip người chọn, focus ring và khoảng cách theo style mới | Search debounce, chọn người, đặt tên nhóm, xử lý lỗi |
+1. Chụp trạng thái hiện tại ở desktop/mobile cho `/vi/app`, `/vi/app/chat`, `/vi/app/play`, `/vi/app/bookings`, `/vi/app/venue/[venueId]/messages`; kiểm tra light/dark và `/en/app/chat`. Ghi kích thước thực tế của sidebar, inset, viewport và các điểm gãy responsive.
+2. Đọc lại guide Next.js liên quan trong `web/node_modules/next/dist/docs/` trước khi sửa code routing/layout theo `AGENTS.md`. Sửa `dashboard-frame.tsx` theo quyết định ba nhánh ở trên. Trong `topbar.tsx`, bỏ riêng `/app/chat` khỏi nhánh header xanh; đảm bảo chat không nhận một topbar trung tính thừa và các route khác giữ hành vi cũ.
+3. Chỉnh class route chat của `AppSidebar`/`SidebarInset` nếu cần để đạt bề mặt trắng, viền, bo góc và active state của ảnh. Giữ menu tài khoản, unread badge, locale/theme/notification ở nơi có thể truy cập; nếu ẩn topbar chat thì bố trí lại các điều khiển cần thiết trong chrome có sẵn, không để tính năng biến mất.
 
-## Kiến trúc và phạm vi file
+### B. Hai cột chat và component
 
-1. **`web/features/dashboard/dashboard-frame.tsx`**: phân loại route rõ ràng: `home`, `playerChat`, `other`. Cho `playerChat` dùng phần nội dung toàn màn hình, bỏ padding ngoài; không thay khung các route venue/admin/play/bookings. Đảm bảo `main` có `min-h-0` và không tạo hai vùng cuộn dọc không cần thiết.
-2. **`web/features/dashboard/topbar.tsx`**: rút header xanh thành nhánh/component dùng cho `/app` và `/app/chat`, nhận `activeItem` thay vì so sánh cứng chỉ với `/app`. Trang chat phải có đường vào “Cuộc trò chuyện mới”: ưu tiên đặt CTA trong danh sách chat và không render một nút trùng ở topbar. Kiểm tra menu trên mobile và quyền admin/venue như hiện tại.
-3. **`web/features/chat/chat.tsx`**: thêm biến thể trình bày player chat dựa trên `venueInboxId` hoặc prop rõ ràng từ page. Đặt root class/data attribute để scope style. Chỉnh `ChatShell`, hai pane, `TeamChannelHeader` và trạng thái không kết nối. Không sửa query/filter/sort/channel initialization.
-4. **`web/features/chat/channel-list.tsx`**: bố cục đầu danh sách và hàng chat; active/unread/hover/focus. Giữ menu remove/leave và khả năng click toàn hàng. Nếu cần nút tạo chat tại đây, chuyển `NewChatDialog` từ topbar vào vùng đầu danh sách để nó vẫn có mặt trên mọi breakpoint.
-5. **`web/features/chat/message.tsx`, `composer.tsx`, `list-chrome.tsx`**: áp dụng token player chat cho bong bóng, input, các marker trạng thái. Bọc thay đổi trong variant hoặc CSS scoped để hộp thư chủ sân không đổi diện mạo ngoài ý muốn.
-6. **`web/features/chat/new-chat-dialog.tsx`**: chỉnh trình bày dialog và các state tìm kiếm; không đụng logic tìm kiếm/tạo channel.
-7. **`web/app/globals.css` hoặc CSS module mới trong `features/chat/`**: chỉ thêm CSS cần thiết cho cấu trúc Stream hoặc token scoped. Ưu tiên Tailwind cho component cụ thể; tránh selector toàn cục `.str-chat` không có prefix.
-8. **`web/messages/vi.json` và `en.json`**: thêm copy chỉ khi tạo text mới; giữ parity của hai locale. Không hardcode tiếng Việt vào component có thể mở ở `/en/app/chat`.
+4. Đổi token `.player-chat` từ xanh dương/neon sang bảng màu trắng, xám, xanh bạc hà; khai báo dark mode tương ứng. Xóa dấu vết style cũ chỉ trong player chat. Dùng token hoặc CSS scoped thay cho selector Stream toàn cục.
+5. Trong `chat.tsx`, làm hai pane co giãn đúng bên cạnh sidebar: list có chiều rộng mục tiêu nhưng không đẩy conversation ra ngoài màn hình; conversation `min-w-0`. Restyle header hội thoại, trạng thái chưa chọn/đang kết nối/lỗi. Giữ `venueInboxId` làm ranh giới để hộp thư chủ sân không đổi giao diện.
+6. Trong `channel-list.tsx`, restyle đầu danh sách, CTA, hàng active/hover/unread, menu xóa/rời nhóm và loading/error/empty. Bổ sung search/tab chỉ sau khi xác định truy vấn Stream và phân trang có thể lọc đúng; tính count từ dữ liệu đáng tin cậy, không dùng số cố định theo ảnh. Nếu chưa đủ điều kiện, hoàn thành phần còn lại của restyle và ghi rõ search/tab là hạng mục chức năng tiếp theo.
+7. Trong `message.tsx`, `list-chrome.tsx`, `composer.tsx`, restyle bubble, nhóm tin, date pill, typing/unread, read receipt và composer theo ảnh. Giữ quote, reaction, xóa, tệp hiện có, Enter/Shift+Enter, typing event và trạng thái frozen. Không thêm icon search/gọi/video/plus/ảnh/emoji khi chưa có hành vi thực; nếu chức năng đã tồn tại ở nơi khác, nối đúng hành vi và trạng thái disabled.
+8. Restyle `new-chat-dialog.tsx` nếu cần để thống nhất với CTA và palette. Chỉ thêm chuỗi mới qua `web/messages/vi.json` và `en.json`, không hardcode tiếng Việt. Avatar vẫn ưu tiên ảnh thật, fallback chữ cái.
 
-Nếu một thay đổi chỉ phục vụ player chat, truyền variant vào component con hoặc dùng context/style scope tại root. `VenueInboxContext` hiện chỉ phân biệt ngữ nghĩa hộp thư; không nên dựa vào class chung rồi vô tình restyle cả `/app/venue/[venueId]/messages`.
+### C. Responsive và kiểm tra hồi quy
 
-## Trình tự triển khai
-
-### Giai đoạn A — chốt baseline
-
-1. Mở `/vi/app` và `/vi/app/chat` trong cùng viewport desktop/mobile, chụp baseline ở trạng thái có hội thoại và chưa chọn hội thoại. Kiểm tra `/en/app/chat` và theme tối.
-2. Ghi lại số đo: chiều cao header, độ rộng nội dung, breakpoint hiện có, màu/bo góc/spacing của trang chủ. Kiểm tra asset `web/public` nào có nền trong suốt; chỉ chọn asset dùng trong empty state.
-3. Chạy `git status --short`, giữ nguyên các thay đổi khác của người dùng. Đọc guide Next.js liên quan trong `web/node_modules/next/dist/docs/` trước khi sửa code, theo `AGENTS.md`.
-
-### Giai đoạn B — khung trang và điều hướng
-
-4. Refactor header xanh để dùng trên home và chat, có active state theo route. Duy trì notification, locale, theme, account menu; kiểm tra `NewChatAction` không biến mất khi bỏ topbar cũ.
-5. Cho `/app/chat` full bleed và cao đúng phần màn hình còn lại. Trên desktop đặt hai pane; trên mobile giữ pane transition hiện có.
-
-### Giai đoạn C — nội dung chat
-
-6. Thêm token màu scoped và restyle danh sách; đặt nút tạo hội thoại ở đầu danh sách. Kiểm tra active/unread/online và hover menu ở cả chuột lẫn cảm ứng.
-7. Restyle header hội thoại, tin nhắn, date/unread/typing marker, composer và empty/loading/error states. Kiểm tra tin nhắn dài, nhiều dòng, quote, đính kèm ảnh/tệp.
-8. Restyle dialog tạo hội thoại. Kiểm tra kết quả tìm kiếm rỗng/đang tải/chọn nhiều người/lỗi tạo chat.
-9. Rà responsive 360, 390, 640, 768, 1024, 1440px; chỉnh cột, font, padding và safe area. Rà light/dark và focus keyboard.
-
-### Giai đoạn D — xác minh
-
-10. Chạy `npm run typecheck`, ESLint các file sửa, `npm run build`; sửa mọi lỗi do thay đổi gây ra.
-11. Smoke test thủ công: tạo DM, tạo nhóm, gửi tin, phản ứng, xoá, mở profile, nhảy tin chưa đọc, mở `?channel=...`, quay lại danh sách mobile, phòng frozen, Stream connecting/unavailable.
-12. Mở `/app/venue/[venueId]/messages` để xác nhận variant player không làm đổi layout hoặc chức năng hộp thư chủ sân.
+9. Kiểm tra 360, 390, 640, 768, 1024, 1440px: sidebar/drawer không đè composer; dưới ngưỡng đủ rộng chỉ hiện list hoặc conversation; nút quay lại ít nhất 44px; safe area và bàn phím ảo không che input. Kiểm tra chuỗi dài, tên dài, nhiều tin, ảnh/tệp, dialog và menu mở gần mép màn hình.
+10. Chạy typecheck, lint các file sửa và build. Smoke test tạo DM/nhóm, gửi tin, phản ứng, xóa/rời nhóm, unread, profile, room frozen, Stream loading/error, deep link `?channel=...`, chuyển route bằng click/back/forward và refresh.
+11. So sánh ảnh mới với tham chiếu tại desktop, sau đó kiểm tra lại các trang đích `/app`, `/app/play`, `/app/bookings`, `/app/venue/[venueId]/messages`, cả light/dark và `vi`/`en`. Dừng chỉnh khi đã xác minh không có overflow ngang, khoảng trắng dư, topbar trùng hoặc style chat rò sang trang khác.
 
 ## Tiêu chí nghiệm thu
 
-- Người dùng đi từ `/vi/app` sang `/vi/app/chat` thấy cùng header, hệ màu, font, nút và nhịp khoảng cách; mục Trò chuyện được đánh dấu rõ.
-- Không có sidebar dashboard cũ trên player chat; danh sách và vùng chat sử dụng đủ chiều cao màn hình, cuộn đúng vùng.
-- CTA tạo chat luôn thấy được ở desktop và mobile; không có hai CTA trùng nhau.
-- Tin mình/người khác, hội thoại active/chưa đọc, online/offline có khác biệt rõ nhưng văn bản vẫn đủ tương phản. Focus state nhìn thấy bằng bàn phím.
-- Deep link `?channel=...`, chat nhóm, chat sân, menu xoá/rời, thông báo, theme và locale hoạt động như trước.
-- `/en/app/chat` không xuất hiện copy tiếng Việt hardcode. Hộp thư chủ sân không bị restyle ngoài phạm vi.
-- TypeScript, ESLint, build qua; smoke test mobile/desktop hoàn thành.
+- Desktop hiển thị ba vùng với tỷ lệ hợp lý; sidebar chung, list và conversation khớp tinh thần ảnh. Active nav và active channel phân biệt rõ. Khu vực lịch sử và list cuộn độc lập, composer luôn thấy được.
+- Chuyển vào/ra chat không làm hỏng shell của trang đích: không còn sidebar/topbar kép, không còn padding/nền chat trên trang khác, không mất lối vào thông báo, theme, locale và tài khoản.
+- Mobile dùng một pane chat và sidebar drawer; deep link vào hội thoại và nút quay lại hoạt động. Không tràn ngang tại các viewport kiểm tra.
+- Mỗi control hiển thị đều hoạt động với dữ liệu thật hoặc có disabled state rõ; không có số đếm, chat mẫu hay icon chức năng giả lấy từ ảnh.
+- `vi`/`en`, light/dark, hộp thư chủ sân và các hành vi Stream hiện có không hồi quy; typecheck, lint, build và smoke test đạt.
 
-## Rủi ro và cách xử lý
+## Ghi nhận triển khai
 
-- **`ChatView` dùng chung:** scope bằng player variant; thêm kiểm tra venue inbox vào danh sách nghiệm thu.
-- **Mất CTA tạo chat khi đổi header:** chuyển CTA vào danh sách trước hoặc cùng bước refactor header, sau đó bỏ CTA topbar cũ ở player chat.
-- **Nhiều vùng scroll lồng nhau:** giới hạn chiều cao từ `DashboardFrame`, dùng `min-h-0` tại các flex child và để hai pane tự cuộn.
-- **Theme tối xung đột màu hardcode:** định nghĩa token scoped có giá trị dark tương ứng, kiểm tra tương phản thực tế của text, badge, input, focus.
-- **Stream DOM riêng:** chỉ style trong root player chat, không nhập stylesheet mặc định của SDK hoặc chỉnh global selector rộng.
-- **Asset trang trí lấn nội dung:** chỉ dùng ở empty state, `aria-hidden`, tối ưu kích thước; tránh overlay lên tin nhắn hoặc nút.
-
-## Ghi chú triển khai
-
-Plan này mô tả đích và thứ tự thực hiện; các tên class/token chính xác nên được chốt sau khi xem trang đang chạy ở các viewport. Không thêm logic chat hoặc dữ liệu mẫu để phục vụ ảnh chụp giao diện.
+- Đã dùng `AppSidebar` trong route chat, bỏ header xanh ở route đó, giữ layout cũ cho trang chủ và các trang còn lại. Chat người chơi dùng token trắng/xám/xanh bạc hà; hộp thư chủ sân giữ variant trung tính.
+- Chat chuyển sang một pane dưới `lg`, có nút mở sidebar ở danh sách, hội thoại, trạng thái trống và trạng thái kết nối trên mobile. Deep link không mở được channel đưa người dùng về danh sách.
+- Đã restyle list, bubble, marker, composer, dialog tạo chat và active nav; không thêm nút gọi/video/đính kèm/emoji khi chưa có hành vi thật.
+- Đã chạy typecheck, ESLint các file liên quan, `next build` và `git diff --check`. Smoke test có đăng nhập trên trình duyệt và so ảnh ở nhiều viewport vẫn cần thực hiện trong môi trường có phiên Clerk hợp lệ.

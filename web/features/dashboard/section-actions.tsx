@@ -1,12 +1,7 @@
 "use client"
 
 import type { ComponentType } from "react"
-import {
-  CalendarPlus,
-  Play,
-  Plus,
-  RotateCcw,
-} from "lucide-react"
+import { CalendarPlus, Play, Plus, RotateCcw } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { Button } from "@/components/ui/button"
@@ -59,14 +54,23 @@ function ClearChatAction() {
   )
 }
 
-/** Bookings override — same Play chooser, booking-flavored label. */
-function NewBookingAction() {
+/**
+ * Bookings primary CTA — same Play chooser, booking-flavored label. The
+ * bookings route now renders the blue player header (which shows no
+ * `SectionActions`), so the CTA lives in the `BookingsView` header instead and
+ * this is exported for that view.
+ */
+export function NewBookingAction() {
   const t = useTranslations("Bookings")
   const { openPlay } = useBooking()
   return (
-    <Button size="sm" className="rounded-full" onClick={openPlay}>
+    <Button
+      size="sm"
+      className="h-10 shrink-0 rounded-full bg-lime px-5 text-lime-foreground hover:bg-lime/90"
+      onClick={openPlay}
+    >
       <CalendarPlus />
-      <span className="hidden sm:inline">{t("newBooking")}</span>
+      {t("newBooking")}
     </Button>
   )
 }
@@ -101,7 +105,9 @@ const PLAYER_ACTIONS: Partial<Record<SectionKey, ComponentType>> = {
   // Chat's "new conversation" CTA lives in the channel-list header — player
   // chat renders the blue header, which shows no SectionActions.
   chat: () => null,
-  bookings: NewBookingAction,
+  // Bookings' "new booking" CTA lives in the view header — bookings renders the
+  // blue header, which shows no SectionActions. See `NewBookingAction`.
+  bookings: () => null,
   // The booking wizard is itself the action — no topbar CTA needed.
   book: () => null,
 }

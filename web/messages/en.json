@@ -331,6 +331,28 @@
     "noCourts": "No courts found",
     "choose": "Choose",
     "chosen": "Chosen",
+    "filter": {
+      "area": "Area",
+      "ward": "Choose district",
+      "distance": "Distance",
+      "any": "All",
+      "price": "Price / hour",
+      "minPrice": "Min price",
+      "maxPrice": "Max price",
+      "province": "Province / city",
+      "allProvinces": "All provinces",
+      "time": "Time",
+      "anyDay": "Any day",
+      "period": {
+        "all": "All day",
+        "morning": "Morning (06–12h)",
+        "afternoon": "Afternoon (12–17h)",
+        "evening": "Evening (17–23h)"
+      },
+      "surface": "Surface",
+      "apply": "Find courts",
+      "reset": "Reset"
+    },
     "distance": "≈ {km} km (straight line)",
     "anyDay": "Day",
     "slotsFor": "Open slots",
@@ -431,7 +453,44 @@
     "busy": "Booked",
     "free": "Free",
     "freeAt": "Free from {time}",
-    "yourSlot": "Your slot"
+    "yourSlot": "Your slot",
+    "title": "Book a court",
+    "subtitle": "Find an open court near you, pick a time and pay — all in one place.",
+    "tabCourts": "Courts",
+    "tabRooms": "Rooms",
+    "view": {
+      "list": "List",
+      "map": "Map"
+    },
+    "nearMe": "Find courts near me",
+    "locating": "Locating…",
+    "sortLabel": "Sort: {sort}",
+    "sort": {
+      "distance": "Nearest",
+      "price": "Lowest price",
+      "rating": "Top rated"
+    },
+    "slotSubtitle": "Pick a time slot and book your court",
+    "grid": {
+      "today": "Today",
+      "prevDay": "Previous day",
+      "nextDay": "Next day",
+      "free": "Available",
+      "mine": "Your selection",
+      "busy": "Booked",
+      "cell": "{court}, {time}",
+      "confirm": "Confirm",
+      "none": "--:--",
+      "weekdays": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+      ]
+    }
   },
   "Session": {
     "toast": {
@@ -479,6 +538,25 @@
       "price": "Price",
       "rating": "Rating"
     },
+    "filters": {
+      "title": "Filters",
+      "clear": "Clear filters",
+      "all": "All",
+      "surface": "Court surface",
+      "price": "Price per hour",
+      "rating": "Rating",
+      "distance": "Distance",
+      "priceLt150": "Under 150K",
+      "price150to250": "150K – 250K",
+      "price250to350": "250K – 350K",
+      "priceGte350": "Over 350K",
+      "rating3": "3★ & up",
+      "rating4": "4★ & up",
+      "rating45": "4.5★ & up",
+      "distance2": "Within 2 km",
+      "distance5": "Within 5 km",
+      "distance10": "Within 10 km"
+    },
     "geo": {
       "locating": "Locating…",
       "on": "Near you",
@@ -496,7 +574,15 @@
     "prev": "Previous",
     "next": "Next",
     "more": "+{count} more",
-    "weekdaysShort": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    "weekdaysShort": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ],
     "monthsShort": [
       "Jan",
       "Feb",
@@ -548,6 +634,11 @@
       "confirmed": "Confirmed",
       "pending": "Pending",
       "played": "Played"
+    },
+    "nextUp": {
+      "title": "Up next",
+      "view": "View on calendar",
+      "empty": "No upcoming games yet. Book a court to schedule your next one!"
     },
     "calendar": {
       "title": "Calendar",
@@ -605,7 +696,16 @@
     "errorBody": "Something went wrong checking your payment. Please check back in My Bookings.",
     "viewBookings": "View my bookings",
     "messageVenue": "Message the venue",
-    "messageVenueFailed": "Couldn't open the venue chat"
+    "messageVenueFailed": "Couldn't open the venue chat",
+    "bookingRef": "Booking ref",
+    "backHome": "Back to home",
+    "metaTitleFailed": "Payment not completed",
+    "failedTitle": "Payment failed",
+    "failedBody": "The transaction didn't go through and you weren't charged. Your court stays on hold until the hold expires — please try paying again.",
+    "userCancelledTitle": "Payment cancelled",
+    "userCancelledBody": "You cancelled the transaction on SePay. Your court stays on hold until the hold expires — you can pay again now.",
+    "retryPayment": "Pay again",
+    "openingPayment": "Opening payment…"
   },
   "Landing": {
     "hero": {
@@ -1111,6 +1211,8 @@
     "loading": "Connecting to chat…",
     "unavailable": "Chat is unavailable right now.",
     "newChat": "New chat",
+    "listSearchPlaceholder": "Search conversations…",
+    "listNoResults": "No matching conversations found.",
     "searchPlaceholder": "Search by name or email…",
     "searchHint": "Type at least 3 characters",
     "noResults": "No users found",
@@ -1132,7 +1234,9 @@
     "cancel": "Cancel",
     "removeFailed": "Couldn't remove the conversation, please try again",
     "emptyTitle": "Start chatting",
-    "emptyHint": "Pick a conversation on the left or start a new one."
+    "emptyHint": "Pick a conversation on the left or start a new one.",
+    "playerEmptyTitle": "Choose a conversation",
+    "playerEmptyHint": "Message your players, groups, or sports venues."
   },
   "Notifications": {
     "title": "Notifications",
@@ -1883,23 +1987,6 @@
     },
     "recentChats": "Recent chats",
     "viewAll": "View all",
-    "recent": {
-      "booking": {
-        "title": "Booking Assistant",
-        "desc": "Find and book a court at Tan Binh district",
-        "time": "2 hours ago"
-      },
-      "players": {
-        "title": "Find Players",
-        "desc": "Intermediate players near me",
-        "time": "Yesterday"
-      },
-      "summary": {
-        "title": "Weekly Summary",
-        "desc": "Your activity summary for this week",
-        "time": "2 days ago"
-      }
-    },
     "upcomingBookings": "Upcoming bookings",
     "playersCount": "{count, plural, one {# player} other {# players}}",
     "status": {
@@ -1971,7 +2058,28 @@
     "roomSpotsOpen": "{count, plural, one {# spot open} other {# spots open}}",
     "joinRoom": "Join",
     "joined": "Joined",
-    "requested": "Requested…"
+    "requested": "Requested…",
+    "assistantName": "Shuttio Assistant",
+    "assistantOnline": "Ready to help",
+    "send": "Send",
+    "bookingFailed": "Booking failed — please try again.",
+    "bookAtInstead": "Book at {time} instead",
+    "tryTime": "Try {time}",
+    "bookingConfirmed": "Booking confirmed",
+    "prevResults": "Previous results",
+    "nextResults": "Next results",
+    "noPlayersFound": "No matching players found. Try broadening the area or time.",
+    "playersMatched": "{count} players matched",
+    "select": "Select",
+    "selected": "Selected",
+    "alreadyBooked": "Already booked via chat — check My Bookings.",
+    "recentEmpty": "No conversations yet. Join a match or message a venue to get started.",
+    "recentUnavailable": "Chats are unavailable right now. Please try again later.",
+    "openChat": "Open chat",
+    "recentAttachment": "Sent an attachment",
+    "recentNoMessages": "No messages yet",
+    "backHome": "Back to home",
+    "resumeChat": "Continue chatting with the assistant"
   },
   "Assessment": {
     "metaTitle": "Skill Assessment",
@@ -2112,7 +2220,9 @@
     "kmAway": "{km} km away",
     "viewProfile": "View Profile",
     "reviewsLabel": "Reviews",
-    "ratingsCount": "{count} ratings"
+    "ratingsCount": "{count} ratings",
+    "noReviews": "No reviews yet. They appear after you play with others.",
+    "reviewsUnavailable": "Reviews are unavailable right now."
   },
   "Onboarding": {
     "metaTitle": "Choose your role",
@@ -2340,5 +2450,73 @@
       "confirm": "Delete",
       "pending": "Deleting..."
     }
+  },
+  "GroupInfo": {
+    "open": "Group info",
+    "untitled": "Group chat",
+    "groupName": "Group name",
+    "rename": "Rename group",
+    "renamed": "Group renamed",
+    "renameFailed": "Couldn't rename the group",
+    "save": "Save",
+    "cancel": "Cancel",
+    "membersCount": "{count} members",
+    "members": "Members",
+    "addMembers": "Add",
+    "add": "Add",
+    "added": "Added {name} to the group",
+    "addFailed": "Couldn't add the member",
+    "searchPlaceholder": "Search by name or email (min. 3 characters)",
+    "noResults": "No matching users",
+    "you": "you",
+    "groupOwner": "Group owner",
+    "roomHost": "Room host",
+    "online": "Online",
+    "offline": "Offline",
+    "aMember": "member",
+    "remove": "Remove from group",
+    "removeMember": "Remove {name} from the group",
+    "removeTitle": "Remove {name} from the group?",
+    "removeBody": "They'll no longer see or send messages here, and are dropped from the group's match (if any).",
+    "removed": "Removed {name} from the group",
+    "removeFailed": "Couldn't remove the member",
+    "leave": "Leave group",
+    "leaveTitle": "Leave “{name}”?",
+    "leaveBody": "You'll stop receiving messages from this group. Other members keep it.",
+    "leaveRoomBody": "You'll leave the play room and its group chat.",
+    "left": "You left the group",
+    "leaveFailed": "Couldn't leave the group",
+    "hostCannotLeave": "A room host can't leave — cancel the room on the Play page instead.",
+    "matchTitle": "Group match",
+    "matchUnavailable": "Couldn't load the match right now.",
+    "notBooked": "No court booked yet",
+    "notBookedHint": "Pick a court and time for the whole group — every member joins the match.",
+    "waitHostBook": "Waiting for the group owner to pick a court and book for everyone.",
+    "bookForGroup": "Book a court for the group",
+    "continuePayment": "Continue payment",
+    "court": "Court {n}",
+    "statusConfirmed": "Confirmed",
+    "statusPendingApproval": "Awaiting venue approval",
+    "statusAwaitingPayment": "Awaiting payment",
+    "statusPlayed": "Played",
+    "rate": "Rate",
+    "ratedTitle": "You rated this player",
+    "rateHint": "The match is over — rate the players you played with.",
+    "rateTitle": "Rate {name}",
+    "rateDescription": "Share how it was playing together — ratings help the community match better.",
+    "starsLabel": "Stars",
+    "starsValue": "{count} stars",
+    "starWords": {
+      "1": "Disappointing",
+      "2": "Okay",
+      "3": "Good",
+      "4": "Very good",
+      "5": "Excellent"
+    },
+    "commentPlaceholder": "Add a comment (optional)",
+    "submitRating": "Send rating",
+    "ratedToast": "Rating sent to {name}",
+    "rateFailed": "Couldn't send the rating",
+    "bookUnavailable": "Couldn't open the group's match — please reload and try again."
   }
 }

@@ -88,3 +88,26 @@ export class VenueChatBodyDto {
   @Length(1, 64)
   bookingId?: string
 }
+
+// ── Group management ─────────────────────────────────────────────────────
+
+export class RenameGroupBodyDto {
+  @Matches(/^[\w-]{1,64}$/, { message: "Invalid channel id" })
+  channelId: string
+
+  @IsString()
+  @Length(1, 80)
+  name: string
+}
+
+export class AddGroupMembersBodyDto {
+  @Matches(/^[\w-]{1,64}$/, { message: "Invalid channel id" })
+  channelId: string
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(15)
+  @IsString({ each: true })
+  @Length(1, 128, { each: true })
+  memberIds: string[]
+}

@@ -83,9 +83,12 @@ const VIEW_ICON: Record<
 export function ViewSwitcher({
   view,
   onView,
+  accent = false,
 }: {
   view: CalendarView
   onView: (v: CalendarView) => void
+  /** Player-bookings variant: the active tab is filled with the brand blue. */
+  accent?: boolean
 }) {
   const t = useTranslations("Calendar")
   const views: CalendarView[] = ["day", "week", "month"]
@@ -103,7 +106,9 @@ export function ViewSwitcher({
             className={cn(
               "inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring sm:flex-none",
               active
-                ? "bg-card text-foreground shadow-sm ring-1 ring-foreground/5"
+                ? accent
+                  ? "bg-brand text-brand-foreground shadow-sm"
+                  : "bg-card text-foreground shadow-sm ring-1 ring-foreground/5"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -125,6 +130,7 @@ export function CalendarToolbar({
   onNext,
   onToday,
   live,
+  switcherAccent = false,
 }: {
   periodLabel: string
   view: CalendarView
@@ -134,6 +140,8 @@ export function CalendarToolbar({
   onToday: () => void
   /** Pre-formatted "Now · 18:00"-style text, or null when today isn't in view. */
   live?: string | null
+  /** Player-bookings variant: fill the active view tab with the brand blue. */
+  switcherAccent?: boolean
 }) {
   const t = useTranslations("Calendar")
   return (
@@ -183,7 +191,7 @@ export function CalendarToolbar({
         </div>
       </div>
 
-      <ViewSwitcher view={view} onView={onView} />
+      <ViewSwitcher view={view} onView={onView} accent={switcherAccent} />
     </div>
   )
 }
@@ -211,6 +219,7 @@ export function Timeline({
   scrollKey,
   emptyLabel,
   minColPx = 104,
+  className,
 }: {
   columns: TimelineColumn[]
   /** Current "HH:MM"; the now line/pill show only when a column is `today`. */
@@ -220,6 +229,8 @@ export function Timeline({
   scrollKey?: string
   emptyLabel?: string | null
   minColPx?: number
+  /** Extra classes for the scroll container (e.g. to fill a flex parent). */
+  className?: string
 }) {
   const showsNow = Boolean(now) && columns.some((c) => c.today)
   const nowTop = now ? toMin(now) * PX_PER_MIN : 0
@@ -237,7 +248,10 @@ export function Timeline({
   return (
     <div
       ref={scrollRef}
-      className="relative no-scrollbar max-h-[60vh] overflow-auto rounded-3xl ring-1 ring-border/60 lg:max-h-[640px]"
+      className={cn(
+        "relative no-scrollbar max-h-[60vh] overflow-auto rounded-3xl ring-1 ring-border/60 lg:max-h-[640px]",
+        className
+      )}
     >
       <div
         style={{

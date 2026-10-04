@@ -16,7 +16,12 @@ export interface SepayCheckoutInput {
   invoiceNumber: string
   amountVnd: number
   description: string
+  /** Player lands here once paid (the IPN still settles the money). */
   successUrl: string
+  /** …when SePay reports a failed payment. */
+  errorUrl: string
+  /** …when the player cancels on SePay's page. */
+  cancelUrl: string
 }
 
 export interface SepayCheckoutResult {
@@ -97,6 +102,8 @@ export class SepayClient implements SepayClientPort {
       currency: "VND",
       order_description: input.description,
       success_url: input.successUrl,
+      error_url: input.errorUrl,
+      cancel_url: input.cancelUrl,
     })
     return {
       fields,

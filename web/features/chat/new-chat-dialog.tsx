@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 import { useRouter } from "@/i18n/navigation"
 import { ChatAvatar } from "@/features/chat/chat-avatar"
 import {
@@ -131,10 +131,14 @@ export function NewChatDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="player-chat-dialog border-[var(--pc-border)] bg-[var(--pc-bg)] text-[var(--pc-ink)] shadow-xl sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{t("newChat")}</DialogTitle>
-          <DialogDescription>{t("searchPlaceholder")}</DialogDescription>
+          <DialogTitle className="text-[var(--pc-ink)]">
+            {t("newChat")}
+          </DialogTitle>
+          <DialogDescription className="text-[var(--pc-muted)]">
+            {t("searchPlaceholder")}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
@@ -145,7 +149,7 @@ export function NewChatDialog({
                   key={u.id}
                   type="button"
                   onClick={() => toggleSelected(u)}
-                  className="inline-flex items-center gap-1 rounded-full bg-secondary py-1 pr-1.5 pl-2.5 text-xs font-medium text-secondary-foreground transition-colors hover:bg-secondary/70"
+                  className="inline-flex items-center gap-1 rounded-full bg-[var(--pc-accent-soft)] py-1 pr-1.5 pl-2.5 text-xs font-medium text-[var(--pc-accent-strong)] transition-colors hover:bg-[var(--pc-accent-soft-strong)] focus-visible:outline-2 focus-visible:outline-[var(--pc-accent)]"
                 >
                   {u.name}
                   <X className="size-3" />
@@ -160,34 +164,32 @@ export function NewChatDialog({
               onChange={(e) => setGroupName(e.target.value)}
               placeholder={t("groupNamePlaceholder")}
               maxLength={80}
+              className="border-[var(--pc-border)] bg-[var(--pc-surface-2)] focus-visible:ring-[var(--pc-blue)]"
             />
           ) : null}
 
           <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--pc-muted)]" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t("searchPlaceholder")}
-              className="pl-9"
+              className="border-[var(--pc-border)] bg-[var(--pc-surface-2)] pl-9 focus-visible:ring-[var(--pc-blue)]"
               autoFocus
             />
           </div>
 
           <div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
             {query.trim().length < MIN_QUERY_LEN ? (
-              <p className="p-3 text-center text-xs text-muted-foreground">
+              <p className="p-3 text-center text-xs text-[var(--pc-muted)]">
                 {t("searchHint")}
               </p>
             ) : searching ? (
-              Array.from({ length: 3 }, (_, i) => (
-                <div key={i} className="flex items-center gap-3 p-2">
-                  <Skeleton className="size-9 rounded-full" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
-              ))
+              <div role="status" className="grid place-items-center p-6">
+                <Spinner className="size-5" />
+              </div>
             ) : results.length === 0 ? (
-              <p className="p-3 text-center text-xs text-muted-foreground">
+              <p className="p-3 text-center text-xs text-[var(--pc-muted)]">
                 {t("noResults")}
               </p>
             ) : (
@@ -200,14 +202,16 @@ export function NewChatDialog({
                     onClick={() => toggleSelected(u)}
                     className={cn(
                       "flex items-center gap-3 rounded-xl p-2 text-left transition-colors",
-                      active ? "bg-secondary/60" : "hover:bg-muted/40"
+                      active
+                        ? "bg-[var(--pc-accent-soft)]"
+                        : "hover:bg-[var(--pc-surface-2)]"
                     )}
                   >
                     <ChatAvatar name={u.name} image={u.image} />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{u.name}</p>
                       {u.email ? (
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="truncate text-xs text-[var(--pc-muted)]">
                           {u.email}
                         </p>
                       ) : null}
@@ -221,7 +225,7 @@ export function NewChatDialog({
 
         <DialogFooter>
           <Button
-            className="rounded-full"
+            className="rounded-full bg-[var(--pc-accent)] text-[var(--pc-accent-ink)] hover:brightness-95"
             disabled={!canSubmit || creating}
             onClick={submit}
           >

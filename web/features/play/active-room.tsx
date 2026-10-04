@@ -62,7 +62,7 @@ import { useData } from "@/features/dashboard/data-provider"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { useSession } from "@/features/play/session"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
-import { useRouter } from "@/i18n/navigation"
+import { usePathname, useRouter } from "@/i18n/navigation"
 import { initialsOf } from "@/lib/shared"
 import { useAuthUser } from "@/features/dashboard/auth-user"
 
@@ -87,6 +87,8 @@ export function ActiveRoomPill() {
     useMatchmaking()
   const { sessions } = useSession()
   const { user: USER } = useData()
+  const pathname = usePathname()
+  const playScope = pathname === "/app/play"
 
   if (!activeRoom) return null
 
@@ -141,7 +143,12 @@ export function ActiveRoomPill() {
         ) : null}
       </SheetTrigger>
 
-      <SheetContent className="w-full gap-0 p-0 sm:max-w-sm">
+      <SheetContent
+        className={cn(
+          "w-full gap-0 p-0 sm:max-w-sm",
+          playScope && "player-play-overlay"
+        )}
+      >
         <RoomDetail room={activeRoom} onClose={() => setManagerOpen(false)} />
       </SheetContent>
     </Sheet>
@@ -172,6 +179,8 @@ function RoomDetail({
   } = useSession()
   const { players: MATCH_SUGGESTIONS, user: USER, courtByVenue } = useData()
   const router = useRouter()
+  const pathname = usePathname()
+  const playScope = pathname === "/app/play"
 
   // Only ever set for a room I host — someone else's room I'm awaiting
   // approval on isn't in my own `sessions` (Phase 9 G2: it lives on the
@@ -510,7 +519,9 @@ function RoomDetail({
                 {isHost ? <Trash2 /> : <LogOut />}
                 {destructiveLabel}
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent
+                className={cn(playScope && "player-play-overlay")}
+              >
                 <AlertDialogHeader>
                   <AlertDialogTitle>{destructiveTitle}</AlertDialogTitle>
                   <AlertDialogDescription>

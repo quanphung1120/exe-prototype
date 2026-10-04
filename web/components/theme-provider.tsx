@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { usePathname } from "next/navigation"
 import {
   ThemeProvider as NextThemesProvider,
   useTheme,
@@ -10,6 +11,15 @@ function ThemeProvider({
   children,
   ...props
 }: React.ComponentProps<typeof NextThemesProvider>) {
+  const pathname = usePathname()
+  // The player surfaces (home, play, chat, bookings, book, payment return) are
+  // blue-and-white designs, so lock them to light. Venue-operator and admin
+  // pages follow the user's dark/light choice like the rest of the site.
+  const isPlayerSurface =
+    /^(?:\/(?:vi|en))?\/app(?:\/(?:play|chat|bookings|book))?\/?$/.test(
+      pathname
+    ) || /^(?:\/(?:vi|en))?\/app\/payment\//.test(pathname)
+
   return (
     <NextThemesProvider
       attribute="class"
@@ -17,8 +27,9 @@ function ThemeProvider({
       enableSystem
       disableTransitionOnChange
       {...props}
+      forcedTheme={isPlayerSurface ? "light" : undefined}
     >
-      <ThemeHotkey />
+      {!isPlayerSurface && <ThemeHotkey />}
       {children}
     </NextThemesProvider>
   )

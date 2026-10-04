@@ -51,6 +51,7 @@ import {
   useMatchmaking,
   type QuickJoinFilters,
 } from "@/features/play/matchmaking"
+import { usePathname } from "@/i18n/navigation"
 
 /** One row of single-select segmented chips built from Button. */
 function FilterChips<T extends string>({
@@ -96,6 +97,8 @@ function QuickJoinDialog() {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
   const { courts: COURTS } = useData()
+  const pathname = usePathname()
+  const playScope = pathname === "/app/play"
   const { quickJoinOpen, setQuickJoinOpen, quickJoin } = useMatchmaking()
   const [maxDistance, setMaxDistance] = React.useState("any") // "2" | "5" | "any"
   const [day, setDay] =
@@ -149,7 +152,12 @@ function QuickJoinDialog() {
         setQuickJoinOpen(o)
       }}
     >
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-md">
+      <DialogContent
+        className={cn(
+          "max-h-[88vh] overflow-y-auto sm:max-w-md",
+          playScope && "player-play-overlay"
+        )}
+      >
         <DialogHeader>
           <DialogTitle>{t("quickJoin")}</DialogTitle>
           <DialogDescription>{t("quickFilter.description")}</DialogDescription>
@@ -285,6 +293,8 @@ function CreateRoomDialog() {
   const tc = useTranslations("Common")
   const tb = useTranslations("Booking")
   const locale = useLocale()
+  const pathname = usePathname()
+  const playScope = pathname === "/app/play"
   const {
     courts: COURTS,
     user: USER,
@@ -413,7 +423,12 @@ function CreateRoomDialog() {
         setCreateRoomOpen(o)
       }}
     >
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className={cn(
+          "max-h-[88vh] overflow-y-auto sm:max-w-lg",
+          playScope && "player-play-overlay"
+        )}
+      >
         <DialogHeader>
           <DialogTitle>{t("dialog.title")}</DialogTitle>
           <DialogDescription>{t("dialog.description")}</DialogDescription>
@@ -474,7 +489,7 @@ function CreateRoomDialog() {
                           {(v) => tc(`sports.${v as SportKey}`)}
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="player-play-overlay">
                         {SPORTS.map((s) => (
                           <SelectItem key={s.key} value={s.key}>
                             {tc(`sports.${s.key}`)}
@@ -501,7 +516,7 @@ function CreateRoomDialog() {
                           {(v) => tc(`format.${(v as string).toLowerCase()}`)}
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="player-play-overlay">
                         <SelectItem value="Singles">
                           {tc("format.singles")}
                         </SelectItem>
@@ -572,7 +587,7 @@ function CreateRoomDialog() {
                             {(id) => courtName(id as string)}
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="player-play-overlay">
                           {COURTS.filter((c) =>
                             c.sports.includes(selectedSport)
                           ).map((c) => (
@@ -730,7 +745,7 @@ function CreateRoomDialog() {
                           {(v) => (v ? levelLabel(v as RoomLevel) : "")}
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="player-play-overlay">
                         {LEVELS.map((l) => (
                           <SelectItem key={l.value} value={l.value}>
                             {tc(`levels.${l.value}`)}

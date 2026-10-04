@@ -5,8 +5,10 @@ import { useTranslations } from "next-intl"
 import { Check, Clock, Loader2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { useData } from "@/features/dashboard/data-provider"
 import { useSession } from "@/features/play/session"
+import { usePathname } from "@/i18n/navigation"
 
 export type {
   ExpiredEvent,
@@ -83,6 +85,8 @@ export function MatchmakingDock() {
     openManager,
   } = useMatchmaking()
   const { playerByInitials } = useData()
+  const pathname = usePathname()
+  const playScope = pathname === "/app/play"
   const ready = search?.status === "ready"
   const partnerName = search?.partner
     ? playerByInitials(search.partner).name
@@ -100,7 +104,12 @@ export function MatchmakingDock() {
             transition={{ type: "spring", stiffness: 360, damping: 30 }}
             className="pointer-events-auto w-full max-w-lg"
           >
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-full bg-card/95 py-2 pr-2 pl-4 shadow-xl ring-1 ring-foreground/10 backdrop-blur">
+            <div
+              className={cn(
+                "flex flex-wrap items-center gap-x-4 gap-y-2 rounded-full bg-card/95 py-2 pr-2 pl-4 shadow-xl ring-1 ring-foreground/10 backdrop-blur",
+                playScope && "player-play-overlay"
+              )}
+            >
               <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-lime to-brand text-brand-foreground">
                 {ready ? (
                   <Check className="size-4" />
