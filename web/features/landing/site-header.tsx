@@ -21,6 +21,10 @@ const NAV_LINKS = [
   { key: "faq", href: "#faq" },
 ]
 
+/** White icon buttons on the blue bar — mirrors the /app player header. */
+const HEADER_ICON_BUTTON =
+  "text-white hover:bg-white/15 hover:text-white aria-expanded:bg-white/15 aria-expanded:text-white dark:hover:bg-white/15"
+
 export function SiteHeader({ className }: { className?: string }) {
   const t = useTranslations("Header")
   const [open, setOpen] = React.useState(false)
@@ -68,7 +72,7 @@ export function SiteHeader({ className }: { className?: string }) {
           className="rounded-md focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none"
           aria-label={t("homeAria")}
         >
-          <Logo />
+          <Logo className="text-white" markClassName="!text-[#a5ff12]" />
         </a>
 
         <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">
@@ -84,8 +88,8 @@ export function SiteHeader({ className }: { className?: string }) {
         </nav>
 
         <div className="flex items-center gap-1.5">
-          <LocaleSwitcher />
-          <ThemeToggle className="cursor-pointer" />
+          <LocaleSwitcher className={HEADER_ICON_BUTTON} />
+          <ThemeToggle className={cn("cursor-pointer", HEADER_ICON_BUTTON)} />
           <Button
             variant="lime"
             size="lg"
@@ -96,7 +100,7 @@ export function SiteHeader({ className }: { className?: string }) {
           <Button
             variant="ghost"
             size="icon"
-            className="cursor-pointer md:hidden"
+            className={cn("cursor-pointer md:hidden", HEADER_ICON_BUTTON)}
             aria-label={open ? t("menuClose") : t("menuOpen")}
             aria-expanded={open}
             aria-controls="mobile-menu"

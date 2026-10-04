@@ -75,7 +75,7 @@ Code is organized by **feature folders** under `web/features/` (imported as `@/f
 
 - **Tailwind v4, CSS-first** — no `tailwind.config`; the theme lives in `app/globals.css` (`@theme inline` + oklch custom properties). Emerald/green palette with a lime accent.
 - **Two font scopes:** landing uses Barlow + Barlow Condensed; the dashboard is scoped to Geist via `.font-geist` on the dashboard layout's `SidebarProvider` (rebinds `--font-sans`/`--font-heading`).
-- **Dark mode** via `@teispace/next-themes` (next-themes fork, class attribute). Pressing `l` (not while typing) toggles the theme.
+- **Dark mode on the landing page only** — `components/theme-provider.tsx` (`@teispace/next-themes`, class attribute) lets `/`, `/vi`, `/en` follow the user's choice (`ThemeToggle` in the landing header, or press `l` when not typing) and forces `light` on every other route. The landing's lower sections sit in an explicit `.dark` wrapper, so they stay black in both themes.
 - **shadcn/ui** with the `base-luma` style, built on **`@base-ui/react`, not Radix**. Add with `cd web && npx shadcn@latest add <name>`.
 
 ## Conventions

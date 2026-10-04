@@ -6,7 +6,6 @@ import { LogoMark } from "@/components/logo"
 
 import { Button } from "@/components/ui/button"
 import { LocaleSwitcher } from "@/components/locale-switcher"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@/i18n/navigation"
 import { cn } from "@/lib/utils"
@@ -191,7 +190,6 @@ export function SkillsAssessmentView({
       {/* Invisible navbar — language + theme controls */}
       <nav className="flex shrink-0 items-center justify-end gap-0.5 px-4 pt-3 sm:px-6">
         <LocaleSwitcher />
-        <ThemeToggle />
       </nav>
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">

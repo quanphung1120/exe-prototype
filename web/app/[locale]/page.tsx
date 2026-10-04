@@ -1,10 +1,10 @@
 import {
   ArrowRight,
   ArrowUpRight,
-  CalendarCheck,
+  CalendarDays,
   MapPin,
-  MessageCircle,
-  MessagesSquare,
+  MessageSquare,
+  Sparkles,
   Star,
   Users,
 } from "lucide-react"
@@ -19,13 +19,8 @@ import { SiteHeader } from "@/features/landing/site-header"
 import { Link } from "@/i18n/navigation"
 import styles from "@/features/landing/landing.module.css"
 
-const FEATURE_ICONS = [
-  MessageCircle,
-  Users,
-  CalendarCheck,
-  MapPin,
-  MessagesSquare,
-]
+// Same order as `Landing.playerFeatures` in the message catalogs.
+const FEATURE_ICONS = [CalendarDays, Users, MapPin, Sparkles, MessageSquare]
 const TESTIMONIALS = [
   { name: "Maya R.", initials: "MR" },
   { name: "Daniel K.", initials: "DK" },
@@ -40,9 +35,9 @@ const TRUSTED_CLUBS = [
   "Saigon Shuttle Hub",
 ]
 
-// Preserve the existing landing CTA, including hover and keyboard-focus styles.
+// Landing CTA in the /app player topbar blue, with hover and keyboard-focus styles.
 const ctaClassName =
-  "inline-flex h-12 cursor-pointer items-center gap-2 rounded-4xl bg-lime px-7 text-base font-medium text-lime-foreground transition-colors hover:bg-lime/90 focus-visible:ring-3 focus-visible:ring-lime/40 focus-visible:outline-none"
+  "inline-flex h-12 cursor-pointer items-center gap-2 rounded-4xl bg-[#2046ed] px-7 text-base font-medium text-white transition-colors hover:bg-[#2046ed]/90 focus-visible:ring-3 focus-visible:ring-[#2046ed]/40 focus-visible:outline-none"
 
 export default async function Page({
   params,
@@ -123,7 +118,12 @@ export default async function Page({
               />
             </div>
             <div className={styles.aboutCopy}>
-              <h2>{t("aboutSection.titleStrong")}</h2>
+              <h2>
+                {t.rich("aboutSection.titleStrong", {
+                  accent: (chunks) => <span>{chunks}</span>,
+                  br: () => <br />,
+                })}
+              </h2>
               <p>{t("aboutSection.body")}</p>
               <Link href="/sign-up" className={ctaClassName}>
                 {t("hero.cta")}
@@ -143,36 +143,25 @@ export default async function Page({
           </section>
 
           <section id="features" className={styles.features}>
-            <div className={styles.sectionHeading}>
-              <p className={styles.eyebrow}>
-                {t("playerFeaturesSection.eyebrow")}
-              </p>
-              <h2>{t("playerFeaturesSection.title")}</h2>
-              <p>{t("playerFeaturesSection.subtitle")}</p>
-            </div>
-            <div className={styles.featureGrid}>
-              {FEATURE_ICONS.map((Icon, i) => (
-                <article key={i} className={styles.feature}>
-                  <div className={styles.featureTop}>
+            <div className={styles.featuresCard}>
+              <div className={styles.sectionHeading}>
+                <h2>{t("playerFeaturesSection.title")}</h2>
+                <p>{t("playerFeaturesSection.subtitle")}</p>
+              </div>
+              <div className={styles.featureGrid}>
+                {FEATURE_ICONS.map((Icon, i) => (
+                  <article key={i} className={styles.feature}>
                     <Icon aria-hidden="true" />
-                    <span aria-hidden="true">0{i + 1}</span>
-                  </div>
-                  <h3>{t(`playerFeatures.${i}.title`)}</h3>
-                  <p>{t(`playerFeatures.${i}.body`)}</p>
-                  {i === 0 && (
-                    <div className={styles.chatPreview}>
-                      <p>{t("playerFeatures.0.demoRequest")}</p>
-                      <p>{t("playerFeatures.0.demoResponse")}</p>
-                    </div>
-                  )}
-                </article>
-              ))}
+                    <h3>{t(`playerFeatures.${i}.title`)}</h3>
+                    <p>{t(`playerFeatures.${i}.body`)}</p>
+                  </article>
+                ))}
+              </div>
             </div>
           </section>
 
           <section id="how-it-works" className={styles.steps}>
             <div className={styles.sectionHeading}>
-              <p className={styles.eyebrow}>{t("stepsSection.eyebrow")}</p>
               <h2>{t("stepsSection.title")}</h2>
             </div>
             <ol className={styles.stepGrid}>
@@ -184,111 +173,115 @@ export default async function Page({
                 </li>
               ))}
             </ol>
+            <a href="#features" className={styles.stepsCta}>
+              {t("stepsSection.cta")}
+              <ArrowRight className="size-4" />
+            </a>
+          </section>
+        </div>
+
+        {/* From the stats band down, the landing stays black in both themes;
+            `dark` also flips the shadcn tokens used by pricing/FAQ. */}
+        <div className={`${styles.darkZone} dark`}>
+          <section className={styles.stats}>
+            <p className={`${styles.eyebrow} ${styles.statsTitle}`}>
+              {t("statsSection.title")}
+            </p>
+            <dl>
+              {[0, 1, 2].map((i) => (
+                <div key={i}>
+                  <dt>{t(`stats.${i}.label`)}</dt>
+                  <dd>
+                    <CountUp value={t(`stats.${i}.value`)} />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <section className={styles.testimonials}>
+            <div className={styles.sectionHeading}>
+              <h2>{t("testimonialsSection.title")}</h2>
+            </div>
+            <div className={styles.quoteGrid}>
+              {TESTIMONIALS.map((person, i) => (
+                <figure key={person.name}>
+                  <div
+                    className={styles.stars}
+                    aria-label={t("testimonialsSection.ratingAria")}
+                  >
+                    {[0, 1, 2, 3, 4].map((star) => (
+                      <Star
+                        key={star}
+                        className="size-4 fill-current"
+                        aria-hidden="true"
+                      />
+                    ))}
+                  </div>
+                  <blockquote>“{t(`testimonials.${i}.quote`)}”</blockquote>
+                  <figcaption>
+                    <span className={styles.avatar}>{person.initials}</span>
+                    <div>
+                      <strong>{person.name}</strong>
+                      <p>{t(`testimonials.${i}.role`)}</p>
+                    </div>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </section>
+
+          <section id="venues" className={styles.venues}>
+            <div>
+              <p className={styles.eyebrow}>{t("venuesSection.eyebrow")}</p>
+              <h2>
+                {t("venuesSection.titleLine1")}
+                <br />
+                <span>{t("venuesSection.titleLine2")}</span>
+              </h2>
+              <p>{t("venuesSection.subtitle")}</p>
+            </div>
+            <div className={styles.venueBenefits}>
+              {[0, 1, 2, 3].map((i) => (
+                <article key={i}>
+                  <ArrowUpRight aria-hidden="true" />
+                  <h3>{t(`venueBenefits.${i}.title`)}</h3>
+                  <p>{t(`venueBenefits.${i}.body`)}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section id="pricing" className={styles.pricing}>
+            <div className={styles.sectionHeading}>
+              <p className={styles.eyebrow}>{t("pricingSection.eyebrow")}</p>
+              <h2>{t("pricingSection.title")}</h2>
+              <p>{t("pricingSection.subtitle")}</p>
+            </div>
+            <Pricing />
+          </section>
+
+          <section id="faq" className={styles.faq}>
+            <div className={styles.sectionHeading}>
+              <p className={styles.eyebrow}>{t("faqSection.eyebrow")}</p>
+              <h2>{t("faqSection.title")}</h2>
+            </div>
+            <Faq items={faqItems} />
+          </section>
+
+          <section id="get-started" className={styles.finalCta}>
+            <p className={styles.eyebrow}>YOUR NEXT MATCH STARTS HERE</p>
+            <h2>{t("cta.title")}</h2>
+            <p>{t("cta.subtitle")}</p>
             <Link href="/sign-up" className={ctaClassName}>
               {t("hero.cta")}
               <ArrowRight className="size-4" />
             </Link>
           </section>
         </div>
-
-        <section className={styles.stats}>
-          <p className={`${styles.eyebrow} ${styles.statsTitle}`}>
-            {t("statsSection.title")}
-          </p>
-          <dl>
-            {[0, 1, 2].map((i) => (
-              <div key={i}>
-                <dt>{t(`stats.${i}.label`)}</dt>
-                <dd>
-                  <CountUp value={t(`stats.${i}.value`)} />
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        <section className={styles.testimonials}>
-          <div className={styles.sectionHeading}>
-            <h2>{t("testimonialsSection.title")}</h2>
-          </div>
-          <div className={styles.quoteGrid}>
-            {TESTIMONIALS.map((person, i) => (
-              <figure key={person.name}>
-                <div
-                  className={styles.stars}
-                  aria-label={t("testimonialsSection.ratingAria")}
-                >
-                  {[0, 1, 2, 3, 4].map((star) => (
-                    <Star
-                      key={star}
-                      className="size-4 fill-current"
-                      aria-hidden="true"
-                    />
-                  ))}
-                </div>
-                <blockquote>“{t(`testimonials.${i}.quote`)}”</blockquote>
-                <figcaption>
-                  <span className={styles.avatar}>{person.initials}</span>
-                  <div>
-                    <strong>{person.name}</strong>
-                    <p>{t(`testimonials.${i}.role`)}</p>
-                  </div>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </section>
-
-        <section id="venues" className={styles.venues}>
-          <div>
-            <p className={styles.eyebrow}>{t("venuesSection.eyebrow")}</p>
-            <h2>
-              {t("venuesSection.titleLine1")}
-              <br />
-              <span>{t("venuesSection.titleLine2")}</span>
-            </h2>
-            <p>{t("venuesSection.subtitle")}</p>
-          </div>
-          <div className={styles.venueBenefits}>
-            {[0, 1, 2, 3].map((i) => (
-              <article key={i}>
-                <ArrowUpRight aria-hidden="true" />
-                <h3>{t(`venueBenefits.${i}.title`)}</h3>
-                <p>{t(`venueBenefits.${i}.body`)}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section id="pricing" className={styles.pricing}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.eyebrow}>{t("pricingSection.eyebrow")}</p>
-            <h2>{t("pricingSection.title")}</h2>
-            <p>{t("pricingSection.subtitle")}</p>
-          </div>
-          <Pricing />
-        </section>
-
-        <section id="faq" className={styles.faq}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.eyebrow}>{t("faqSection.eyebrow")}</p>
-            <h2>{t("faqSection.title")}</h2>
-          </div>
-          <Faq items={faqItems} />
-        </section>
-
-        <section id="get-started" className={styles.finalCta}>
-          <p className={styles.eyebrow}>YOUR NEXT MATCH STARTS HERE</p>
-          <h2>{t("cta.title")}</h2>
-          <p>{t("cta.subtitle")}</p>
-          <Link href="/sign-up" className={ctaClassName}>
-            {t("hero.cta")}
-            <ArrowRight className="size-4" />
-          </Link>
-        </section>
       </main>
 
-      <footer className={styles.footer}>
+      <footer className={`${styles.footer} ${styles.darkZone} dark`}>
         <div className={styles.footerGrid}>
           <div>
             <Logo />

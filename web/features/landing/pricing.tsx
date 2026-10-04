@@ -95,7 +95,8 @@ function PlanCard({ id, featured }: { id: Audience; featured: boolean }) {
           size="lg"
           className={cn(
             "w-full cursor-pointer rounded-2xl font-semibold transition-transform duration-200 active:scale-[0.98]",
-            featured && "shadow-lg shadow-lime/20"
+            featured &&
+              "bg-[#2046ed] text-white shadow-lg shadow-[#2046ed]/20 hover:bg-[#2046ed]/90"
           )}
           nativeButton={false}
           render={<Link href="/sign-up">{t("cta")}</Link>}
