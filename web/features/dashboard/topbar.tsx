@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { Logo } from "@/components/logo"
 import { LocaleSwitcher } from "@/components/locale-switcher"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ActiveRoomPill } from "@/features/play/active-room"
 import { NotificationsButton } from "@/features/dashboard/notifications"
@@ -109,7 +108,6 @@ export function DashboardTopbar() {
       {workspace === "player" ? <ActiveRoomPill /> : null}
       <NotificationsButton />
       <LocaleSwitcher />
-      <ThemeToggle className="size-8" />
       <SectionActions workspace={workspace} sectionKey={active.key} />
     </header>
   )

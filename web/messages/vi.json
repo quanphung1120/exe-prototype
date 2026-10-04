@@ -30,6 +30,12 @@
       "success": "Đã đăng nhập",
       "error": "Email hoặc mật khẩu không đúng"
     },
+    "adminSignIn": {
+      "title": "Đăng nhập quản trị",
+      "subtitle": "Dành riêng cho tài khoản quản trị viên",
+      "notAdmin": "Tài khoản này không có quyền quản trị",
+      "backToSignIn": "Không phải quản trị viên? Đăng nhập thường"
+    },
     "signUp": {
       "title": "Tạo tài khoản",
       "subtitle": "Bắt đầu ghép cặp và đặt sân",
@@ -729,7 +735,7 @@
       "leftImageAlt": "Vợt cầu lông trên sân xanh",
       "rightImageAlt": "Quả cầu lông trên sân xanh đậm",
       "eyebrow": "Về Shuttio",
-      "titleStrong": "Một trợ lý thông minh phía sau mỗi trận đấu",
+      "titleStrong": "Một trợ lý <accent>thông minh</accent><br></br>phía sau mỗi trận đấu",
       "titleMuted": "đặt sân, ghép người chơi và lấp đầy mọi khung giờ trống cho Quý khách.",
       "body": "Chúng tôi tin rằng chơi thể thao mới là phần đáng tận hưởng. Shuttio lo trọn khâu hậu cần — tìm sân trống gần Quý khách, ghép Quý khách với những người chơi cùng trình độ và giữ cả nhóm luôn ăn ý — để cầu lông luôn chỉ cách một tin nhắn. Từ người mới bắt đầu đến hội chơi quen tại câu lạc bộ, chúng tôi đang xây dựng cách nhanh nhất để Quý khách ra sân.",
       "features": [
@@ -784,58 +790,47 @@
       "clubsAria": "Các câu lạc bộ cầu lông đang đồng hành cùng Shuttio"
     },
     "playerFeaturesSection": {
-      "eyebrow": "Dành cho người chơi",
-      "title": "Bớt sắp xếp. Chơi nhiều hơn.",
-      "subtitle": "Mọi thứ Quý khách cần để ra sân và vào một trận đấu hay — không còn cảnh nhóm chat hỗn loạn."
+      "title": "Tính năng nổi trội",
+      "subtitle": "SHUTTIO hứa hẹn đem đến cho bạn những trải nghiệm sử dụng mượt mà và tiện dụng nhất"
     },
     "playerFeatures": {
       "0": {
-        "title": "Trợ lý đặt sân AI",
-        "body": "Chỉ cần nói điều Quý khách muốn — “cầu lông tối nay sau 7 giờ, gần đây, người chơi cùng trình độ.” Trợ lý sẽ lo phần còn lại: sân, giờ và người chơi.",
-        "demoRequestLabel": "Yêu cầu từ người chơi",
-        "demoRequest": "“Tìm 1 sân Pickleball lúc 18h tối nay gần Quận 1...”",
-        "demoResponseLabel": "Xử lý bởi AI",
-        "demoResponse": "“Đã tìm thấy 3 sân trống. Đang ghép cặp với 2 người chơi trình độ B+...”"
+        "title": "Đặt sân tức thì",
+        "body": "Kiểm tra sân trống theo thời gian thực tại các CLB gần bạn. Đặt sân chỉ trong vài giây, không cần gọi điện."
       },
       "1": {
-        "title": "Ghép theo trình độ",
-        "body": "Được ghép với những người chơi cùng trình độ để mỗi trận đều cân sức — không còn cảnh một chiều.",
-        "demoLabel": "Trình độ của bạn",
-        "demoBadge": "Level 4.5"
+        "title": "Ghép người theo trình độ",
+        "body": "Tìm người chơi cùng trình độ để mỗi trận đấu đều cân sức — không còn những trận đấu một chiều."
       },
       "2": {
-        "title": "Đặt sân tức thì",
-        "body": "Tình trạng sân trống theo thời gian thực tại các địa điểm gần Quý khách. Giữ chỗ chỉ trong vài giây, không cần gọi điện.",
-        "demoCta": "Đặt sân nhanh sẵn sàng"
+        "title": "Sân cầu lông gần bạn",
+        "body": "Tìm sân còn trống theo thời gian thực tại các CLB xung quanh. Sắp xếp theo khoảng cách, giá và mặt sân."
       },
       "3": {
-        "title": "Sân gần Quý khách",
-        "body": "Các khung giờ trống theo thời gian thực tại những câu lạc bộ quanh Quý khách, xếp theo khoảng cách, giá và mặt sân."
+        "title": "Trợ lý đặt sân AI",
+        "body": "Chỉ cần nói bạn muốn gì — “Tối nay đánh cầu lông sau 7 giờ, sân gần đây, tìm người cùng trình độ.” AI sẽ lo phần còn lại: sân, thời gian và người chơi."
       },
       "4": {
         "title": "Trò chuyện & phối hợp",
-        "body": "Tính năng trò chuyện, nhắc lịch và đặt sân chung tích hợp sẵn giúp cả nhóm luôn nắm chung thông tin.",
-        "demoName": "Duy Nguyen",
-        "demoMessage": "Trận tối nay 7h chốt nhé mọi người!",
-        "demoConfirm": "Đã xác nhận đặt sân 03."
+        "body": "Chat, nhắc lịch và chia sẻ thông tin đặt sân ngay trong ứng dụng — cả nhóm luôn nắm được lịch chơi."
       }
     },
     "stepsSection": {
-      "eyebrow": "Cách hoạt động",
-      "title": "Đặt sân và ghép trận chỉ với ba chạm."
+      "title": "Thao tác đặt sân 3 chạm",
+      "cta": "Xem tất cả tính năng"
     },
     "steps": {
       "0": {
-        "title": "Nói cho AI biết Quý khách muốn gì",
-        "body": "Gõ như đang nhắn tin cho bạn bè: “Cầu lông đánh đôi, sáng thứ Bảy, trình độ trung cấp.”"
+        "title": "Cho AI biết bạn muốn gì",
+        "body": "Nhập yêu cầu như đang nhắn tin cho một người bạn: “Đánh cầu lông đôi, sáng thứ Bảy, trình độ trung cấp.”"
       },
       "1": {
-        "title": "AI tìm sân + người chơi",
-        "body": "Trợ lý quét các địa điểm gần đó, khung giờ trống và người chơi cùng trình độ — rồi đề xuất lựa chọn phù hợp nhất."
+        "title": "AI tìm sân và người chơi",
+        "body": "Trợ lý quét các CLB gần bạn, tìm sân còn trống và người chơi cùng trình độ — sau đó đề xuất lựa chọn phù hợp nhất."
       },
       "2": {
-        "title": "Xác nhận và chơi",
-        "body": "Một chạm để đặt sân và thông báo cho mọi người. Chỉ việc đến và chơi."
+        "title": "Xác nhận và bắt đầu trận đấu",
+        "body": "Chỉ một chạm để đặt sân và thông báo cho mọi người. Đến sân và chơi thôi!"
       }
     },
     "statsSection": {

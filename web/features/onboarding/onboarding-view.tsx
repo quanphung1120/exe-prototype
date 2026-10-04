@@ -6,7 +6,6 @@ import { LogoMark } from "@/components/logo"
 
 import { Button } from "@/components/ui/button"
 import { LocaleSwitcher } from "@/components/locale-switcher"
-import { ThemeToggle } from "@/components/theme-toggle"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@/i18n/navigation"
 import { cn } from "@/lib/utils"
@@ -55,7 +54,6 @@ export function OnboardingView() {
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-[radial-gradient(circle_at_12%_8%,color-mix(in_oklch,var(--brand)_22%,transparent),transparent_30%),radial-gradient(circle_at_88%_12%,color-mix(in_oklch,var(--chart-3)_22%,transparent),transparent_32%),linear-gradient(150deg,var(--background),var(--muted))]">
       <nav className="flex shrink-0 items-center justify-end gap-0.5 px-4 pt-3 sm:px-6">
         <LocaleSwitcher />
-        <ThemeToggle />
       </nav>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

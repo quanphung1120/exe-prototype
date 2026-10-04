@@ -30,6 +30,12 @@
       "success": "Signed in",
       "error": "Invalid email or password"
     },
+    "adminSignIn": {
+      "title": "Admin sign in",
+      "subtitle": "For administrator accounts only",
+      "notAdmin": "This account does not have admin access",
+      "backToSignIn": "Not an admin? Regular sign in"
+    },
     "signUp": {
       "title": "Create your account",
       "subtitle": "Start matching and booking courts",
@@ -729,7 +735,7 @@
       "leftImageAlt": "Badminton racket on a green court",
       "rightImageAlt": "Badminton shuttlecock on a dark blue court",
       "eyebrow": "About Shuttio",
-      "titleStrong": "An intelligent assistant behind every match",
+      "titleStrong": "An <accent>intelligent</accent> assistant<br></br>behind every match",
       "titleMuted": "booking courts, matching players, and filling every empty slot for you.",
       "body": "We believe playing should be the easy part. Shuttio handles the logistics — finding open courts near you, matching you with players at your level, and keeping your group in sync — so badminton is always one message away. From first-timers to club regulars, we're building the fastest way to get on court.",
       "features": [
@@ -784,58 +790,47 @@
       "clubsAria": "Badminton clubs partnering with Shuttio"
     },
     "playerFeaturesSection": {
-      "eyebrow": "For players",
-      "title": "Less organizing. More playing.",
-      "subtitle": "Everything you need to get on court and into a great match — without the chaotic group chats."
+      "title": "Standout features",
+      "subtitle": "SHUTTIO promises you the smoothest, most convenient experience"
     },
     "playerFeatures": {
       "0": {
-        "title": "AI booking assistant",
-        "body": "Just say what you want — “badminton tonight after 7, nearby, players at my level.” The assistant handles the rest: court, time and players.",
-        "demoRequestLabel": "Request from player",
-        "demoRequest": "“Find a badminton court tonight at 6pm, nearby, players at my level...”",
-        "demoResponseLabel": "Handled by AI",
-        "demoResponse": "“Found 3 open courts. Matching you with 2 players at B+ level...”"
+        "title": "Instant court booking",
+        "body": "Check real-time court availability at clubs near you. Book in seconds — no phone calls."
       },
       "1": {
         "title": "Skill-based matching",
-        "body": "Get matched with players at your level so every match is competitive — no more one-sided games.",
-        "demoLabel": "Your skill level",
-        "demoBadge": "Level 4.5"
+        "body": "Find players at your level so every match is balanced — no more one-sided games."
       },
       "2": {
-        "title": "Instant booking",
-        "body": "Real-time court availability at venues near you. Reserve in seconds, no phone calls needed.",
-        "demoCta": "Instant booking ready"
+        "title": "Badminton courts near you",
+        "body": "Find open courts in real time at clubs around you. Sort by distance, price and surface."
       },
       "3": {
-        "title": "Courts near you",
-        "body": "Real-time open slots at clubs around you, sorted by distance, price and surface."
+        "title": "AI booking assistant",
+        "body": "Just say what you want — “Badminton tonight after 7, somewhere close, players at my level.” The AI handles the rest: court, time and players."
       },
       "4": {
         "title": "Chat & coordinate",
-        "body": "Built-in chat, reminders and shared bookings keep your whole group on the same page.",
-        "demoName": "Duy Nguyen",
-        "demoMessage": "Game's on tonight at 7 — let's lock it in!",
-        "demoConfirm": "Court 03 booking confirmed."
+        "body": "Chat, reminders and booking details right in the app — the whole group always knows the schedule."
       }
     },
     "stepsSection": {
-      "eyebrow": "How it works",
-      "title": "Book and match in three taps."
+      "title": "Book a court in 3 taps",
+      "cta": "See all features"
     },
     "steps": {
       "0": {
         "title": "Tell the AI what you want",
-        "body": "Type it like you'd text a friend: “Badminton doubles, Saturday morning, intermediate level.”"
+        "body": "Type it like you're texting a friend: “Doubles badminton, Saturday morning, intermediate level.”"
       },
       "1": {
-        "title": "AI finds courts + players",
-        "body": "The assistant scans nearby venues, open slots and players at your level — then suggests the best fit."
+        "title": "AI finds a court and players",
+        "body": "The assistant scans clubs near you for open courts and players at your level — then suggests the best fit."
       },
       "2": {
-        "title": "Confirm and play",
-        "body": "One tap to book the court and notify everyone. Just show up and play."
+        "title": "Confirm and start playing",
+        "body": "One tap to book the court and notify everyone. Just show up and play!"
       }
     },
     "statsSection": {

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl"
 import { useClerk } from "@clerk/nextjs"
 import { LogOut, ShieldCheck, UserCog, UserRound } from "lucide-react"
 
+import { LogoMark } from "@/components/logo"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -19,6 +20,8 @@ import { initialsOf } from "@/lib/shared"
 import { useAuthUser } from "@/features/dashboard/auth-user"
 import { useData } from "@/features/dashboard/data-provider"
 import { ProfileDialog } from "@/features/dashboard/profile-dialog"
+import { venueBase } from "@/features/venue/nav"
+import { useRouter } from "@/i18n/navigation"
 
 /**
  * The player's avatar in the blue header — holds everything about the
@@ -34,13 +37,18 @@ export function AccountMenu() {
   const locale = useLocale()
   const { openUserProfile, signOut } = useClerk()
   const sUser = useAuthUser()
-  const { user: USER } = useData()
+  const router = useRouter()
+  const { user: USER, venues: VENUES } = useData()
   const [profileOpen, setProfileOpen] = React.useState(false)
 
   const name = sUser.name || USER.name
   const subtitle = sUser.email || USER.handle
   const image = sUser.image || undefined
   const initials = sUser.name ? initialsOf(sUser.name) : USER.initials
+  // The player header has no sidebar, so this menu is the only way out of the
+  // player workspace — into the admin workspace or one of the venue branches.
+  const isAdmin = sUser.role === "admin"
+  const hasOtherWorkspace = isAdmin || VENUES.length > 0
   return (
     <>
       <DropdownMenu modal={false}>
@@ -83,6 +91,29 @@ export function AccountMenu() {
             </DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
+          {hasOtherWorkspace ? (
+            <>
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>{t("workspaces")}</DropdownMenuLabel>
+                {isAdmin ? (
+                  <DropdownMenuItem onClick={() => router.push("/app/admin")}>
+                    <ShieldCheck />
+                    {t("adminWorkspace")}
+                  </DropdownMenuItem>
+                ) : null}
+                {VENUES.map((v) => (
+                  <DropdownMenuItem
+                    key={v.id}
+                    onClick={() => router.push(venueBase(v.id))}
+                  >
+                    <LogoMark />
+                    <span className="truncate">{v.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+            </>
+          ) : null}
           <DropdownMenuItem onClick={() => setProfileOpen(true)}>
             <UserRound />
             {t("profile")}

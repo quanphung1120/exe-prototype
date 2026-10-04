@@ -7,18 +7,18 @@ import {
   useTheme,
 } from "@teispace/next-themes"
 
+/**
+ * Only the landing page (`/`, `/vi`, `/en`) has a light/dark switch; every
+ * other surface (auth, onboarding, the whole /app dashboard) is locked to
+ * light. The provider stays mounted everywhere so `useTheme()` consumers
+ * (toasts, map tiles) keep resolving a theme.
+ */
 function ThemeProvider({
   children,
   ...props
 }: React.ComponentProps<typeof NextThemesProvider>) {
   const pathname = usePathname()
-  // The player surfaces (home, play, chat, bookings, book, payment return) are
-  // blue-and-white designs, so lock them to light. Venue-operator and admin
-  // pages follow the user's dark/light choice like the rest of the site.
-  const isPlayerSurface =
-    /^(?:\/(?:vi|en))?\/app(?:\/(?:play|chat|bookings|book))?\/?$/.test(
-      pathname
-    ) || /^(?:\/(?:vi|en))?\/app\/payment\//.test(pathname)
+  const isLanding = /^(?:\/(?:vi|en))?\/?$/.test(pathname)
 
   return (
     <NextThemesProvider
@@ -27,9 +27,9 @@ function ThemeProvider({
       enableSystem
       disableTransitionOnChange
       {...props}
-      forcedTheme={isPlayerSurface ? "light" : undefined}
+      forcedTheme={isLanding ? undefined : "light"}
     >
-      {!isPlayerSurface && <ThemeHotkey />}
+      {isLanding && <ThemeHotkey />}
       {children}
     </NextThemesProvider>
   )
@@ -48,6 +48,7 @@ function isTypingTarget(target: EventTarget | null) {
   )
 }
 
+/** Pressing `l` (not while typing) toggles the landing page theme. */
 function ThemeHotkey() {
   const { resolvedTheme, setTheme } = useTheme()
 
