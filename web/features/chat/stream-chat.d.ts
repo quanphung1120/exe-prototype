@@ -8,5 +8,7 @@ declare module "stream-chat" {
     name?: string
     /** Owning venue of a player↔venue chat (absent on all other channels). */
     venueId?: string
+    /** Owning brand of a player↔venue chat — one chat per (player, brand). */
+    brandId?: string
   }
 }

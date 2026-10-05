@@ -12,6 +12,7 @@ import type { Model } from "mongoose"
 import type { StreamChat } from "stream-chat"
 
 import { Booking, type BookingDocument } from "../bookings/booking.schema.js"
+import { Brand, type BrandDocument } from "../brands/brand.schema.js"
 import { Venue, type VenueDocument } from "../venues/venue.schema.js"
 import { ClerkDirectoryService } from "./clerk-directory.service.js"
 import {
@@ -26,6 +27,8 @@ declare module "stream-chat" {
     name?: string
     /** Owning venue of a player↔venue chat (absent on all other channels). */
     venueId?: string
+    /** Owning brand of a player↔venue chat, when the venue belongs to one. */
+    brandId?: string
   }
 }
 
@@ -69,6 +72,14 @@ export const dmChannelId = (a: string, b: string) =>
 /** Deterministic per-(player, venue) chat channel id. */
 export const venueChannelId = (venueId: string, userId: string) =>
   `venue-${createHash("sha256").update(`${venueId}:${userId}`).digest("hex").slice(0, 40)}`
+
+/**
+ * Deterministic per-(player, brand) chat channel id — one chat with an owner
+ * however many of their branches the player books. Shares the `venue-` prefix
+ * (and hash space, keyed `brand:<id>`) so every venue-chat check still applies.
+ */
+export const brandChannelId = (brandId: string, userId: string) =>
+  venueChannelId(`brand:${brandId}`, userId)
 
 // The three mock players whose demo channels every new user is seeded with.
 // Their ids/names mirror the first entries of MATCH_SUGGESTIONS (p1/p2/p3).
@@ -141,6 +152,7 @@ export class StreamService {
     @InjectModel(Venue.name) private readonly venues: Model<VenueDocument>,
     @InjectModel(Booking.name)
     private readonly bookings: Model<BookingDocument>,
+    @InjectModel(Brand.name) private readonly brands: Model<BrandDocument>,
     @Inject(ClerkDirectoryService)
     private readonly directory: ClerkDirectoryService
   ) {}
@@ -644,14 +656,79 @@ export class StreamService {
       },
     ])
 
-    const id = venueChannelId(venueId, userId)
+    const brandId = venue.brandId
+    if (!brandId) {
+      const id = venueChannelId(venueId, userId)
+      await this.client
+        .channel("messaging", id, {
+          name: venue.info.name,
+          venueId,
+          created_by_id: userId,
+          members: [userId, venue.ownerId],
+        })
+        .create()
+      return { id }
+    }
+
+    // A brand's branches all share one owner, so the player gets ONE chat per
+    // brand — booking two branches must not open two threads with the same
+    // person. Titled by the brand rather than whichever branch came first.
+    const brand = await this.brands
+      .findOne({ brandId })
+      .select("info")
+      .lean<{ info?: { name?: string } }>()
+    const name = brand?.info?.name ?? venue.info.name
+    const { id, existing } = await this.resolveBrandChannel(brandId, userId)
     const channel = this.client.channel("messaging", id, {
-      name: venue.info.name,
+      name,
       venueId,
+      brandId,
       created_by_id: userId,
       members: [userId, venue.ownerId],
     })
     await channel.create()
+    // A reused pre-brand (per-branch) chat: tag it with the brand so the
+    // operator inbox of every branch finds it, and retitle it by the brand.
+    if (existing) await channel.updatePartial({ set: { brandId, name } })
     return { id }
+  }
+
+  /**
+   * The channel to use for a player's chat with a brand: the brand-keyed one
+   * if it exists, else the oldest per-branch chat left from before chats were
+   * brand-scoped (so its history isn't stranded), else a new brand-keyed id.
+   * `existing` is true only when reusing a per-branch chat that needs tagging.
+   */
+  private async resolveBrandChannel(
+    brandId: string,
+    userId: string
+  ): Promise<{ id: string; existing: boolean }> {
+    const brandKeyed = brandChannelId(brandId, userId)
+    const branches = await this.venues
+      .find({ brandId })
+      .select("venueId")
+      .lean<{ venueId: string }[]>()
+    const legacyIds = branches.map((b) => venueChannelId(b.venueId, userId))
+    if (!legacyIds.length) return { id: brandKeyed, existing: false }
+
+    const found = await this.client.queryChannels(
+      { type: "messaging", id: { $in: [brandKeyed, ...legacyIds] } },
+      { created_at: 1 },
+      // Server-side auth queries on the player's behalf — only channels they
+      // still belong to (and haven't deleted-for-me) count as reusable.
+      {
+        user_id: userId,
+        limit: 30,
+        state: false,
+        watch: false,
+        presence: false,
+      }
+    )
+    const ids = found.map((c) => c.id)
+    if (ids.includes(brandKeyed)) return { id: brandKeyed, existing: false }
+    const legacy = ids.find((id): id is string => Boolean(id))
+    return legacy
+      ? { id: legacy, existing: true }
+      : { id: brandKeyed, existing: false }
   }
 }

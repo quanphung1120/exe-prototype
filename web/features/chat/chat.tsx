@@ -86,6 +86,7 @@ const COMPONENT_OVERRIDES = {
 export function ChatView({
   initialChannelId,
   venueInboxId,
+  venueInboxBrandId,
 }: {
   initialChannelId?: string
   /**
@@ -95,6 +96,11 @@ export function ChatView({
    * rendering to the operator's perspective (see `VenueInboxContext`).
    */
   venueInboxId?: string
+  /**
+   * The inbox venue's brand. Player chats are one per brand (not per branch),
+   * so every branch's inbox also lists the brand-tagged chats.
+   */
+  venueInboxBrandId?: string
 }) {
   const t = useTranslations("Chat")
   const status = useStreamChatStatus()
@@ -168,7 +174,14 @@ export function ChatView({
                     ? {
                         type: "messaging",
                         members: { $in: [userId] },
-                        venueId: venueInboxId,
+                        ...(venueInboxBrandId
+                          ? {
+                              $or: [
+                                { venueId: venueInboxId },
+                                { brandId: venueInboxBrandId },
+                              ],
+                            }
+                          : { venueId: venueInboxId }),
                       }
                     : { type: "messaging", members: { $in: [userId] } }
                 }
