@@ -1231,7 +1231,10 @@
     "emptyTitle": "Bắt đầu trò chuyện",
     "emptyHint": "Chọn một cuộc trò chuyện bên trái hoặc tạo cuộc trò chuyện mới.",
     "playerEmptyTitle": "Chọn một cuộc trò chuyện",
-    "playerEmptyHint": "Nhắn với bạn chơi, nhóm hoặc sân thể thao của bạn."
+    "playerEmptyHint": "Nhắn với bạn chơi, nhóm hoặc sân thể thao của bạn.",
+    "deleteGroup": "Xoá nhóm",
+    "deleteGroupTitle": "Xoá nhóm?",
+    "deleteGroupDescription": "“{name}” và toàn bộ tin nhắn sẽ bị xoá vĩnh viễn với mọi thành viên. Không thể hoàn tác."
   },
   "Notifications": {
     "title": "Thông báo",
@@ -2512,6 +2515,11 @@
     "submitRating": "Gửi đánh giá",
     "ratedToast": "Đã gửi đánh giá cho {name}",
     "rateFailed": "Không gửi được đánh giá",
-    "bookUnavailable": "Chưa mở được trận của nhóm — vui lòng tải lại trang rồi thử lại."
+    "bookUnavailable": "Chưa mở được trận của nhóm — vui lòng tải lại trang rồi thử lại.",
+    "deleteGroup": "Xoá nhóm",
+    "deleteTitle": "Xoá nhóm “{name}”?",
+    "deleteBody": "Nhóm và toàn bộ tin nhắn sẽ bị xoá vĩnh viễn với mọi thành viên. Không thể hoàn tác.",
+    "deleted": "Đã xoá nhóm",
+    "deleteFailed": "Không xoá được nhóm"
   }
 }

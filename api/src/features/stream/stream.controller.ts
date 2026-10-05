@@ -15,6 +15,7 @@ import {
   AddGroupMembersBodyDto,
   CreateConversationBodyDto,
   CreateRoomBodyDto,
+  DeleteGroupBodyDto,
   LeaveConversationBodyDto,
   RenameGroupBodyDto,
   RoomFreezeBodyDto,
@@ -87,6 +88,16 @@ export class StreamController {
     @Body() body: AddGroupMembersBodyDto
   ) {
     await this.stream.addGroupMembers(userId, body.channelId, body.memberIds)
+    return { ok: true }
+  }
+
+  /** Group creator deletes their community group for every member. */
+  @Delete("groups")
+  async deleteGroup(
+    @UserId() userId: string,
+    @Body() body: DeleteGroupBodyDto
+  ) {
+    await this.stream.deleteGroup(userId, body.channelId)
     return { ok: true }
   }
 

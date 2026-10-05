@@ -38,6 +38,14 @@ export async function addGroupMembers(
   })
 }
 
+/** Group creator deletes their community group for every member. */
+export async function deleteGroup(channelId: string): Promise<void> {
+  await apiAction("/api/stream/groups", {
+    method: "DELETE",
+    body: { channelId },
+  })
+}
+
 /** Group creator / room host removes a member from the chat. */
 export async function removeGroupMember(
   channelId: string,

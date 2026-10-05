@@ -1231,7 +1231,10 @@
     "emptyTitle": "Start chatting",
     "emptyHint": "Pick a conversation on the left or start a new one.",
     "playerEmptyTitle": "Choose a conversation",
-    "playerEmptyHint": "Message your players, groups, or sports venues."
+    "playerEmptyHint": "Message your players, groups, or sports venues.",
+    "deleteGroup": "Delete group",
+    "deleteGroupTitle": "Delete group?",
+    "deleteGroupDescription": "“{name}” and all its messages will be permanently deleted for every member. This can’t be undone."
   },
   "Notifications": {
     "title": "Notifications",
@@ -2512,6 +2515,11 @@
     "submitRating": "Send rating",
     "ratedToast": "Rating sent to {name}",
     "rateFailed": "Couldn't send the rating",
-    "bookUnavailable": "Couldn't open the group's match — please reload and try again."
+    "bookUnavailable": "Couldn't open the group's match — please reload and try again.",
+    "deleteGroup": "Delete group",
+    "deleteTitle": "Delete “{name}”?",
+    "deleteBody": "The group and all its messages will be permanently deleted for every member. This can’t be undone.",
+    "deleted": "Group deleted",
+    "deleteFailed": "Couldn’t delete the group"
   }
 }
