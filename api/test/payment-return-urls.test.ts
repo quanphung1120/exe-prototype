@@ -36,6 +36,18 @@ void test("accepts the legacy success-only base and a trailing slash", () => {
   )
 })
 
+void test("rewrites a pre-rename /dashboard base to /app", () => {
+  const urls = paymentReturnUrls(
+    "https://x.vn/vi/dashboard/payment/success",
+    "bk-1"
+  )
+  assert.equal(urls.successUrl, "https://x.vn/vi/app/payment/success/bk-1")
+  assert.equal(
+    urls.errorUrl,
+    "https://x.vn/vi/app/payment/failed/bk-1?reason=error"
+  )
+})
+
 void test("encodes the booking id", () => {
   assert.equal(
     paymentReturnUrls("https://x.vn/vi/app/payment", "a b/c").successUrl,
