@@ -100,6 +100,11 @@ export class RenameGroupBodyDto {
   name: string
 }
 
+export class DeleteGroupBodyDto {
+  @Matches(/^[\w-]{1,64}$/, { message: "Invalid channel id" })
+  channelId: string
+}
+
 export class AddGroupMembersBodyDto {
   @Matches(/^[\w-]{1,64}$/, { message: "Invalid channel id" })
   channelId: string

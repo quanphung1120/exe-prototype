@@ -14,6 +14,7 @@ import {
   Pencil,
   Search,
   Star,
+  Trash2,
   UserMinus,
   UserPlus,
   X,
@@ -57,6 +58,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ChatAvatar } from "@/features/chat/chat-avatar"
 import {
   addGroupMembers,
+  deleteGroup,
   getGroupMatch,
   myMatchRatings,
   ratePlayer,
@@ -293,6 +295,26 @@ export function GroupInfoSheet({
     }
   }
 
+  // ── Delete (community group owner) ──
+  const canDelete = isCommunity && isOwner
+  const [confirmDelete, setConfirmDelete] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
+  const removeGroup = async () => {
+    setDeleting(true)
+    try {
+      await deleteGroup(channelId)
+      setConfirmDelete(false)
+      handleOpenChange(false)
+      void setActiveChannel(undefined)
+      showList()
+      toast.success(t("deleted"))
+    } catch (err) {
+      toast.error(t("deleteFailed"), { description: errorText(err) })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <>
       <Sheet open={open} onOpenChange={handleOpenChange}>
@@ -491,8 +513,8 @@ export function GroupInfoSheet({
               </p>
             ) : null}
 
-            {/* Leave */}
-            <section className="mt-auto">
+            {/* Leave / delete */}
+            <section className="mt-auto flex flex-col gap-2">
               <button
                 type="button"
                 disabled={hostOfRoom}
@@ -502,6 +524,16 @@ export function GroupInfoSheet({
                 <LogOut className="size-4" />
                 {t("leave")}
               </button>
+              {canDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b42318] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#912018]"
+                >
+                  <Trash2 className="size-4" />
+                  {t("deleteGroup")}
+                </button>
+              ) : null}
               {hostOfRoom ? (
                 <p className="mt-2 text-center text-[11px] text-[var(--pc-muted)]">
                   {t("hostCannotLeave")}
@@ -553,6 +585,32 @@ export function GroupInfoSheet({
             >
               {t("leave")}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete confirm */}
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={(o) => !deleting && setConfirmDelete(o)}
+      >
+        <AlertDialogContent className="player-chat-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("deleteTitle", { name })}</AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteBody")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>
+              {t("cancel")}
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={() => void removeGroup()}
+            >
+              {deleting ? <Spinner className="size-4" /> : <Trash2 />}
+              {t("deleteGroup")}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

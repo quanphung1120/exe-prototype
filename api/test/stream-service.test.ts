@@ -3,7 +3,11 @@ import { test } from "node:test"
 
 import "reflect-metadata"
 
-import { ForbiddenException, NotFoundException } from "@nestjs/common"
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from "@nestjs/common"
 import { Test } from "@nestjs/testing"
 import { getModelToken } from "@nestjs/mongoose"
 
@@ -55,6 +59,7 @@ function makeFakeClient(options?: { failUpsertUsers?: boolean }) {
     removeMembers: [] as Array<{ id: string; members: string[] }>,
     updatePartial: [] as Array<{ id: string; update: unknown }>,
     hide: [] as Array<{ id: string; userId?: string; clearHistory?: boolean }>,
+    deleted: [] as string[],
   }
   const store = new Map<string, FakeChannelState>()
 
@@ -103,6 +108,11 @@ function makeFakeClient(options?: { failUpsertUsers?: boolean }) {
         },
         hide(userId?: string, clearHistory?: boolean) {
           calls.hide.push({ id, userId, clearHistory })
+          return Promise.resolve()
+        },
+        delete() {
+          calls.deleted.push(id)
+          store.delete(id)
           return Promise.resolve()
         },
         addMembers(members: string[]) {
@@ -452,6 +462,74 @@ void test("leaveConversation against a never-created channel 404s as NotFoundExc
 
   await assert.rejects(
     () => service.leaveConversation("user-1", "group-missing"),
+    NotFoundException
+  )
+})
+
+// ── deleteGroup: the creator deletes a community group for everyone ───────
+
+void test("deleteGroup lets the creator delete their community group", async () => {
+  const { client, calls, store } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+  await client.channel("messaging", "group-del", {
+    created_by_id: "owner-1",
+    members: ["owner-1", "user-2", "user-3"],
+  }).create()
+
+  await service.deleteGroup("owner-1", "group-del")
+
+  assert.deepEqual(calls.deleted, ["group-del"])
+  assert.equal(store.has("group-del"), false)
+})
+
+void test("deleteGroup rejects a member who isn't the creator", async () => {
+  const { client, calls } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+  await client.channel("messaging", "group-keep", {
+    created_by_id: "owner-1",
+    members: ["owner-1", "user-2", "user-3"],
+  }).create()
+
+  await assert.rejects(
+    () => service.deleteGroup("user-2", "group-keep"),
+    ForbiddenException
+  )
+  assert.equal(calls.deleted.length, 0)
+})
+
+void test("deleteGroup refuses room chats and DMs", async () => {
+  const { client, calls } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+  await client.channel("messaging", "room-1", {
+    created_by_id: "host-1",
+    members: ["host-1", "user-2", "user-3"],
+  }).create()
+
+  await assert.rejects(
+    () => service.deleteGroup("host-1", "room-1"),
+    BadRequestException
+  )
+  await assert.rejects(
+    () => service.deleteGroup("host-1", "dm-abc"),
+    BadRequestException
+  )
+  assert.equal(calls.deleted.length, 0)
+})
+
+void test("deleteGroup against a never-created group 404s as NotFoundException", async () => {
+  const { client } = makeFakeClient()
+  const service = await makeService(client, {
+    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
+  })
+
+  await assert.rejects(
+    () => service.deleteGroup("owner-1", "group-missing"),
     NotFoundException
   )
 })

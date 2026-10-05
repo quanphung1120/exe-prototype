@@ -466,6 +466,23 @@ export class StreamService {
     await this.client.channel("messaging", channelId).addMembers(ids)
   }
 
+  /**
+   * Delete a community group for everyone — the group's creator only. Unlike
+   * {@link leaveConversation} (the caller alone drops out), this removes the
+   * channel and its history for every member. Room chats are excluded: their
+   * lifecycle follows the play room (cancelling it freezes the chat).
+   */
+  async deleteGroup(userId: string, channelId: string): Promise<void> {
+    if (!channelId.startsWith("group-")) {
+      throw new BadRequestException("Chỉ có thể xoá nhóm trò chuyện")
+    }
+    const membership = await this.channelMembership(channelId)
+    if (membership.createdBy !== userId) {
+      throw new ForbiddenException("Chỉ chủ nhóm mới có quyền xoá nhóm")
+    }
+    await this.client.channel("messaging", channelId).delete()
+  }
+
   // ── Community chat: DMs/groups + venue chat ──────────────────────────────
   // Every real user chat any user can start with any other real user (found
   // via ClerkDirectoryService), plus a player's channel with a venue's real

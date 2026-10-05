@@ -41,6 +41,7 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { ChatAvatar } from "@/features/chat/chat-avatar"
 import { NewChatDialog } from "@/features/chat/new-chat-dialog"
+import { deleteGroup } from "@/features/chat/group-actions"
 import { leaveConversation } from "@/features/chat/stream-actions"
 import { MobilePaneContext } from "@/features/chat/mobile-pane-context"
 import { VenueInboxContext } from "@/features/chat/venue-inbox-context"
@@ -220,17 +221,30 @@ function ChannelRowMenu({
 }) {
   const t = useTranslations("Chat")
   const name = title ?? t("metaTitle")
-  const { channel: activeChannel, setActiveChannel } = useChatContext()
+  const { client, channel: activeChannel, setActiveChannel } = useChatContext()
   const player = !React.useContext(VenueInboxContext)
   const active = activeChannel?.cid === channel.cid
+  // Only a community group's creator may delete it for everyone.
+  const canDeleteGroup =
+    String(channel.id ?? "").startsWith("group-") &&
+    channel.data?.created_by?.id === client.userID
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [confirmOpen, setConfirmOpen] = React.useState(false)
+  // Which action the open confirm dialog is for: remove-from-my-list (leave
+  // / delete DM) or delete the whole group.
+  const [deleteMode, setDeleteMode] = React.useState(false)
   const [pending, setPending] = React.useState(false)
+
+  const openConfirm = (asDelete: boolean) => {
+    setDeleteMode(asDelete)
+    setConfirmOpen(true)
+  }
 
   const confirm = async () => {
     setPending(true)
     try {
-      await leaveConversation(channel.id as string)
+      if (deleteMode) await deleteGroup(channel.id as string)
+      else await leaveConversation(channel.id as string)
     } catch {
       toast.error(t("removeFailed"))
       setPending(false)
@@ -267,7 +281,7 @@ function ChannelRowMenu({
         <DropdownMenuContent align="end" className="min-w-44">
           <DropdownMenuItem
             variant="destructive"
-            onClick={() => setConfirmOpen(true)}
+            onClick={() => openConfirm(false)}
           >
             {isGroup ? (
               <>
@@ -281,6 +295,15 @@ function ChannelRowMenu({
               </>
             )}
           </DropdownMenuItem>
+          {canDeleteGroup && (
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => openConfirm(true)}
+            >
+              <Trash2 />
+              {t("deleteGroup")}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -288,12 +311,18 @@ function ChannelRowMenu({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {isGroup ? t("leaveGroupTitle") : t("deleteDmTitle")}
+              {deleteMode
+                ? t("deleteGroupTitle")
+                : isGroup
+                  ? t("leaveGroupTitle")
+                  : t("deleteDmTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {isGroup
-                ? t("leaveGroupDescription", { name })
-                : t("deleteDmDescription", { name })}
+              {deleteMode
+                ? t("deleteGroupDescription", { name })
+                : isGroup
+                  ? t("leaveGroupDescription", { name })
+                  : t("deleteDmDescription", { name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -308,8 +337,10 @@ function ChannelRowMenu({
               {pending ? (
                 <>
                   <Loader2 className="animate-spin" />
-                  {isGroup ? t("leaving") : t("deleting")}
+                  {isGroup && !deleteMode ? t("leaving") : t("deleting")}
                 </>
+              ) : deleteMode ? (
+                t("deleteGroup")
               ) : isGroup ? (
                 t("leaveGroup")
               ) : (
