@@ -5,6 +5,7 @@ import { createClerkClient } from "@clerk/express"
 import { StreamChat } from "stream-chat"
 
 import { Booking, BookingSchema } from "../bookings/booking.schema.js"
+import { Brand, BrandSchema } from "../brands/brand.schema.js"
 import { Venue, VenueSchema } from "../venues/venue.schema.js"
 import {
   CLERK_CLIENT,
@@ -27,6 +28,7 @@ import { STREAM_CLIENT, StreamService } from "./stream.service.js"
       { name: StreamSeedState.name, schema: StreamSeedStateSchema },
       { name: Venue.name, schema: VenueSchema },
       { name: Booking.name, schema: BookingSchema },
+      { name: Brand.name, schema: BrandSchema },
     ]),
   ],
   controllers: [StreamController],

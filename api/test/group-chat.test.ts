@@ -34,6 +34,7 @@ import {
 import { StreamSeedState } from "../src/features/stream/stream-seed.schema.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
+import { Brand } from "../src/features/brands/brand.schema.js"
 import type { PlaySession as PlaySessionData } from "../src/shared/index.js"
 
 /**
@@ -314,6 +315,7 @@ async function makeStream(
       { provide: getModelToken(StreamSeedState.name), useValue: {} },
       { provide: getModelToken(Venue.name), useValue: {} },
       { provide: getModelToken(Booking.name), useValue: {} },
+      { provide: getModelToken(Brand.name), useValue: {} },
       { provide: ClerkDirectoryService, useValue: directory },
     ],
   }).compile()

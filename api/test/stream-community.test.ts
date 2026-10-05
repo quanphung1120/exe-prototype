@@ -14,11 +14,13 @@ import { getModelToken } from "@nestjs/mongoose"
 import {
   STREAM_CLIENT,
   StreamService,
+  brandChannelId,
   venueChannelId,
 } from "../src/features/stream/stream.service.js"
 import { StreamSeedState } from "../src/features/stream/stream-seed.schema.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
+import { Brand } from "../src/features/brands/brand.schema.js"
 import {
   ClerkDirectoryService,
   type DirectoryUser,
@@ -38,6 +40,7 @@ interface ChannelCall {
   data: {
     name?: string
     venueId?: string
+    brandId?: string
     created_by_id?: string
     members?: string[]
   }
@@ -48,6 +51,8 @@ function makeFakeClient() {
     upsertUsers: [] as Array<Array<{ id: string; name?: string }>>,
     channels: [] as ChannelCall[],
     created: [] as string[],
+    updatePartial: [] as Array<{ id: string; update: unknown }>,
+    queryChannels: [] as Array<{ filter: unknown; options: unknown }>,
   }
   const store = new Map<string, ChannelCall["data"]>()
 
@@ -65,7 +70,25 @@ function makeFakeClient() {
           if (!store.has(id)) store.set(id, data ?? {})
           return Promise.resolve()
         },
+        updatePartial(update: { set?: Partial<ChannelCall["data"]> }) {
+          calls.updatePartial.push({ id, update })
+          const s = store.get(id)
+          if (s) Object.assign(s, update.set)
+          return Promise.resolve()
+        },
       }
+    },
+    /** Supports the `id: { $in }` lookup openVenueChat uses; store order = creation order. */
+    queryChannels(
+      filter: { id?: { $in?: string[] } },
+      _sort: unknown,
+      options: unknown
+    ) {
+      calls.queryChannels.push({ filter, options })
+      const wanted = new Set(filter.id?.$in ?? [])
+      return Promise.resolve(
+        [...store.keys()].filter((id) => wanted.has(id)).map((id) => ({ id }))
+      )
     },
   }
   return { client, calls, store }
@@ -95,7 +118,11 @@ function makeFakeDirectory(users: DirectoryUser[]) {
 async function makeService(opts: {
   client: ReturnType<typeof makeFakeClient>["client"]
   directory: ClerkDirectoryService
-  venues?: { findOne: (...args: unknown[]) => unknown }
+  venues?: {
+    findOne: (...args: unknown[]) => unknown
+    find?: (...args: unknown[]) => unknown
+  }
+  brands?: { findOne: (...args: unknown[]) => unknown }
   bookings?: {
     findOne?: (...args: unknown[]) => unknown
     exists?: (...args: unknown[]) => unknown
@@ -118,6 +145,12 @@ async function makeService(opts: {
         useValue: {
           findOne: opts.bookings?.findOne ?? (() => ({ lean: () => null })),
           exists: opts.bookings?.exists ?? (() => Promise.resolve(null)),
+        },
+      },
+      {
+        provide: getModelToken(Brand.name),
+        useValue: opts.brands ?? {
+          findOne: () => ({ select: () => ({ lean: () => null }) }),
         },
       },
       { provide: ClerkDirectoryService, useValue: opts.directory },
@@ -319,6 +352,87 @@ void test("openVenueChat({ bookingId }) rejects when the booking belongs to anot
     () => service.openVenueChat("player-1", { bookingId: "bk1" }),
     NotFoundException
   )
+})
+
+// ── openVenueChat: one chat per brand, not per branch ─────────────────────
+
+/** Two branches (v1, v2) of brand b1, both owned by owner-1. */
+function brandFixtures() {
+  const branches: Record<string, unknown> = {
+    v1: {
+      venueId: "v1",
+      brandId: "b1",
+      ownerId: "owner-1",
+      info: { name: "ABC Quận 1" },
+    },
+    v2: {
+      venueId: "v2",
+      brandId: "b1",
+      ownerId: "owner-1",
+      info: { name: "ABC Quận 7" },
+    },
+  }
+  return {
+    venues: {
+      findOne: (q: unknown) => ({
+        lean: () => branches[(q as { venueId: string }).venueId],
+      }),
+      find: () => ({
+        select: () => ({ lean: () => [{ venueId: "v1" }, { venueId: "v2" }] }),
+      }),
+    },
+    brands: {
+      findOne: () => ({
+        select: () => ({ lean: () => ({ info: { name: "ABC Badminton" } }) }),
+      }),
+    },
+    bookings: { exists: () => Promise.resolve({ _id: "b1" }) },
+  }
+}
+
+void test("openVenueChat opens the SAME brand chat from two branches of one owner", async () => {
+  const { client, calls } = makeFakeClient()
+  const directory = makeFakeDirectory([{ id: "owner-1", name: "Chủ ABC" }])
+  const service = await makeService({ client, directory, ...brandFixtures() })
+
+  const a = await service.openVenueChat("player-1", { venueId: "v1" })
+  const b = await service.openVenueChat("player-1", { venueId: "v2" })
+
+  assert.equal(a.id, brandChannelId("b1", "player-1"))
+  assert.equal(b.id, a.id)
+  const ch = calls.channels.find((c) => c.id === a.id)
+  assert.equal(ch?.data.name, "ABC Badminton")
+  assert.equal(ch?.data.brandId, "b1")
+  assert.deepEqual(ch?.data.members, ["player-1", "owner-1"])
+  // Queried on the player's behalf.
+  assert.equal(
+    (calls.queryChannels[0]?.options as { user_id?: string }).user_id,
+    "player-1"
+  )
+})
+
+void test("openVenueChat reuses a pre-existing per-branch chat and tags it with the brand", async () => {
+  const { client, calls, store } = makeFakeClient()
+  const directory = makeFakeDirectory([{ id: "owner-1", name: "Chủ ABC" }])
+  const service = await makeService({ client, directory, ...brandFixtures() })
+  // A chat opened before chats were brand-scoped, for branch v1.
+  const legacy = venueChannelId("v1", "player-1")
+  await client
+    .channel("messaging", legacy, {
+      name: "ABC Quận 1",
+      venueId: "v1",
+      members: ["player-1", "owner-1"],
+    })
+    .create()
+
+  const result = await service.openVenueChat("player-1", { venueId: "v2" })
+
+  assert.equal(result.id, legacy)
+  assert.deepEqual(calls.updatePartial, [
+    { id: legacy, update: { set: { brandId: "b1", name: "ABC Badminton" } } },
+  ])
+  assert.equal(store.get(legacy)?.brandId, "b1")
+  assert.equal(store.has(brandChannelId("b1", "player-1")), false)
 })
 
 // ── ClerkDirectoryService.search ─────────────────────────────────────────

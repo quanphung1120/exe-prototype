@@ -12,7 +12,7 @@ import { useVenueData } from "@/features/venue/venue-data-provider"
  */
 export function VenueMessagesView() {
   const t = useTranslations("VenueMessages")
-  const { venueId } = useVenueData()
+  const { venueId, venue } = useVenueData()
 
   return (
     <div className="flex flex-col gap-5">
@@ -22,7 +22,7 @@ export function VenueMessagesView() {
         </h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
-      <ChatView venueInboxId={venueId} />
+      <ChatView venueInboxId={venueId} venueInboxBrandId={venue.brandId} />
     </div>
   )
 }

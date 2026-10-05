@@ -20,6 +20,7 @@ import { StreamSeedState } from "../src/features/stream/stream-seed.schema.js"
 import { ClerkDirectoryService } from "../src/features/stream/clerk-directory.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
+import { Brand } from "../src/features/brands/brand.schema.js"
 
 /**
  * StreamService signs per-user tokens and seeds each user's demo Stream data on
@@ -166,6 +167,7 @@ async function makeService(
           exists: () => Promise.resolve(null),
         },
       },
+      { provide: getModelToken(Brand.name), useValue: {} },
       { provide: ClerkDirectoryService, useValue: {} },
     ],
   }).compile()
