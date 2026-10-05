@@ -28,6 +28,25 @@ const nextConfig: NextConfig = {
   headers() {
     return [{ source: "/:path*", headers: securityHeaders }]
   },
+  // The player workspace moved from /dashboard to /app. Old links still point
+  // at /dashboard — most importantly SePay orders whose return URLs were baked
+  // in before the rename (or an api still configured with the old
+  // SEPAY_RETURN_URL) — so forward them instead of landing on a 404. Query
+  // strings (e.g. `?reason=cancelled`) carry over automatically.
+  redirects() {
+    return [
+      {
+        source: "/:locale(vi|en)/dashboard/:path*",
+        destination: "/:locale/app/:path*",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/:path*",
+        destination: "/app/:path*",
+        permanent: false,
+      },
+    ]
+  },
 }
 
 const withNextIntl = createNextIntlPlugin()

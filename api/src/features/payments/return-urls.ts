@@ -9,6 +9,8 @@
  *
  * For backward compatibility a base that still ends in `/success` (the old
  * success-only contract) is accepted and trimmed, as is a trailing slash.
+ * A base still on the pre-rename `/dashboard/payment` route is rewritten to
+ * `/app/payment` — the web app no longer serves `/dashboard`.
  */
 export function paymentReturnUrls(
   base: string,
@@ -18,6 +20,7 @@ export function paymentReturnUrls(
     .trim()
     .replace(/\/+$/, "")
     .replace(/\/success$/, "")
+    .replace(/\/dashboard\/payment$/, "/app/payment")
   const id = encodeURIComponent(bookingId)
   return {
     successUrl: `${root}/success/${id}`,
