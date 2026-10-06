@@ -33,6 +33,12 @@ const envSchema = z.object({
   // missing key crashes at boot instead of 500ing the first chat request.
   OPENROUTER_API_KEY: z.string().min(1, "OPENROUTER_API_KEY is required"),
   OPENROUTER_MODEL: z.string().min(1).default("xiaomi/mimo-v2.5"),
+  // Cloudinary — venue photo uploads (signed direct uploads from the browser).
+  // Optional so the API still boots without them; only the photo-upload
+  // routes then fail with a clear 503 (VenuePhotosService).
+  CLOUDINARY_CLOUD_NAME: z.string().min(1).optional(),
+  CLOUDINARY_API_KEY: z.string().min(1).optional(),
+  CLOUDINARY_API_SECRET: z.string().min(1).optional(),
 })
 
 export type Env = z.infer<typeof envSchema>

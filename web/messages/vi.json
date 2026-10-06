@@ -76,8 +76,6 @@
   },
   "Common": {
     "appName": "Shuttio",
-    "allSports": "Tất cả",
-    "filterSport": "Lọc theo môn",
     "sports": {
       "badminton": "Cầu lông"
     },
@@ -156,7 +154,8 @@
     "addBranch": "Thêm chi nhánh",
     "becomePlayer": "Trở thành người chơi",
     "manageVenue": "Quản lý địa điểm",
-    "adminWorkspace": "Trang quản trị"
+    "adminWorkspace": "Trang quản trị",
+    "rateApp": "Đánh giá ứng dụng"
   },
   "WorkspaceSettings": {
     "title": "Cài đặt không gian",
@@ -272,7 +271,7 @@
   "Assistant": {
     "title": "Trợ lý sân",
     "subtitle": "AI · tìm sân gần bạn",
-    "greeting": "Chào bạn — mình là trợ lý sân của bạn. Hãy cho mình biết môn thể thao, ngân sách hoặc khoảng cách bạn muốn chơi, mình sẽ tìm các sân gần bạn.",
+    "greeting": "Chào bạn — mình là trợ lý sân cầu lông của bạn. Hãy cho mình biết ngân sách, khung giờ hoặc khoảng cách bạn muốn chơi, mình sẽ tìm các sân gần bạn.",
     "placeholder": "Hỏi tìm một sân…",
     "thinking": "Đang suy nghĩ…",
     "thoughtFor": "Đã suy nghĩ trong {seconds}s",
@@ -304,7 +303,7 @@
     },
     "reply": {
       "found": "Đã tìm thấy {count} sân {sport}cho bạn, sắp xếp theo {rank}.",
-      "none": "Mình không tìm thấy sân phù hợp — hãy thử môn khác hoặc bộ lọc khác."
+      "none": "Mình không tìm thấy sân phù hợp — hãy thử bộ lọc khác."
     }
   },
   "Play": {
@@ -527,8 +526,7 @@
   "FindCourts": {
     "metaTitle": "Tìm sân",
     "metaDescription": "Khung giờ trống gần bạn, sẵn sàng để đặt.",
-    "allSports": "Tất cả môn",
-    "empty": "Không có sân nào cho môn này gần đây. Hãy thử bộ lọc khác.",
+    "empty": "Không có sân nào phù hợp gần đây. Hãy thử bộ lọc khác.",
     "nearby": "Gần đây · {count, plural, other {# sân}}",
     "distance": "≈ {km} km (đường chim bay)",
     "openSlots": "{count, plural, other {# khung trống hôm nay}}",
@@ -721,7 +719,7 @@
       "subtitle": "Dễ dàng tìm sân phù hợp và kết nối với đối thủ cùng trình độ.\nTất cả những gì bạn cần để bắt đầu một trận đấu đều có ngay trên một nền tảng.",
       "imageAlt": "Những quả cầu lông và vợt trên mặt cỏ xanh",
       "cta": "Bắt đầu ngay",
-      "socialProof": "1.000+ người chơi đã tham gia",
+      "socialProof": "Miễn phí cho người chơi",
       "sportsLabel": "Dành cho:",
       "badges": {
         "smartMatching": "Ghép trận thông minh",
@@ -745,7 +743,7 @@
         },
         {
           "title": "Đồng bộ",
-          "body": "Pickleball và cầu lông luôn chỉ cách một tin nhắn. Luôn sẵn sàng cho trận tiếp theo."
+          "body": "Đồng đội cầu lông luôn chỉ cách một tin nhắn. Luôn sẵn sàng cho trận tiếp theo."
         }
       ]
     },
@@ -764,7 +762,7 @@
         "features": [
           "Xem các sân trống gần đây",
           "Trợ lý đặt sân AI",
-          "Ghép trận theo trình độ, cả ba môn",
+          "Ghép trận cầu lông theo trình độ",
           "Trò chuyện nhóm cho các trận",
           "Không thuê bao, không phí ẩn"
         ],
@@ -786,8 +784,16 @@
       }
     },
     "trust": {
-      "caption": "Được các câu lạc bộ và người chơi trong giới cầu lông tin dùng",
-      "clubsAria": "Các câu lạc bộ cầu lông đang đồng hành cùng Shuttio"
+      "caption": "Nhẹ nhàng từ lúc tìm sân đến khi ra sân",
+      "clubsAria": "Những điều Shuttio giúp Quý khách",
+      "highlights": [
+        "Đặt sân chỉ trong vài chạm",
+        "Ghép trận đúng trình độ",
+        "Tìm sân gần Quý khách trên bản đồ",
+        "Thanh toán an toàn qua VietQR",
+        "Nhắn tin trực tiếp với chủ sân",
+        "Đánh giá trình độ miễn phí"
+      ]
     },
     "playerFeaturesSection": {
       "title": "Tính năng nổi trội",
@@ -834,20 +840,20 @@
       }
     },
     "statsSection": {
-      "title": "Tỉ lệ sử dụng"
+      "title": "Minh bạch ngay từ đầu"
     },
     "stats": {
       "0": {
-        "value": "3.200+",
-        "label": "Người chơi đã đăng ký"
+        "value": "0đ",
+        "label": "Phí sử dụng cho người chơi"
       },
       "1": {
-        "value": "40+",
-        "label": "Câu lạc bộ đối tác đang tham gia"
+        "value": "5%",
+        "label": "Hoa hồng — chỉ khi đặt sân thành công"
       },
       "2": {
-        "value": "<60 giây",
-        "label": "Từ yêu cầu đến đặt xong"
+        "value": "30 phút",
+        "label": "Để chủ sân xác nhận lượt đặt"
       }
     },
     "venuesSection": {
@@ -874,39 +880,16 @@
         "body": "Xác nhận thông minh và danh sách chờ giúp giảm tình trạng vắng mặt và giữ cho sân luôn sinh lời."
       }
     },
-    "occupancy": {
-      "title": "Công suất sân",
-      "offPeakBadge": "+32% giờ thấp điểm",
-      "weekdays": {
-        "0": "T2",
-        "1": "T3",
-        "2": "T4",
-        "3": "T5",
-        "4": "T6",
-        "5": "T7",
-        "6": "CN"
-      },
-      "utilization": "Tỷ lệ sử dụng",
-      "bookingsPerWeek": "Lượt đặt / tuần",
-      "playerRating": "Đánh giá người chơi"
-    },
     "testimonialsSection": {
       "title": "Đánh giá từ khách hàng",
-      "ratingAria": "Đánh giá 5 trên 5 sao"
-    },
-    "testimonials": {
-      "0": {
-        "quote": "Trước đây tôi tốn thời gian nhắn tin trong nhóm chat hơn cả thời gian chơi. Giờ tôi chỉ cần nói với ứng dụng và nó lo luôn cả sân lẫn người chơi.",
-        "role": "Cầu lông · 3.5"
+      "ratingAria": "Đánh giá {rating} trên 5 sao",
+      "summary": "{average}/5 · {count} đánh giá",
+      "role": {
+        "player": "Người chơi cầu lông",
+        "venue": "Chủ sân cầu lông"
       },
-      "1": {
-        "quote": "Khả năng ghép trình độ chính xác đến đáng kinh ngạc. Trận nào cũng cân sức — điều chưa từng có với những trận đánh ngẫu hứng trước đây.",
-        "role": "Cầu lông · 4.0"
-      },
-      "2": {
-        "quote": "Là một câu lạc bộ, khung 2–5 giờ chiều các ngày trong tuần của chúng tôi từng vắng tanh. Giờ tính năng ghép trận âm thầm lấp đầy chúng. Mọi thứ tự chạy trong nền.",
-        "role": "Quản lý câu lạc bộ"
-      }
+      "empty": "Shuttio vừa bắt đầu hành trình. Những cảm nhận đầu tiên của người chơi và chủ sân sẽ sớm xuất hiện tại đây — rất mong được lắng nghe Quý khách.",
+      "emptyCta": "Trải nghiệm và chia sẻ cảm nhận"
     },
     "faqSection": {
       "eyebrow": "Câu hỏi thường gặp",
@@ -914,8 +897,8 @@
     },
     "faq": {
       "0": {
-        "question": "Shuttio hỗ trợ những môn thể thao nào?",
-        "answer": "Chúng tôi ra mắt với cầu lông — bộ môn đang phát triển nhanh nhất trong cộng đồng của chúng tôi. Các môn khác sẽ được bổ sung dựa trên nơi cộng đồng của chúng tôi chơi nhiều nhất."
+        "question": "Shuttio dành cho môn thể thao nào?",
+        "answer": "Shuttio tập trung hoàn toàn vào cầu lông — bộ môn đang phát triển nhanh nhất trong cộng đồng của chúng tôi — để mang đến trải nghiệm đặt sân và ghép trận tốt nhất cho người chơi cầu lông."
       },
       "1": {
         "question": "Trợ lý AI thực sự đặt sân như thế nào?",
@@ -936,7 +919,8 @@
     },
     "cta": {
       "title": "Hãy là người đầu tiên ra sân.",
-      "subtitle": "Tạo tài khoản và bắt đầu đặt sân, ghép cặp với người chơi gần Quý khách."
+      "subtitle": "Tạo tài khoản và bắt đầu đặt sân, ghép cặp với người chơi gần Quý khách.",
+      "eyebrow": "Trận đấu tiếp theo bắt đầu từ đây"
     },
     "footer": {
       "tagline": "Trợ lý đặt sân cầu lông bằng AI. Tìm sân, tìm đối thủ và cứ thế chơi thôi.",
@@ -980,7 +964,6 @@
     "metaDescription": "AI gợi ý người chơi hợp trình độ và lịch của bạn.",
     "heroTitle": "Phòng đang mở gần trình độ của bạn",
     "heroBody": "Phòng mở cho người chơi trình độ <strong>{level}</strong> gần bạn. <strong>Tham gia nhanh</strong> đưa bạn vào phòng hợp nhất — hoặc tìm bạn chơi khi chưa có phòng phù hợp.",
-    "allSports": "Tất cả môn",
     "quickJoin": "Tham gia nhanh",
     "quickFilter": {
       "distance": "Trong vòng",
@@ -994,7 +977,6 @@
       "level": "Trình độ",
       "find": "Tìm trận",
       "myLevel": "Trình độ của tôi",
-      "sport": "Môn",
       "court": "Sân",
       "anyCourt": "Mọi sân",
       "courtSearch": "Tìm theo tên sân hoặc quận…",
@@ -1002,7 +984,7 @@
       "description": "Đặt bộ lọc và chúng tôi sẽ tìm trận phù hợp nhất."
     },
     "createRoom": "Tạo phòng",
-    "emptyRooms": "Chưa có phòng nào mở cho môn này.",
+    "emptyRooms": "Chưa có phòng nào đang mở.",
     "findMatch": "Tìm trận cho tôi",
     "hostOne": "Tự mở phòng",
     "hostedBy": "Chủ phòng: {name}",
@@ -1049,7 +1031,6 @@
       "description": "Thiết lập phòng và chúng tôi sẽ giới thiệu tới người chơi gần trình độ của bạn.",
       "roomTitle": "Tên phòng",
       "roomTitlePlaceholder": "Cầu lông buổi tối, đánh đôi vui vẻ",
-      "sport": "Môn",
       "format": "Hình thức",
       "court": "Sân",
       "when": "Thời gian",
@@ -1078,26 +1059,13 @@
       "roomCreated": "Đã tạo phòng",
       "joined": "Bạn đã tham gia",
       "quickJoined": "Đã tham gia nhanh một phòng",
-      "noRoomTitle": "Không có phòng phù hợp — đang tìm trận cho bạn",
-      "noRoomBody": "Chờ chút nhé, chúng tôi đang xếp phòng cho bạn.",
-      "matchReady": "Trận đã sẵn sàng!",
+      "noRoomTitle": "Chưa có phòng phù hợp",
+      "noRoomBody": "Hãy tạo phòng mới để người chơi khác tìm thấy và tham gia cùng bạn.",
       "left": "Bạn đã rời phòng",
-      "searchingPartner": "Đang tìm người chơi đầu tiên cho bạn…",
       "requested": "Đã gửi yêu cầu",
       "demoRoom": "Phòng demo — không thể tham gia",
       "limitTitle": "Đã đạt giới hạn phòng",
       "limitBody": "Bạn chỉ có thể mở tối đa {max} phòng cùng lúc. Hãy huỷ một phòng để mở phòng mới."
-    },
-    "dock": {
-      "matchReady": "Trận đã sẵn sàng",
-      "finding": "Đang tìm người chơi…",
-      "accept": "Chấp nhận",
-      "cancelSearch": "Hủy tìm kiếm",
-      "findingPartner": "Đang tìm bạn chơi…",
-      "found": "Đã tìm thấy {name} 👋",
-      "roomReady": "Phòng đã sẵn sàng",
-      "manage": "Quản lý",
-      "dismiss": "Đóng"
     },
     "leave": "Rời",
     "requested": "Đã gửi yêu cầu",
@@ -1121,8 +1089,8 @@
     "seeAll": "Xem tất cả",
     "invite": "Mời",
     "book": "Đặt sân",
-    "emptyPlayers": "Chưa có người chơi cho môn này — thử bộ lọc khác.",
-    "emptyCourts": "Chưa có sân trống cho môn này — thử bộ lọc khác.",
+    "emptyPlayers": "Chưa có người chơi phù hợp — thử bộ lọc khác.",
+    "emptyCourts": "Chưa có sân trống phù hợp — thử bộ lọc khác.",
     "recentActivity": "Hoạt động gần đây",
     "activity": {
       "a1": {
@@ -1313,7 +1281,6 @@
       "provincePlaceholder": "Chọn tỉnh / thành phố",
       "searchPlaceholder": "Tìm kiếm…",
       "noResults": "Không tìm thấy kết quả",
-      "sports": "Môn thể thao",
       "openFrom": "Mở cửa",
       "openTo": "Đóng cửa",
       "location": "Vị trí trên bản đồ",
@@ -1378,7 +1345,6 @@
       "namePlaceholder": "vd: Shuttle Republic",
       "ward": "Phường / Xã",
       "province": "Tỉnh / Thành phố",
-      "sports": "Môn thể thao",
       "openFrom": "Mở cửa",
       "openTo": "Đóng cửa",
       "manager": "Quản lý",
@@ -1388,7 +1354,6 @@
       "description": "Sân tạo nên lịch, giám sát trực tiếp và lượt đặt.",
       "name": "Tên sân",
       "namePlaceholder": "vd: Sân 1",
-      "sport": "Môn",
       "state": "Trạng thái",
       "surface": "Mặt sân",
       "surfacePlaceholder": "vd: Sàn gỗ đàn hồi",
@@ -1411,7 +1376,6 @@
     "validation": {
       "name": "Vui lòng nhập ít nhất 2 ký tự",
       "required": "Trường này là bắt buộc",
-      "sports": "Chọn ít nhất một môn",
       "time": "Dùng định dạng HH:MM (vd: 06:00)",
       "price": "Giá phải từ 0 trở lên"
     },
@@ -1691,7 +1655,7 @@
   },
   "VenueAnalytics": {
     "metaTitle": "Phân tích · Sân",
-    "metaDescription": "Xu hướng doanh thu, công suất và nhu cầu của sân — doanh thu tuần, bản đồ nhiệt công suất theo giờ × thứ, cơ cấu môn, kênh đặt sân và khung giờ trống.",
+    "metaDescription": "Xu hướng doanh thu, công suất và nhu cầu của sân — doanh thu tuần, bản đồ nhiệt công suất theo giờ × thứ, kênh đặt sân và khung giờ trống.",
     "title": "Phân tích",
     "subtitle": "Doanh thu, công suất và nhu cầu trong 7 ngày gần nhất.",
     "kpi": {
@@ -1721,10 +1685,6 @@
       "high": "Cao",
       "coldMarker": "Khung trống",
       "unit": "% lấp đầy"
-    },
-    "sportMix": {
-      "title": "Cơ cấu môn",
-      "bookings": "{count} lượt đặt"
     },
     "channels": {
       "title": "Kênh đặt sân",
@@ -1763,11 +1723,6 @@
         "cancel": "Huỷ",
         "submit": "Tạo lịch chặn"
       }
-    },
-    "insights": {
-      "title": "Gợi ý AI",
-      "demoChip": "AI minh hoạ",
-      "subtitle": "Gợi ý minh hoạ mang tính demo — chưa được tạo từ dữ liệu đặt sân thật của sân này."
     }
   },
   "VenueInsights": {
@@ -1816,7 +1771,6 @@
     "form": {
       "name": "Tên sân",
       "namePlaceholder": "vd: Sân 1",
-      "sport": "Môn",
       "state": "Trạng thái",
       "surface": "Mặt sân",
       "surfacePlaceholder": "vd: Sàn gỗ đàn hồi",
@@ -1894,7 +1848,6 @@
       "namePlaceholder": "ví dụ: Nguyễn Bảo",
       "phone": "Số điện thoại (ID)",
       "phonePlaceholder": "ví dụ: 0901234567",
-      "sport": "Môn thể thao yêu thích",
       "cancel": "Hủy",
       "submit": "Thêm",
       "saving": "Đang lưu...",
@@ -1908,7 +1861,7 @@
     "metaDescription": "Tìm kiếm, lọc và đặt sân gần bạn.",
     "searchPlaceholder": "Tìm theo tên sân hoặc khu vực",
     "clearSearch": "Xóa tìm kiếm",
-    "empty": "Không có sân nào cho môn này. Hãy thử bộ lọc khác.",
+    "empty": "Không có sân nào phù hợp. Hãy thử bộ lọc khác.",
     "noResults": "Không có sân nào khớp bộ lọc này.",
     "results": "{count, plural, other {# sân}}",
     "distance": "{km} km",
@@ -2021,7 +1974,7 @@
     "addedToRoom": "Đã thêm người chơi",
     "addedToRoomDesc": "Đã gửi lời mời. Kiểm tra nhóm trò chuyện để cập nhật.",
     "selectedCount": "Đã chọn {count}:",
-    "requireAssessment": "Bạn cần hoàn thành đánh giá trình độ môn {sport} trước khi tìm kiếm đồng đội.",
+    "requireAssessment": "Bạn cần hoàn thành bài đánh giá trình độ cầu lông trước khi tìm kiếm đồng đội.",
     "completeAssessment": "Hoàn thành đánh giá",
     "rank": {
       "price": "giá thấp nhất",
@@ -2033,7 +1986,7 @@
     "slotsOpen": "{count} khung giờ còn trống",
     "prompts": {
       "quickMatch": "Ghép trận nhanh gần tôi",
-      "quickMatchDesc": "Tham gia phòng chơi đang mở phù hợp trình độ và bộ môn",
+      "quickMatchDesc": "Tham gia phòng chơi đang mở phù hợp với trình độ của bạn",
       "badmintonNearMe": "Tìm sân cầu lông gần tôi",
       "badmintonNearMeDesc": "Khám phá và kiểm tra sân trống tại các cơ sở gần bạn",
       "bookTomorrow": "Đặt sân lúc 6 giờ tối mai",
@@ -2051,7 +2004,7 @@
     },
     "findingRooms": "Đang tìm phòng…",
     "quickMatchRooms": "{count} phòng đang mở",
-    "noRoomsFound": "Không tìm thấy phòng nào gần đây. Thử khu vực hoặc môn thể thao khác.",
+    "noRoomsFound": "Không tìm thấy phòng nào gần đây. Thử khu vực khác.",
     "roomCapacity": "{joined}/{capacity} đã tham gia",
     "roomSpotsOpen": "còn {count} chỗ",
     "joinRoom": "Tham gia",
@@ -2089,17 +2042,11 @@
     "gate": {
       "requiredBadge": "Bắt buộc trước khi vào game",
       "title": "Đánh giá trình độ người chơi",
-      "description": "Chọn môn thể thao bạn tham gia và trả lời câu hỏi. Bạn luôn có thể làm lại đánh giá này sau.",
-      "selectSports": "Chọn bộ môn",
-      "sportsSelected": "{count} môn được chọn",
+      "description": "Trả lời vài câu hỏi để xác định trình độ cầu lông của bạn. Bạn luôn có thể làm lại đánh giá này sau.",
       "questionsCount": "{count} câu hỏi",
       "stepProgress": "{stepNum}/{totalSteps}"
     },
-    "stepper": {
-      "sports": "Bộ môn"
-    },
     "progress": {
-      "step": "Bước {current}/{total}",
       "answered": "Đã trả lời {answered}/{total}"
     },
     "complete": {
@@ -2107,16 +2054,6 @@
       "subtitle": "Đây là hồ sơ trình độ của bạn. Bạn có thể làm lại đánh giá bất cứ lúc nào trong phần cài đặt.",
       "cta": "Vào trang chính",
       "ctaSetup": "Thiết lập địa điểm của bạn"
-    },
-    "sportsSelect": {
-      "title": "Môn thể thao bạn muốn tham gia",
-      "description": "Chọn các bộ môn bạn muốn tham gia chơi trên ứng dụng. Chúng tôi sẽ hiển thị bài đánh giá phù hợp.",
-      "noticeTitle": "Lưu ý quan trọng",
-      "noticeBody": "Bạn luôn có thể thay đổi lựa chọn bộ môn và thực hiện lại bài đánh giá này bất kỳ lúc nào từ phần cài đặt tài khoản cá nhân.",
-      "badminton": {
-        "title": "Badminton",
-        "description": "Cầu lông - môn thể thao tốc độ cao, rèn luyện phản xạ nhanh nhạy và di chuyển linh hoạt trên sân."
-      }
     },
     "badminton": {
       "title": "Cầu lông",
@@ -2188,8 +2125,6 @@
       }
     },
     "actions": {
-      "continue": "Tiếp tục",
-      "back": "Quay lại",
       "complete": "Hoàn thành đánh giá",
       "redo": "Làm lại đánh giá"
     },
@@ -2262,6 +2197,10 @@
     "approvals": {
       "label": "Phê duyệt",
       "caption": "Venue mới đang chờ duyệt"
+    },
+    "reviews": {
+      "label": "Đánh giá ứng dụng",
+      "caption": "Kiểm duyệt đánh giá hiển thị trên trang giới thiệu"
     }
   },
   "AdminOverview": {
@@ -2521,5 +2460,72 @@
     "deleteBody": "Nhóm và toàn bộ tin nhắn sẽ bị xoá vĩnh viễn với mọi thành viên. Không thể hoàn tác.",
     "deleted": "Đã xoá nhóm",
     "deleteFailed": "Không xoá được nhóm"
+  },
+  "AppReview": {
+    "title": "Đánh giá Shuttio",
+    "description": "Trải nghiệm của bạn giúp chúng tôi cải thiện ứng dụng và giúp người chơi khác tìm đến Shuttio.",
+    "ratingLabel": "Số sao",
+    "starLabel": "{count} sao",
+    "pickStars": "Chọn số sao",
+    "levels": {
+      "1": "Rất tệ",
+      "2": "Chưa tốt",
+      "3": "Tạm ổn",
+      "4": "Tốt",
+      "5": "Tuyệt vời"
+    },
+    "commentLabel": "Nhận xét (không bắt buộc)",
+    "commentPlaceholder": "Điều bạn thích nhất, hoặc điều chúng tôi nên cải thiện…",
+    "publicNotice": "Đánh giá từ 4 sao kèm nhận xét có thể được hiển thị trên trang giới thiệu, cùng tên của bạn (tên và chữ cái đầu của họ).",
+    "hiddenNotice": "Đánh giá này đã được quản trị viên ẩn khỏi trang giới thiệu. Bạn vẫn có thể chỉnh sửa nó.",
+    "submit": "Gửi đánh giá",
+    "update": "Cập nhật đánh giá",
+    "thanks": "Cảm ơn bạn đã đánh giá!",
+    "updated": "Đã cập nhật đánh giá của bạn",
+    "saveFailed": "Không lưu được đánh giá. Vui lòng thử lại."
+  },
+  "AdminAppReviews": {
+    "metaTitle": "Đánh giá ứng dụng",
+    "metaDescription": "Kiểm duyệt đánh giá ứng dụng của người dùng",
+    "title": "Đánh giá ứng dụng",
+    "subtitle": "Đánh giá đang hiển thị, từ 4 sao và có nhận xét sẽ được trích dẫn trên trang giới thiệu. Ẩn một đánh giá sẽ gỡ nó khỏi trang giới thiệu và điểm trung bình.",
+    "listTitle": "{count} đánh giá",
+    "empty": "Chưa có đánh giá nào",
+    "ratingAria": "{rating} trên 5 sao",
+    "role": {
+      "player": "Người chơi",
+      "venue": "Chủ sân"
+    },
+    "hiddenBadge": "Đã ẩn",
+    "noComment": "Không có nhận xét",
+    "hide": "Ẩn",
+    "show": "Hiện lại",
+    "hiddenToast": "Đã ẩn đánh giá khỏi trang giới thiệu",
+    "shown": "Đánh giá đã được hiển thị lại",
+    "failed": "Thao tác thất bại"
+  },
+  "VenuePhotos": {
+    "title": "Ảnh minh hoạ chi nhánh",
+    "hint": "Người chơi sẽ thấy các ảnh này khi tìm và đặt sân. Ảnh đầu tiên là ảnh bìa. Tối đa {max} ảnh JPG, PNG hoặc WebP.",
+    "add": "Thêm ảnh",
+    "uploading": "Đang tải {count} ảnh…",
+    "empty": "Chưa có ảnh nào — thêm ảnh để người chơi hình dung sân của bạn",
+    "cover": "Ảnh bìa",
+    "makeCover": "Đặt làm ảnh bìa",
+    "remove": "Xoá ảnh",
+    "photoAlt": "{name} — ảnh {n}",
+    "uploaded": "Đã thêm {count} ảnh",
+    "coverSet": "Đã đổi ảnh bìa",
+    "removed": "Đã xoá ảnh",
+    "rejected": "Chỉ nhận ảnh JPG, PNG hoặc WebP, tối đa {mb}MB mỗi ảnh",
+    "tooMany": "Mỗi chi nhánh có tối đa {max} ảnh",
+    "uploadError": "Một số ảnh tải lên không thành công",
+    "saveError": "Không lưu được ảnh. Vui lòng thử lại."
+  },
+  "CourtPhotos": {
+    "open": "Ảnh sân ({count})",
+    "alt": "{name} — ảnh {n}",
+    "previous": "Ảnh trước",
+    "next": "Ảnh tiếp theo"
   }
 }

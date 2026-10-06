@@ -26,8 +26,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox"
-import { SPORTS, type SportKey } from "@/features/dashboard/data"
-import { SportTag } from "@/features/dashboard/shared"
+import { type SportKey } from "@/features/dashboard/data"
 import { provisionVenue } from "@/features/venue/venue-actions"
 import { useRouter } from "@/i18n/navigation"
 import { PROVINCE_OPTIONS, provinceCodeByName, wardsOf } from "@/lib/vn-admin"
@@ -148,14 +147,6 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
     value: VenueDraft[K]
   ) => setDraft((v) => ({ ...v, [key]: value }))
 
-  const toggleSport = (s: SportKey) =>
-    setDraft((v) => ({
-      ...v,
-      sports: v.sports.includes(s)
-        ? v.sports.filter((x) => x !== s)
-        : [...v.sports, s],
-    }))
-
   const brandValid =
     brand.brandName.trim().length >= 2 && brand.managerName.trim().length >= 2
 
@@ -173,7 +164,6 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
     draft.name.trim().length >= 2 &&
     draft.ward.trim().length >= 1 &&
     draft.province.trim().length >= 1 &&
-    draft.sports.length >= 1 &&
     TIME_RE.test(draft.openFrom) &&
     TIME_RE.test(draft.openTo) &&
     draftCoordsValid
@@ -267,7 +257,6 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
             draft={draft}
             setField={setDraftField}
             setDraft={setDraft}
-            toggleSport={toggleSport}
             draftValid={draftValid}
             branches={branches}
             onAdd={addBranch}
@@ -363,7 +352,6 @@ function BranchesStep({
   draft,
   setField,
   setDraft,
-  toggleSport,
   draftValid,
   branches,
   onAdd,
@@ -372,14 +360,12 @@ function BranchesStep({
   draft: VenueDraft
   setField: <K extends keyof VenueDraft>(key: K, value: VenueDraft[K]) => void
   setDraft: React.Dispatch<React.SetStateAction<VenueDraft>>
-  toggleSport: (s: SportKey) => void
   draftValid: boolean
   branches: VenueDraft[]
   onAdd: () => void
   onRemove: (i: number) => void
 }) {
   const t = useTranslations("VenueSetup")
-  const tc = useTranslations("Common")
   const provinceNames = React.useMemo(
     () => PROVINCE_OPTIONS.map((p) => p.name),
     []
@@ -582,26 +568,6 @@ function BranchesStep({
             </div>
           )}
         </Field>
-        <Field>
-          <FieldLabel>{t("form.sports")}</FieldLabel>
-          <div className="flex flex-wrap gap-2">
-            {SPORTS.map((s) => {
-              const on = draft.sports.includes(s.key)
-              return (
-                <Button
-                  key={s.key}
-                  type="button"
-                  size="sm"
-                  variant={on ? "default" : "outline"}
-                  className="rounded-full"
-                  onClick={() => toggleSport(s.key)}
-                >
-                  {tc(`sports.${s.key}`)}
-                </Button>
-              )
-            })}
-          </div>
-        </Field>
         <div className="grid grid-cols-2 gap-5">
           <Field>
             <FieldLabel htmlFor="v-from">{t("form.openFrom")}</FieldLabel>
@@ -672,11 +638,6 @@ function ReviewStep({
                 {b.lat !== undefined && b.lng !== undefined ? (
                   <MapPin className="size-3 shrink-0 text-brand" />
                 ) : null}
-              </div>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {b.sports.map((s) => (
-                  <SportTag key={s} sport={s} />
-                ))}
               </div>
             </li>
           ))}

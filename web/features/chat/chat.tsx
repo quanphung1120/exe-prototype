@@ -187,6 +187,12 @@ export function ChatView({
                 }
                 sort={{ last_message_at: -1 }}
                 options={{ state: true, watch: true }}
+                // Without this, the list's first load re-selects channels[0]
+                // (the most recent chat), racing `InitialChannel` — a fresh
+                // deep-linked chat with no messages yet (e.g. a just-opened
+                // venue chat) sorts last, so the first message silently went
+                // to whichever conversation was on top instead.
+                customActiveChannel={initialChannelId}
                 renderChannels={
                   player && searchQuery.trim()
                     ? (channels, channelPreview) => {
@@ -366,7 +372,8 @@ function ConversationInvite({ player }: { player: boolean }) {
  * Watches `initialChannelId` and makes it the active channel on mount — used to
  * deep-link into a specific room/DM via `/app/chat?channel=<id>`. Renders
  * nothing; a missing/inaccessible channel is ignored (the list's default
- * selection stands).
+ * selection stands). The ChannelList's `customActiveChannel` pins the same
+ * channel once its first page loads, so whichever finishes last agrees.
  */
 function InitialChannel({ id }: { id?: string }) {
   const { client, setActiveChannel } = useChatContext()

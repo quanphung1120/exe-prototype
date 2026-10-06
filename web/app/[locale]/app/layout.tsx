@@ -10,7 +10,6 @@ import { NotificationsProvider } from "@/features/dashboard/notifications"
 import { PlayerAssessmentGate } from "@/features/assessment/player-assessment-gate"
 import { PlayerChrome } from "@/features/dashboard/player-chrome"
 import { SessionProvider } from "@/features/play/session"
-import { SportFilterProvider } from "@/features/dashboard/sport-filter"
 import { DashboardFrame } from "@/features/dashboard/dashboard-frame"
 
 // The seed is fetched per request from the Hono API, so the dashboard renders
@@ -58,16 +57,14 @@ export default async function DashboardLayout({
                 userName={session.user.name}
                 userImage={session.user.image}
               >
-                <SportFilterProvider>
-                  <PlayerAssessmentGate
-                    serverAssessment={seed.assessment}
-                    accountType={seed.accountType}
-                    isAdmin={session.user.role === "admin"}
-                  >
-                    <DashboardFrame>{children}</DashboardFrame>
-                    <PlayerChrome />
-                  </PlayerAssessmentGate>
-                </SportFilterProvider>
+                <PlayerAssessmentGate
+                  serverAssessment={seed.assessment}
+                  accountType={seed.accountType}
+                  isAdmin={session.user.role === "admin"}
+                >
+                  <DashboardFrame>{children}</DashboardFrame>
+                  <PlayerChrome />
+                </PlayerAssessmentGate>
               </StreamChatProvider>
             </NotificationsProvider>
             <Toaster />

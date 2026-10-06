@@ -40,11 +40,9 @@ import {
 } from "@/components/ui/select"
 import {
   LEVELS,
-  SPORTS,
   diffMinutes,
   locStr,
   type RoomLevel,
-  type SportKey,
 } from "@/features/dashboard/data"
 import { useData } from "@/features/dashboard/data-provider"
 import {
@@ -105,33 +103,24 @@ function QuickJoinDialog() {
     React.useState<QuickJoinFilters["day"]>("today-tomorrow")
   const [format, setFormat] = React.useState<QuickJoinFilters["format"]>("any")
   const [level, setLevel] = React.useState<QuickJoinFilters["level"]>("my")
-  const [quickSport, setQuickSport] = React.useState<SportKey | "all">("all")
   const [quickCourt, setQuickCourt] = React.useState<string>("any")
   const [courtQuery, setCourtQuery] = React.useState("")
 
-  // Courts offered in Quick Join, narrowed to the chosen sport.
-  const quickCourts = COURTS.filter(
-    (c) => quickSport === "all" || c.sports.includes(quickSport)
-  )
-  // ...then filtered by the search query (court name or full address).
+  // Courts offered in Quick Join, filtered by the search query (court name or
+  // full address).
   const courtNeedle = courtQuery.trim().toLowerCase()
   const filteredCourts = courtNeedle
-    ? quickCourts.filter(
+    ? COURTS.filter(
         (c) =>
           c.name.toLowerCase().includes(courtNeedle) ||
           c.ward.toLowerCase().includes(courtNeedle) ||
           c.province.toLowerCase().includes(courtNeedle)
       )
-    : quickCourts
-
-  const onQuickSportChange = (v: SportKey | "all") => {
-    setQuickSport(v)
-    const court = COURTS.find((c) => c.id === quickCourt)
-    if (v !== "all" && court && !court.sports.includes(v)) setQuickCourt("any")
-  }
+    : COURTS
 
   const buildFilters = (): QuickJoinFilters => ({
-    sport: quickSport,
+    // The app is badminton-only — no sport choice to offer.
+    sport: "badminton",
     courtId: quickCourt === "any" ? null : quickCourt,
     maxDistanceKm: maxDistance === "any" ? null : Number(maxDistance),
     day,
@@ -163,18 +152,6 @@ function QuickJoinDialog() {
           <DialogDescription>{t("quickFilter.description")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-5">
-          <FilterChips
-            label={t("quickFilter.sport")}
-            value={quickSport}
-            onChange={onQuickSportChange}
-            options={[
-              { value: "all", label: t("allSports") },
-              ...SPORTS.map((s) => ({
-                value: s.key,
-                label: tc(`sports.${s.key}`),
-              })),
-            ]}
-          />
           <div className="flex flex-col gap-1.5">
             <span className="font-mono text-[11px] tracking-wider text-muted-foreground uppercase">
               {t("quickFilter.court")}
@@ -467,68 +444,33 @@ function CreateRoomDialog() {
               }}
             </form.Field>
 
-            <div className="grid gap-7 sm:grid-cols-2">
-              <form.Field name="sport">
-                {(field) => (
-                  <Field>
-                    <FieldLabel>{t("dialog.sport")}</FieldLabel>
-                    <Select
-                      value={field.state.value}
-                      onValueChange={(v) => {
-                        const sport = v as SportKey
-                        field.handleChange(sport)
-                        form.setFieldValue("level", userLevelForSport(sport))
-                        const first = COURTS.find((c) =>
-                          c.sports.includes(sport)
-                        )
-                        if (first) form.setFieldValue("courtId", first.id)
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {(v) => tc(`sports.${v as SportKey}`)}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="player-play-overlay">
-                        {SPORTS.map((s) => (
-                          <SelectItem key={s.key} value={s.key}>
-                            {tc(`sports.${s.key}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
-              </form.Field>
-
-              <form.Field name="format">
-                {(field) => (
-                  <Field>
-                    <FieldLabel>{t("dialog.format")}</FieldLabel>
-                    <Select
-                      value={field.state.value}
-                      onValueChange={(v) =>
-                        field.handleChange(v as "Singles" | "Doubles")
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue>
-                          {(v) => tc(`format.${(v as string).toLowerCase()}`)}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="player-play-overlay">
-                        <SelectItem value="Singles">
-                          {tc("format.singles")}
-                        </SelectItem>
-                        <SelectItem value="Doubles">
-                          {tc("format.doubles")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                )}
-              </form.Field>
-            </div>
+            <form.Field name="format">
+              {(field) => (
+                <Field>
+                  <FieldLabel>{t("dialog.format")}</FieldLabel>
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(v) =>
+                      field.handleChange(v as "Singles" | "Doubles")
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue>
+                        {(v) => tc(`format.${(v as string).toLowerCase()}`)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="player-play-overlay">
+                      <SelectItem value="Singles">
+                        {tc("format.singles")}
+                      </SelectItem>
+                      <SelectItem value="Doubles">
+                        {tc("format.doubles")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            </form.Field>
 
             <form.Field name="maxPlayers">
               {(field) => {
@@ -572,37 +514,31 @@ function CreateRoomDialog() {
               }}
             </form.Field>
 
-            <form.Subscribe selector={(s) => s.values.sport}>
-              {(selectedSport) => (
-                <form.Field name="courtId">
-                  {(field) => (
-                    <Field>
-                      <FieldLabel>{t("dialog.court")}</FieldLabel>
-                      <Select
-                        value={field.state.value}
-                        onValueChange={(v) => field.handleChange(v as string)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue>
-                            {(id) => courtName(id as string)}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent className="player-play-overlay">
-                          {COURTS.filter((c) =>
-                            c.sports.includes(selectedSport)
-                          ).map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name} ·{" "}
-                              {[c.ward, c.province].filter(Boolean).join(", ")}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  )}
-                </form.Field>
+            <form.Field name="courtId">
+              {(field) => (
+                <Field>
+                  <FieldLabel>{t("dialog.court")}</FieldLabel>
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(v) => field.handleChange(v as string)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue>
+                        {(id) => courtName(id as string)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="player-play-overlay">
+                      {COURTS.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name} ·{" "}
+                          {[c.ward, c.province].filter(Boolean).join(", ")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
               )}
-            </form.Subscribe>
+            </form.Field>
 
             <form.Field name="day">
               {(field) => (

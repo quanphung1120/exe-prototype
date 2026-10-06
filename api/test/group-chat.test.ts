@@ -31,7 +31,6 @@ import {
   StreamService,
   isGroupChannel,
 } from "../src/features/stream/stream.service.js"
-import { StreamSeedState } from "../src/features/stream/stream-seed.schema.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { Brand } from "../src/features/brands/brand.schema.js"
@@ -312,7 +311,6 @@ async function makeStream(
     providers: [
       StreamService,
       { provide: STREAM_CLIENT, useValue: client },
-      { provide: getModelToken(StreamSeedState.name), useValue: {} },
       { provide: getModelToken(Venue.name), useValue: {} },
       { provide: getModelToken(Booking.name), useValue: {} },
       { provide: getModelToken(Brand.name), useValue: {} },

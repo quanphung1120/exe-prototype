@@ -7,9 +7,8 @@ export type DiscountType = "percent" | "fixed"
 /**
  * One mã giảm giá (discount code) — validated against an order amount by
  * `DiscountsService#validate` and, on checkout, re-validated server-side and
- * applied to the SePay charge (`PaymentsService#checkout`). Seeded on first
- * read from `data/discounts.ts` (see `DiscountsService#ensureSeeded`, the same
- * pattern `VenuesService` uses for `INITIAL_VENUES`).
+ * applied to the SePay charge (`PaymentsService#checkout`). Created by admins
+ * only — nothing is seeded.
  */
 @Schema({ timestamps: true })
 export class DiscountCode {

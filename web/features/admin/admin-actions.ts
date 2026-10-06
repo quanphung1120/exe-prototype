@@ -96,3 +96,19 @@ export async function deleteDiscount(code: string): Promise<void> {
   await api(`/api/admin/discounts/${code}`, { method: "DELETE" })
   revalidateAdmin()
 }
+
+/**
+ * Hide or re-show a user's app review. Also revalidates the landing page,
+ * whose testimonials quote these reviews.
+ */
+export async function setAppReviewHidden(
+  userId: string,
+  hidden: boolean
+): Promise<void> {
+  const action = hidden ? "hide" : "show"
+  await api(`/api/admin/app-reviews/${encodeURIComponent(userId)}/${action}`, {
+    method: "POST",
+  })
+  revalidateAdmin()
+  revalidatePath("/[locale]", "page")
+}

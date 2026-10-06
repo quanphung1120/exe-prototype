@@ -1030,6 +1030,7 @@ export function venueCourtToCourt(venue: Venue, court: VenueCourt): Court {
     freePct,
     lat: venue.lat ?? null,
     lng: venue.lng ?? null,
+    ...(venue.photos?.length ? { photos: venue.photos } : {}),
   }
 }
 

@@ -61,6 +61,7 @@ import { toMin } from "@/features/booking/calendar-ui"
 import { useData } from "@/features/dashboard/data-provider"
 import { useBooking } from "@/features/booking/booking"
 import { CourtImage } from "@/features/dashboard/shared"
+import { CourtPhotosButton } from "@/features/dashboard/court-photos"
 import { CourtMap } from "@/features/play/court-map"
 import { compareDistance, hasCoordinates } from "@/lib/shared/location"
 
@@ -1691,6 +1692,7 @@ function FinderCourtCard({
         <CourtImage
           court={court}
           className="h-[84px] w-[104px] shrink-0 rounded-2xl sm:h-[92px] sm:w-[124px]"
+          sizes="124px"
         />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex items-start justify-between gap-2">
@@ -1726,6 +1728,7 @@ function FinderCourtCard({
               </span>
             ) : null}
           </div>
+          <CourtPhotosButton court={court} className="mt-1 w-fit" />
         </div>
       </div>
 

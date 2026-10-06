@@ -216,7 +216,7 @@ async function makeAdminService(script: AdminFakeModelScript) {
 
 // ── listAllAdmin ─────────────────────────────────────────────────────────────
 
-void test("listAllAdmin seeds an empty collection before reading", async () => {
+void test("listAllAdmin never seeds an empty collection", async () => {
   const { service, calls } = await makeAdminService({
     countDocuments: 0,
     findResult: [],
@@ -224,7 +224,7 @@ void test("listAllAdmin seeds an empty collection before reading", async () => {
 
   const rows = await service.listAllAdmin()
 
-  assert.equal(calls.insertMany.length, 1)
+  assert.equal(calls.insertMany.length, 0)
   assert.equal(calls.findCount, 1)
   assert.deepEqual(rows, [])
 })

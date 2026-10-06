@@ -6,6 +6,8 @@ import { createFetch } from "@better-fetch/fetch"
 
 import type {
   AccountType,
+  AdminAppReviewRow,
+  AppReviewsPublic,
   BranchSummary,
   PlayerAssessment,
   Seed,
@@ -253,4 +255,28 @@ export async function fetchAdminApprovals(): Promise<AdminApprovalRow[]> {
 
 export async function fetchAdminDiscounts(): Promise<AdminDiscountRow[]> {
   return apiFetch<AdminDiscountRow[]>("/api/admin/discounts")
+}
+
+export async function fetchAdminAppReviews(): Promise<AdminAppReviewRow[]> {
+  return apiFetch<AdminAppReviewRow[]>("/api/admin/app-reviews")
+}
+
+/**
+ * The landing page's app-review summary. Unlike every other fetch here this
+ * one is anonymous (the landing renders for signed-out visitors and the route
+ * is `@Public()`), so it skips `apiFetch` and its Clerk token — which also
+ * leaves it cacheable for the landing's ISR window. Returns null when the api
+ * is unreachable (e.g. during `next build`) so the landing falls back to its
+ * static testimonials instead of failing to render.
+ */
+export async function fetchAppReviewsPublic(): Promise<AppReviewsPublic | null> {
+  try {
+    const res = await fetch(`${API_URL}/api/app-reviews/public`, {
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    })
+    if (!res.ok) return null
+    return (await res.json()) as AppReviewsPublic
+  } catch {
+    return null
+  }
 }

@@ -6,10 +6,6 @@
 /** Channel id for a match-room / team chat. */
 export const roomChannelId = (roomId: string) => `room-${roomId}`
 
-/** Per-user channel id for a seeded demo chat (never shared between users). */
-export const demoChannelId = (chatId: string, userId: string) =>
-  `demo-${chatId}-${userId}`
-
 /**
  * The mock player's initials encoded in a `demo-player-*` Stream user id, or
  * null for any other id (e.g. a Clerk user id). Used to map a DM's other member

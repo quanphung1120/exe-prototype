@@ -24,6 +24,15 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   images: {
     qualities: [75, 100],
+    // Venue photos operators upload to Cloudinary (any cloud name — it comes
+    // from the api's env, not the web build).
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/*/image/upload/**",
+      },
+    ],
   },
   headers() {
     return [{ source: "/:path*", headers: securityHeaders }]

@@ -7,6 +7,8 @@ import { NotificationsModule } from "../notifications/notifications.module.js"
 import { PlayersModule } from "../players/players.module.js"
 import { StreamModule } from "../stream/stream.module.js"
 import { Venue, VenueSchema } from "./venue.schema.js"
+import { VenuePhotosController } from "./venue-photos.controller.js"
+import { VenuePhotosService } from "./venue-photos.service.js"
 import { VenuesController } from "./venues.controller.js"
 import { VenuesService } from "./venues.service.js"
 
@@ -26,8 +28,8 @@ import { VenuesService } from "./venues.service.js"
     // StreamModule: cancel/decline freezes the room's chat (best-effort hook).
     StreamModule,
   ],
-  controllers: [VenuesController],
-  providers: [VenuesService],
+  controllers: [VenuesController, VenuePhotosController],
+  providers: [VenuesService, VenuePhotosService],
   exports: [VenuesService],
 })
 export class VenuesModule {}

@@ -37,119 +37,6 @@ export interface PlayerMatchResult extends PlayerProfile {
   reason: string
 }
 
-interface ProfileFixture {
-  age: number
-  location: string
-  preferredArea: string
-  availability: string[]
-  availabilityTags: MatchTimeKey[]
-  sportPreferences: SportKey[]
-  playStyle: string
-  completedMatches: number
-  rating: number
-  reviewSnippets: string[]
-  badges: string[]
-}
-
-const PLAYER_FIXTURES: Record<string, ProfileFixture> = {
-  p1: {
-    age: 27,
-    location: "District 7",
-    preferredArea: "District 7",
-    availability: ["Tonight 19:00-22:00", "Saturday 18:00-21:30"],
-    availabilityTags: ["tonight", "saturday", "weekend", "this-weekend"],
-    sportPreferences: ["badminton"],
-    playStyle: "Fast attacking doubles, likes structured rotations",
-    completedMatches: 54,
-    rating: 4.8,
-    reviewSnippets: [
-      "Shows up early and keeps rallies organized.",
-      "Strong communication when pairing with new players.",
-    ],
-    badges: ["Verified", "On-time player", "Friendly"],
-  },
-  p2: {
-    age: 25,
-    location: "Binh Thanh",
-    preferredArea: "Binh Thanh",
-    availability: ["Tonight 20:00-22:00", "Weekend mornings"],
-    availabilityTags: ["tonight", "weekend", "this-weekend"],
-    sportPreferences: ["badminton"],
-    playStyle: "Steady doubles builder, patient in transition points",
-    completedMatches: 67,
-    rating: 4.9,
-    reviewSnippets: [
-      "Very easy to coordinate with before a match.",
-      "Reliable partner for mixed-skill games.",
-    ],
-    badges: ["Verified", "Friendly"],
-  },
-  p3: {
-    age: 31,
-    location: "Thu Duc",
-    preferredArea: "Thu Duc",
-    availability: ["Saturday 17:00-21:00", "Sunday 08:00-11:00"],
-    availabilityTags: ["saturday", "weekend", "this-weekend"],
-    sportPreferences: ["badminton"],
-    playStyle: "All-court singles player who also anchors doubles defense",
-    completedMatches: 49,
-    rating: 4.6,
-    reviewSnippets: [
-      "Good tactical player and still friendly to new groups.",
-      "Clear about schedule and level expectations.",
-    ],
-    badges: ["Verified", "Competitive"],
-  },
-  p4: {
-    age: 22,
-    location: "District 7",
-    preferredArea: "District 7",
-    availability: ["Tonight 18:30-21:00", "Tomorrow after work"],
-    availabilityTags: ["tonight", "tomorrow"],
-    sportPreferences: ["badminton"],
-    playStyle: "Social rally player, likes casual doubles and rotation drills",
-    completedMatches: 21,
-    rating: 4.4,
-    reviewSnippets: [
-      "Positive energy and quick to join group plans.",
-      "Still improving but very coachable.",
-    ],
-    badges: ["Friendly"],
-  },
-  p5: {
-    age: 29,
-    location: "Phu Nhuan",
-    preferredArea: "Phu Nhuan",
-    availability: ["Weekend evenings", "Saturday 19:00-22:00"],
-    availabilityTags: ["saturday", "weekend", "this-weekend"],
-    sportPreferences: ["badminton"],
-    playStyle: "Competitive finisher with strong net pressure",
-    completedMatches: 73,
-    rating: 4.7,
-    reviewSnippets: [
-      "High level and still punctual.",
-      "Great fit when the group wants serious games.",
-    ],
-    badges: ["Verified", "On-time player"],
-  },
-  p6: {
-    age: 26,
-    location: "District 3",
-    preferredArea: "District 3",
-    availability: ["Tonight 19:30-22:30", "This weekend afternoons"],
-    availabilityTags: ["tonight", "weekend", "this-weekend"],
-    sportPreferences: ["badminton"],
-    playStyle: "Quick front-court doubles player with fast hands",
-    completedMatches: 38,
-    rating: 4.5,
-    reviewSnippets: [
-      "Adapts well to different levels.",
-      "Keeps the match fun and on pace.",
-    ],
-    badges: ["Friendly", "On-time player"],
-  },
-}
-
 const SPORT_ALIASES: Record<SportKey, string[]> = {
   badminton: ["badminton", "cau long", "cau-long"],
 }
@@ -279,20 +166,21 @@ export function parsePlayerIntent(
 
 export function buildPlayerProfiles(players: Player[]): PlayerProfile[] {
   return players.map((player) => {
-    const fixture = PLAYER_FIXTURES[player.id]
+    // Only what the player record itself knows — no invented age, area,
+    // schedule, rating or reviews.
     return {
       ...player,
-      age: fixture?.age ?? 25,
-      location: fixture?.location ?? "District 1",
-      preferredArea: fixture?.preferredArea ?? "District 1",
-      availability: fixture?.availability ?? ["Tonight 19:00-21:00"],
-      availabilityTags: fixture?.availabilityTags ?? ["tonight"],
-      sportPreferences: fixture?.sportPreferences ?? [player.sport],
-      playStyle: fixture?.playStyle ?? player.blurb,
-      completedMatches: fixture?.completedMatches ?? 20,
-      rating: fixture?.rating ?? 4.5,
-      reviewSnippets: fixture?.reviewSnippets ?? [],
-      badges: fixture?.badges ?? [],
+      age: 0,
+      location: "",
+      preferredArea: "",
+      availability: [],
+      availabilityTags: [],
+      sportPreferences: [player.sport],
+      playStyle: player.blurb,
+      completedMatches: 0,
+      rating: 0,
+      reviewSnippets: [],
+      badges: [],
     }
   })
 }

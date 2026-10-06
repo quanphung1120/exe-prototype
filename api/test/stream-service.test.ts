@@ -16,7 +16,6 @@ import {
   StreamService,
   roomChannelId,
 } from "../src/features/stream/stream.service.js"
-import { StreamSeedState } from "../src/features/stream/stream-seed.schema.js"
 import { ClerkDirectoryService } from "../src/features/stream/clerk-directory.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
@@ -52,7 +51,9 @@ function makeFakeClient(options?: { failUpsertUsers?: boolean }) {
   const calls = {
     createToken: [] as string[],
     createTokenExp: [] as Array<number | undefined>,
-    upsertUsers: [] as Array<Array<{ id: string; name?: string; image?: string }>>,
+    upsertUsers: [] as Array<
+      Array<{ id: string; name?: string; image?: string }>
+    >,
     channels: [] as ChannelCall[],
     created: [] as string[],
     messages: [] as Array<{ id: string; user_id?: string; text?: string }>,
@@ -145,14 +146,12 @@ function makeFakeClient(options?: { failUpsertUsers?: boolean }) {
 }
 
 async function makeService(
-  clientMock: ReturnType<typeof makeFakeClient>["client"],
-  modelMock: { updateOne: (...args: unknown[]) => unknown }
+  clientMock: ReturnType<typeof makeFakeClient>["client"]
 ) {
   const moduleRef = await Test.createTestingModule({
     providers: [
       StreamService,
       { provide: STREAM_CLIENT, useValue: clientMock },
-      { provide: getModelToken(StreamSeedState.name), useValue: modelMock },
       // Unused by these tests (room-chat lifecycle only) — the community-chat
       // methods (createConversation/openVenueChat) are covered separately in
       // stream-community.test.ts.
@@ -177,9 +176,7 @@ async function makeService(
 void test("issueToken returns { apiKey, token } and signs the user's token", async () => {
   const { client, calls } = makeFakeClient()
   // upsertedCount 0 → already seeded, so this exercises just the token path.
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
 
   const result = await service.issueToken("user-1")
 
@@ -189,9 +186,7 @@ void test("issueToken returns { apiKey, token } and signs the user's token", asy
 
 void test("issueToken signs the token with a ~24h expiry", async () => {
   const { client, calls } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
 
   const before = Math.floor(Date.now() / 1000) + 60 * 60 * 24
   await service.issueToken("user-1")
@@ -204,77 +199,27 @@ void test("issueToken signs the token with a ~24h expiry", async () => {
   assert.ok(exp! >= before - 60 && exp! <= after + 60)
 })
 
-void test("channel creation runs only on the upsert that inserts (upsertedCount 1), never twice", async () => {
+void test("issueToken upserts only the caller — no demo players or channels", async () => {
   const { client, calls } = makeFakeClient()
-  let upsertedCount = 1
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount }),
-  })
+  const service = await makeService(client)
 
-  // First call inserts the marker → seeds: users upserted once, 4 demo channels
-  // ("Badminton Crew" + 3 DMs) created.
-  await service.issueToken("user-2", "Nguyễn Minh", "avatar.png")
-  assert.equal(calls.upsertUsers.length, 1)
-  assert.equal(calls.channels.length, 4)
-  assert.equal(calls.created.length, 4)
+  await service.issueToken("user-new", "Viên Trương", "avatar.png")
 
-  // Second call: marker already present (upsertedCount 0) → the user upsert
-  // (backfill) still runs, but no further channel work happens.
-  upsertedCount = 0
-  await service.issueToken("user-2")
-  assert.equal(calls.upsertUsers.length, 2)
-  assert.equal(calls.channels.length, 4)
-})
-
-void test("issueToken for a brand-new user upserts the caller and all three demo players with images", async () => {
-  const { client, calls } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 1 }),
-  })
-
-  await service.issueToken("user-new", "Nguyễn Minh", "avatar.png")
-
-  assert.equal(calls.upsertUsers.length, 1)
-  const upserted = calls.upsertUsers[0]
-  assert.equal(upserted.length, 4)
-  assert.equal(upserted[0].id, "user-new")
-  const demoPlayers = upserted.slice(1)
-  assert.equal(demoPlayers.length, 3)
-  for (const p of demoPlayers) {
-    assert.ok(p.image && p.image.length > 0, `expected ${p.id} to have an image`)
-  }
-})
-
-void test("issueToken for an already-seeded user still backfills the upsert but creates no channels", async () => {
-  const { client, calls } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
-
-  await service.issueToken("user-existing")
-
-  assert.equal(calls.upsertUsers.length, 1)
+  assert.deepEqual(calls.upsertUsers, [
+    [{ id: "user-new", name: "Viên Trương", image: "avatar.png" }],
+  ])
   assert.equal(calls.channels.length, 0)
   assert.equal(calls.created.length, 0)
 })
 
-void test("an upsertUsers failure does not throw out of issueToken and does not claim the seed marker", async () => {
+void test("an upsertUsers failure does not throw out of issueToken", async () => {
   const { client, calls } = makeFakeClient({ failUpsertUsers: true })
-  let updateOneCalls = 0
-  const service = await makeService(client, {
-    updateOne: () => {
-      updateOneCalls += 1
-      return Promise.resolve({ upsertedCount: 1 })
-    },
-  })
+  const service = await makeService(client)
 
   const result = await service.issueToken("user-fail")
 
   assert.deepEqual(result, { apiKey: "test-api-key", token: "token-user-fail" })
   assert.equal(calls.upsertUsers.length, 1)
-  // The seed marker is never even queried when the upsert fails — channels
-  // can still seed on a retry.
-  assert.equal(updateOneCalls, 0)
   assert.equal(calls.channels.length, 0)
 })
 
@@ -282,9 +227,7 @@ void test("an upsertUsers failure does not throw out of issueToken and does not 
 
 void test("createRoomChannel creates a channel with only the host as a member", async () => {
   const { client, calls, store } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
 
   const result = await service.createRoomChannel("host-1", {
     id: roomChannelId("s1"),
@@ -300,9 +243,7 @@ void test("createRoomChannel creates a channel with only the host as a member", 
 
 void test("addRoomMember lets the host add a real member", async () => {
   const { client, store } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
   await service.createRoomChannel("host-1", { id: "room-s2", name: "Room S2" })
 
   await service.addRoomMember("host-1", "room-s2", "user-2")
@@ -312,9 +253,7 @@ void test("addRoomMember lets the host add a real member", async () => {
 
 void test("addRoomMember rejects a non-host caller", async () => {
   const { client } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
   await service.createRoomChannel("host-1", { id: "room-s3", name: "Room S3" })
 
   await assert.rejects(
@@ -325,9 +264,7 @@ void test("addRoomMember rejects a non-host caller", async () => {
 
 void test("removeRoomMember allows a member to remove themselves without being host", async () => {
   const { client, store } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
   await service.createRoomChannel("host-1", { id: "room-s4", name: "Room S4" })
   await service.addRoomMember("host-1", "room-s4", "user-2")
 
@@ -338,9 +275,7 @@ void test("removeRoomMember allows a member to remove themselves without being h
 
 void test("removeRoomMember requires the host to remove someone else (kick/decline)", async () => {
   const { client, store } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
   await service.createRoomChannel("host-1", { id: "room-s5", name: "Room S5" })
   await service.addRoomMember("host-1", "room-s5", "user-2")
 
@@ -355,9 +290,7 @@ void test("removeRoomMember requires the host to remove someone else (kick/decli
 
 void test("freezeRoomChannel requires the host and marks the channel frozen", async () => {
   const { client, store } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
   await service.createRoomChannel("host-1", { id: "room-s6", name: "Room S6" })
 
   await assert.rejects(
@@ -372,9 +305,7 @@ void test("freezeRoomChannel requires the host and marks the channel frozen", as
 
 void test("freezeChannelById freezes without a caller to authorize (venue cancel hook)", async () => {
   const { client, store } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
   await service.createRoomChannel("host-1", { id: "room-s7", name: "Room S7" })
 
   await service.freezeChannelById("room-s7")
@@ -384,9 +315,7 @@ void test("freezeChannelById freezes without a caller to authorize (venue cancel
 
 void test("a room-chat action against a never-created channel 404s as NotFoundException", async () => {
   const { client } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
 
   await assert.rejects(
     () => service.freezeRoomChannel("host-1", "room-never-existed"),
@@ -398,19 +327,21 @@ void test("a room-chat action against a never-created channel 404s as NotFoundEx
 
 void test("leaveConversation removes the caller from a group (3+ members), never anyone else", async () => {
   const { client, calls, store } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
   // A group channel with the caller plus two others.
-  await client.channel("messaging", "group-abc", {
-    created_by_id: "owner-1",
-    members: ["owner-1", "user-2", "user-3"],
-  }).create()
+  await client
+    .channel("messaging", "group-abc", {
+      created_by_id: "owner-1",
+      members: ["owner-1", "user-2", "user-3"],
+    })
+    .create()
 
   await service.leaveConversation("user-2", "group-abc")
 
   // Left via removeMembers — only the caller, and not hidden.
-  assert.deepEqual(calls.removeMembers, [{ id: "group-abc", members: ["user-2"] }])
+  assert.deepEqual(calls.removeMembers, [
+    { id: "group-abc", members: ["user-2"] },
+  ])
   assert.equal(calls.hide.length, 0)
   assert.equal(store.get("group-abc")?.members.has("user-2"), false)
   // The others keep the group.
@@ -420,13 +351,13 @@ void test("leaveConversation removes the caller from a group (3+ members), never
 
 void test("leaveConversation hides a DM (<=2 members) for the caller and clears their history, leaving the other member", async () => {
   const { client, calls, store } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
-  await client.channel("messaging", "dm-xyz", {
-    created_by_id: "user-1",
-    members: ["user-1", "user-2"],
-  }).create()
+  const service = await makeService(client)
+  await client
+    .channel("messaging", "dm-xyz", {
+      created_by_id: "user-1",
+      members: ["user-1", "user-2"],
+    })
+    .create()
 
   await service.leaveConversation("user-1", "dm-xyz")
 
@@ -442,13 +373,13 @@ void test("leaveConversation hides a DM (<=2 members) for the caller and clears 
 
 void test("leaveConversation rejects a caller who isn't a member", async () => {
   const { client } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
-  await client.channel("messaging", "group-def", {
-    created_by_id: "owner-1",
-    members: ["owner-1", "user-2"],
-  }).create()
+  const service = await makeService(client)
+  await client
+    .channel("messaging", "group-def", {
+      created_by_id: "owner-1",
+      members: ["owner-1", "user-2"],
+    })
+    .create()
 
   await assert.rejects(
     () => service.leaveConversation("intruder", "group-def"),
@@ -458,9 +389,7 @@ void test("leaveConversation rejects a caller who isn't a member", async () => {
 
 void test("leaveConversation against a never-created channel 404s as NotFoundException", async () => {
   const { client } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
 
   await assert.rejects(
     () => service.leaveConversation("user-1", "group-missing"),
@@ -472,13 +401,13 @@ void test("leaveConversation against a never-created channel 404s as NotFoundExc
 
 void test("deleteGroup lets the creator delete their community group", async () => {
   const { client, calls, store } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
-  await client.channel("messaging", "group-del", {
-    created_by_id: "owner-1",
-    members: ["owner-1", "user-2", "user-3"],
-  }).create()
+  const service = await makeService(client)
+  await client
+    .channel("messaging", "group-del", {
+      created_by_id: "owner-1",
+      members: ["owner-1", "user-2", "user-3"],
+    })
+    .create()
 
   await service.deleteGroup("owner-1", "group-del")
 
@@ -488,13 +417,13 @@ void test("deleteGroup lets the creator delete their community group", async () 
 
 void test("deleteGroup rejects a member who isn't the creator", async () => {
   const { client, calls } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
-  await client.channel("messaging", "group-keep", {
-    created_by_id: "owner-1",
-    members: ["owner-1", "user-2", "user-3"],
-  }).create()
+  const service = await makeService(client)
+  await client
+    .channel("messaging", "group-keep", {
+      created_by_id: "owner-1",
+      members: ["owner-1", "user-2", "user-3"],
+    })
+    .create()
 
   await assert.rejects(
     () => service.deleteGroup("user-2", "group-keep"),
@@ -505,13 +434,13 @@ void test("deleteGroup rejects a member who isn't the creator", async () => {
 
 void test("deleteGroup refuses room chats and DMs", async () => {
   const { client, calls } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
-  await client.channel("messaging", "room-1", {
-    created_by_id: "host-1",
-    members: ["host-1", "user-2", "user-3"],
-  }).create()
+  const service = await makeService(client)
+  await client
+    .channel("messaging", "room-1", {
+      created_by_id: "host-1",
+      members: ["host-1", "user-2", "user-3"],
+    })
+    .create()
 
   await assert.rejects(
     () => service.deleteGroup("host-1", "room-1"),
@@ -526,9 +455,7 @@ void test("deleteGroup refuses room chats and DMs", async () => {
 
 void test("deleteGroup against a never-created group 404s as NotFoundException", async () => {
   const { client } = makeFakeClient()
-  const service = await makeService(client, {
-    updateOne: () => Promise.resolve({ upsertedCount: 0 }),
-  })
+  const service = await makeService(client)
 
   await assert.rejects(
     () => service.deleteGroup("owner-1", "group-missing"),

@@ -4,8 +4,7 @@ import type { HydratedDocument } from "mongoose"
 import type { Player as PlayerType, SportKey } from "../../shared/index.js"
 
 // A match-suggestion Player — one document per `Player` (shared types). Like
-// courts, these are *shared discovery data*: seeded once from the hardcoded
-// `MATCH_SUGGESTIONS` (see player.service) and every user sees the same pool.
+// courts, these are *shared discovery data* and every user sees the same pool.
 @Schema({ timestamps: true })
 export class Player {
   // Explicit `type: X` on every field below (rather than relying on

@@ -12,6 +12,8 @@ import Image from "next/image"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
 import { Logo } from "@/components/logo"
+import { fetchAppReviewsPublic } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { Faq } from "@/features/landing/faq"
 import { Pricing } from "@/features/landing/pricing"
 import { CountUp } from "@/features/landing/scroll/count-up"
@@ -21,19 +23,23 @@ import styles from "@/features/landing/landing.module.css"
 
 // Same order as `Landing.playerFeatures` in the message catalogs.
 const FEATURE_ICONS = [CalendarDays, Users, MapPin, Sparkles, MessageSquare]
-const TESTIMONIALS = [
-  { name: "Maya R.", initials: "MR" },
-  { name: "Daniel K.", initials: "DK" },
-  { name: "Priya S.", initials: "PS" },
-]
-const TRUSTED_CLUBS = [
-  "Phú Thọ Badminton",
-  "Tân Phú Smash Club",
-  "Rally Point",
-  "Ace Badminton",
-  "Celadon Sports Club",
-  "Saigon Shuttle Hub",
-]
+
+// Real app reviews feed the testimonials, so re-render the (otherwise static)
+// landing at most every 5 minutes; saving or moderating a review also
+// revalidates it on demand (app-review-actions.ts / admin-actions.ts).
+export const revalidate = 300
+
+interface Testimonial {
+  key: string
+  name: string
+  initials: string
+  rating: number
+  quote: string
+  caption: string
+}
+// What Shuttio actually does, scrolled in the marquee under the hero (copy in
+// `Landing.trust.highlights`) — real features, not invented partner clubs.
+const HIGHLIGHT_COUNT = 6
 
 // Landing CTA in the /app player topbar blue, with hover and keyboard-focus styles.
 const ctaClassName =
@@ -50,6 +56,18 @@ export default async function Page({
   const faqItems = [0, 1, 2, 3, 4].map((i) => ({
     question: t(`faq.${i}.question`),
     answer: t(`faq.${i}.answer`),
+  }))
+
+  const reviews = await fetchAppReviewsPublic()
+  // Only real app reviews — until the first ones arrive the section shows a
+  // gentle invitation instead of invented quotes.
+  const testimonials: Testimonial[] = (reviews?.featured ?? []).map((r) => ({
+    key: r.id,
+    name: r.authorName,
+    initials: r.initials,
+    rating: r.rating,
+    quote: r.comment,
+    caption: t(`testimonialsSection.role.${r.role}`),
   }))
 
   return (
@@ -95,9 +113,9 @@ export default async function Page({
                   className={styles.clubList}
                   aria-hidden={copy === 1 ? "true" : undefined}
                 >
-                  {TRUSTED_CLUBS.map((club) => (
-                    <span key={`${copy}-${club}`} className={styles.club}>
-                      {club}
+                  {Array.from({ length: HIGHLIGHT_COUNT }, (_, i) => (
+                    <span key={`${copy}-${i}`} className={styles.club}>
+                      {t(`trust.highlights.${i}`)}
                     </span>
                   ))}
                 </div>
@@ -202,28 +220,52 @@ export default async function Page({
           <section className={styles.testimonials}>
             <div className={styles.sectionHeading}>
               <h2>{t("testimonialsSection.title")}</h2>
+              {reviews?.count ? (
+                <p className={styles.ratingSummary}>
+                  <Star className="size-4 fill-current" aria-hidden="true" />
+                  {t("testimonialsSection.summary", {
+                    average: reviews.average.toFixed(1),
+                    count: reviews.count,
+                  })}
+                </p>
+              ) : null}
             </div>
+            {testimonials.length === 0 ? (
+              <div className={styles.testimonialsEmpty}>
+                <p>{t("testimonialsSection.empty")}</p>
+                <Link href="/sign-up" className={ctaClassName}>
+                  {t("testimonialsSection.emptyCta")}
+                  <ArrowRight className="size-4" />
+                </Link>
+              </div>
+            ) : null}
             <div className={styles.quoteGrid}>
-              {TESTIMONIALS.map((person, i) => (
-                <figure key={person.name}>
+              {testimonials.map((item) => (
+                <figure key={item.key}>
                   <div
+                    role="img"
                     className={styles.stars}
-                    aria-label={t("testimonialsSection.ratingAria")}
+                    aria-label={t("testimonialsSection.ratingAria", {
+                      rating: item.rating,
+                    })}
                   >
-                    {[0, 1, 2, 3, 4].map((star) => (
+                    {[1, 2, 3, 4, 5].map((star) => (
                       <Star
                         key={star}
-                        className="size-4 fill-current"
+                        className={cn(
+                          "size-4 fill-current",
+                          star > item.rating && styles.starOff
+                        )}
                         aria-hidden="true"
                       />
                     ))}
                   </div>
-                  <blockquote>“{t(`testimonials.${i}.quote`)}”</blockquote>
+                  <blockquote>“{item.quote}”</blockquote>
                   <figcaption>
-                    <span className={styles.avatar}>{person.initials}</span>
+                    <span className={styles.avatar}>{item.initials}</span>
                     <div>
-                      <strong>{person.name}</strong>
-                      <p>{t(`testimonials.${i}.role`)}</p>
+                      <strong>{item.name}</strong>
+                      <p>{item.caption}</p>
                     </div>
                   </figcaption>
                 </figure>
@@ -270,7 +312,7 @@ export default async function Page({
           </section>
 
           <section id="get-started" className={styles.finalCta}>
-            <p className={styles.eyebrow}>YOUR NEXT MATCH STARTS HERE</p>
+            <p className={styles.eyebrow}>{t("cta.eyebrow")}</p>
             <h2>{t("cta.title")}</h2>
             <p>{t("cta.subtitle")}</p>
             <Link href="/sign-up" className={ctaClassName}>

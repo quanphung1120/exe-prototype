@@ -483,6 +483,19 @@
 .testimonials .eyebrow {
   color: #bdedaf;
 }
+/* No real reviews yet: a soft invitation in place of the quote grid. */
+.testimonialsEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 24px;
+  max-width: 560px;
+}
+.testimonialsEmpty p {
+  color: #d1ffbd;
+  font-size: 1rem;
+  line-height: 1.6;
+}
 .quoteGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -505,6 +518,20 @@
   width: 19px;
   height: 19px;
   stroke-width: 1.5;
+}
+/* Unearned stars of a sub-5★ review: outline only, dimmed. */
+.stars .starOff {
+  fill: none;
+  opacity: 0.35;
+}
+/* "4.8/5 · 23 đánh giá" under the testimonials heading (real reviews only). */
+.testimonials .sectionHeading > p.ratingSummary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  color: #d1ffbd;
+  font-weight: 500;
 }
 .quoteGrid blockquote {
   flex: 1;

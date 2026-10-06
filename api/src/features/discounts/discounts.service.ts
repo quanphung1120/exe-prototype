@@ -7,8 +7,7 @@ import {
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
-import { isDuplicateKeyError, once } from "../../common/mongo-util.js"
-import { INITIAL_DISCOUNTS } from "../../data/discounts.js"
+import { isDuplicateKeyError } from "../../common/mongo-util.js"
 import {
   DiscountCode,
   type DiscountCodeDocument,
@@ -95,27 +94,14 @@ function toAdminRow(doc: DiscountCodeDocument): AdminDiscountRow {
   }
 }
 
-// MongoDB-backed discount codes, seeded from `INITIAL_DISCOUNTS` the first
-// time the collection is read empty (idempotent — same `once()` +
-// duplicate-key-swallow pattern `VenuesService` uses for `INITIAL_VENUES`).
+// MongoDB-backed discount codes. Nothing is seeded — every code is created by
+// an admin (`/api/admin/discounts`).
 @Injectable()
 export class DiscountsService {
   constructor(
     @InjectModel(DiscountCode.name)
     private readonly discountModel: Model<DiscountCodeDocument>
   ) {}
-
-  private readonly ensureSeeded = once(async () => {
-    if ((await this.discountModel.countDocuments()) > 0) return
-    try {
-      await this.discountModel.insertMany(
-        INITIAL_DISCOUNTS.map((d) => ({ ...d, usedCount: 0, active: true })),
-        { ordered: false }
-      )
-    } catch (err) {
-      if (!isDuplicateKeyError(err)) throw err
-    }
-  })
 
   /**
    * Validate `rawCode` against `amount` and return the computed discount —
@@ -126,7 +112,6 @@ export class DiscountsService {
    * `applyUsage`).
    */
   async validate(rawCode: string, amount: number): Promise<DiscountValidation> {
-    await this.ensureSeeded()
     const code = rawCode.trim().toUpperCase()
     const found = await this.discountModel.findOne({ code })
     // An unknown code and an inactive one both read as "does not exist" (see
@@ -177,7 +162,6 @@ export class DiscountsService {
 
   /** Every discount code, oldest-created first — `GET /api/admin/discounts`. */
   async listAllAdmin(): Promise<AdminDiscountRow[]> {
-    await this.ensureSeeded()
     const docs = await this.discountModel.find().sort({ createdAt: 1 })
     return docs.map(toAdminRow)
   }
@@ -201,7 +185,6 @@ export class DiscountsService {
     active?: boolean
     description: string
   }): Promise<AdminDiscountRow> {
-    await this.ensureSeeded()
     assertDiscountShape(input)
     try {
       const doc = await this.discountModel.create({ ...input, usedCount: 0 })
@@ -237,7 +220,6 @@ export class DiscountsService {
       description?: string
     }
   ): Promise<AdminDiscountRow> {
-    await this.ensureSeeded()
     const code = rawCode.trim().toUpperCase()
     const doc = await this.discountModel.findOne({ code })
     if (!doc) throw new NotFoundException("Mã giảm giá không tồn tại")
@@ -286,7 +268,6 @@ export class DiscountsService {
    * instead of deleting a used code.
    */
   async deleteCode(rawCode: string): Promise<void> {
-    await this.ensureSeeded()
     const code = rawCode.trim().toUpperCase()
     const doc = await this.discountModel.findOne({ code })
     if (!doc) throw new NotFoundException("Mã giảm giá không tồn tại")

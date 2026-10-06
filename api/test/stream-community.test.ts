@@ -17,7 +17,6 @@ import {
   brandChannelId,
   venueChannelId,
 } from "../src/features/stream/stream.service.js"
-import { StreamSeedState } from "../src/features/stream/stream-seed.schema.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { Brand } from "../src/features/brands/brand.schema.js"
@@ -109,6 +108,9 @@ function makeFakeDirectory(users: DirectoryUser[]) {
     getOne(id: string): Promise<DirectoryUser | null> {
       return Promise.resolve(byId.get(id) ?? null)
     },
+    findExisting(id: string): Promise<DirectoryUser | null> {
+      return Promise.resolve(byId.get(id) ?? null)
+    },
     search(): Promise<DirectoryUser[]> {
       return Promise.resolve([])
     },
@@ -132,10 +134,6 @@ async function makeService(opts: {
     providers: [
       StreamService,
       { provide: STREAM_CLIENT, useValue: opts.client },
-      {
-        provide: getModelToken(StreamSeedState.name),
-        useValue: { updateOne: () => Promise.resolve({ upsertedCount: 0 }) },
-      },
       {
         provide: getModelToken(Venue.name),
         useValue: opts.venues ?? { findOne: () => ({ lean: () => null }) },
@@ -291,6 +289,24 @@ void test("openVenueChat on a venue without ownerId throws BadRequestException",
     () => service.openVenueChat("player-1", { venueId: "v2" }),
     BadRequestException
   )
+})
+
+void test("openVenueChat refuses a venue whose owner account no longer exists", async () => {
+  const { client, calls } = makeFakeClient()
+  // owner-1 is not in the directory → deleted from Clerk.
+  const directory = makeFakeDirectory([])
+  const service = await makeService({
+    client,
+    directory,
+    venues: { findOne: () => ({ lean: () => VENUE_WITH_OWNER }) },
+    bookings: { exists: () => Promise.resolve({ _id: "b1" }) },
+  })
+
+  await assert.rejects(
+    () => service.openVenueChat("player-1", { venueId: "v1" }),
+    BadRequestException
+  )
+  assert.equal(calls.channels.length, 0)
 })
 
 void test("openVenueChat with no qualifying booking throws ForbiddenException", async () => {

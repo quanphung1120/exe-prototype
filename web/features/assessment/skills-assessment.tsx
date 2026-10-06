@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ArrowLeft, ArrowRight, Check, Lightbulb } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { LogoMark } from "@/components/logo"
 
 import { Button } from "@/components/ui/button"
@@ -21,12 +21,14 @@ import {
 } from "@/features/assessment/player-assessment"
 import { saveAssessment } from "@/features/assessment/assessment-actions"
 
-type Step = "sports" | AssessmentSport
 type DraftAnswers = Record<string, Record<string, string>>
 
 const SPORT_EMOJI: Record<AssessmentSport, string> = {
   badminton: "🏸",
 }
+
+/** The app is badminton-only, so the assessment is a single questionnaire. */
+const SPORT: AssessmentSport = "badminton"
 
 export function SkillsAssessmentView({
   initial = null,
@@ -40,63 +42,36 @@ export function SkillsAssessmentView({
   const t = useTranslations("Assessment")
   const router = useRouter()
 
-  const [activeTab, setActiveTab] = React.useState<Step>("sports")
-  const [selectedSports, setSelectedSports] = React.useState<AssessmentSport[]>(
-    ["badminton"]
-  )
   const [answers, setAnswers] = React.useState<DraftAnswers>({})
   const [submitted, setSubmitted] = React.useState(false)
   const [completed, setCompleted] = React.useState<PlayerAssessment | null>(
     null
   )
 
-  // Pre-populate from any saved assessment so the user only needs to fill
-  // in the missing sport rather than redo everything from scratch. The
-  // server-persisted value (Mongo, via the page) wins over the local cache and
-  // is mirrored into localStorage so the dashboard's synchronous readers agree.
+  // Pre-populate from any saved assessment so a retake starts from the
+  // previous answers. The server-persisted value (Mongo, via the page) wins
+  // over the local cache and is mirrored into localStorage so the dashboard's
+  // synchronous readers agree.
   React.useEffect(() => {
     const timer = setTimeout(() => {
       const existing = initial ?? readStoredAssessment()
       if (!existing) return
       if (initial) writeStoredAssessment(initial)
-      setSelectedSports(existing.selectedSports)
-      const preAnswers: DraftAnswers = {}
-      existing.selectedSports.forEach((sport) => {
-        const result = existing.results[sport]
-        if (result?.answers) preAnswers[sport] = result.answers
-      })
-      setAnswers(preAnswers)
+      const saved = existing.results[SPORT]?.answers
+      if (saved) setAnswers({ [SPORT]: saved })
     }, 0)
     return () => clearTimeout(timer)
   }, [initial])
 
-  const steps = React.useMemo<Step[]>(
-    () => ["sports", ...selectedSports],
-    [selectedSports]
-  )
-
-  const current = ASSESSMENTS.find((a) => a.sport === activeTab)
+  const current = ASSESSMENTS.find((a) => a.sport === SPORT)
   const currentAnswers = current ? (answers[current.sport] ?? {}) : {}
   const answeredCount = current
     ? current.questions.filter((q) => currentAnswers[q.id]).length
     : 0
 
-  const currentStepIndex = steps.indexOf(activeTab)
-  const isLastStep = currentStepIndex === steps.length - 1
-
-  const progress =
-    activeTab === "sports"
-      ? (0.5 / steps.length) * 100
-      : current
-        ? ((currentStepIndex + answeredCount / current.questions.length) /
-            steps.length) *
-          100
-        : 0
-
-  const scrollRef = React.useRef<HTMLDivElement>(null)
-  React.useEffect(() => {
-    scrollRef.current?.scrollTo({ top: 0 })
-  }, [activeTab])
+  const progress = current
+    ? (answeredCount / current.questions.length) * 100
+    : 0
 
   const setAnswer = (
     definition: AssessmentDefinition,
@@ -113,66 +88,27 @@ export function SkillsAssessmentView({
     }))
   }
 
-  const goTo = (step: Step) => {
-    setSubmitted(false)
-    setActiveTab(step)
-  }
+  const finish = () => {
+    if (!current) return
 
-  const back = () => {
-    if (currentStepIndex > 0) goTo(steps[currentStepIndex - 1])
-  }
-
-  const next = () => {
-    if (activeTab === "sports") {
-      if (selectedSports.length > 0) goTo(selectedSports[0])
-      return
-    }
-
-    const def = ASSESSMENTS.find((a) => a.sport === activeTab)
-    if (!def) return
-
-    const answersForSport = answers[def.sport] ?? {}
     const done =
-      def.questions.filter((q) => answersForSport[q.id]).length ===
-      def.questions.length
+      current.questions.filter((q) => currentAnswers[q.id]).length ===
+      current.questions.length
     if (!done) {
       setSubmitted(true)
       return
     }
 
-    if (!isLastStep) {
-      goTo(steps[currentStepIndex + 1])
-      return
-    }
-
-    // Finished the last step — compute results for this session's sports,
-    // then merge with any existing results so previously-assessed sports
-    // are preserved even if the user only came back to fill in a missing one.
-    const newResults = {} as PlayerAssessment["results"]
-    selectedSports.forEach((sport) => {
-      const definition = ASSESSMENTS.find((a) => a.sport === sport)
-      if (definition) {
-        newResults[sport] = calculateAssessmentResult(
-          definition,
-          answers[sport] ?? {}
-        )
-      }
-    })
-
     const existing = readStoredAssessment()
     const mergedResults = {
       ...(existing?.results ?? {}),
-      ...newResults,
+      [SPORT]: calculateAssessmentResult(current, currentAnswers),
     } as PlayerAssessment["results"]
-
-    const allSportsWithResults = (["badminton"] as AssessmentSport[]).filter(
-      (sport) => mergedResults[sport] !== undefined
-    )
 
     const nextAssessment: PlayerAssessment = {
       version: 1,
       completedAt: new Date().toISOString(),
-      selectedSports: allSportsWithResults,
+      selectedSports: [SPORT],
       results: mergedResults,
     }
     writeStoredAssessment(nextAssessment)
@@ -192,7 +128,7 @@ export function SkillsAssessmentView({
         <LocaleSwitcher />
       </nav>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col px-4 py-6 sm:px-6 sm:py-10">
           {completed ? (
             <CompletionScreen
@@ -214,22 +150,8 @@ export function SkillsAssessmentView({
                   </div>
                 </div>
 
-                <Stepper
-                  steps={steps}
-                  activeTab={activeTab}
-                  selectedSports={selectedSports}
-                  answers={answers}
-                  onJump={goTo}
-                />
-
                 <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="font-medium tabular-nums">
-                      {t("progress.step", {
-                        current: currentStepIndex + 1,
-                        total: steps.length,
-                      })}
-                    </span>
+                  <div className="flex items-center justify-end text-xs text-muted-foreground">
                     {current ? (
                       <span className="tabular-nums">
                         {t("progress.answered", {
@@ -249,21 +171,8 @@ export function SkillsAssessmentView({
               </header>
 
               <main className="mt-7 flex-1">
-                {activeTab === "sports" ? (
-                  <SportsStep
-                    selectedSports={selectedSports}
-                    onToggle={(sport) => {
-                      setSubmitted(false)
-                      setSelectedSports((prev) =>
-                        prev.includes(sport)
-                          ? prev.filter((s) => s !== sport)
-                          : [...prev, sport]
-                      )
-                    }}
-                  />
-                ) : current ? (
+                {current ? (
                   <QuestionsStep
-                    key={current.sport}
                     definition={current}
                     answers={currentAnswers}
                     submitted={submitted}
@@ -272,188 +181,17 @@ export function SkillsAssessmentView({
                 ) : null}
               </main>
 
-              <footer className="mt-8 flex items-center justify-between gap-3 border-t pt-5">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="rounded-full"
-                  disabled={currentStepIndex === 0}
-                  onClick={back}
-                >
-                  <ArrowLeft className="size-4" />
-                  {t("actions.back")}
-                </Button>
+              <footer className="mt-8 flex items-center justify-end gap-3 border-t pt-5">
                 <Button
                   type="button"
                   className="rounded-full px-6"
-                  disabled={
-                    activeTab === "sports" && selectedSports.length === 0
-                  }
-                  onClick={next}
+                  onClick={finish}
                 >
-                  {isLastStep ? t("actions.complete") : t("actions.continue")}
-                  {!isLastStep ? <ArrowRight className="size-4" /> : null}
+                  {t("actions.complete")}
                 </Button>
               </footer>
             </>
           )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function Stepper({
-  steps,
-  activeTab,
-  selectedSports,
-  answers,
-  onJump,
-}: {
-  steps: Step[]
-  activeTab: Step
-  selectedSports: AssessmentSport[]
-  answers: DraftAnswers
-  onJump: (step: Step) => void
-}) {
-  const t = useTranslations("Assessment")
-  const tc = useTranslations("Common")
-
-  const isDone = (step: Step): boolean => {
-    if (step === "sports") return selectedSports.length > 0
-    const def = ASSESSMENTS.find((a) => a.sport === step)
-    if (!def) return false
-    const a = answers[step] ?? {}
-    return def.questions.every((q) => a[q.id])
-  }
-
-  const label = (step: Step) =>
-    step === "sports" ? t("stepper.sports") : tc(`sports.${step}`)
-
-  return (
-    <ol className="flex items-center gap-1.5">
-      {steps.map((step, index) => {
-        const active = step === activeTab
-        const done = isDone(step) && !active
-        const activeIndex = steps.indexOf(activeTab)
-        const reachable = index <= activeIndex || isDone(steps[index - 1])
-        return (
-          <li key={step} className="flex min-w-0 flex-1 items-center gap-1.5">
-            <button
-              type="button"
-              disabled={!reachable}
-              onClick={() => reachable && onJump(step)}
-              className={cn(
-                "flex min-w-0 flex-1 items-center gap-2 rounded-full border px-2.5 py-1.5 text-left transition-all duration-300",
-                active
-                  ? "border-brand/40 bg-brand/10 shadow-sm"
-                  : done
-                    ? "border-brand/25 bg-brand/5"
-                    : "border-border bg-card/60",
-                reachable
-                  ? "hover:bg-muted/70"
-                  : "cursor-not-allowed opacity-60"
-              )}
-            >
-              <span
-                className={cn(
-                  "grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums transition-colors",
-                  active
-                    ? "bg-brand text-white"
-                    : done
-                      ? "bg-brand/15 text-brand"
-                      : "bg-muted text-muted-foreground"
-                )}
-              >
-                {done ? <Check className="size-3.5" /> : index + 1}
-              </span>
-              <span
-                className={cn(
-                  "truncate text-sm font-medium",
-                  active ? "text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {label(step)}
-              </span>
-            </button>
-          </li>
-        )
-      })}
-    </ol>
-  )
-}
-
-function SportsStep({
-  selectedSports,
-  onToggle,
-}: {
-  selectedSports: AssessmentSport[]
-  onToggle: (sport: AssessmentSport) => void
-}) {
-  const t = useTranslations("Assessment")
-  const sports: AssessmentSport[] = ["badminton"]
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="font-heading text-lg font-bold">
-          {t("sportsSelect.title")}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("sportsSelect.description")}
-        </p>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {sports.map((sport) => {
-          const selected = selectedSports.includes(sport)
-          return (
-            <button
-              key={sport}
-              type="button"
-              onClick={() => onToggle(sport)}
-              aria-pressed={selected}
-              className={cn(
-                "group relative flex flex-col items-start overflow-hidden rounded-3xl border-2 p-5 text-left transition-all duration-300",
-                selected
-                  ? "border-brand bg-brand/5 shadow-md shadow-brand/10"
-                  : "border-border bg-card hover:border-brand/40 hover:bg-muted/40"
-              )}
-            >
-              <div className="absolute -right-6 -bottom-6 size-24 rounded-full bg-brand/5 transition-transform duration-500 group-hover:scale-125" />
-              <div className="mb-3 flex w-full items-center justify-between">
-                <span className="text-3xl">{SPORT_EMOJI[sport]}</span>
-                <span
-                  className={cn(
-                    "grid size-6 place-items-center rounded-full border-2 transition-colors",
-                    selected
-                      ? "border-brand bg-brand text-white"
-                      : "border-border bg-background"
-                  )}
-                >
-                  {selected ? <Check className="size-3.5" /> : null}
-                </span>
-              </div>
-              <h3 className="font-heading text-lg font-bold">
-                {t(`sportsSelect.${sport}.title`)}
-              </h3>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {t(`sportsSelect.${sport}.description`)}
-              </p>
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="flex items-start gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 text-sm">
-        <Lightbulb className="mt-0.5 size-5 shrink-0 text-blue-500" />
-        <div>
-          <p className="font-semibold text-blue-600 dark:text-blue-400">
-            {t("sportsSelect.noticeTitle")}
-          </p>
-          <p className="mt-0.5 leading-relaxed text-muted-foreground">
-            {t("sportsSelect.noticeBody")}
-          </p>
         </div>
       </div>
     </div>
