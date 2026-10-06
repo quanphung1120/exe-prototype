@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { useClerk } from "@clerk/nextjs"
-import { LogOut, ShieldCheck, UserCog, UserRound } from "lucide-react"
+import { LogOut, ShieldCheck, Star, UserCog, UserRound } from "lucide-react"
 
 import { LogoMark } from "@/components/logo"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { initialsOf } from "@/lib/shared"
+import { AppReviewDialog } from "@/features/app-review/app-review-dialog"
 import { useAuthUser } from "@/features/dashboard/auth-user"
 import { useData } from "@/features/dashboard/data-provider"
 import { ProfileDialog } from "@/features/dashboard/profile-dialog"
@@ -40,6 +41,7 @@ export function AccountMenu() {
   const router = useRouter()
   const { user: USER, venues: VENUES } = useData()
   const [profileOpen, setProfileOpen] = React.useState(false)
+  const [reviewOpen, setReviewOpen] = React.useState(false)
 
   const name = sUser.name || USER.name
   const subtitle = sUser.email || USER.handle
@@ -122,6 +124,10 @@ export function AccountMenu() {
             <UserCog />
             {t("accountSettings")}
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setReviewOpen(true)}>
+            <Star />
+            {t("rateApp")}
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
@@ -133,6 +139,11 @@ export function AccountMenu() {
         </DropdownMenuContent>
       </DropdownMenu>
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      <AppReviewDialog
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        className="player-play-overlay"
+      />
     </>
   )
 }

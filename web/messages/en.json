@@ -76,8 +76,6 @@
   },
   "Common": {
     "appName": "Shuttio",
-    "allSports": "All",
-    "filterSport": "Filter by sport",
     "sports": {
       "badminton": "Badminton"
     },
@@ -156,7 +154,8 @@
     "addBranch": "Add branch",
     "becomePlayer": "Become a player",
     "manageVenue": "Manage venue",
-    "adminWorkspace": "Admin console"
+    "adminWorkspace": "Admin console",
+    "rateApp": "Rate the app"
   },
   "WorkspaceSettings": {
     "title": "Workspace settings",
@@ -272,7 +271,7 @@
   "Assistant": {
     "title": "Court Assistant",
     "subtitle": "AI · finds courts near you",
-    "greeting": "Hi — I'm your court assistant. Tell me a sport, a budget, or how close you want to play, and I'll pull up courts near you.",
+    "greeting": "Hi — I'm your badminton court assistant. Tell me a budget, a time, or how close you want to play, and I'll pull up courts near you.",
     "placeholder": "Ask for a court…",
     "thinking": "Thinking…",
     "thoughtFor": "Thought for {seconds}s",
@@ -304,7 +303,7 @@
     },
     "reply": {
       "found": "Found {count} {sport}{count, plural, one {court} other {courts}} for you, ranked by {rank}.",
-      "none": "I couldn't find a match — try another sport or filter."
+      "none": "I couldn't find a match — try another filter."
     }
   },
   "Play": {
@@ -527,8 +526,7 @@
   "FindCourts": {
     "metaTitle": "Find Courts",
     "metaDescription": "Open court slots near you, ready to book.",
-    "allSports": "All sports",
-    "empty": "No courts for this sport nearby. Try another filter.",
+    "empty": "No matching courts nearby. Try another filter.",
     "nearby": "Nearby · {count, plural, one {# court} other {# courts}}",
     "distance": "≈ {km} km (straight line)",
     "openSlots": "{count, plural, one {# slot open today} other {# slots open today}}",
@@ -721,7 +719,7 @@
       "subtitle": "Easily find the right court and connect with players at your level.\nEverything you need to start a match is together in one place.",
       "imageAlt": "Badminton shuttlecocks and a racket on dark green grass",
       "cta": "Get started",
-      "socialProof": "1,000+ players joined",
+      "socialProof": "Free for players",
       "sportsLabel": "Built for:",
       "badges": {
         "smartMatching": "Smart Matching",
@@ -745,7 +743,7 @@
         },
         {
           "title": "In sync",
-          "body": "Pickleball and badminton are always one message away. Always ready for the next match."
+          "body": "Your badminton partners are always one message away. Always ready for the next match."
         }
       ]
     },
@@ -764,7 +762,7 @@
         "features": [
           "Browse open courts nearby",
           "AI booking assistant",
-          "Skill-based matchmaking, all three sports",
+          "Skill-based badminton matchmaking",
           "Group chat for your matches",
           "No subscription, no hidden fees"
         ],
@@ -786,8 +784,16 @@
       }
     },
     "trust": {
-      "caption": "Trusted by clubs and players across the badminton scene",
-      "clubsAria": "Badminton clubs partnering with Shuttio"
+      "caption": "Easy from finding a court to stepping onto it",
+      "clubsAria": "What Shuttio helps you with",
+      "highlights": [
+        "Book a court in a few taps",
+        "Matches at your level",
+        "Find nearby courts on the map",
+        "Secure payment via VietQR",
+        "Message the venue directly",
+        "Free skill assessment"
+      ]
     },
     "playerFeaturesSection": {
       "title": "Standout features",
@@ -834,20 +840,20 @@
       }
     },
     "statsSection": {
-      "title": "Utilization rate"
+      "title": "Transparent from day one"
     },
     "stats": {
       "0": {
-        "value": "3,200+",
-        "label": "Players signed up"
+        "value": "0đ",
+        "label": "Fees for players"
       },
       "1": {
-        "value": "40+",
-        "label": "Partner clubs onboard"
+        "value": "5%",
+        "label": "Commission — only on successful bookings"
       },
       "2": {
-        "value": "<60s",
-        "label": "From request to booked"
+        "value": "30 min",
+        "label": "For the venue to confirm a booking"
       }
     },
     "venuesSection": {
@@ -874,39 +880,16 @@
         "body": "Smart confirmations and waitlists cut no-shows and keep your courts profitable."
       }
     },
-    "occupancy": {
-      "title": "Court occupancy",
-      "offPeakBadge": "+32% off-peak",
-      "weekdays": {
-        "0": "Mon",
-        "1": "Tue",
-        "2": "Wed",
-        "3": "Thu",
-        "4": "Fri",
-        "5": "Sat",
-        "6": "Sun"
-      },
-      "utilization": "Utilization",
-      "bookingsPerWeek": "Bookings / week",
-      "playerRating": "Player rating"
-    },
     "testimonialsSection": {
       "title": "Customer reviews",
-      "ratingAria": "Rated 5 out of 5 stars"
-    },
-    "testimonials": {
-      "0": {
-        "quote": "I used to spend more time texting in group chats than actually playing. Now I just tell the app and it handles both the court and the players.",
-        "role": "Badminton · 3.5"
+      "ratingAria": "Rated {rating} out of 5 stars",
+      "summary": "{average}/5 · {count, plural, one {# review} other {# reviews}}",
+      "role": {
+        "player": "Badminton player",
+        "venue": "Badminton venue owner"
       },
-      "1": {
-        "quote": "The skill matching is uncannily accurate. Every match is competitive — something I never got with random pickup games.",
-        "role": "Badminton · 4.0"
-      },
-      "2": {
-        "quote": "As a club, our weekday 2–5pm slots used to sit empty. Now matchmaking quietly fills them. It all just runs in the background.",
-        "role": "Club manager"
-      }
+      "empty": "Shuttio is just getting started. The first thoughts from players and venues will appear here soon — we'd love to hear yours.",
+      "emptyCta": "Try it and share your thoughts"
     },
     "faqSection": {
       "eyebrow": "FAQ",
@@ -914,8 +897,8 @@
     },
     "faq": {
       "0": {
-        "question": "Which sports does Shuttio support?",
-        "answer": "We're launching with badminton — the fastest-growing sport in our community. More will be added based on where our community plays most."
+        "question": "Which sport is Shuttio for?",
+        "answer": "Shuttio is built entirely around badminton — the fastest-growing sport in our community — to give badminton players the best court-booking and matchmaking experience."
       },
       "1": {
         "question": "How does the AI assistant actually book a court?",
@@ -936,7 +919,8 @@
     },
     "cta": {
       "title": "Be the first on court.",
-      "subtitle": "Create your account and start booking courts and matching with players near you."
+      "subtitle": "Create your account and start booking courts and matching with players near you.",
+      "eyebrow": "Your next match starts here"
     },
     "footer": {
       "tagline": "The AI booking assistant for badminton. Find a court, find your match, and just play.",
@@ -980,7 +964,6 @@
     "metaDescription": "AI-picked players matched to your level and schedule.",
     "heroTitle": "Open rooms near your level",
     "heroBody": "Open rooms for <strong>{level}</strong> players near you. <strong>Quick Join</strong> drops you into the best fit — or finds you a partner when nothing fits.",
-    "allSports": "All sports",
     "quickJoin": "Quick join",
     "quickFilter": {
       "distance": "Within",
@@ -994,7 +977,6 @@
       "level": "Level",
       "find": "Find match",
       "myLevel": "My level",
-      "sport": "Sport",
       "court": "Court",
       "anyCourt": "Any court",
       "courtSearch": "Search court name or district…",
@@ -1002,7 +984,7 @@
       "description": "Set your filters and we'll find the best match."
     },
     "createRoom": "Create room",
-    "emptyRooms": "No open rooms for this sport yet.",
+    "emptyRooms": "No open rooms yet.",
     "findMatch": "Find me a match",
     "hostOne": "Host one",
     "hostedBy": "Hosted by {name}",
@@ -1049,7 +1031,6 @@
       "description": "Set up a lobby and we'll surface it to players near your level.",
       "roomTitle": "Room title",
       "roomTitlePlaceholder": "Evening badminton, friendly doubles",
-      "sport": "Sport",
       "format": "Format",
       "court": "Court",
       "when": "When",
@@ -1078,26 +1059,13 @@
       "roomCreated": "Room created",
       "joined": "You're in",
       "quickJoined": "Quick joined a room",
-      "noRoomTitle": "No open room fits — finding you a match",
-      "noRoomBody": "Hang tight, we're filling a lobby for you.",
-      "matchReady": "Match ready!",
+      "noRoomTitle": "No matching room yet",
+      "noRoomBody": "Create a new room so other players can find and join you.",
       "left": "You left the room",
-      "searchingPartner": "Finding your first partner…",
       "requested": "Request sent",
       "demoRoom": "Demo room — can't join",
       "limitTitle": "Room limit reached",
       "limitBody": "You can host up to {max} open rooms at once. Cancel one to open another."
-    },
-    "dock": {
-      "matchReady": "Match ready",
-      "finding": "Finding players…",
-      "accept": "Accept",
-      "cancelSearch": "Cancel search",
-      "findingPartner": "Finding a partner…",
-      "found": "Found {name} 👋",
-      "roomReady": "Room ready",
-      "manage": "Manage",
-      "dismiss": "Dismiss"
     },
     "leave": "Leave",
     "requested": "Requested",
@@ -1121,8 +1089,8 @@
     "seeAll": "See all",
     "invite": "Invite",
     "book": "Book",
-    "emptyPlayers": "No players for this sport yet — try another filter.",
-    "emptyCourts": "No open courts for this sport — try another filter.",
+    "emptyPlayers": "No matching players yet — try another filter.",
+    "emptyCourts": "No matching open courts — try another filter.",
     "recentActivity": "Recent activity",
     "activity": {
       "a1": {
@@ -1231,7 +1199,7 @@
     "emptyTitle": "Start chatting",
     "emptyHint": "Pick a conversation on the left or start a new one.",
     "playerEmptyTitle": "Choose a conversation",
-    "playerEmptyHint": "Message your players, groups, or sports venues.",
+    "playerEmptyHint": "Message your players, groups, or venues.",
     "deleteGroup": "Delete group",
     "deleteGroupTitle": "Delete group?",
     "deleteGroupDescription": "“{name}” and all its messages will be permanently deleted for every member. This can’t be undone."
@@ -1313,7 +1281,6 @@
       "provincePlaceholder": "Select province / city",
       "searchPlaceholder": "Search…",
       "noResults": "No results found",
-      "sports": "Sports",
       "openFrom": "Opens",
       "openTo": "Closes",
       "location": "Map location",
@@ -1378,7 +1345,6 @@
       "namePlaceholder": "e.g. Shuttle Republic",
       "ward": "Ward / Commune",
       "province": "Province / City",
-      "sports": "Sports offered",
       "openFrom": "Opens",
       "openTo": "Closes",
       "manager": "Manager",
@@ -1388,7 +1354,6 @@
       "description": "Courts power the schedule, live monitor and bookings.",
       "name": "Court name",
       "namePlaceholder": "e.g. Court 1",
-      "sport": "Sport",
       "state": "Status",
       "surface": "Surface",
       "surfacePlaceholder": "e.g. Sprung timber",
@@ -1411,7 +1376,6 @@
     "validation": {
       "name": "Please enter at least 2 characters",
       "required": "This field is required",
-      "sports": "Pick at least one sport",
       "time": "Use HH:MM (e.g. 06:00)",
       "price": "Price must be 0 or more"
     },
@@ -1691,7 +1655,7 @@
   },
   "VenueAnalytics": {
     "metaTitle": "Analytics · Venue",
-    "metaDescription": "Revenue, utilization and demand trends for your venue — weekly revenue, a weekday × hour utilization heatmap, sport mix, booking channels and cold slots.",
+    "metaDescription": "Revenue, utilization and demand trends for your venue — weekly revenue, a weekday × hour utilization heatmap, booking channels and cold slots.",
     "title": "Analytics",
     "subtitle": "Revenue, utilization and demand across the last 7 days.",
     "kpi": {
@@ -1721,10 +1685,6 @@
       "high": "High",
       "coldMarker": "Cold slot",
       "unit": "% booked"
-    },
-    "sportMix": {
-      "title": "Sport mix",
-      "bookings": "{count} bookings"
     },
     "channels": {
       "title": "Booking channels",
@@ -1763,11 +1723,6 @@
         "cancel": "Cancel",
         "submit": "Create block"
       }
-    },
-    "insights": {
-      "title": "AI insights",
-      "demoChip": "Demo AI",
-      "subtitle": "Sample recommendations for demo purposes — not generated from this venue's real bookings."
     }
   },
   "VenueInsights": {
@@ -1816,7 +1771,6 @@
     "form": {
       "name": "Court name",
       "namePlaceholder": "e.g. Court 1",
-      "sport": "Sport",
       "state": "Status",
       "surface": "Surface",
       "surfacePlaceholder": "e.g. Sprung timber",
@@ -1894,7 +1848,6 @@
       "namePlaceholder": "e.g. Nguyễn Bảo",
       "phone": "Phone number (ID)",
       "phonePlaceholder": "e.g. 0901234567",
-      "sport": "Favorite sport",
       "cancel": "Cancel",
       "submit": "Add",
       "saving": "Saving...",
@@ -1908,7 +1861,7 @@
     "metaDescription": "Search, filter and book a court near you.",
     "searchPlaceholder": "Search courts by name or area",
     "clearSearch": "Clear search",
-    "empty": "No courts for this sport. Try another filter.",
+    "empty": "No matching courts. Try another filter.",
     "noResults": "No courts match these filters.",
     "results": "{count, plural, one {# court} other {# courts}}",
     "distance": "{km} km",
@@ -2021,7 +1974,7 @@
     "addedToRoom": "Players added",
     "addedToRoomDesc": "Invites sent. Check the group chat for updates.",
     "selectedCount": "{count, plural, one {# selected:} other {# selected:}}",
-    "requireAssessment": "You must complete the skill assessment for {sport} before matching with partners.",
+    "requireAssessment": "You must complete the badminton skill assessment before matching with partners.",
     "completeAssessment": "Complete Assessment",
     "rank": {
       "price": "lowest price",
@@ -2033,7 +1986,7 @@
     "slotsOpen": "{count, plural, one {# slot open} other {# slots open}}",
     "prompts": {
       "quickMatch": "Quick match near me",
-      "quickMatchDesc": "Join open play rooms matching your level and sport",
+      "quickMatchDesc": "Join open play rooms matching your level",
       "badmintonNearMe": "Find badminton courts near me",
       "badmintonNearMeDesc": "Discover and check availability at nearby facilities",
       "bookTomorrow": "Book court tomorrow at 6 PM",
@@ -2051,7 +2004,7 @@
     },
     "findingRooms": "Finding rooms…",
     "quickMatchRooms": "{count, plural, one {# open room} other {# open rooms}}",
-    "noRoomsFound": "No open rooms found nearby. Try a different area or sport.",
+    "noRoomsFound": "No open rooms found nearby. Try a different area.",
     "roomCapacity": "{joined}/{capacity} joined",
     "roomSpotsOpen": "{count, plural, one {# spot open} other {# spots open}}",
     "joinRoom": "Join",
@@ -2089,17 +2042,11 @@
     "gate": {
       "requiredBadge": "Required before entering the game",
       "title": "Player Skill Assessment",
-      "description": "Select the sports you participate in and answer the questions. You can always redo this assessment later.",
-      "selectSports": "Select sports",
-      "sportsSelected": "{count} selected",
+      "description": "Answer a few questions to find your badminton level. You can always redo this assessment later.",
       "questionsCount": "{count} questions",
       "stepProgress": "{stepNum}/{totalSteps}"
     },
-    "stepper": {
-      "sports": "Sports"
-    },
     "progress": {
-      "step": "Step {current} of {total}",
       "answered": "{answered}/{total} answered"
     },
     "complete": {
@@ -2107,16 +2054,6 @@
       "subtitle": "Here's your skill profile. You can redo this assessment anytime from settings.",
       "cta": "Enter dashboard",
       "ctaSetup": "Set up your venue"
-    },
-    "sportsSelect": {
-      "title": "Sports you want to play",
-      "description": "Select the sports you want to play on the app. We will show the appropriate assessment.",
-      "noticeTitle": "Important Notice",
-      "noticeBody": "You can always change your selected sports and redo this assessment at any time from your account settings.",
-      "badminton": {
-        "title": "Badminton",
-        "description": "Badminton - a high-speed sport that requires quick reflexes and agile court movement."
-      }
     },
     "badminton": {
       "title": "Badminton",
@@ -2188,8 +2125,6 @@
       }
     },
     "actions": {
-      "continue": "Continue",
-      "back": "Back",
       "complete": "Complete assessment",
       "redo": "Redo assessment"
     },
@@ -2262,6 +2197,10 @@
     "approvals": {
       "label": "Approvals",
       "caption": "New venues awaiting review"
+    },
+    "reviews": {
+      "label": "App reviews",
+      "caption": "Moderate reviews quoted on the landing page"
     }
   },
   "AdminOverview": {
@@ -2521,5 +2460,72 @@
     "deleteBody": "The group and all its messages will be permanently deleted for every member. This can’t be undone.",
     "deleted": "Group deleted",
     "deleteFailed": "Couldn’t delete the group"
+  },
+  "AppReview": {
+    "title": "Rate Shuttio",
+    "description": "Your experience helps us improve the app and helps other players find Shuttio.",
+    "ratingLabel": "Rating",
+    "starLabel": "{count, plural, one {# star} other {# stars}}",
+    "pickStars": "Pick a rating",
+    "levels": {
+      "1": "Terrible",
+      "2": "Not great",
+      "3": "Okay",
+      "4": "Good",
+      "5": "Excellent"
+    },
+    "commentLabel": "Comment (optional)",
+    "commentPlaceholder": "What you like most, or what we should improve…",
+    "publicNotice": "Reviews of 4 stars or more with a comment may be shown on the landing page, with your name (first name and last initial).",
+    "hiddenNotice": "An admin has hidden this review from the landing page. You can still edit it.",
+    "submit": "Submit review",
+    "update": "Update review",
+    "thanks": "Thanks for your review!",
+    "updated": "Your review was updated",
+    "saveFailed": "Couldn't save your review. Please try again."
+  },
+  "AdminAppReviews": {
+    "metaTitle": "App reviews",
+    "metaDescription": "Moderate users' reviews of the app",
+    "title": "App reviews",
+    "subtitle": "Visible reviews of 4 stars or more with a comment are quoted on the landing page. Hiding one removes it from the landing and from the average.",
+    "listTitle": "{count, plural, one {# review} other {# reviews}}",
+    "empty": "No reviews yet",
+    "ratingAria": "{rating} out of 5 stars",
+    "role": {
+      "player": "Player",
+      "venue": "Venue owner"
+    },
+    "hiddenBadge": "Hidden",
+    "noComment": "No comment",
+    "hide": "Hide",
+    "show": "Show",
+    "hiddenToast": "Review hidden from the landing page",
+    "shown": "Review is visible again",
+    "failed": "Action failed"
+  },
+  "VenuePhotos": {
+    "title": "Venue photos",
+    "hint": "Players see these photos while finding and booking courts. The first one is the cover. Up to {max} JPG, PNG or WebP photos.",
+    "add": "Add photos",
+    "uploading": "Uploading {count, plural, one {# photo} other {# photos}}…",
+    "empty": "No photos yet — add some so players can picture your venue",
+    "cover": "Cover",
+    "makeCover": "Make cover",
+    "remove": "Remove photo",
+    "photoAlt": "{name} — photo {n}",
+    "uploaded": "Added {count, plural, one {# photo} other {# photos}}",
+    "coverSet": "Cover photo updated",
+    "removed": "Photo removed",
+    "rejected": "Only JPG, PNG or WebP photos up to {mb}MB each",
+    "tooMany": "Each branch can have up to {max} photos",
+    "uploadError": "Some photos failed to upload",
+    "saveError": "Couldn't save the photos. Please try again."
+  },
+  "CourtPhotos": {
+    "open": "Photos ({count})",
+    "alt": "{name} — photo {n}",
+    "previous": "Previous photo",
+    "next": "Next photo"
   }
 }

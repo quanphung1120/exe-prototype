@@ -9,7 +9,6 @@ import {
   COURT_OPEN_TO,
   activeRoster,
   addDaysIso,
-  capacityFor,
   durationOf,
   initialsOf,
   levelMatches,
@@ -23,7 +22,6 @@ import {
   type Level,
   type MatchRoom,
   type PlaySession,
-  type Player,
   type RoomLevel,
   type SessionPlayer,
   type SportKey,
@@ -60,8 +58,6 @@ import {
 /** The dedicated booking-wizard route the Play / book actions navigate to. */
 const BOOK_PATH = "/app/book"
 
-// How long the faked partner search runs before it finds someone.
-const SEARCH_MS = 1800
 // Largest room a host can grow to.
 const MAX_CAPACITY = 8
 // Most open rooms one player may host at once. Speculative rooms (Quick Match
@@ -98,17 +94,6 @@ interface BookingDraft {
  * singles/doubles, so team size is a fixed cap rather than derived from a format.
  */
 const BOOKING_CAPACITY = 4
-
-/** The faked Quick Match search shown in the floating dock. */
-export interface PartnerSearch {
-  sport: SportKey
-  format: "Singles" | "Doubles"
-  maxPlayers: number
-  elapsed: number
-  status: "searching" | "ready"
-  partner: string | null
-  roomId: string | null
-}
 
 /** A court hold or join-request/invite that auto-expired — for notifications. */
 export interface ExpiredEvent {
@@ -150,7 +135,6 @@ interface SessionContextValue {
   /** The player's editable display name (defaults to the seed user's name). */
   userName: string
   setUserName: (name: string) => void
-  search: PartnerSearch | null
   /** Court holds / join-requests / invites that auto-expired (for notifications). */
   expiredEvents: ExpiredEvent[]
   // ── Derived projections (legacy shapes) ──
@@ -202,8 +186,6 @@ interface SessionContextValue {
     invitees: string[]
   }) => string | null
   quickJoin: (filters: QuickJoinFilters) => void
-  cancelSearch: () => void
-  dismissSearch: () => void
   setRoomCapacity: (sessionId: string, capacity: number) => void
   invitePlayer: (sessionId: string, initials: string) => void
   kickPlayer: (sessionId: string, initials: string) => void
@@ -213,7 +195,6 @@ interface SessionContextValue {
     title: string
     members: { id: string; name: string }[]
   }) => string
-  fillRoom: (session: PlaySession) => void
   managerOpen: boolean
   setManagerOpen: (open: boolean) => void
   openManager: (sessionId: string) => void
@@ -352,7 +333,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // Records + record-bound helpers, served by the API via the DataProvider.
   const {
     courts: COURTS,
-    players: MATCH_SUGGESTIONS,
     user: USER,
     sessions: SEED_SESSIONS,
     todayIso,
@@ -365,33 +345,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     courtDayGaps,
     sessionToBooking,
   } = useData()
-
-  /** Nearest court whose sports include the given sport. */
-  const courtFor = (sport: SportKey): Court =>
-    [...COURTS]
-      .filter((c) => c.sports.includes(sport))
-      .sort(
-        (a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)
-      )[0] ?? COURTS[0]
-
-  /** Faked partners: same level/sport preferred, then highest match %. */
-  const pickPartners = (
-    sport: SportKey,
-    level: Level,
-    count: number,
-    exclude: string[]
-  ): Player[] => {
-    const blocked = new Set([USER.initials, ...exclude])
-    return [...MATCH_SUGGESTIONS]
-      .filter((p) => !blocked.has(p.initials))
-      .sort((a, b) => {
-        const score = (p: Player) =>
-          (p.level === level ? 0 : 2) + (p.sport === sport ? 0 : 1)
-        const d = score(a) - score(b)
-        return d !== 0 ? d : b.matchPct - a.matchPct
-      })
-      .slice(0, Math.max(0, count))
-  }
 
   const [sessions, setSessions] = React.useState<PlaySession[]>(SEED_SESSIONS)
   // Own-doc bookkeeping only — which of *my* sessions I consider "joined" for
@@ -420,7 +373,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [userName, setUserName] = React.useState<string>(
     () => authUser.name || USER.name
   )
-  const [search, setSearch] = React.useState<PartnerSearch | null>(null)
   const [expiredEvents, setExpiredEvents] = React.useState<ExpiredEvent[]>([])
   const [managerOpen, setManagerOpen] = React.useState(false)
   const [quickJoinOpen, setQuickJoinOpen] = React.useState(false)
@@ -667,19 +619,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   )
   const userLevel = userLevelForSport("badminton")
 
-  // ── Timer pool (RSVP / search) keyed for targeted cleanup ──
+  // ── Timer pool (RSVP) keyed for targeted cleanup ──
   const timers = React.useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map()
   )
-  const clock = React.useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const stopClock = React.useCallback(() => {
-    if (clock.current) {
-      clearInterval(clock.current)
-      clock.current = null
-    }
-  }, [])
-
   /** Clear timers whose key matches the predicate. */
   const clearTimersFor = React.useCallback((sessionId: string) => {
     for (const [key, handle] of timers.current) {
@@ -695,7 +638,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => {
       pool.forEach(clearTimeout)
       pool.clear()
-      if (clock.current) clearInterval(clock.current)
     }
   }, [])
 
@@ -774,10 +716,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     })
   }, [tb, ts, playerByInitials])
 
-  // Passive sweep: independent of the search `clock` above (which only runs
-  // during an active Quick Match) — this runs for the provider's whole
-  // lifetime so an abandoned hold or unanswered request/invite still expires
-  // even when no other timer is active.
+  // Passive sweep: runs for the provider's whole lifetime so an abandoned
+  // hold or unanswered request/invite still expires even when no other timer
+  // is active.
   React.useEffect(() => {
     const first = setTimeout(sweepExpirations, 0)
     const id = setInterval(sweepExpirations, 30_000)
@@ -1493,169 +1434,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return id
   }
 
-  /**
-   * Faked search to fill an open room to capacity with distinct partners.
-   * Takes the session object directly — when called right after creating it,
-   * its `setSessions` write hasn't flushed, so reading it back would miss it.
-   */
-  const fillRoom = (session: PlaySession) => {
-    const openSeats = session.capacity - activeRoster(session).length
-    if (openSeats <= 0) return
-    stopClock()
-    setSearch({
-      sport: session.sport,
-      format: session.format,
-      maxPlayers: session.capacity,
-      elapsed: 0,
-      status: "searching",
-      partner: null,
-      roomId: session.id,
-    })
-    clock.current = setInterval(() => {
-      setSearch((cur) =>
-        cur && cur.status === "searching"
-          ? { ...cur, elapsed: cur.elapsed + 1 }
-          : cur
-      )
-    }, 1000)
-    const key = `fill:${session.id}:run`
-    const handle = setTimeout(() => {
-      timers.current.delete(key)
-      stopClock()
-      const exclude = session.roster.map((p) => p.initials)
-      const partners = pickPartners(
-        session.sport,
-        userLevelForSport(session.sport),
-        openSeats,
-        exclude
-      )
-      setSessions((prev) =>
-        prev.map((x) =>
-          x.id === session.id
-            ? {
-                ...x,
-                roster: [
-                  ...x.roster,
-                  ...partners.map((p): SessionPlayer => ({
-                    name: p.name,
-                    initials: p.initials,
-                    rsvp: "pending",
-                    rsvpAt: Date.now(),
-                  })),
-                ],
-              }
-            : x
-        )
-      )
-      setSearch((cur) =>
-        cur
-          ? {
-              ...cur,
-              status: "ready",
-              partner: partners[0]?.initials ?? null,
-              roomId: session.id,
-            }
-          : cur
-      )
-    }, SEARCH_MS)
-    timers.current.set(key, handle)
-  }
-
-  /** Build a forming seed room once a Quick Match partner is found. */
-  const createSeedRoom = (
-    opts: {
-      sport: SportKey
-      format: "Singles" | "Doubles"
-      maxPlayers: number
-      court: Court
-    },
-    partner: Player
-  ): string => {
-    const { court: c } = opts
-    const id = newId("mm")
-    const next: PlaySession = {
-      id,
-      title: tm("matchmadeTitle", {
-        sport: tc(`sports.${opts.sport}`),
-        format: tc(`format.${opts.format.toLowerCase()}`),
-      }),
-      sport: opts.sport,
-      format: opts.format,
-      courtId: c.id,
-      dayKey: todayIso,
-      dayLabel: tc("when.today"),
-      slot: c.nextSlot,
-      durationMin: 60,
-      courtLabel: null,
-      host: { name: userName, initials: USER.initials },
-      capacity: opts.maxPlayers,
-      roster: [
-        { name: userName, initials: USER.initials, rsvp: "host" },
-        { name: partner.name, initials: partner.initials, rsvp: "going" },
-      ],
-      level: userLevelForSport(opts.sport),
-      status: "forming",
-      listed: true,
-      fillIntent: "find",
-      venue: c.name,
-      ward: c.ward,
-      distanceKm: c.distanceKm,
-      pricePerHour: c.pricePerHour,
-    }
-    setSessions((prev) => [next, ...prev])
-    setLocalJoinedIds((prev) => new Set(prev).add(id))
-    setActiveSessionId(id)
-    setManagerOpen(true)
-    openRoomChat(id, next.title)
-    return id
-  }
-
-  const startPartnerSearch = (filters: QuickJoinFilters) => {
-    stopClock()
-    const chosen = filters.courtId
-      ? COURTS.find((c) => c.id === filters.courtId)
-      : null
-    const sport =
-      filters.sport !== "all"
-        ? filters.sport
-        : (chosen?.sports[0] ?? "badminton")
-    const c = chosen ?? courtFor(sport)
-    const format = filters.format === "any" ? "Doubles" : filters.format
-    const maxPlayers = capacityFor(format)
-    setSearch({
-      sport,
-      format,
-      maxPlayers,
-      elapsed: 0,
-      status: "searching",
-      partner: null,
-      roomId: null,
-    })
-    clock.current = setInterval(() => {
-      setSearch((cur) =>
-        cur && cur.status === "searching"
-          ? { ...cur, elapsed: cur.elapsed + 1 }
-          : cur
-      )
-    }, 1000)
-    const key = `quick:new:run`
-    const handle = setTimeout(() => {
-      timers.current.delete(key)
-      stopClock()
-      const partner = pickPartners(sport, userLevelForSport(sport), 1, [])[0]
-      const roomId = createSeedRoom(
-        { sport, format, maxPlayers, court: c },
-        partner
-      )
-      setSearch((cur) =>
-        cur
-          ? { ...cur, status: "ready", partner: partner.initials, roomId }
-          : cur
-      )
-    }, SEARCH_MS)
-    timers.current.set(key, handle)
-  }
-
   const quickJoin = (filters: QuickJoinFilters) => {
     const pool = rooms.filter(
       (r) =>
@@ -1675,32 +1453,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       joinRoom(best)
       return
     }
-    // No open room fits — Quick Match would spin up a fresh one, so it counts
-    // against the hosted-room cap just like the Create Room dialog.
+    // No open room fits — offer to host one instead, so real players can find
+    // and join it. Hosting counts against the anti-spam cap.
     if (!canHostMore) {
       toast.error(tm("toast.limitTitle"), {
         description: tm("toast.limitBody", { max: MAX_HOSTED_ROOMS }),
       })
       return
     }
-    startPartnerSearch(filters)
-    toast(tm("toast.noRoomTitle"), {
-      description: tm("toast.searchingPartner"),
-    })
-  }
-
-  const endSearch = () => {
-    if (search && search.status === "searching") {
-      // cancel: clear the pending run so no room is created
-      for (const [key, handle] of timers.current) {
-        if (key.startsWith("quick:") || key.startsWith("fill:")) {
-          clearTimeout(handle)
-          timers.current.delete(key)
-        }
-      }
-    }
-    stopClock()
-    setSearch(null)
+    toast(tm("toast.noRoomTitle"), { description: tm("toast.noRoomBody") })
+    setCreateRoomOpen(true)
   }
 
   // ── Play / booking wizard ──
@@ -2272,7 +2034,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     userLevelForSport,
     userName,
     setUserName,
-    search,
     expiredEvents,
     rooms,
     joinedRooms,
@@ -2297,13 +2058,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     addRoom,
     createInviteRoom,
     quickJoin,
-    cancelSearch: endSearch,
-    dismissSearch: endSearch,
     setRoomCapacity,
     invitePlayer,
     kickPlayer,
     createGroupSession,
-    fillRoom,
     managerOpen,
     setManagerOpen,
     openManager,

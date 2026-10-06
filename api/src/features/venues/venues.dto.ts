@@ -1,6 +1,7 @@
 import { PartialType } from "@nestjs/mapped-types"
 import { Type } from "class-transformer"
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsBoolean,
@@ -21,6 +22,16 @@ import {
 
 import { COURT_BLOCK_REASONS } from "../../shared/index.js"
 import type { CourtBlockReason, SportKey } from "../../shared/index.js"
+import { MAX_VENUE_PHOTOS } from "./venue-photos.service.js"
+
+/** A venue's full photo gallery, in display order (first = cover). */
+export class VenuePhotosBodyDto {
+  @IsArray()
+  @ArrayMaxSize(MAX_VENUE_PHOTOS)
+  @IsString({ each: true })
+  @MaxLength(500, { each: true })
+  photos: string[]
+}
 
 /** `?venue=` selects which venue's bundle to read; optional → defaults to first. */
 export class VenueQueryDto {

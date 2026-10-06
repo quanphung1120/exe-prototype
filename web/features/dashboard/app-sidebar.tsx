@@ -9,6 +9,7 @@ import {
   Search,
   Settings,
   ShieldCheck,
+  Star,
   UserCog,
   UserRound,
 } from "lucide-react"
@@ -48,6 +49,7 @@ import { useData } from "@/features/dashboard/data-provider"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { useStreamUnreadCount } from "@/features/chat/stream-provider"
 import { ProfileDialog } from "@/features/dashboard/profile-dialog"
+import { AppReviewDialog } from "@/features/app-review/app-review-dialog"
 import { venueBase } from "@/features/venue/nav"
 import { navContext } from "@/features/dashboard/workspace"
 import { Link, usePathname, useRouter } from "@/i18n/navigation"
@@ -69,6 +71,7 @@ export function AppSidebar() {
   const sUser = useAuthUser()
 
   const [profileOpen, setProfileOpen] = React.useState(false)
+  const [reviewOpen, setReviewOpen] = React.useState(false)
 
   const { workspace, ns, items, active, venueId } = navContext(pathname)
   const isVenue = workspace === "venue"
@@ -415,6 +418,10 @@ export function AppSidebar() {
                       <UserCog />
                       {t("accountSettings")}
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setReviewOpen(true)}>
+                      <Star />
+                      {t("rateApp")}
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       variant="destructive"
@@ -434,6 +441,7 @@ export function AppSidebar() {
       <SidebarRail />
 
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
+      <AppReviewDialog open={reviewOpen} onOpenChange={setReviewOpen} />
     </Sidebar>
   )
 }

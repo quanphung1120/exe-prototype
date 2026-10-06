@@ -158,8 +158,9 @@ You are SportMatch AI — a smart assistant for finding badminton courts and mat
 ## How to respond
 1. Detect intent (courts vs. teammates) and the user's language. Reply in the user's preferred language/locale (Vietnamese or English) as passed in the user profile/locale context. If the user explicitly asks a question in a different language, respond in the language of their query.
 2. If key details are missing, call the \`askChoice\` tool ONCE to ask exactly ONE short clarifying question with 2–4 tappable options, then stop. Do not repeat the question as plain text (the options render as buttons). Needed details:
-   - courts → sport/sports + a location/area hint (ward, neighborhood, or "near me"). Pass ward name to \`findCourts\` when mentioned. For "near me" / "gần tôi", pass \`sortBy: "distance"\`.
-   - teammates → sport/sports (required — never call \`findPlayers\` without it). Use the <user_profile> level as default if not specified.
+   - courts → a location/area hint (ward, neighborhood, or "near me"). Pass ward name to \`findCourts\` when mentioned. For "near me" / "gần tôi", pass \`sortBy: "distance"\`.
+   - teammates → nothing extra; always pass \`sport: "badminton"\` to \`findPlayers\`. Use the <user_profile> level as default if not specified.
+   The app is badminton-only: the sport is ALWAYS badminton. Never ask which sport the user wants and never offer other sports as options.
 3. If details are sufficient, call exactly ONE tool (\`findCourts\`, \`findPlayers\`, or \`requestAssessment\`) in your initial response. Do not respond with plain text alone without a tool call if a search is needed.
 4. When a tool has returned its results, do NOT call another tool. Write ONE short, warm sentence summarizing the result, and suggest the natural next step (e.g., "Tap a court to book", "Select players to invite to a group chat", "Complete the assessment"). Do not list the results in text; the UI renders cards automatically.
 5. If a tool returns no results, state so plainly and suggest a way to broaden the search (wider area, different time/level).
@@ -248,7 +249,7 @@ export class AiService {
         // well-formed in the message history.
         askChoice: tool({
           description:
-            "Ask the user ONE short clarifying question with 2–4 suggested options when a key detail (sport, area, level, or time) is missing. The options render as tappable chips — prefer this over asking in plain text.",
+            "Ask the user ONE short clarifying question with 2–4 suggested options when a key detail (area, level, or time) is missing — never about the sport (always badminton). The options render as tappable chips — prefer this over asking in plain text.",
           inputSchema: z.object({
             question: z.string().max(140),
             options: z.array(z.string().max(40)).min(2).max(4),
@@ -267,7 +268,7 @@ export class AiService {
 
         findCourts: tool({
           description:
-            'Find and rank sports courts that match the user intent. Pass `time` (and optionally `date`) when the user wants to book at a specific slot — courts already taken at that window are excluded from results. Pass `ward` when the user mentions a ward or area (e.g. "Quận 3", "Bình Thạnh") — only courts in that ward are returned. You can filter by a single sport using `sport`, or multiple sports using `sports`.',
+            'Find and rank badminton courts that match the user intent. Pass `time` (and optionally `date`) when the user wants to book at a specific slot — courts already taken at that window are excluded from results. Pass `ward` when the user mentions a ward or area (e.g. "Quận 3", "Bình Thạnh") — only courts in that ward are returned.',
           inputSchema: z.object({
             sport: z.enum(["badminton"]).optional(),
             sports: z.array(z.enum(["badminton"])).optional(),
@@ -311,7 +312,8 @@ export class AiService {
             durationMin,
           }) => {
             const { courts } = await getSeed()
-            const targetSports = sports ?? (sport ? [sport] : undefined)
+            // Badminton-only app: an omitted sport still means badminton.
+            const targetSports = sports ?? [sport ?? "badminton"]
             const sportFiltered = courts.filter((c: Court) => {
               if (!targetSports || targetSports.length === 0) return true
               return targetSports.some((s) => c.sports.includes(s))
@@ -362,7 +364,7 @@ export class AiService {
 
         findPlayers: tool({
           description:
-            "Find and rank players that match the user request. Either `sport` or `sports` (as an array of multiple sports) is required — call `askChoice` first if the user has not specified any.",
+            'Find and rank players that match the user request. Always pass `sport: "badminton"` (the app is badminton-only) — never ask the user which sport.',
           inputSchema: z.object({
             sport: z.enum(["badminton"]).optional(),
             sports: z.array(z.enum(["badminton"])).optional(),
@@ -378,7 +380,8 @@ export class AiService {
             locationLabel,
           }) => {
             const { players } = await getSeed()
-            const targetSports = sports ?? (sport ? [sport] : undefined)
+            // Badminton-only app: an omitted sport still means badminton.
+            const targetSports = sports ?? [sport ?? "badminton"]
             const sportsText =
               targetSports && targetSports.length > 0
                 ? targetSports.join(" ")
@@ -411,7 +414,7 @@ export class AiService {
 
         findRooms: tool({
           description:
-            "Find open match rooms (lobbies) the user can join, filtered by sport, skill level, and location. Use for 'quick match' requests. Call `askChoice` first if the user has not specified a location. You can filter by a single sport using `sport`, or multiple sports using `sports`.",
+            "Find open match rooms (lobbies) the user can join, filtered by sport, skill level, and location. Use for 'quick match' requests. Call `askChoice` first if the user has not specified a location.",
           inputSchema: z.object({
             sport: z.enum(["badminton"]).optional(),
             sports: z.array(z.enum(["badminton"])).optional(),
@@ -431,7 +434,8 @@ export class AiService {
           execute: async ({ sport, sports, level, ward }) => {
             const { rooms, courts } = await getSeed()
             let pool = rooms.filter((r) => r.joined < r.capacity)
-            const targetSports = sports ?? (sport ? [sport] : undefined)
+            // Badminton-only app: an omitted sport still means badminton.
+            const targetSports = sports ?? [sport ?? "badminton"]
             if (targetSports && targetSports.length > 0) {
               pool = pool.filter((r) => targetSports.includes(r.sport))
             }

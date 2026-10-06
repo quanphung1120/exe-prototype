@@ -20,7 +20,6 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { LevelChip, SportTag } from "@/features/dashboard/shared"
-import { useSportFilter } from "@/features/dashboard/sport-filter"
 import { formatVnd, type MatchRoom } from "@/features/dashboard/data"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { useAuthUser } from "@/features/dashboard/auth-user"
@@ -47,16 +46,12 @@ export function RoomsView() {
     openQuickJoin,
     openCreateRoom,
   } = useMatchmaking()
-  const { sport } = useSportFilter()
-
-  const visibleRooms = rooms.filter((r) => sport === "all" || r.sport === sport)
-
   return (
     <div className="no-scrollbar flex flex-col gap-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
       {/* Room grid */}
-      {visibleRooms.length ? (
+      {rooms.length ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleRooms.map((room) => {
+          {rooms.map((room) => {
             const requested = requestedIds.has(room.id)
             const joined = joinedIds.has(room.id) && !requested
             return (

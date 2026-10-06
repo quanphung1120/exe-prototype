@@ -24,8 +24,8 @@ import {
 import { formatVnd, type Court } from "@/features/dashboard/data"
 import { useData } from "@/features/dashboard/data-provider"
 import { useBooking } from "@/features/booking/booking"
-import { useSportFilter } from "@/features/dashboard/sport-filter"
 import { CourtImage, SportTag } from "@/features/dashboard/shared"
+import { CourtPhotosButton } from "@/features/dashboard/court-photos"
 import { CourtMap } from "@/features/play/court-map"
 
 type SortKey = "distance" | "price" | "rating"
@@ -143,7 +143,6 @@ export function FindCourtsView({
   filters: CourtFilterState
 }) {
   const t = useTranslations("FindCourts")
-  const { sport } = useSportFilter()
   const {
     courts: COURTS,
     venuePins,
@@ -155,12 +154,11 @@ export function FindCourtsView({
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const locate = () => void requestLocation()
 
-  // Filter by sport, court attributes and address/name, then sort by the shared
-  // live distances.
+  // Filter by court attributes and address/name, then sort by the shared live
+  // distances.
   const items = React.useMemo(() => {
     const q = normalize(query)
-    return COURTS.filter((c) => sport === "all" || c.sports.includes(sport))
-      .filter((c) => matchesFilters(c, filters))
+    return COURTS.filter((c) => matchesFilters(c, filters))
       .filter(
         (c) =>
           !q ||
@@ -172,7 +170,7 @@ export function FindCourtsView({
         distanceKm: court.distanceKm,
       }))
       .sort(COMPARE[sort])
-  }, [COURTS, sport, sort, query, filters])
+  }, [COURTS, sort, query, filters])
 
   const mapCourts = React.useMemo(
     () => items.map((i) => i.court).filter(hasCoordinates),
@@ -184,7 +182,7 @@ export function FindCourtsView({
   )
 
   // Derive the live selection rather than syncing state in an effect — a court
-  // dropped by the sport filter simply stops being selected.
+  // dropped by the filters simply stops being selected.
   const selectedId_ = items.some((i) => i.court.id === selectedId)
     ? selectedId
     : null
@@ -307,7 +305,11 @@ function CourtCard({
 
       <div className="pointer-events-none relative z-10 flex flex-col gap-3">
         <div className="flex items-start gap-3">
-          <CourtImage court={court} className="size-[76px] rounded-xl" />
+          <CourtImage
+            court={court}
+            className="size-[76px] rounded-xl"
+            sizes="76px"
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <p className="min-w-0 font-heading text-sm leading-snug font-bold">
@@ -335,6 +337,7 @@ function CourtCard({
                 · {court.surface}
               </span>
             </div>
+            <CourtPhotosButton court={court} className="mt-1.5" />
             <div className="mt-1.5 inline-flex w-fit items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
               <span className="font-semibold text-foreground tabular-nums">
                 {court.openSlots}

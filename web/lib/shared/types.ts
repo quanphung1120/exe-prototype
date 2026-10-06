@@ -89,6 +89,8 @@ export interface Court {
   /** Geographic position for the Find Courts map (WGS84). */
   lat: number | null
   lng: number | null
+  /** The owning venue's photo gallery (Cloudinary URLs, cover first). */
+  photos?: string[]
 }
 
 // ── Match rooms (Match Maker lobbies) ────────────────────────────────────────
@@ -447,6 +449,11 @@ export interface Venue {
   initials: string
   /** Optional profile photo URL (operator-set; the UI falls back to initials). */
   image?: string
+  /**
+   * Illustrative photos of the venue, uploaded by its operator to Cloudinary
+   * (first = cover). Shown to players browsing and booking its courts.
+   */
+  photos?: string[]
   /** Optional short description shown on the venue profile. */
   description?: string
   ward: string
@@ -1031,4 +1038,47 @@ export interface Seed {
   assessment: PlayerAssessment | null
   /** Effective account type (stored choice ∪ inferred facts); null until chosen. */
   accountType: AccountType | null
+}
+
+// ── App reviews (đánh giá ứng dụng) ──────────────────────────────────────────
+
+/** Who left an app review — shown as the reviewer's caption on the landing. */
+export type AppReviewRole = "player" | "venue"
+
+/** One user's review of the app itself (not of a venue or a fellow player). */
+export interface AppReview {
+  id: string
+  /** Public display name — first name + last initial, never an email. */
+  authorName: string
+  initials: string
+  image?: string
+  role: AppReviewRole
+  /** 1–5 stars. */
+  rating: number
+  comment: string
+  /** ISO datetime of the last edit. */
+  updatedAt: string
+}
+
+/** The signed-in user's own review, for prefilling the review dialog. */
+export interface MyAppReview {
+  rating: number
+  comment: string
+  updatedAt: string
+  /** Hidden by an admin — kept, but never shown on the landing. */
+  hidden: boolean
+}
+
+/** The landing page's slice: the aggregate plus a few featured quotes. */
+export interface AppReviewsPublic {
+  /** Mean rating over every visible review, one decimal (0 when none). */
+  average: number
+  count: number
+  featured: AppReview[]
+}
+
+/** A review as the admin moderation queue sees it. */
+export interface AdminAppReviewRow extends AppReview {
+  userId: string
+  hidden: boolean
 }

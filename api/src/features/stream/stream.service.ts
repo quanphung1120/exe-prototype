@@ -15,10 +15,6 @@ import { Booking, type BookingDocument } from "../bookings/booking.schema.js"
 import { Brand, type BrandDocument } from "../brands/brand.schema.js"
 import { Venue, type VenueDocument } from "../venues/venue.schema.js"
 import { ClerkDirectoryService } from "./clerk-directory.service.js"
-import {
-  StreamSeedState,
-  type StreamSeedStateDocument,
-} from "./stream-seed.schema.js"
 
 // stream-chat v9 treats a channel's `name` as a custom field (the base
 // `CustomChannelData` is empty), so declare the display name we set on channels.
@@ -35,14 +31,6 @@ declare module "stream-chat" {
 /** DI token for the shared server-side StreamChat client (faked in tests). */
 export const STREAM_CLIENT = Symbol("STREAM_CLIENT")
 
-/** Stream user id for a mock demo player, keyed by their initials (TH → demo-player-th). */
-export const demoPlayerStreamId = (initials: string) =>
-  `demo-player-${initials.toLowerCase()}`
-
-/** Per-user channel id for a seeded demo chat (never shared between users). */
-export const demoChannelId = (chatId: string, userId: string) =>
-  `demo-${chatId}-${userId}`
-
 /** Channel id for a room's real chat — mirrors the web's `roomChannelId`. */
 export const roomChannelId = (roomId: string) => `room-${roomId}`
 
@@ -51,7 +39,7 @@ export const MAX_GROUP_MEMBERS = 16
 
 /**
  * A group conversation (vs a DM or a player↔venue chat): a community group,
- * a room chat, or any channel with 3+ members (e.g. the seeded demo crew).
+ * a room chat, or any channel with 3+ members.
  */
 export function isGroupChannel(
   channelId: string,
@@ -81,74 +69,15 @@ export const venueChannelId = (venueId: string, userId: string) =>
 export const brandChannelId = (brandId: string, userId: string) =>
   venueChannelId(`brand:${brandId}`, userId)
 
-// The three mock players whose demo channels every new user is seeded with.
-// Their ids/names mirror the first entries of MATCH_SUGGESTIONS (p1/p2/p3).
-const DEMO_PLAYERS = [
-  {
-    initials: "TH",
-    name: "Trần Huy",
-    image:
-      "https://api.dicebear.com/9.x/adventurer/svg?seed=tran-huy&backgroundColor=b6e3f4",
-  },
-  {
-    initials: "LL",
-    name: "Lê Lan",
-    image:
-      "https://api.dicebear.com/9.x/adventurer/svg?seed=le-lan&backgroundColor=ffd5dc",
-  },
-  {
-    initials: "PQ",
-    name: "Phạm Quân",
-    image:
-      "https://api.dicebear.com/9.x/adventurer/svg?seed=pham-quan&backgroundColor=c0e8b7",
-  },
-] as const
-
-// The seeded "Badminton Crew" group thread — moved verbatim from the old
-// `THREAD` fixture in data/player.ts. `from: "me"` is sent as the seeded user;
-// the rest as the named demo player.
-const CREW_THREAD: { text: string; from: string }[] = [
-  { text: "Court 3 is booked for tonight 🔥", from: demoPlayerStreamId("TH") },
-  { text: "Confirmed for tonight ✅", from: demoPlayerStreamId("LL") },
-  { text: "Perfect. I'll warm up the serves 😅", from: "me" },
-  { text: "See you at Court 3 at 6:30 👊", from: demoPlayerStreamId("TH") },
-]
-
-// The three seeded DMs — one mock member each, one opening message (texts moved
-// from the old `CHATS[].last` fixture fields).
-const DEMO_DMS = [
-  {
-    chatId: "ch2",
-    initials: "TH",
-    name: "Trần Huy",
-    text: "Bring an extra grip if you have one",
-  },
-  {
-    chatId: "ch3",
-    initials: "LL",
-    name: "Lê Lan",
-    text: "Confirmed for tonight ✅",
-  },
-  {
-    chatId: "ch4",
-    initials: "PQ",
-    name: "Phạm Quân",
-    text: "Rematch this weekend? 🏓",
-  },
-] as const
-
 // Server-side Stream Chat integration. Signs per-user JWTs (a local operation)
-// and, on a user's first token request, seeds their demo users + channels in
-// Stream — gated by an atomic Mongo flag so it runs exactly once per user.
-// Also lazily gets-or-creates match-room/team channels on demand.
+// and keeps the caller's Stream user in sync with their Clerk name/avatar.
+// Also gets-or-creates match-room/team channels on demand.
 @Injectable()
 export class StreamService {
   private readonly logger = new Logger(StreamService.name)
 
   constructor(
     @Inject(STREAM_CLIENT) private readonly client: StreamChat,
-    @InjectModel(StreamSeedState.name)
-    private readonly seeds: Model<StreamSeedStateDocument>,
     @InjectModel(Venue.name) private readonly venues: Model<VenueDocument>,
     @InjectModel(Booking.name)
     private readonly bookings: Model<BookingDocument>,
@@ -159,15 +88,15 @@ export class StreamService {
 
   /**
    * A Stream credentials pair for the signed-in user: the app key (handed to the
-   * web client) and a freshly signed user token. Seeds the user's demo data on
-   * first call. `createToken` is a local JWT sign — cheap to run per request.
+   * web client) and a freshly signed user token. Upserts the caller's Stream
+   * user first. `createToken` is a local JWT sign — cheap to run per request.
    */
   async issueToken(
     userId: string,
     name?: string,
     image?: string
   ): Promise<{ apiKey: string; token: string }> {
-    await this.seedForUser(userId, name, image)
+    await this.upsertSelf(userId, name, image)
     // 24h bounds the life of a leaked token; the web client refreshes via its
     // token provider, so a short-lived token costs nothing in UX.
     const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 24
@@ -178,88 +107,22 @@ export class StreamService {
   }
 
   /**
-   * Seed a user's demo users + channels the first time they authenticate. The
-   * user (+ demo-player) upsert runs on every call — cheap and idempotent, and
-   * it's what backfills new demo-player fields (e.g. avatar images) and the
-   * caller's own name/image to already-seeded users. Channel creation stays
-   * gated by the `$setOnInsert` upsert: only the request that inserts the
-   * marker (upsertedCount === 1) does that Stream work, so concurrent
-   * first-token requests can't double-seed.
+   * Upsert the caller's own Stream user so their name/avatar track Clerk.
+   * Runs on every token issue — cheap and idempotent. A failure is logged and
+   * swallowed: the token is still issued, chat just shows a stale name.
    */
-  private async seedForUser(
+  private async upsertSelf(
     userId: string,
     name?: string,
     image?: string
   ): Promise<void> {
-    // Runs on every token issue (not just first seed) so demo-player avatars
-    // and the caller's own name/image propagate to existing users.
     try {
       await this.client.upsertUsers([
-        { id: userId, name: name || "You", ...(image ? { image } : {}) },
-        ...DEMO_PLAYERS.map((p) => ({
-          id: demoPlayerStreamId(p.initials),
-          name: p.name,
-          image: p.image,
-        })),
+        { id: userId, name: name || "Người chơi", ...(image ? { image } : {}) },
       ])
     } catch (err) {
       this.logger.error(
-        `Failed to upsert Stream users for ${userId}`,
-        err instanceof Error ? err.stack : String(err)
-      )
-      return
-    }
-
-    const res = await this.seeds.updateOne(
-      { userId },
-      { $setOnInsert: { userId } },
-      { upsert: true }
-    )
-    if (!res.upsertedCount) return
-
-    try {
-      // "Badminton Crew" group — the current user plus all three mock players.
-      const crew = this.client.channel(
-        "messaging",
-        demoChannelId("ch1", userId),
-        {
-          name: "Badminton Crew",
-          created_by_id: demoPlayerStreamId("TH"),
-          members: [
-            userId,
-            ...DEMO_PLAYERS.map((p) => demoPlayerStreamId(p.initials)),
-          ],
-        }
-      )
-      await crew.create()
-      for (const m of CREW_THREAD) {
-        await crew.sendMessage({
-          text: m.text,
-          user_id: m.from === "me" ? userId : m.from,
-        })
-      }
-
-      // Three DMs — one mock member each, one opening message from that player.
-      for (const dm of DEMO_DMS) {
-        const otherId = demoPlayerStreamId(dm.initials)
-        const ch = this.client.channel(
-          "messaging",
-          demoChannelId(dm.chatId, userId),
-          {
-            name: dm.name,
-            created_by_id: userId,
-            members: [userId, otherId],
-          }
-        )
-        await ch.create()
-        await ch.sendMessage({ text: dm.text, user_id: otherId })
-      }
-    } catch (err) {
-      // The Mongo marker is already set, so seeding won't retry. Log loudly —
-      // this is usually misconfigured/invalid Stream credentials; the web side
-      // degrades to the chat "unavailable" state rather than hard-failing.
-      this.logger.error(
-        `Failed to seed Stream demo data for ${userId}`,
+        `Failed to upsert Stream user ${userId}`,
         err instanceof Error ? err.stack : String(err)
       )
     }
@@ -646,13 +509,19 @@ export class StreamService {
       )
     }
 
-    const owner = await this.directory.getOne(venue.ownerId)
+    // The operator's account must still exist — a venue whose owner was
+    // deleted from Clerk can't read replies, so a chat would silently go
+    // nowhere. (A Clerk outage throws instead of reading as "deleted".)
+    const owner = await this.directory.findExisting(venue.ownerId)
+    if (!owner) {
+      throw new BadRequestException("Sân này hiện không nhận tin nhắn")
+    }
     await this.client.upsertUsers([
       { id: userId },
       {
         id: venue.ownerId,
-        name: owner?.name ?? venue.info.name,
-        ...(owner?.image ? { image: owner.image } : {}),
+        name: owner.name,
+        ...(owner.image ? { image: owner.image } : {}),
       },
     ])
 

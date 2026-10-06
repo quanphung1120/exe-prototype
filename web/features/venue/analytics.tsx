@@ -15,7 +15,6 @@ import {
   Send,
   Smartphone,
   Snowflake,
-  Sparkles,
   Tag,
   TrendingUp,
   UserPlus,
@@ -23,7 +22,6 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -73,24 +71,15 @@ import {
   type ColdSlot,
   type CourtBlock,
   type CourtBlockReason,
-  type InsightSeverity,
   type VenueCourt,
 } from "@/features/venue/data"
 import {
   Meter,
   MicroLabel,
-  Ring,
   VenueEmpty,
   VenuePanel,
   VenueStat,
 } from "@/features/venue/shared"
-
-/** Severity → dot tint, staying on the existing risk-tier palette. */
-const SEVERITY_DOT: Record<InsightSeverity, string> = {
-  info: "bg-chart-2",
-  warn: "bg-amber-500",
-  critical: "bg-destructive",
-}
 
 const CHANNEL_ICON: Record<
   BookingSource,
@@ -100,18 +89,12 @@ const CHANNEL_ICON: Record<
   "walk-in": Footprints,
 }
 
-/** Per-sport ring tint, staying on the emerald/lime palette. */
-const SPORT_RING: Record<string, string> = {
-  badminton: "text-brand",
-}
-
 export function VenueAnalyticsView({
   embedded = false,
 }: {
   embedded?: boolean
 } = {}) {
   const t = useTranslations("VenueAnalytics")
-  const tc = useTranslations("Common")
   const tSchedule = useTranslations("VenueSchedule")
   const locale = useLocale()
   const { todayIso } = useData()
@@ -120,9 +103,7 @@ export function VenueAnalyticsView({
     channelMix: CHANNEL_MIX,
     reservations: RESERVATIONS,
     revenueSeries: REVENUE_SERIES,
-    sportMix: SPORT_MIX,
     venueCourts: VENUE_COURTS,
-    venueInsights: VENUE_INSIGHTS,
     venueStats: VENUE_STATS,
     addBlock,
   } = useVenueData()
@@ -385,122 +366,36 @@ export function VenueAnalyticsView({
         tSchedule={tSchedule}
       />
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <VenuePanel title={t("sportMix.title")} icon={BarChart3}>
-          <div className="flex items-center justify-center gap-6 py-2">
-            {SPORT_MIX.map((s) => (
-              <div key={s.sport} className="flex flex-col items-center gap-2">
-                <Ring
-                  pct={s.pct}
-                  ringClassName={SPORT_RING[s.sport] ?? "text-brand"}
-                >
-                  <div className="text-center">
-                    <span className="font-heading text-xl font-bold tabular-nums">
-                      {s.pct}
+      <VenuePanel title={t("channels.title")} icon={Smartphone}>
+        <div className="flex flex-col gap-4">
+          {CHANNEL_MIX.map((c) => {
+            const Icon = CHANNEL_ICON[c.source]
+            return (
+              <div key={c.source} className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="grid size-7 place-items-center rounded-full bg-muted text-muted-foreground">
+                      <Icon className="size-3.5" />
                     </span>
-                    <span className="text-xs text-muted-foreground">%</span>
-                  </div>
-                </Ring>
-                <div className="text-center">
-                  <p className="text-sm font-medium">
-                    {tc(`sports.${s.sport}`)}
-                  </p>
-                  <p className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                    {t("sportMix.bookings", { count: s.bookings })}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
-            {SPORT_MIX.map((s) => (
-              <div key={s.sport} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    {tc(`sports.${s.sport}`)}
+                    <span className="font-medium">
+                      {t(`channels.source.${c.source}`)}
+                    </span>
                   </span>
-                  <span className="font-mono font-semibold tabular-nums">
-                    {s.pct}%
+                  <span className="font-heading text-lg font-bold tabular-nums">
+                    {c.pct}
+                    <span className="text-xs font-medium text-muted-foreground">
+                      %
+                    </span>
                   </span>
                 </div>
-                <Meter pct={s.pct} />
+                <Meter pct={c.pct} />
               </div>
-            ))}
-          </div>
-        </VenuePanel>
-
-        <VenuePanel title={t("channels.title")} icon={Smartphone}>
-          <div className="flex flex-col gap-4">
-            {CHANNEL_MIX.map((c) => {
-              const Icon = CHANNEL_ICON[c.source]
-              return (
-                <div key={c.source} className="flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="inline-flex items-center gap-2">
-                      <span className="grid size-7 place-items-center rounded-full bg-muted text-muted-foreground">
-                        <Icon className="size-3.5" />
-                      </span>
-                      <span className="font-medium">
-                        {t(`channels.source.${c.source}`)}
-                      </span>
-                    </span>
-                    <span className="font-heading text-lg font-bold tabular-nums">
-                      {c.pct}
-                      <span className="text-xs font-medium text-muted-foreground">
-                        %
-                      </span>
-                    </span>
-                  </div>
-                  <Meter pct={c.pct} />
-                </div>
-              )
-            })}
-          </div>
-          <p className="border-t border-border/60 pt-3 text-xs text-muted-foreground">
-            {t("channels.note", { pct: CHANNEL_MIX[0]?.pct ?? 0 })}
-          </p>
-        </VenuePanel>
-      </div>
-
-      {/* AI insights — always seeded sample content, never computed from real
-          bookings (unlike the KPIs/charts above), so it always carries the
-          "Demo AI" chip regardless of whether the venue is real or a demo. */}
-      <VenuePanel
-        title={t("insights.title")}
-        icon={Sparkles}
-        action={
-          <Badge variant="secondary" className="gap-1">
-            <Sparkles className="size-3" />
-            {t("insights.demoChip")}
-          </Badge>
-        }
-      >
-        <p className="-mt-1 text-xs text-muted-foreground">
-          {t("insights.subtitle")}
-        </p>
-        <div className="flex flex-col divide-y divide-border/60">
-          {VENUE_INSIGHTS.map((insight) => (
-            <div key={insight.id} className="flex items-start gap-3 py-3">
-              <span
-                className={cn(
-                  "mt-1.5 size-2 shrink-0 rounded-full",
-                  SEVERITY_DOT[insight.severity]
-                )}
-              />
-              <div className="flex flex-1 flex-col gap-0.5">
-                <p className="text-sm font-medium">
-                  {locStr(insight.title, locale)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {locStr(insight.detail, locale)}
-                </p>
-              </div>
-              <span className="shrink-0 font-mono text-[11px] font-semibold text-brand tabular-nums">
-                {locStr(insight.impact, locale)}
-              </span>
-            </div>
-          ))}
+            )
+          })}
         </div>
+        <p className="border-t border-border/60 pt-3 text-xs text-muted-foreground">
+          {t("channels.note", { pct: CHANNEL_MIX[0]?.pct ?? 0 })}
+        </p>
       </VenuePanel>
     </div>
   )

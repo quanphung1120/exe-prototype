@@ -39,7 +39,6 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  SPORTS,
   courtStateAccent,
   formatVnd,
   type CourtState,
@@ -54,6 +53,7 @@ import {
   type CourtInput,
 } from "@/features/venue/venue-actions"
 import { SportTag } from "@/features/dashboard/shared"
+import { VenuePhotosPanel } from "@/features/venue/venue-photos"
 import { VenueEmpty, VenuePanel } from "@/features/venue/shared"
 
 const COURT_STATES: CourtState[] = [
@@ -190,6 +190,9 @@ export function VenueCourtsView({
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
       ) : null}
+
+      {/* Keyed so switching branch resets the panel's local gallery copy. */}
+      <VenuePhotosPanel key={venueId} />
 
       <VenuePanel
         title={t("listTitle")}
@@ -361,10 +364,9 @@ function CourtFormDialog({
   onSubmit,
 }: CourtFormDialogProps) {
   const t = useTranslations("VenueCourts")
-  const tc = useTranslations("Common")
   const isEditing = court !== null
   const [draft, setDraft] = React.useState<CourtDraft>(() =>
-    court ? draftFromCourt(court) : emptyDraft(SPORTS[0]?.key ?? "badminton")
+    court ? draftFromCourt(court) : emptyDraft("badminton")
   )
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -400,52 +402,28 @@ function CourtFormDialog({
               }
             />
           </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field>
-              <FieldLabel>{t("form.sport")}</FieldLabel>
-              <Select
-                value={draft.sport}
-                onValueChange={(v) =>
-                  setDraft((d) => ({ ...d, sport: v as SportKey }))
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue>
-                    {(v) => tc(`sports.${v as SportKey}`)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {SPORTS.map((s) => (
-                    <SelectItem key={s.key} value={s.key}>
-                      {tc(`sports.${s.key}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel>{t("form.state")}</FieldLabel>
-              <Select
-                value={draft.state}
-                onValueChange={(v) =>
-                  setDraft((d) => ({ ...d, state: v as CourtState }))
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue>
-                    {(v) => t(`state.${stateKey(v as CourtState)}`)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {COURT_STATES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {t(`state.${stateKey(s)}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
+          <Field>
+            <FieldLabel>{t("form.state")}</FieldLabel>
+            <Select
+              value={draft.state}
+              onValueChange={(v) =>
+                setDraft((d) => ({ ...d, state: v as CourtState }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {(v) => t(`state.${stateKey(v as CourtState)}`)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {COURT_STATES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {t(`state.${stateKey(s)}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="court-surface">

@@ -95,6 +95,49 @@ export class ClerkDirectoryService {
   }
 
   /**
+   * Like {@link getOne}, but strict about *why* there's no user: null only
+   * when Clerk says the account doesn't exist (404, e.g. deleted); any other
+   * failure (network, rate limit) throws, so a Clerk outage is never mistaken
+   * for a deleted account.
+   */
+  async findExisting(id: string): Promise<DirectoryUser | null> {
+    try {
+      return this.toDirectoryUser(await this.clerk.users.getUser(id))
+    } catch (err) {
+      if ((err as { status?: number })?.status === 404) return null
+      throw err
+    }
+  }
+
+  /**
+   * A user's name as safe to show to the public (e.g. on the landing page):
+   * first name + last-name initial ("Viên T."), else the username — never
+   * anything derived from an email address. `name` is null when Clerk has
+   * neither, or when the lookup fails.
+   */
+  async getPublicProfile(
+    id: string
+  ): Promise<{ name: string | null; image?: string }> {
+    try {
+      const user = await this.clerk.users.getUser(id)
+      const first = user.firstName?.trim()
+      const last = user.lastName?.trim()
+      const name = first
+        ? last
+          ? `${first} ${last.charAt(0).toUpperCase()}.`
+          : first
+        : last || user.username || null
+      return { name, ...(user.imageUrl ? { image: user.imageUrl } : {}) }
+    } catch (err) {
+      this.logger.error(
+        `Clerk public-profile lookup failed for ${id}`,
+        err instanceof Error ? err.stack : String(err)
+      )
+      return { name: null }
+    }
+  }
+
+  /**
    * Map a Clerk `User` to our directory shape. Display name prefers first +
    * last name, falls back to the primary email's local part, then a
    * Vietnamese-first generic label. `email` is only attached when the caller

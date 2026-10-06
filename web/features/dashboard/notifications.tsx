@@ -31,8 +31,7 @@ import {
   markNotificationRead,
 } from "@/features/dashboard/notification-actions"
 import { useMatchmaking } from "@/features/play/matchmaking"
-import { useAuthUser } from "@/features/dashboard/auth-user"
-import { demoChannelId, roomChannelId } from "@/features/chat/channel-ids"
+import { roomChannelId } from "@/features/chat/channel-ids"
 import { useRouter } from "@/i18n/navigation"
 
 /** How often the notification centre polls `GET /api/notifications`. */
@@ -267,20 +266,14 @@ export function NotificationsButton({
 }) {
   const t = useTranslations("Notifications")
   const { items, unreadCount, markRead, markAllRead } = useNotifications()
-  const user = useAuthUser()
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
 
   const onItemClick = (item: NotificationItem) => {
     markRead(item.id)
     if (item.chatId) {
-      // Team-chat notifications already carry a full `room-<id>` channel id; the
-      // seeded demo notifications carry a bare chat id (`ch1`) that needs the
-      // per-user `demo-…` prefix. Deep-link into whichever channel.
-      const channel = item.chatId.startsWith("room-")
-        ? item.chatId
-        : demoChannelId(item.chatId, user.id)
-      router.push(`/app/chat?channel=${channel}`)
+      // Team-chat notifications carry a full `room-<id>` channel id.
+      router.push(`/app/chat?channel=${item.chatId}`)
     } else if (item.href) {
       router.push(item.href)
     }

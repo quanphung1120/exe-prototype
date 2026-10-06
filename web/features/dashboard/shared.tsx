@@ -3,6 +3,7 @@
 import { CourtDistance } from "@/features/dashboard/court-distance"
 
 import * as React from "react"
+import Image from "next/image"
 import { useTranslations } from "next-intl"
 import { ArrowDownRight, ArrowUpRight, Clock, MapPin, Star } from "lucide-react"
 
@@ -354,24 +355,43 @@ export function RoomRow({
 }
 
 // Per-sport tint for the decorative court banner (keyed by the court's first
-// listed sport). The prototype has no real court photos, so each card's "image"
-// is a deterministic gradient + court-line grid + oversized sport monogram.
+// listed sport) — the fallback for a venue that hasn't uploaded photos yet: a
+// deterministic gradient + court-line grid + oversized sport monogram.
 const COURT_IMG: Record<SportKey, string> = {
   badminton: "from-chart-3/35 via-brand/15 to-lime/20",
 }
 
 /**
- * Decorative court "photo" — see COURT_IMG. Sizing is left to the caller via
- * `className` (e.g. a wide banner in the booking wizard, a tall thumbnail in the
- * Find Courts list).
+ * A court's picture: the venue's cover photo when its operator uploaded one,
+ * else the decorative banner (see COURT_IMG). Sizing is left to the caller via
+ * `className` (e.g. a wide banner in the booking wizard, a tall thumbnail in
+ * the Find Courts list); `sizes` should roughly match that rendered width.
  */
 export function CourtImage({
   court,
   className,
+  sizes = "160px",
 }: {
   court: Court
   className?: string
+  sizes?: string
 }) {
+  const cover = court.photos?.[0]
+  if (cover) {
+    return (
+      <div
+        className={cn("relative shrink-0 overflow-hidden bg-muted", className)}
+      >
+        <Image
+          src={cover}
+          alt={court.name}
+          fill
+          sizes={sizes}
+          className="object-cover"
+        />
+      </div>
+    )
+  }
   const sport = court.sports[0]
   const short = SPORTS.find((s) => s.key === sport)?.short ?? ""
   return (

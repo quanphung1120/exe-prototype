@@ -1,11 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common"
 
-import {
-  buildSeedSessions,
-  isoDateOf,
-  vnNowIso,
-  type Seed,
-} from "../../shared/index.js"
+import { vnNowIso, type Seed } from "../../shared/index.js"
 
 import { resolveAccountType } from "../account/account.service.js"
 import { AssessmentService } from "../assessment/assessment.service.js"
@@ -38,12 +33,11 @@ export class SeedService {
    * The complete seed payload (player + venue). Each account owns exactly one
    * venue: `venues` is `[theirVenue]` (or `[]` when unprovisioned — the web gates
    * on this to route new accounts into setup) and `venue` carries that venue's
-   * bundle. `userId` also drives the personal half: their profile pre-data plus
-   * their persisted PlaySessions layered over the demo sessions.
+   * bundle. `userId` also drives the personal half: their profile plus their
+   * persisted PlaySessions.
    */
   async buildSeed(userId?: string): Promise<Seed> {
     const serverNow = vnNowIso()
-    const todayIso = isoDateOf(serverNow)
     const [
       courts,
       venuePins,
@@ -70,22 +64,9 @@ export class SeedService {
         : Promise.resolve({ brand: null, venues: [] }),
     ])
 
-    // The demo sessions are derived from *this user's* profile rooms/bookings, so
-    // a fresh user gets the same seed sessions the app has always shipped; their
-    // persisted sessions then override any sharing an id.
-    const demoSessions = buildSeedSessions(
-      profile.rooms,
-      profile.bookings,
-      courts,
-      profile.user,
-      players,
-      todayIso
-    )
-    const ownIds = new Set(userSessions.map((s) => s.id))
-    const sessions = [
-      ...userSessions,
-      ...demoSessions.filter((s) => !ownIds.has(s.id)),
-    ]
+    // Only the user's own persisted sessions — no demo sessions are derived any
+    // more.
+    const sessions = userSessions
 
     // The caller's brand and its branches (chi nhánh), or none yet. When they
     // have none, `venues` is empty (the web redirects to setup) and `venue`

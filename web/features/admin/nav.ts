@@ -4,13 +4,20 @@ import {
   Building2,
   CalendarClock,
   LayoutDashboard,
+  MessageSquareQuote,
   TicketPercent,
 } from "lucide-react"
 
 import type { NavItem } from "@/features/dashboard/nav"
 
 export type AdminSectionKey =
-  "overview" | "venues" | "bookings" | "discounts" | "refunds" | "approvals"
+  | "overview"
+  | "venues"
+  | "bookings"
+  | "discounts"
+  | "refunds"
+  | "approvals"
+  | "reviews"
 
 /** Every admin route lives under this prefix — one cross-tenant surface, not per-venue. */
 export const ADMIN_BASE_PREFIX = "/app/admin"
@@ -62,5 +69,12 @@ export const ADMIN_NAV: NavItem<AdminSectionKey>[] = [
     label: "Approvals",
     icon: BadgeCheck,
     caption: "New venues awaiting review",
+  },
+  {
+    key: "reviews",
+    href: `${ADMIN_BASE_PREFIX}/reviews`,
+    label: "App reviews",
+    icon: MessageSquareQuote,
+    caption: "Moderate reviews quoted on the landing page",
   },
 ]

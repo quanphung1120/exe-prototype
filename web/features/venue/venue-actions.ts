@@ -95,6 +95,44 @@ export async function provisionVenue(input: VenueSetupInput): Promise<string> {
   return seed.info.id
 }
 
+/** Signed params for one direct browser → Cloudinary upload (api: venue-photos). */
+export interface VenuePhotoUploadSignature {
+  cloudName: string
+  apiKey: string
+  timestamp: number
+  folder: string
+  allowedFormats: string
+  signature: string
+}
+
+/**
+ * A short-lived signature to upload one photo of `venueId` straight to
+ * Cloudinary. The api only signs for the venue's own operator; the Cloudinary
+ * secret never reaches the browser.
+ */
+export async function signVenuePhotoUpload(
+  venueId: string
+): Promise<VenuePhotoUploadSignature> {
+  return api<VenuePhotoUploadSignature>(
+    `/api/venues/${venueId}/photos/signature`,
+    { method: "POST" }
+  )
+}
+
+/** Replace the venue's photo gallery (order = display order, first = cover). */
+export async function saveVenuePhotos(
+  venueId: string,
+  photos: string[]
+): Promise<string[]> {
+  const res = await api<{ photos: string[] }>(`/api/venues/${venueId}/photos`, {
+    method: "PUT",
+    body: JSON.stringify({ photos }),
+  })
+  // The operator's workspace and every player surface (court cards, booking).
+  revalidatePath("/app", "layout")
+  return res.photos
+}
+
 export async function updateVenue(
   id: string,
   input: Partial<VenueInput>

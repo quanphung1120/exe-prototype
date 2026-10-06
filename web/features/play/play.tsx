@@ -7,7 +7,6 @@ import { MapPin, Plus, Search, Users, X, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { cn } from "@/lib/utils"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { RoomsView } from "@/features/play/match-maker"
 import {
@@ -17,7 +16,6 @@ import {
   type CourtFilterState,
 } from "@/features/play/find-courts"
 import { ActiveRoomPill } from "@/features/play/active-room"
-import { SportFilter } from "@/features/dashboard/sport-filter"
 
 export type PlayTab = "rooms" | "courts"
 
@@ -35,16 +33,11 @@ export function PlayView({ initialTab = "courts" }: { initialTab?: PlayTab }) {
   const [courtFilters, setCourtFilters] = React.useState<CourtFilterState>(
     DEFAULT_COURT_FILTERS
   )
-  const { openQuickJoin, openCreateRoom, search } = useMatchmaking()
+  const { openQuickJoin, openCreateRoom } = useMatchmaking()
 
   return (
     <div className="player-play flex min-h-full flex-col bg-[#f6f9ff] text-foreground lg:h-full lg:overflow-hidden">
-      <div
-        className={cn(
-          "mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 px-4 py-5 sm:px-6 lg:min-h-0 lg:px-7",
-          search && "pb-32"
-        )}
-      >
+      <div className="mx-auto flex w-full max-w-[1800px] flex-1 flex-col gap-4 px-4 py-5 sm:px-6 lg:min-h-0 lg:px-7">
         {/* Page header */}
         <header className="grid shrink-0 items-center gap-3 lg:grid-cols-[220px_minmax(0,1fr)_minmax(300px,0.85fr)] lg:gap-4">
           <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-8 lg:col-span-2">
@@ -106,8 +99,6 @@ export function PlayView({ initialTab = "courts" }: { initialTab?: PlayTab }) {
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-
-            <SportFilter className="h-10! w-full justify-between rounded-xl border-[#e3eafa] text-xs shadow-none ring-0" />
 
             {tab === "courts" ? (
               <div className="border-t border-[#eaf0fc] pt-4">

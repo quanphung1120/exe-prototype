@@ -5,17 +5,13 @@ import "reflect-metadata"
 
 import { Test } from "@nestjs/testing"
 
-import {
-  ACTIVITY,
-  NOTIFICATIONS,
-  STATS,
-  STREAK,
-  USER,
-} from "../src/data/player.js"
 import { AssessmentService } from "../src/features/assessment/assessment.service.js"
 import { CourtsService } from "../src/features/courts/courts.service.js"
 import { PlayerService } from "../src/features/players/player.service.js"
-import { ProfileService } from "../src/features/players/profile.service.js"
+import {
+  ProfileService,
+  emptyProfileData,
+} from "../src/features/players/profile.service.js"
 import { SeedService } from "../src/features/seed/seed.service.js"
 import { SessionsService } from "../src/features/sessions/sessions.service.js"
 import { VenuesService } from "../src/features/venues/venues.service.js"
@@ -28,16 +24,7 @@ import type { VenueSeed } from "../src/shared/index.js"
  */
 
 function makeProfile() {
-  return {
-    user: USER,
-    streak: STREAK,
-    stats: STATS,
-    rooms: [],
-    bookings: [],
-    activity: ACTIVITY,
-    notifications: NOTIFICATIONS,
-    accountType: null,
-  }
+  return emptyProfileData("Test User")
 }
 
 interface Deps {

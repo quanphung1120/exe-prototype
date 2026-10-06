@@ -1336,7 +1336,11 @@ function CourtCard({
       )}
     >
       <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-[#f4f7fc]">
-        <CourtImage court={court} className="absolute inset-0 h-full w-full" />
+        <CourtImage
+          court={court}
+          className="absolute inset-0 h-full w-full"
+          sizes="384px"
+        />
         <span className="absolute top-2 left-2 grid h-6 min-w-6 place-items-center rounded-full bg-[#a5ff12] px-2 text-xs font-black text-[#173bc8] shadow">
           #{rank}
         </span>

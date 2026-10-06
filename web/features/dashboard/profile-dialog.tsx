@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { RotateCcw, Shield, Star } from "lucide-react"
+import { RotateCcw, Star } from "lucide-react"
 import { initialsOf, type RatingSummary } from "@/lib/shared"
 
 import { cn } from "@/lib/utils"
@@ -10,57 +10,6 @@ import { useRouter, usePathname } from "@/i18n/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 
-const REVIEW_POOL = [
-  {
-    initials: "TH",
-    author: "Trần Huy",
-    rating: 5,
-    text: "Chơi rất ổn, đúng giờ và fair play. Kỹ thuật tốt, sẽ ghép cặp lại lần sau!",
-    ago: "1 tuần trước",
-  },
-  {
-    initials: "LL",
-    author: "Lê Lan",
-    rating: 5,
-    text: "Đối tác tuyệt vời — kỹ thuật tốt và tinh thần thể thao rất cao. Highly recommend!",
-    ago: "2 tuần trước",
-  },
-  {
-    initials: "PQ",
-    author: "Phạm Quân",
-    rating: 4,
-    text: "Chơi vui, giao lưu tốt. Phản xạ nhanh, kiên nhẫn với đồng đội mới.",
-    ago: "3 tuần trước",
-  },
-  {
-    initials: "ĐA",
-    author: "Đỗ Anh",
-    rating: 5,
-    text: "Cực kỳ đáng tin cậy, chưa bao giờ bùng lịch hay đến trễ. Tôi rất ấn tượng!",
-    ago: "1 tháng trước",
-  },
-  {
-    initials: "VH",
-    author: "Vũ Hà",
-    rating: 4,
-    text: "Trình độ ổn định, chiến thuật tốt. Chơi fair và luôn hỗ trợ đồng đội.",
-    ago: "5 ngày trước",
-  },
-  {
-    initials: "BK",
-    author: "Bùi Khang",
-    rating: 5,
-    text: "Một trong những đối tác hay nhất tôi từng chơi cùng. Rất chuyên nghiệp và vui vẻ!",
-    ago: "2 tháng trước",
-  },
-  {
-    initials: "NM",
-    author: "Nguyễn Minh",
-    rating: 4,
-    text: "Kỹ năng đồng đều, giao tiếp tốt trong trận. Biết điều chỉnh chiến thuật linh hoạt.",
-    ago: "3 tuần trước",
-  },
-] as const
 import {
   Dialog,
   DialogContent,
@@ -205,16 +154,6 @@ export function ProfileDialog({ open, onOpenChange }: ProfileDialogProps) {
               </Button>
             </div>
 
-            <div className="mt-5 flex items-center justify-between rounded-2xl bg-muted/40 p-3 text-xs ring-1 ring-foreground/5 dark:ring-foreground/10">
-              <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground uppercase">
-                <Shield className="size-3.5 text-brand" />
-                {tProfile("reliability")}
-              </span>
-              <span className="font-mono font-bold text-brand tabular-nums">
-                {USER.trust}%
-              </span>
-            </div>
-
             <PlayerReviews userId={sUser.id} open={open} />
           </div>
         </div>
@@ -247,22 +186,11 @@ export function PlayerProfileDialog({
 
   const name = fullPlayer?.name ?? rosterEntry?.name ?? initials ?? ""
   const level = fullPlayer?.level ?? rosterEntry?.level
-  const trust = fullPlayer?.trust ?? rosterEntry?.trust ?? 0
   const sport = fullPlayer?.sport
   const matchPct = fullPlayer?.matchPct
   const distanceKm = fullPlayer?.distanceKm
   const online = fullPlayer?.online
   const blurb = fullPlayer?.blurb
-
-  const pool = REVIEW_POOL.filter((r) => r.initials !== initials)
-  const seed = (initials ?? "")
-    .split("")
-    .reduce((s, c) => s + c.charCodeAt(0), 0)
-  const reviews = [0, 1, 2].map((i) => pool[(seed + i) % pool.length])
-  const avgRating =
-    Math.round(
-      (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10
-    ) / 10
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -346,94 +274,13 @@ export function PlayerProfileDialog({
               </div>
             ) : null}
 
-            <div className="mt-3 flex gap-2">
-              <div className="flex flex-1 items-center justify-between rounded-2xl bg-muted/40 p-3 text-xs ring-1 ring-foreground/5 dark:ring-foreground/10">
-                <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-bold text-muted-foreground uppercase">
-                  <Shield className="size-3.5 text-brand" />
-                  {tProfile("reliability")}
-                </span>
-                <span className="font-mono font-bold text-brand tabular-nums">
-                  {trust}%
+            {distanceKm != null ? (
+              <div className="mt-3 flex w-fit items-center justify-center rounded-2xl bg-muted/40 px-3 py-2 ring-1 ring-foreground/5 dark:ring-foreground/10">
+                <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
+                  {tProfile("kmAway", { km: distanceKm })}
                 </span>
               </div>
-              {distanceKm != null ? (
-                <div className="flex items-center justify-center rounded-2xl bg-muted/40 px-3 py-2 ring-1 ring-foreground/5 dark:ring-foreground/10">
-                  <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
-                    {tProfile("kmAway", { km: distanceKm })}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-5 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
-                  {tProfile("reviewsLabel")}
-                </h4>
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <Star
-                        key={i}
-                        className={cn(
-                          "size-3",
-                          i < Math.round(avgRating)
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-muted-foreground/25"
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <span className="font-mono text-[11px] font-bold text-foreground tabular-nums">
-                    {avgRating.toFixed(1)}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    · {tProfile("ratingsCount", { count: reviews.length })}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2.5">
-                {reviews.map((review, i) => (
-                  <div
-                    key={i}
-                    className="flex flex-col gap-2 rounded-2xl bg-muted/40 p-3.5 ring-1 ring-foreground/5 dark:ring-foreground/10"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Avatar className="size-7 shrink-0">
-                        <AvatarFallback className="bg-secondary text-[10px] font-bold text-secondary-foreground">
-                          {review.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-foreground">
-                          {review.author}
-                        </p>
-                        <div className="mt-0.5 flex items-center gap-1">
-                          {Array.from({ length: 5 }, (_, j) => (
-                            <Star
-                              key={j}
-                              className={cn(
-                                "size-2.5",
-                                j < review.rating
-                                  ? "fill-amber-400 text-amber-400"
-                                  : "text-muted-foreground/25"
-                              )}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                        {review.ago}
-                      </span>
-                    </div>
-                    <p className="text-xs leading-relaxed text-muted-foreground">
-                      {review.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            ) : null}
           </div>
         </div>
       </DialogContent>

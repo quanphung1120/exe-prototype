@@ -36,13 +36,6 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
   Table,
   TableBody,
   TableCell,
@@ -436,10 +429,8 @@ function AddCustomerDialog({
   customersList,
 }: AddCustomerDialogProps) {
   const t = useTranslations("VenueCustomers")
-  const tc = useTranslations("Common")
   const [name, setName] = React.useState("")
   const [phone, setPhone] = React.useState("")
-  const [sport, setSport] = React.useState<"badminton">("badminton")
   const [isPending, startTransition] = React.useTransition()
   const [error, setError] = React.useState("")
 
@@ -464,7 +455,7 @@ function AddCustomerDialog({
         const created = await createCustomer(venueId, {
           name: trimmedName,
           phone: trimmedPhone,
-          favoriteSport: sport,
+          favoriteSport: "badminton",
         })
         onAdd(created)
         toast.success(t("addDialog.added"))
@@ -506,24 +497,6 @@ function AddCustomerDialog({
               placeholder={t("addDialog.phonePlaceholder")}
             />
           </label>
-          <div className="flex flex-col gap-1.5 text-sm font-medium">
-            <span>{t("addDialog.sport")}</span>
-            <Select
-              value={sport}
-              onValueChange={(v) => setSport(v as "badminton")}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(v) => tc(`sports.${v as "badminton"}`)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="badminton">
-                  {tc("sports.badminton")}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           <div className="mt-2 flex justify-end gap-2">
             <Button
               type="button"

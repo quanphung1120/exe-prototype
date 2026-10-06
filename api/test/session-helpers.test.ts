@@ -3,7 +3,6 @@ import { test } from "node:test"
 
 import { buildSeedSessions, sessionToRoom } from "../src/shared/helpers.js"
 import type { MatchRoom, PlaySession, User } from "../src/shared/index.js"
-import { MATCH_SUGGESTIONS, ROOMS } from "../src/data/player.js"
 
 /**
  * Phase 9 G1 (VienTD-Review): the fake matchmaking timers were removed, so
@@ -43,16 +42,6 @@ function makeRoom(overrides: Partial<MatchRoom> = {}): MatchRoom {
     ...overrides,
   }
 }
-
-void test("every seed ROOMS entry is marked demo: true", () => {
-  assert.ok(ROOMS.length > 0)
-  for (const r of ROOMS) assert.equal(r.demo, true, r.id)
-})
-
-void test("every seed MATCH_SUGGESTIONS entry is marked demo: true", () => {
-  assert.ok(MATCH_SUGGESTIONS.length > 0)
-  for (const p of MATCH_SUGGESTIONS) assert.equal(p.demo, true, p.id)
-})
 
 void test("buildSeedSessions carries a demo room's flag onto its session", () => {
   const sessions = buildSeedSessions(

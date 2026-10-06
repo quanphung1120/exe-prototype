@@ -43,9 +43,8 @@ import {
   type VenueStats,
 } from "../../shared/index.js"
 
-import { emptyOps, INITIAL_VENUES, type VenueRecord } from "../../data/venue.js"
+import { emptyOps, type VenueRecord } from "../../data/venue.js"
 import {
-  isDuplicateKeyError,
   isDuplicateKeyErrorOn,
   once,
   withVersionRetry,
@@ -177,9 +176,8 @@ function maxSeq(ids: string[], prefix: string): number {
 }
 
 // MongoDB-backed venue service. Each operator venue is one document holding the
-// whole VenueRecord ({ info, ops }); the collection is seeded from the hardcoded
-// `INITIAL_VENUES` the first time it's read (idempotent), so every mutation below
-// persists across restarts.
+// whole VenueRecord ({ info, ops }). Nothing is seeded: every venue is created
+// by a real operator (`provisionVenue`), and every mutation below persists.
 //
 // Court/customer CRUD lives here; booking/reservation logic lives in
 // BookingsService (the canonical `bookings` collection) — this service composes
@@ -225,8 +223,7 @@ export class VenuesService implements OnModuleInit {
     )
   }
 
-  // Memoize the one-time seed so concurrent first-requests don't each insert the
-  // demo venues (which would collide on the unique `venueId` index).
+  // Memoized one-time index reconciliation, awaited before the first read/write.
   private readonly ensureSeeded = once(async () => {
     // Reconcile the collection's indexes with the current schema before anything
     // reads/writes by owner. This venue used to carry a UNIQUE index on `ownerId`
@@ -241,20 +238,6 @@ export class VenuesService implements OnModuleInit {
       await this.venueModel.syncIndexes()
     } catch (err) {
       this.logger.warn(`Venue index sync skipped: ${String(err)}`)
-    }
-
-    if ((await this.venueModel.countDocuments()) > 0) return
-    try {
-      await this.venueModel.insertMany(
-        INITIAL_VENUES.map((rec) => ({
-          venueId: rec.info.id,
-          info: rec.info,
-          ops: rec.ops,
-        })),
-        { ordered: false }
-      )
-    } catch (err) {
-      if (!isDuplicateKeyError(err)) throw err
     }
   })
 
@@ -274,15 +257,6 @@ export class VenuesService implements OnModuleInit {
       ops: d.ops,
       ownerId: d.ownerId,
     }))
-  }
-
-  private async firstRecord(): Promise<VenueRecord> {
-    const doc = await this.venueModel
-      .findOne()
-      .sort(ORDER)
-      .lean<VenueDocument>()
-    // The store is always seeded before this runs, so a venue always exists.
-    return { info: withApproval(doc!.info, doc!), ops: doc!.ops }
   }
 
   // ── Reads ──────────────────────────────────────────────────────────────────
@@ -315,19 +289,9 @@ export class VenuesService implements OnModuleInit {
     }
   }
 
-  /** The active venue's full operator bundle (the seed's `venue` payload). */
-  async activeBundle(id?: string): Promise<VenueSeed> {
-    await this.ensureSeeded()
-    const doc = id ? await this.findDoc(id).lean<VenueDocument>() : null
-    const rec = doc
-      ? { info: withApproval(doc.info, doc), ops: doc.ops }
-      : await this.firstRecord()
-    return this.withComputedStats(await this.composeBundle(rec))
-  }
-
   /**
-   * A specific venue's full operator bundle. Unlike `activeBundle`, this never
-   * falls back to the first venue — a stale/typo'd id throws NotFound (→ 404).
+   * A specific venue's full operator bundle — a stale/typo'd id throws
+   * NotFound (→ 404).
    */
   async venueBundle(id: string): Promise<VenueSeed> {
     await this.ensureSeeded()
@@ -401,9 +365,8 @@ export class VenuesService implements OnModuleInit {
    * For a venue with a real operator (`info.ownerId` set) this goes further and
    * recomputes the chart series themselves — revenue/sport-mix/channel-mix/peak
    * hours — from that venue's own reservations, so the analytics view is
-   * honest for a real business. Demo venues (no owner) keep their curated,
-   * hardcoded series; AI insights are never computed either way — they stay
-   * seeded, and the web marks them with a fixed "Demo AI" chip.
+   * honest for a real business. Only the ownerless `emptyBundle` placeholder
+   * skips that (it has nothing to compute from).
    *
    * Also re-derives each CRM customer's visits/ltv/noShowRate/tier from the
    * same reservations (`computeCustomerStats`, decision #15/default) — pure,
@@ -556,21 +519,15 @@ export class VenuesService implements OnModuleInit {
    * `pending`/`rejected` admin approval is excluded too — it can't take
    * bookings yet (`BookingsService#assertVenueApproved`), so surfacing it in
    * discovery would only let a player walk the whole flow into that error.
-   * Ownerless seed courts are fallback content only: as soon as at least one
-   * real operator has a discoverable court, the catalog contains real courts
-   * exclusively so seed ratings cannot crowd them out of AI results.
+   * Only venues run by a real operator (`ownerId`) are ever discoverable.
    */
   async catalogCourts(sport?: SportKey): Promise<Court[]> {
     await this.ensureSeeded()
     const records = await this.loadRecords()
-    const approved = records.filter(
-      (rec) => !rec.info.archived && rec.info.approval === "approved"
+    const source = records.filter(
+      (rec) =>
+        rec.ownerId && !rec.info.archived && rec.info.approval === "approved"
     )
-    const real = approved.filter(
-      (rec) => rec.ownerId && rec.ops.courts.some((court) => !court.archived)
-    )
-    const source =
-      real.length > 0 ? real : approved.filter((rec) => !rec.ownerId)
     const courts = source.flatMap((rec) =>
       rec.ops.courts
         .filter((court) => !court.archived)
@@ -593,19 +550,17 @@ export class VenuesService implements OnModuleInit {
    * facing map must not surface a branch that can't take bookings — but UNLIKE
    * catalogCourts a court-less (approved) branch still gets a pin. Coordinates
    * are resolved to the venue's exact position (map-centre fallback when unset),
-   * never the per-court jitter. Ownerless seed pins follow the same fallback
-   * rule as courts and disappear once a real approved branch exists.
+   * never the per-court jitter.
    */
   async catalogVenues(): Promise<VenuePin[]> {
     await this.ensureSeeded()
     const records = await this.loadRecords()
-    const approved = records.filter(
-      (rec) => !rec.info.archived && rec.info.approval === "approved"
-    )
-    const real = approved.filter((rec) => rec.ownerId)
-    return (
-      real.length > 0 ? real : approved.filter((rec) => !rec.ownerId)
-    ).map((rec) => venueToPin(rec.info))
+    return records
+      .filter(
+        (rec) =>
+          rec.ownerId && !rec.info.archived && rec.info.approval === "approved"
+      )
+      .map((rec) => venueToPin(rec.info))
   }
 
   // ── Venue mutations ──────────────────────────────────────────────────────────

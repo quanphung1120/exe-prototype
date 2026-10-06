@@ -145,7 +145,6 @@ function makeService(opts: {
   const bookingsMock = {
     listForVenue: () => Promise.resolve([]),
     listRefundQueue: () => Promise.resolve([]),
-    seedHistoricalBookings: () => Promise.resolve(),
   }
   const profilesMock = { getProfile: () => Promise.resolve({}) }
   const notificationsMock = { create: () => Promise.resolve() }
