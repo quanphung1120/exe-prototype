@@ -10,9 +10,16 @@ import { apiFetch } from "@/lib/api"
 // state) to poll the signed-in user's notifications and mirror read/read-all
 // back to the server.
 
-/** The signed-in user's notifications, newest first. */
+/**
+ * The signed-in user's notifications, newest first. Every real record carries
+ * a `createdAt`; an older api build answers this route from a legacy endpoint
+ * that returns the profile's demo items (no `createdAt`), so those are dropped.
+ */
 export async function listNotifications(): Promise<NotificationRecord[]> {
-  return apiFetch<NotificationRecord[]>("/api/notifications")
+  const records = await apiFetch<NotificationRecord[]>("/api/notifications")
+  return Array.isArray(records)
+    ? records.filter((r) => !Number.isNaN(Date.parse(r.createdAt)))
+    : []
 }
 
 /** Mark one notification read (idempotent — a no-op if already read). */
