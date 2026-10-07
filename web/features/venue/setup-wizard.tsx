@@ -136,7 +136,14 @@ const EMPTY_DRAFT: VenueDraft = {
  * server-side. Lives outside the dashboard layout so it can run before any
  * venue exists.
  */
-export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
+export function SetupWizard({
+  addingBranch,
+  exitHref,
+}: {
+  addingBranch: boolean
+  /** Where "Back" on the first step leaves the wizard to. */
+  exitHref: string
+}) {
   const t = useTranslations("VenueSetup")
   const router = useRouter()
 
@@ -290,8 +297,10 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
           type="button"
           variant="ghost"
           className="rounded-full"
-          disabled={step === 0 || submitting}
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
+          disabled={submitting}
+          onClick={() =>
+            step === 0 ? router.push(exitHref) : setStep((s) => s - 1)
+          }
         >
           <ArrowLeft />
           {t("back")}

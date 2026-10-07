@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { fetchMyVenue } from "@/lib/api"
+import { fetchAccountType, fetchMyVenue } from "@/lib/api"
 import { SetupWizard } from "@/features/venue/setup-wizard"
 import { redirect } from "@/i18n/navigation"
 
@@ -38,5 +38,15 @@ export default async function SetupPage({
     if (venue) redirect({ href: "/app/venue", locale })
   }
 
-  return <SetupWizard addingBranch={Boolean(branch)} />
+  // Where "Back" on the first step leaves the wizard to. Adding a branch
+  // returns to the venue workspace. A first-time setup returns to the player
+  // workspace — unless the account is venue-only, whose workspace would just
+  // bounce back here (no venue yet), so it goes to the home page instead.
+  const exitHref = branch
+    ? "/app/venue"
+    : (await fetchAccountType()) === "venue"
+      ? "/"
+      : "/app"
+
+  return <SetupWizard addingBranch={Boolean(branch)} exitHref={exitHref} />
 }
