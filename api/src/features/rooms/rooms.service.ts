@@ -73,6 +73,9 @@ export class RoomsService {
         "data.listed": true,
         "data.demo": { $ne: true },
         "data.status": { $in: ACTIVE_ROOM_STATUSES },
+        // The PUT body is stored unvalidated; a room without a roster would
+        // crash every client that browses rooms.
+        "data.roster": { $type: "array" },
       })
       .sort(ORDER)
       .lean()

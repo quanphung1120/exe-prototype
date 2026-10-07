@@ -77,6 +77,23 @@ const INVITE_EXPIRY_MS = 6 * 60 * 60 * 1000
 // mirrors `NotificationsProvider`'s POLL_MS.
 const ROOMS_POLL_MS = 30_000
 
+/**
+ * Keep only well-formed rooms from `GET /api/rooms`. The PlaySession body is
+ * stored unvalidated, so another user's document may lack a roster — and one
+ * malformed room must not crash every dashboard page (the joined/requested
+ * memos read `roster.some` on each of them).
+ */
+function wellFormedRooms(remote: unknown): PlaySession[] {
+  if (!Array.isArray(remote)) return []
+  return remote.filter(
+    (r): r is PlaySession =>
+      typeof r === "object" &&
+      r !== null &&
+      typeof (r as PlaySession).id === "string" &&
+      Array.isArray((r as PlaySession).roster)
+  )
+}
+
 /** Fill mode chosen at the "do you have a team yet?" gate. */
 export type FillMode = "court" | "invite" | "find"
 
@@ -473,7 +490,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   /** Refetch every listed cross-user room — called after request/approve/decline/leave. */
   const refreshRooms = React.useCallback(async () => {
     try {
-      const remote = await listRooms()
+      const remote = wellFormedRooms(await listRooms())
       setCrossRooms(remote)
       mergeIncomingRequests(remote)
     } catch (err) {
@@ -488,7 +505,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false
     const poll = async () => {
       try {
-        const remote = await listRooms()
+        const remote = wellFormedRooms(await listRooms())
         if (cancelled) return
         setCrossRooms(remote)
         mergeIncomingRequests(remote)
