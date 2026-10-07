@@ -21,7 +21,12 @@ export interface AdminVenueRow extends Venue {
 
 /** `GET /api/admin/venues` — every brand and its branches. */
 export interface AdminBrandGroup {
-  brand: { id: string; name: string; initials: string } | null
+  brand: {
+    id: string
+    name: string
+    initials: string
+    contactPhone?: string
+  } | null
   venues: AdminVenueRow[]
 }
 

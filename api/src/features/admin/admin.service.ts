@@ -23,7 +23,12 @@ export interface AdminVenueRow extends VenueInfo {
 }
 
 export interface AdminBrandGroup {
-  brand: { id: string; name: string; initials: string } | null
+  brand: {
+    id: string
+    name: string
+    initials: string
+    contactPhone?: string
+  } | null
   venues: AdminVenueRow[]
 }
 
@@ -136,7 +141,12 @@ export class AdminService {
     const groups = new Map<string, AdminBrandGroup>()
     for (const brand of allBrands) {
       groups.set(brand.id, {
-        brand: { id: brand.id, name: brand.name, initials: brand.initials },
+        brand: {
+          id: brand.id,
+          name: brand.name,
+          initials: brand.initials,
+          contactPhone: brand.contactPhone,
+        },
         venues: [],
       })
     }

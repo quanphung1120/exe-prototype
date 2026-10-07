@@ -1,5 +1,5 @@
 import { PartialType } from "@nestjs/mapped-types"
-import { Type } from "class-transformer"
+import { Transform, Type } from "class-transformer"
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -20,7 +20,7 @@ import {
   ValidateNested,
 } from "class-validator"
 
-import { COURT_BLOCK_REASONS } from "../../shared/index.js"
+import { COURT_BLOCK_REASONS, normalizeVnPhone } from "../../shared/index.js"
 import type { CourtBlockReason, SportKey } from "../../shared/index.js"
 import { MAX_VENUE_PHOTOS } from "./venue-photos.service.js"
 
@@ -199,6 +199,18 @@ export class VenueSetupDto {
   @IsString()
   @Length(2, 60)
   managerName?: string
+
+  /** Owner's contact phone for admins — required on first-time setup (like
+   *  `managerName`); ignored once the account already has a brand. Normalized
+   *  to domestic form ("0912345678"); an invalid number fails validation. */
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string" ? (normalizeVnPhone(value) ?? value) : value
+  )
+  @Matches(/^0\d{9,10}$/, {
+    message: "Số điện thoại liên hệ không hợp lệ",
+  })
+  contactPhone?: string
 
   @IsArray()
   @ArrayMinSize(1)

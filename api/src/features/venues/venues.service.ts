@@ -110,6 +110,8 @@ export interface VenueSetupInput {
   /** Required on first-time setup; reused from the account's existing branch
    *  (and so omittable) when adding another branch. */
   managerName?: string
+  /** Owner contact phone — required on first-time setup (ensureBrand). */
+  contactPhone?: string
   /** Brand image/description — only used on first-time setup (ensureBrand). */
   image?: string
   description?: string
@@ -726,10 +728,18 @@ export class VenuesService implements OnModuleInit {
         "managerName is required for the first branch"
       )
     }
+    // A brand-new account must leave a contact phone so an admin can reach the
+    // owner; adding a branch under an existing brand reuses what's on file.
+    if (!input.contactPhone && !(await this.brands.myBrand(userId))) {
+      throw new BadRequestException(
+        "Vui lòng nhập số điện thoại liên hệ của chủ sân"
+      )
+    }
     const brand = await this.brands.ensureBrand(userId, {
       name: input.brandName ?? input.branches[0].name,
       image: input.image,
       description: input.description,
+      contactPhone: input.contactPhone,
     })
     const created: VenueInfo[] = []
     for (const branch of input.branches) {

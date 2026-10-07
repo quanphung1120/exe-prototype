@@ -517,6 +517,12 @@ export interface Brand {
   image?: string
   /** Optional short description shown on the brand profile. */
   description?: string
+  /**
+   * Owner's contact phone, collected at first-time setup so an admin can reach
+   * them when needed. Admin-only — never shown to players. Absent on brands
+   * created before it was required.
+   */
+  contactPhone?: string
   /** Archived (soft-deleted) brand — mirrors {@link Venue.archived}. */
   archived?: boolean
   /**

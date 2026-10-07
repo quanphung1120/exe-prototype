@@ -56,6 +56,8 @@ export interface VenueSetupInput {
   /** Required on first-time setup; reused from the account's existing branch
    *  (and so omittable) when adding another branch. */
   managerName?: string
+  /** Owner contact phone for admins — required on first-time setup. */
+  contactPhone?: string
   branches: BranchInput[]
 }
 
