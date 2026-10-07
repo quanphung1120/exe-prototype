@@ -99,13 +99,21 @@ function makeVenueModel() {
 
 /** A stateful `BrandsService` stand-in mirroring `ensureBrand`'s idempotency. */
 function makeBrandsMock(
-  initial: { id: string; ownerId: string; name: string } | null = null
+  initial: {
+    id: string
+    ownerId: string
+    name: string
+    contactPhone?: string
+  } | null = null
 ) {
   let brand = initial
   const ensureCalls: { userId: string; name?: string }[] = []
   return {
     mock: {
-      ensureBrand: (userId: string, input: { name?: string }) => {
+      ensureBrand: (
+        userId: string,
+        input: { name?: string; contactPhone?: string }
+      ) => {
         ensureCalls.push({ userId, name: input.name })
         if (brand) return Promise.resolve({ ...brand })
         // Mirror the real ensureBrand: a freshly minted brand starts pending
@@ -115,8 +123,14 @@ function makeBrandsMock(
           ownerId: userId,
           name: input.name ?? "",
           initials: initialsOf(input.name ?? ""),
+          contactPhone: input.contactPhone,
           approval: "pending",
-        } as { id: string; ownerId: string; name: string }
+        } as {
+          id: string
+          ownerId: string
+          name: string
+          contactPhone?: string
+        }
         return Promise.resolve({ ...brand })
       },
       myBrand: () => Promise.resolve(brand),
@@ -170,13 +184,35 @@ void test("provisionVenue names the brand from brandName (not the branch name) o
   const input: VenueSetupInput = {
     brandName: "Hệ thống Sân ABC",
     managerName: "Nguyễn Văn A",
+    contactPhone: "0912345678",
     branches: [makeBranch()],
   }
 
   const seed = await service.provisionVenue("u1", input)
 
   assert.equal(getBrand()?.name, "Hệ thống Sân ABC")
+  assert.equal(getBrand()?.contactPhone, "0912345678")
   assert.equal(seed.info.manager.name, "Nguyễn Văn A")
+})
+
+void test("provisionVenue rejects first-time setup with no contact phone", async () => {
+  const { model, store } = makeVenueModel()
+  const { mock: brands, getBrand } = makeBrandsMock(null)
+  const service = makeService({ venueModel: model, brands })
+
+  const input: VenueSetupInput = {
+    brandName: "Hệ thống Sân ABC",
+    managerName: "Nguyễn Văn A",
+    branches: [makeBranch()],
+  }
+
+  await assert.rejects(
+    () => service.provisionVenue("u6", input),
+    BadRequestException
+  )
+  // Rejected before anything is created.
+  assert.equal(getBrand(), null)
+  assert.equal(store.length, 0)
 })
 
 void test("provisionVenue rejects first-time setup with no managerName", async () => {
@@ -242,6 +278,7 @@ void test("provisionVenue creates every branch in the list under the same brand,
   const input: VenueSetupInput = {
     brandName: "Hệ thống Sân ABC",
     managerName: "Nguyễn Văn A",
+    contactPhone: "0912345678",
     branches: [
       makeBranch({ name: "Chi nhánh Quận 7" }),
       makeBranch({ name: "Chi nhánh Quận 1", ward: "Phường Bến Nghé" }),
@@ -276,6 +313,7 @@ void test("a freshly provisioned branch (no courts, pending approval) is exclude
   const input: VenueSetupInput = {
     brandName: "Hệ thống Sân ABC",
     managerName: "Nguyễn Văn A",
+    contactPhone: "0912345678",
     branches: [makeBranch()],
   }
 

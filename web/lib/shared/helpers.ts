@@ -1555,3 +1555,14 @@ export function overlapsBlock(
       rangesOverlap(start, durationMin, b.start, b.durationMin)
   )
 }
+
+/**
+ * Normalize a Vietnamese phone number to its domestic form ("0912345678"):
+ * drops spaces, dots, dashes and parentheses and turns a +84/84 prefix into
+ * a leading 0. Returns null unless the result is 10–11 digits starting with 0
+ * (mobile or landline).
+ */
+export function normalizeVnPhone(raw: string): string | null {
+  const digits = raw.replace(/[\s.\-()]/g, "").replace(/^\+?84/, "0")
+  return /^0\d{9,10}$/.test(digits) ? digits : null
+}

@@ -16,7 +16,12 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Field, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Combobox,
@@ -26,7 +31,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox"
-import { type SportKey } from "@/features/dashboard/data"
+import { normalizeVnPhone, type SportKey } from "@/features/dashboard/data"
 import { provisionVenue } from "@/features/venue/venue-actions"
 import { useRouter } from "@/i18n/navigation"
 import { PROVINCE_OPTIONS, provinceCodeByName, wardsOf } from "@/lib/vn-admin"
@@ -108,6 +113,8 @@ interface VenueDraft {
 interface BrandDraft {
   brandName: string
   managerName: string
+  /** Owner contact phone — lets an admin reach the owner when needed. */
+  contactPhone: string
 }
 
 const EMPTY_DRAFT: VenueDraft = {
@@ -138,6 +145,7 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
   const [brand, setBrand] = React.useState<BrandDraft>({
     brandName: "",
     managerName: "",
+    contactPhone: "",
   })
   const [branches, setBranches] = React.useState<VenueDraft[]>([])
   const [draft, setDraft] = React.useState<VenueDraft>(EMPTY_DRAFT)
@@ -147,8 +155,11 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
     value: VenueDraft[K]
   ) => setDraft((v) => ({ ...v, [key]: value }))
 
+  const contactPhone = normalizeVnPhone(brand.contactPhone)
   const brandValid =
-    brand.brandName.trim().length >= 2 && brand.managerName.trim().length >= 2
+    brand.brandName.trim().length >= 2 &&
+    brand.managerName.trim().length >= 2 &&
+    contactPhone !== null
 
   // A branch must have a map pin — both coordinates present and in valid WGS84
   // range (set via current-location or manual entry).
@@ -184,6 +195,7 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
         : {
             brandName: brand.brandName,
             managerName: brand.managerName,
+            contactPhone: contactPhone ?? undefined,
             branches,
           }
       const venueId = await provisionVenue(payload)
@@ -266,6 +278,9 @@ export function SetupWizard({ addingBranch }: { addingBranch: boolean }) {
           <ReviewStep
             branches={branches}
             brandName={addingBranch ? undefined : brand.brandName}
+            contactPhone={
+              addingBranch ? undefined : (contactPhone ?? undefined)
+            }
           />
         )}
       </div>
@@ -316,6 +331,11 @@ function BrandStep({
   setBrand: React.Dispatch<React.SetStateAction<BrandDraft>>
 }) {
   const t = useTranslations("VenueSetup")
+  // Only flag the number once the owner has typed something that can't be a
+  // valid phone — an empty field just keeps "Next" disabled.
+  const phoneInvalid =
+    brand.contactPhone.trim() !== "" &&
+    normalizeVnPhone(brand.contactPhone) === null
   return (
     <div className="flex flex-col gap-5">
       <Field>
@@ -341,6 +361,26 @@ function BrandStep({
             setBrand((b) => ({ ...b, managerName: e.target.value }))
           }
         />
+      </Field>
+      <Field data-invalid={phoneInvalid || undefined}>
+        <FieldLabel htmlFor="b-phone">{t("form.contactPhone")}</FieldLabel>
+        <Input
+          id="b-phone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          value={brand.contactPhone}
+          aria-invalid={phoneInvalid || undefined}
+          placeholder={t("form.contactPhonePlaceholder")}
+          onChange={(e) =>
+            setBrand((b) => ({ ...b, contactPhone: e.target.value }))
+          }
+        />
+        {phoneInvalid ? (
+          <FieldError>{t("form.contactPhoneInvalid")}</FieldError>
+        ) : (
+          <FieldDescription>{t("form.contactPhoneHint")}</FieldDescription>
+        )}
       </Field>
     </div>
   )
@@ -609,9 +649,11 @@ function BranchesStep({
 function ReviewStep({
   branches,
   brandName,
+  contactPhone,
 }: {
   branches: VenueDraft[]
   brandName?: string
+  contactPhone?: string
 }) {
   const t = useTranslations("VenueSetup")
   return (
@@ -619,6 +661,11 @@ function ReviewStep({
       {brandName ? (
         <div className="text-xs font-semibold text-muted-foreground uppercase">
           {brandName}
+        </div>
+      ) : null}
+      {contactPhone ? (
+        <div className="text-muted-foreground">
+          {t("review.contactPhone", { phone: contactPhone })}
         </div>
       ) : null}
       <div>

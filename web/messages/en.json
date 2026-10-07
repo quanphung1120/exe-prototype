@@ -1299,14 +1299,19 @@
       "geoUnsupported": "Your browser doesn't support geolocation.",
       "geoError": "Couldn't get your location. Enter coordinates manually.",
       "manager": "Manager",
-      "managerPlaceholder": "Manager name"
+      "managerPlaceholder": "Manager name",
+      "contactPhone": "Contact phone",
+      "contactPhonePlaceholder": "e.g. 0912 345 678",
+      "contactPhoneHint": "Shuttio admins will call this number when needed (e.g. to verify your venue during approval). It is never shown to players.",
+      "contactPhoneInvalid": "Invalid phone number — enter 10–11 digits starting with 0 or +84."
     },
     "addBranch": "Add branch",
     "removeBranch": "Remove branch",
     "noBranchesYet": "No branches yet. Add at least one to continue.",
     "review": {
       "branches": "{count} branches",
-      "note": "You can add courts and edit each branch anytime after creating."
+      "note": "You can add courts and edit each branch anytime after creating.",
+      "contactPhone": "Contact: {phone}"
     },
     "back": "Back",
     "next": "Continue",
@@ -2246,7 +2251,8 @@
     },
     "suspend": "Suspend",
     "restore": "Restore",
-    "empty": "No venues yet"
+    "empty": "No venues yet",
+    "noPhone": "No phone on file"
   },
   "AdminBookings": {
     "metaTitle": "Bookings & payments",
@@ -2328,7 +2334,8 @@
       "brand": "Brand",
       "branches": "Branches",
       "actions": "Actions"
-    }
+    },
+    "noPhone": "No phone on file"
   },
   "AdminDiscounts": {
     "metaTitle": "Coupons",

@@ -21,6 +21,7 @@ import {
 import { formatVnd } from "@/lib/shared"
 import { VenuePanel, VenueEmpty } from "@/features/venue/shared"
 import { restoreVenue, suspendVenue } from "@/features/admin/admin-actions"
+import { ContactPhone } from "@/features/admin/contact-phone"
 import type {
   AdminBrandGroup,
   AdminVenueRow,
@@ -86,7 +87,18 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
         <VenueEmpty text={t("empty")} />
       ) : (
         visibleGroups.map((group) => (
-          <VenuePanel key={group.key} title={group.brand?.name ?? t("noBrand")}>
+          <VenuePanel
+            key={group.key}
+            title={group.brand?.name ?? t("noBrand")}
+            action={
+              group.brand ? (
+                <ContactPhone
+                  phone={group.brand.contactPhone}
+                  emptyLabel={t("noPhone")}
+                />
+              ) : null
+            }
+          >
             <Table>
               <TableHeader>
                 <TableRow>

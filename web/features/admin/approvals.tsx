@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { VenueEmpty, ReasonDialog } from "@/features/venue/shared"
+import { ContactPhone } from "@/features/admin/contact-phone"
 import { useReasonConfirm } from "@/features/admin/use-reason-confirm"
 import { approveBrand, rejectBrand } from "@/features/admin/admin-actions"
 import type { AdminApprovalRow } from "@/features/admin/admin-types"
@@ -74,8 +75,14 @@ export function AdminApprovalsView({ brands }: { brands: AdminApprovalRow[] }) {
               .slice(pagination.offset, pagination.offset + pagination.pageSize)
               .map((row) => (
                 <TableRow key={row.brand.id}>
-                  <TableCell className="align-top font-medium">
-                    {row.brand.name}
+                  <TableCell className="align-top">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-medium">{row.brand.name}</span>
+                      <ContactPhone
+                        phone={row.brand.contactPhone}
+                        emptyLabel={t("noPhone")}
+                      />
+                    </div>
                   </TableCell>
                   <TableCell>
                     {row.venues.length === 0 ? (

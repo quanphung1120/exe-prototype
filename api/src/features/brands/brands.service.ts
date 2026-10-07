@@ -30,6 +30,8 @@ export interface BrandInput {
   name: string
   image?: string
   description?: string
+  /** Owner contact phone for admins (normalized by the setup DTO). */
+  contactPhone?: string
 }
 
 /** Largest numeric suffix among ids shaped `${prefix}<n>` (0 when none match). */
@@ -125,6 +127,7 @@ export class BrandsService {
         initials: initialsOf(seed.name),
         image: seed.image,
         description: seed.description,
+        contactPhone: seed.contactPhone,
       }
       try {
         // A fresh brand starts pending admin review — the only approval gate

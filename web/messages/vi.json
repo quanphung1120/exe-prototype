@@ -1299,14 +1299,19 @@
       "geoUnsupported": "Trình duyệt không hỗ trợ định vị.",
       "geoError": "Không lấy được vị trí. Vui lòng nhập tọa độ thủ công.",
       "manager": "Người quản lý",
-      "managerPlaceholder": "Tên người quản lý"
+      "managerPlaceholder": "Tên người quản lý",
+      "contactPhone": "Số điện thoại liên hệ",
+      "contactPhonePlaceholder": "VD: 0912 345 678",
+      "contactPhoneHint": "Quản trị viên Shuttio sẽ liên hệ số này khi cần (ví dụ để xác minh khi duyệt sân). Số này không hiển thị cho người chơi.",
+      "contactPhoneInvalid": "Số điện thoại không hợp lệ — vui lòng nhập 10–11 chữ số, bắt đầu bằng 0 hoặc +84."
     },
     "addBranch": "Thêm chi nhánh",
     "removeBranch": "Xóa chi nhánh",
     "noBranchesYet": "Chưa có chi nhánh nào. Thêm ít nhất một chi nhánh để tiếp tục.",
     "review": {
       "branches": "{count} chi nhánh",
-      "note": "Sau khi tạo, Quý khách có thể thêm sân và chỉnh sửa từng chi nhánh bất cứ lúc nào."
+      "note": "Sau khi tạo, Quý khách có thể thêm sân và chỉnh sửa từng chi nhánh bất cứ lúc nào.",
+      "contactPhone": "Liên hệ: {phone}"
     },
     "back": "Quay lại",
     "next": "Tiếp tục",
@@ -2246,7 +2251,8 @@
     },
     "suspend": "Tạm ngưng",
     "restore": "Khôi phục",
-    "empty": "Chưa có venue nào"
+    "empty": "Chưa có venue nào",
+    "noPhone": "Chưa có SĐT"
   },
   "AdminBookings": {
     "metaTitle": "Đặt sân & thanh toán",
@@ -2328,7 +2334,8 @@
       "brand": "Thương hiệu",
       "branches": "Chi nhánh",
       "actions": "Hành động"
-    }
+    },
+    "noPhone": "Chưa có SĐT"
   },
   "AdminDiscounts": {
     "metaTitle": "Mã giảm giá",
