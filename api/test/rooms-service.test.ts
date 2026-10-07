@@ -146,6 +146,7 @@ void test("listRooms queries listed, non-demo, active rooms and returns their da
     "data.listed": true,
     "data.demo": { $ne: true },
     "data.status": { $in: ["forming", "booked"] },
+    "data.roster": { $type: "array" },
   })
   assert.equal(rooms.length, 1)
   assert.equal(rooms[0]?.id, "room-1")
