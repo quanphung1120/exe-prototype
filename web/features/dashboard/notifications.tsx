@@ -24,7 +24,6 @@ import {
   type NotificationKind,
   type NotificationRecord,
 } from "@/features/dashboard/data"
-import { useData } from "@/features/dashboard/data-provider"
 import {
   listNotifications,
   markAllNotificationsRead,
@@ -64,8 +63,10 @@ export function useNotifications() {
  * "new team chat" notification whenever the user joins or hosts a match, and
  * poll the Phase 7 transactional feed (`GET /api/notifications`) for
  * server-delivered ones (an operator's approve/decline, an auto-confirm, a
- * no-show mark, …). The static seed (`useData().notifications`) is only the
- * base/demo items — every dynamic notification arrives via the poll.
+ * no-show mark, …). The seed's static `notifications` list is ignored: it
+ * only ever held the old demo items ("New message in Badminton Crew", …),
+ * which some production profiles still carry — every real notification
+ * arrives via the poll.
  */
 export function NotificationsProvider({
   children,
@@ -76,13 +77,11 @@ export function NotificationsProvider({
   const tm = useTranslations("MatchMaker")
   const format = useFormatter()
   const { joinedRooms, expiredEvents } = useMatchmaking()
-  const { notifications } = useData()
-  const [items, setItems] = React.useState<NotificationItem[]>(notifications)
+  const [items, setItems] = React.useState<NotificationItem[]>([])
   const seenRef = React.useRef<Set<string>>(new Set())
   const seenExpiredRef = React.useRef<Set<string>>(new Set())
   // The server-notification ids already merged into `items`, so a poll only
-  // toasts genuinely new ones. Starts empty (not the seed's ids — server ids
-  // never collide with the seed's `n1…n4`) and is filled by the first poll,
+  // toasts genuinely new ones. Starts empty and is filled by the first poll,
   // which never toasts (a fresh mount shouldn't replay every unread item that
   // arrived while the user was away as a toast storm).
   const seenServerRef = React.useRef<Set<string>>(new Set())

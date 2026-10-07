@@ -98,7 +98,11 @@ export class SeedService {
       streak: profile.streak,
       stats: profile.stats,
       activity: profile.activity,
-      notifications: profile.notifications,
+      // Real notifications are served by NotificationsService
+      // (`GET /api/notifications`). The profile's own list is never written
+      // after creation, so it only ever held the old demo items — which some
+      // profiles created before the mock data was removed still carry.
+      notifications: [],
       brand,
       venues,
       activeVenueId: activeVenueId ?? "",
