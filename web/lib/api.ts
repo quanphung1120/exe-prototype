@@ -24,8 +24,14 @@ import type {
 
 // Where the Hono API lives. Server-side fetch only (no CORS concerns); override
 // with API_URL in deployment. Single source of truth — server actions import it
-// too, so reads and writes can never drift to different ports.
-export const API_URL = process.env.API_URL ?? "http://localhost:6969"
+// too, so reads and writes can never drift to different ports. Falls back to
+// the browser-facing origin: on hosts without a private network (Vercel) the
+// two are the same, and a missing API_URL would otherwise silently point
+// production SSR at localhost and break every dashboard page.
+export const API_URL =
+  process.env.API_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:6969"
 
 // Applied to every server-side fetch below so a hung/unreachable API fails
 // fast instead of hanging the request indefinitely (the dashboard layout is
