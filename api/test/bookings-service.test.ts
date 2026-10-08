@@ -10,6 +10,9 @@ import {
   NotFoundException,
 } from "@nestjs/common"
 import { Test } from "@nestjs/testing"
+
+import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
+import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { ConfigService } from "@nestjs/config"
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 
@@ -20,8 +23,12 @@ import { NotificationsService } from "../src/features/notifications/notification
 import { ProfileService } from "../src/features/players/profile.service.js"
 import { ClerkDirectoryService } from "../src/features/stream/clerk-directory.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
-import { vnNowIso } from "../src/shared/index.js"
-import type { BookingRecordStatus, PaymentStatus } from "../src/shared/index.js"
+import { addMinutesToIso, vnNowIso } from "../src/shared/index.js"
+import type {
+  BookingCancelRequest,
+  BookingRecordStatus,
+  PaymentStatus,
+} from "../src/shared/index.js"
 
 /**
  * Service-level tests for the Phase 3 player/venue-facing bookings API
@@ -75,8 +82,11 @@ interface FakeBookingDoc {
   declineReason?: string
   cancelReason?: string
   refund?: { pct: number; amount: number; at: string }
+  cancelRequest?: BookingCancelRequest
   statusHistory: { status: BookingRecordStatus; at: string }[]
   save: () => Promise<void>
+  markModified?: (path: string) => void
+  set?: (path: string, value: unknown) => void
 }
 
 /** A mutable "live" booking doc — `findOne` (direct-await) resolves to this
@@ -85,7 +95,7 @@ interface FakeBookingDoc {
 function makeBookingDoc(
   overrides: Partial<FakeBookingDoc> = {}
 ): FakeBookingDoc {
-  return {
+  const doc: FakeBookingDoc = {
     bookingId: "b1",
     venueId: "v9",
     courtId: "v9c1",
@@ -104,8 +114,13 @@ function makeBookingDoc(
     price: 200_000,
     statusHistory: [],
     save: () => Promise.resolve(),
+    markModified: () => {},
     ...overrides,
   }
+  doc.set = (path, value) => {
+    ;(doc as unknown as Record<string, unknown>)[path] = value
+  }
+  return doc
 }
 
 function makeVenueDoc(overrides: Record<string, unknown> = {}) {
@@ -157,6 +172,8 @@ async function makeService(deps: Deps = {}) {
   const bulkWrites: unknown[] = []
 
   const findOneAndUpdateCalls: unknown[] = []
+  const sessionUpdates: { filter: unknown; update: unknown }[] = []
+  const roomEvents: string[] = []
   const bookingModelMock = {
     findOne: () => makeQuery(bookingDoc),
     find: (filter: { dateKey?: string; venueId?: string }) =>
@@ -231,6 +248,19 @@ async function makeService(deps: Deps = {}) {
       { provide: NotificationsService, useValue: notificationsMock },
       { provide: ClerkDirectoryService, useValue: clerkDirectoryMock },
       { provide: ConfigService, useValue: configMock },
+      {
+        provide: getModelToken(PlaySession.name),
+        useValue: {
+          updateOne: (filter: unknown, update: unknown) => {
+            sessionUpdates.push({ filter, update })
+            return Promise.resolve({ modifiedCount: 1 })
+          },
+        },
+      },
+      {
+        provide: RoomEventsService,
+        useValue: { emit: (id: string) => roomEvents.push(id) },
+      },
     ],
   }).compile()
 
@@ -241,6 +271,8 @@ async function makeService(deps: Deps = {}) {
     created,
     findOneAndUpdateCalls,
     bulkWrites,
+    sessionUpdates,
+    roomEvents,
   }
 }
 
@@ -577,59 +609,195 @@ void test("reschedule rejects with ConflictException (not NotFoundException) whe
   })
 })
 
-// ── cancel (refund policy — decision #6) ────────────────────────────────────
+// ── cancel → a request the venue answers (docs/chinh-sach.md §2.4) ───────────
 
-void test("cancel refunds 100% at least 24h before the booking's start", async () => {
-  const startAt = new Date(Date.now() + 25 * 60 * 60 * 1000).toISOString()
-  const { service, bookingDoc } = await makeService({
-    bookingDoc: makeBookingDoc({
-      startAt,
-      paymentStatus: "paid",
-      price: 100_000,
-    }),
+const HOUR = 60 * 60 * 1000
+const startIn = (ms: number) => addMinutesToIso(vnNowIso(), ms / 60_000)
+
+void test("cancel ≥24h before the start files an early request (venue has 12h, default 100%) and keeps the booking", async () => {
+  const { service, bookingDoc, notifications } = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(30 * HOUR), price: 100_000 }),
   })
 
   const result = await service.cancel("user-1", "b1", "Đổi lịch")
 
-  assert.equal(result.status, "cancelled")
-  assert.equal(result.paymentStatus, "refunded")
-  assert.equal(result.refund?.pct, 100)
-  assert.equal(result.refund?.amount, 100_000)
-  assert.equal(bookingDoc.cancelReason, "Đổi lịch")
-})
-
-void test("cancel refunds 50% inside the 24h window", async () => {
-  const startAt = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString()
-  const { service } = await makeService({
-    bookingDoc: makeBookingDoc({
-      startAt,
-      paymentStatus: "paid",
-      price: 100_000,
-    }),
-  })
-
-  const result = await service.cancel("user-1", "b1")
-
-  assert.equal(result.paymentStatus, "partial_refund")
-  assert.equal(result.refund?.pct, 50)
-  assert.equal(result.refund?.amount, 50_000)
-})
-
-void test("cancel refunds 0% once the booking has started, keeping paymentStatus untouched", async () => {
-  const startAt = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-  const { service } = await makeService({
-    bookingDoc: makeBookingDoc({
-      startAt,
-      paymentStatus: "paid",
-      price: 100_000,
-    }),
-  })
-
-  const result = await service.cancel("user-1", "b1")
-
+  assert.equal(result.status, "confirmed")
   assert.equal(result.refund, undefined)
-  assert.equal(result.paymentStatus, "paid")
+  assert.equal(bookingDoc.cancelRequest?.window, "early")
+  assert.equal(bookingDoc.cancelRequest?.defaultPct, 100)
+  assert.equal(bookingDoc.cancelRequest?.reason, "Đổi lịch")
+  const waitMs =
+    new Date(bookingDoc.cancelRequest.deadlineAt).getTime() -
+    new Date(bookingDoc.cancelRequest.requestedAt).getTime()
+  assert.ok(Math.abs(waitMs - 12 * HOUR) < 60_000)
+  assert.equal(notifications[0]?.userId, "owner-1")
+})
+
+void test("cancel <24h before the start files a late request (default 50%, answered before the start)", async () => {
+  const startAt = startIn(90 * 60_000)
+  const { service, bookingDoc } = await makeService({
+    bookingDoc: makeBookingDoc({ startAt }),
+  })
+
+  await service.cancel("user-1", "b1")
+
+  assert.equal(bookingDoc.cancelRequest?.window, "late")
+  assert.equal(bookingDoc.cancelRequest?.defaultPct, 50)
+  // 2h review window, capped at the start time (here 1.5h away).
+  assert.ok(bookingDoc.cancelRequest.deadlineAt <= startAt)
+})
+
+void test("cancel is refused once the booking has started", async () => {
+  const { service, bookingDoc } = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(-HOUR) }),
+  })
+  await assert.rejects(
+    () => service.cancel("user-1", "b1"),
+    BadRequestException
+  )
+  assert.equal(bookingDoc.status, "confirmed")
+})
+
+void test("cancel refuses a second request, and any request after the venue declined", async () => {
+  const pending = makeBookingDoc({ startAt: startIn(30 * HOUR) })
+  const first = await makeService({ bookingDoc: pending })
+  await first.service.cancel("user-1", "b1")
+  await assert.rejects(
+    () => first.service.cancel("user-1", "b1"),
+    ConflictException
+  )
+
+  const declined = makeBookingDoc({
+    startAt: startIn(30 * HOUR),
+    cancelRequest: {
+      requestedAt: vnNowIso(),
+      window: "early",
+      deadlineAt: startIn(12 * HOUR),
+      defaultPct: 100,
+      declinedAt: vnNowIso(),
+      declineReason: "Giải đấu",
+    },
+  })
+  const second = await makeService({ bookingDoc: declined })
+  await assert.rejects(
+    () => second.service.cancel("user-1", "b1"),
+    ConflictException
+  )
+})
+
+void test("withdrawCancelRequest drops an unanswered request", async () => {
+  const { service, bookingDoc } = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(30 * HOUR) }),
+  })
+  await service.cancel("user-1", "b1")
+
+  await service.withdrawCancelRequest("user-1", "b1")
+
+  assert.equal(bookingDoc.cancelRequest, undefined)
+  assert.equal(bookingDoc.status, "confirmed")
+})
+
+void test("decideCancelRequest approves an early request at 100% whatever refund the venue picked", async () => {
+  const { service, bookingDoc, notifications } = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(30 * HOUR), price: 100_000 }),
+  })
+  await service.cancel("user-1", "b1")
+
+  const result = await service.decideCancelRequest(
+    "owner-1",
+    "b1",
+    "approve",
+    50
+  )
+
   assert.equal(result.status, "cancelled")
+  assert.equal(result.refund?.pct, 100)
+  assert.equal(result.paymentStatus, "refunded")
+  assert.equal(bookingDoc.cancelRequest?.refundPct, 100)
+  assert.ok(bookingDoc.cancelRequest?.resolvedAt)
+  assert.equal(notifications.at(-1)?.userId, "user-1")
+})
+
+void test("decideCancelRequest lets the venue choose 50% or 100% on a late request", async () => {
+  const half = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(5 * HOUR), price: 100_000 }),
+  })
+  await half.service.cancel("user-1", "b1")
+  const r50 = await half.service.decideCancelRequest("owner-1", "b1", "approve")
+  assert.equal(r50.refund?.pct, 50)
+  assert.equal(r50.paymentStatus, "partial_refund")
+
+  const full = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(5 * HOUR), price: 100_000 }),
+  })
+  await full.service.cancel("user-1", "b1")
+  const r100 = await full.service.decideCancelRequest(
+    "owner-1",
+    "b1",
+    "approve",
+    100
+  )
+  assert.equal(r100.refund?.pct, 100)
+})
+
+void test("decideCancelRequest decline keeps the booking live and tells the player why", async () => {
+  const { service, bookingDoc, notifications } = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(5 * HOUR) }),
+  })
+  await service.cancel("user-1", "b1")
+
+  const result = await service.decideCancelRequest(
+    "owner-1",
+    "b1",
+    "decline",
+    undefined,
+    "Sân đã từ chối khách khác"
+  )
+
+  assert.equal(result.status, "confirmed")
+  assert.equal(result.refund, undefined)
+  assert.ok(bookingDoc.cancelRequest?.declinedAt)
+  assert.equal(
+    bookingDoc.cancelRequest?.declineReason,
+    "Sân đã từ chối khách khác"
+  )
+  assert.equal(notifications.at(-1)?.userId, "user-1")
+})
+
+void test("an approved cancellation drops a still-open room back to 'no court booked' and announces it", async () => {
+  const { service, sessionUpdates, roomEvents } = await makeService({
+    bookingDoc: {
+      ...makeBookingDoc({ startAt: startIn(30 * HOUR) }),
+      sessionId: "room-7",
+    } as FakeBookingDoc,
+  })
+  await service.cancel("user-1", "b1")
+
+  await service.decideCancelRequest("owner-1", "b1", "approve")
+
+  assert.equal(sessionUpdates.length, 1)
+  assert.deepEqual(sessionUpdates[0]?.filter, {
+    sessionId: "room-7",
+    "data.reservationId": "b1",
+    "data.listed": true,
+  })
+  assert.deepEqual(roomEvents, ["room-7"])
+})
+
+void test("decideCancelRequest rejects a caller who doesn't own the venue, and a request already answered", async () => {
+  const { service } = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(30 * HOUR) }),
+  })
+  await service.cancel("user-1", "b1")
+  await assert.rejects(
+    () => service.decideCancelRequest("not-the-owner", "b1", "approve"),
+    ForbiddenException
+  )
+  await service.decideCancelRequest("owner-1", "b1", "approve")
+  await assert.rejects(
+    () => service.decideCancelRequest("owner-1", "b1", "approve"),
+    ConflictException
+  )
 })
 
 void test("cancel rejects a booking that belongs to someone else", async () => {

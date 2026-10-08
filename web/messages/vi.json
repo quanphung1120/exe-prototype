@@ -441,6 +441,11 @@
       "pending": "Đã gửi yêu cầu — chờ chủ sân duyệt",
       "cancelled": "Đã hủy đặt sân",
       "cancelFailed": "Không thể hủy lượt đặt này — vui lòng thử lại.",
+      "cancelRequested": "Đã gửi yêu cầu huỷ tới chủ sân",
+      "cancelRequestedEarly": "Lượt đặt vẫn được giữ. Sân đồng ý thì bạn được hoàn 100% (tự động đồng ý nếu sân không phản hồi trong 12 giờ).",
+      "cancelRequestedLate": "Lượt đặt vẫn được giữ. Sân sẽ chọn hoàn 50% hoặc 100%, hoặc từ chối (tự động hoàn 50% nếu sân không phản hồi trong 2 giờ).",
+      "cancelWithdrawn": "Đã rút yêu cầu huỷ",
+      "withdrawFailed": "Không thể rút yêu cầu huỷ",
       "conflict": "Khung giờ này vừa có người đặt — hãy chọn giờ khác.",
       "holdExpired": "Thời gian giữ sân đã hết và sân đã được thả"
     },
@@ -629,6 +634,15 @@
     "openingPayment": "Đang mở thanh toán…",
     "declinedNote": "Chủ sân đã từ chối: {reason}",
     "refundedNote": "Đã hoàn tiền (mô phỏng).",
+    "requestCancel": "Gửi yêu cầu huỷ",
+    "requestCancelTitle": "Gửi yêu cầu huỷ lượt đặt?",
+    "requestCancelBody": "Huỷ cần chủ sân đồng ý; lượt đặt vẫn được giữ trong lúc chờ. Gửi trước ≥ 24 giờ: sân đồng ý thì hoàn 100% (tự động đồng ý nếu sân không phản hồi trong 12 giờ). Gửi trong vòng 24 giờ: sân chọn hoàn 50% hoặc 100%, hoặc từ chối (tự động hoàn 50% nếu sân không phản hồi trong 2 giờ). Sau giờ bắt đầu thì không huỷ được nữa.",
+    "requestCancelConfirm": "Gửi yêu cầu",
+    "cancelPendingNote": "Đã gửi yêu cầu huỷ — chờ chủ sân duyệt trước {deadline}. Nếu sân không phản hồi, bạn được hoàn {pct}%.",
+    "cancelDeclinedNote": "Chủ sân đã từ chối yêu cầu huỷ: {reason}. Lượt đặt vẫn được giữ.",
+    "cancelApprovedNote": "Đã huỷ theo yêu cầu — hoàn {pct}%.",
+    "cancelAutoNote": "Đã tự động huỷ do sân không phản hồi — hoàn {pct}%.",
+    "withdrawCancel": "Rút yêu cầu huỷ",
     "tabs": {
       "upcoming": "Sắp tới",
       "past": "Đã qua",
@@ -1627,6 +1641,7 @@
     "filters": {
       "all": "Tất cả",
       "pending": "Chờ duyệt",
+      "cancelRequests": "Yêu cầu huỷ",
       "confirmed": "Đã xác nhận",
       "today": "Hôm nay",
       "history": "Lịch sử"
@@ -1663,6 +1678,19 @@
     "toast": {
       "approved": "Đã duyệt lượt đặt của {name}",
       "declined": "Đã từ chối yêu cầu của {name}"
+    },
+    "cancelRequest": {
+      "badge": "Yêu cầu huỷ",
+      "decline": "Từ chối huỷ",
+      "approvePct": "Đồng ý · hoàn {pct}%",
+      "hintEarly": "Khách xin huỷ trước ≥ 24 giờ — đồng ý thì hoàn 100%. Hạn trả lời {deadline}; quá hạn tự đồng ý, hoàn {pct}%.",
+      "hintLate": "Khách xin huỷ trong vòng 24 giờ — chọn hoàn 50% hoặc 100%, hoặc từ chối. Hạn trả lời {deadline}; quá hạn tự hoàn {pct}%.",
+      "declineTitle": "Từ chối yêu cầu huỷ",
+      "declineDescription": "Nhập lý do từ chối yêu cầu huỷ của {name}. Lượt đặt vẫn được giữ và khách nhận thông báo kèm lý do này.",
+      "declinePlaceholder": "Ví dụ: khung giờ giải đấu, đã thông báo không hoàn tiền",
+      "declineConfirm": "Xác nhận từ chối",
+      "toastApproved": "Đã huỷ lượt đặt của {name} — hoàn {pct}%",
+      "toastDeclined": "Đã từ chối yêu cầu huỷ của {name}"
     }
   },
   "VenueMessages": {

@@ -47,6 +47,7 @@ export function useBooking() {
     resumingPaymentId: s.resumingPaymentId,
     markPaymentPaid: s.markPaymentPaid,
     cancelBooking: s.cancelBooking,
+    withdrawCancel: s.withdrawCancel,
     slotBlocked: s.slotBlocked,
     draftConflict: s.draftConflict,
     courtBusy: s.courtBusy,

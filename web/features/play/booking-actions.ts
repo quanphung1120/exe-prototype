@@ -46,6 +46,7 @@ export type BookingSummary = Pick<
   | "declineReason"
   | "cancelReason"
   | "refund"
+  | "cancelRequest"
 >
 
 export interface CreateBookingHoldInput {
@@ -102,8 +103,9 @@ export async function createBookingHold(
 }
 
 /**
- * Cancel the caller's own booking — `POST /api/bookings/:id/cancel` —
- * refunded per the ≥24h/<24h/after-start policy (server-computed).
+ * Cancel the caller's own booking — `POST /api/bookings/:id/cancel`. An
+ * unpaid hold cancels outright; a paid booking comes back still live with a
+ * `cancelRequest` the venue must answer (docs/chinh-sach.md §2.4).
  */
 export async function cancelBookingRecord(
   bookingId: string,
@@ -112,5 +114,15 @@ export async function cancelBookingRecord(
   return bookingsApi<BookingSummary>(
     `/api/bookings/${encodeURIComponent(bookingId)}/cancel`,
     { method: "POST", body: reason ? { reason } : {} }
+  )
+}
+
+/** Take back a cancellation request the venue hasn't answered yet. */
+export async function withdrawCancelRequest(
+  bookingId: string
+): Promise<BookingActionResult<BookingSummary>> {
+  return bookingsApi<BookingSummary>(
+    `/api/bookings/${encodeURIComponent(bookingId)}/cancel-request`,
+    { method: "DELETE" }
   )
 }

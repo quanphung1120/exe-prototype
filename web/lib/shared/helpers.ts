@@ -16,6 +16,7 @@ import {
 } from "./config"
 import type {
   Booking,
+  BookingCancelRequest,
   BookingPlayer,
   BookingRecordStatus,
   BookingSource,
@@ -653,6 +654,24 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
   }
 }
 
+/**
+ * True while a player's cancellation request still awaits the venue: not
+ * yet declined or resolved, and the booking is still live (pending or
+ * confirmed). A request on a checked-in/cancelled booking is moot.
+ */
+export function hasOpenCancelRequest(b: {
+  status: string
+  cancelRequest?: BookingCancelRequest
+}): boolean {
+  const r = b.cancelRequest
+  return Boolean(
+    r &&
+    !r.declinedAt &&
+    !r.resolvedAt &&
+    (b.status === "pending" || b.status === "confirmed")
+  )
+}
+
 /** Project a session to the legacy Booking shape (Bookings view). */
 export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
   const bookedCourt = s.reservationId
@@ -676,6 +695,7 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
     pricePerHour: s.pricePerHour,
     declineReason: s.cancelReason,
     refunded: s.refunded,
+    cancelRequest: s.cancelRequest,
     result: s.result,
     score: s.score,
   }

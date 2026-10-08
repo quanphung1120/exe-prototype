@@ -5,6 +5,9 @@ import "reflect-metadata"
 
 import { ForbiddenException, BadRequestException } from "@nestjs/common"
 import { Test } from "@nestjs/testing"
+
+import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
+import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { ConfigService } from "@nestjs/config"
 import { Reflector } from "@nestjs/core"
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
@@ -345,6 +348,11 @@ async function makeBookingsService(venueDoc: ReturnType<typeof makeVenueDoc>) {
         useValue: { getOne: () => Promise.resolve(null) },
       },
       { provide: ConfigService, useValue: configMock },
+      {
+        provide: getModelToken(PlaySession.name),
+        useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
+      },
+      { provide: RoomEventsService, useValue: { emit: () => {} } },
     ],
   }).compile()
 

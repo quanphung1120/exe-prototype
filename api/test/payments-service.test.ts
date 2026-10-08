@@ -11,6 +11,9 @@ import {
 } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { Test } from "@nestjs/testing"
+
+import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
+import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { getModelToken } from "@nestjs/mongoose"
 
 import { Payment } from "../src/features/payments/payment.schema.js"
@@ -272,6 +275,11 @@ function makeService(deps: Deps = {}) {
       { provide: NotificationsService, useValue: notificationsMock },
       { provide: DiscountsService, useValue: discountsMock },
       { provide: ConfigService, useValue: configMock },
+      {
+        provide: getModelToken(PlaySession.name),
+        useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
+      },
+      { provide: RoomEventsService, useValue: { emit: () => {} } },
     ],
   })
     .compile()

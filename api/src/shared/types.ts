@@ -173,6 +173,8 @@ export interface Booking {
   declineReason?: string
   /** Simulated pre-paid refund marker (projected from the session). */
   refunded?: boolean
+  /** The player's cancellation request on the linked booking, if any. */
+  cancelRequest?: BookingCancelRequest
   result?: "W" | "L"
   score?: string
 }
@@ -259,6 +261,8 @@ export interface PlaySession {
   cancelReason?: string
   /** Simulated pre-paid refund marker, set when an app booking is declined. */
   refunded?: boolean
+  /** The player's cancellation request on the linked booking, if any. */
+  cancelRequest?: BookingCancelRequest
   /** Visible as an open lobby ("room") in Match Maker. */
   listed: boolean
   fillIntent: "court" | "invite" | "find"
@@ -734,6 +738,8 @@ export interface Reservation {
   isRegular: boolean
   /** Operator's reason when this app reservation is declined (status "cancelled"). */
   declineReason?: string
+  /** The player's cancellation request, when there is one. */
+  cancelRequest?: BookingCancelRequest
 }
 
 export type RiskTier = "low" | "medium" | "high"
@@ -794,6 +800,35 @@ export interface BookingRefund {
   ref?: string
 }
 
+/**
+ * A player's request to cancel a paid booking, which the venue must answer
+ * (cancellation policy, docs/chinh-sach.md §2.4). The booking keeps its slot
+ * while the request is open. The 24h window is measured from `requestedAt`
+ * (when the player asked), never from when the venue answers.
+ */
+export interface BookingCancelRequest {
+  /** ISO datetime (+07:00) the player asked to cancel. */
+  requestedAt: string
+  /** "early" = asked ≥24h before the start, "late" = less than 24h before. */
+  window: "early" | "late"
+  /** ISO deadline for the venue's answer; past it `defaultPct` applies. */
+  deadlineAt: string
+  /** Refund applied when the venue doesn't answer in time (100 early, 50 late). */
+  defaultPct: number
+  /** The player's optional reason. */
+  reason?: string
+  /** Set once the venue declines — the booking stays live. */
+  declinedAt?: string
+  /** The venue's reason for declining. */
+  declineReason?: string
+  /** Set once the cancellation went through (approved or auto-approved). */
+  resolvedAt?: string
+  /** Percent actually refunded when it went through. */
+  refundPct?: number
+  /** True when the sweeper approved it because the venue didn't answer. */
+  auto?: boolean
+}
+
 export interface BookingStatusEvent {
   status: BookingRecordStatus
   /** ISO datetime (+07:00). */
@@ -844,6 +879,8 @@ export interface BookingRecord {
   /** Player's or operator's reason for a post-confirm cancellation. */
   cancelReason?: string
   refund?: BookingRefund
+  /** A player's cancellation request awaiting (or answered by) the venue. */
+  cancelRequest?: BookingCancelRequest
   statusHistory: BookingStatusEvent[]
 }
 

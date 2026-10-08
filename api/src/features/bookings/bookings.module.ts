@@ -3,6 +3,8 @@ import { MongooseModule } from "@nestjs/mongoose"
 
 import { NotificationsModule } from "../notifications/notifications.module.js"
 import { PlayersModule } from "../players/players.module.js"
+import { RoomEventsModule } from "../rooms/room-events.module.js"
+import { PlaySession, PlaySessionSchema } from "../sessions/session.schema.js"
 import { StreamModule } from "../stream/stream.module.js"
 import { Venue, VenueSchema } from "../venues/venue.schema.js"
 import { BookingLock, BookingLockSchema } from "./booking-lock.schema.js"
@@ -28,10 +30,14 @@ import { BookingsService } from "./bookings.service.js"
       { name: Booking.name, schema: BookingSchema },
       { name: BookingLock.name, schema: BookingLockSchema },
       { name: Venue.name, schema: VenueSchema },
+      // A room's session doc — a cancelled court drops the room back to
+      // "no court booked" (`BookingsService#releaseRoomCourt`).
+      { name: PlaySession.name, schema: PlaySessionSchema },
     ]),
     PlayersModule,
     NotificationsModule,
     StreamModule,
+    RoomEventsModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

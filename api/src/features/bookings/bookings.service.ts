@@ -11,12 +11,16 @@ import { ConfigService } from "@nestjs/config"
 import { InjectConnection, InjectModel } from "@nestjs/mongoose"
 import type { ClientSession, Connection, Model } from "mongoose"
 
+import { randomUUID } from "node:crypto"
+
 import {
   addMinutesToIso,
+  hasOpenCancelRequest,
   initialsOf,
   isoDateOf,
   vnNowIso,
   canTransitionBooking,
+  type BookingCancelRequest,
   type BookingRecord,
   type BookingRecordStatus,
   type PaymentStatus,
@@ -34,6 +38,11 @@ import {
 } from "../../common/mongo-util.js"
 import { NotificationsService } from "../notifications/notifications.service.js"
 import { ProfileService } from "../players/profile.service.js"
+import { RoomEventsService } from "../rooms/room-events.service.js"
+import {
+  PlaySession,
+  type PlaySessionDocument,
+} from "../sessions/session.schema.js"
 import { ClerkDirectoryService } from "../stream/clerk-directory.service.js"
 import {
   effectiveApproval,
@@ -45,13 +54,15 @@ import {
   assertNoCourtBlock,
   assertNotPast,
   assertWithinHours,
+  bookingLabel,
   bookingSlotFields,
   bookingSummaryFrom,
   bookingsOverlap,
   buildBookingRecord,
+  buildCancelRequest,
   decisionNotification,
+  formatVnTime,
   liveBookingOverlap,
-  refundPctFor,
   refundQueueItemFromBooking,
   reservationFromBooking,
   userBookingsOverlap,
@@ -85,6 +96,8 @@ export interface SweepResult {
   expired: number
   autoConfirmed: number
   completed: number
+  /** Cancellation requests the venue left unanswered past their deadline. */
+  cancelsAutoApproved: number
   /** bookingIds the sweeper expired — the caller cancels their gateway order. */
   expiredBookingIds: string[]
 }
@@ -116,6 +129,7 @@ export interface BookingStatusInfo {
   holdExpiresAt?: string
   declineReason?: string
   cancelReason?: string
+  cancelRequest?: BookingCancelRequest
 }
 
 function sleep(ms: number): Promise<void> {
@@ -202,7 +216,12 @@ export class BookingsService {
     private readonly notifications: NotificationsService,
     @Inject(ClerkDirectoryService)
     private readonly clerkDirectory: ClerkDirectoryService,
-    @Inject(ConfigService) private readonly config: ConfigService
+    @Inject(ConfigService) private readonly config: ConfigService,
+    // A room's own session doc, so a cancelled court can drop the room back
+    // to "no court booked" (`releaseRoomCourt`) and announce it live.
+    @InjectModel(PlaySession.name)
+    private readonly sessionModel: Model<PlaySessionDocument>,
+    @Inject(RoomEventsService) private readonly roomEvents: RoomEventsService
   ) {}
 
   /**
@@ -404,6 +423,7 @@ export class BookingsService {
           holdExpiresAt: d.holdExpiresAt,
           declineReason: d.declineReason,
           cancelReason: d.cancelReason,
+          cancelRequest: d.cancelRequest,
         },
       ])
     )
@@ -927,6 +947,7 @@ export class BookingsService {
       expired: 0,
       autoConfirmed: 0,
       completed: 0,
+      cancelsAutoApproved: 0,
       expiredBookingIds: [],
     }
 
@@ -982,6 +1003,39 @@ export class BookingsService {
         "completed"
       )
       if (applied) result.completed++
+    }
+
+    // A cancellation request the venue didn't answer in time goes through
+    // with its default refund (100% early, 50% late — docs/chinh-sach.md §2.4).
+    const lapsedRequests = await this.bookingModel
+      .find({
+        status: { $in: ["pending", "confirmed"] },
+        "cancelRequest.deadlineAt": { $lte: now },
+        "cancelRequest.declinedAt": { $exists: false },
+        "cancelRequest.resolvedAt": { $exists: false },
+      })
+      .select("bookingId venueId cancelRequest")
+      .lean<
+        {
+          bookingId: string
+          venueId: string
+          cancelRequest: BookingCancelRequest
+        }[]
+      >()
+    for (const b of lapsedRequests) {
+      try {
+        await this.completeCancelRequest(
+          b.venueId,
+          b.bookingId,
+          b.cancelRequest.defaultPct,
+          true
+        )
+        result.cancelsAutoApproved++
+      } catch (err) {
+        this.logger.warn(
+          `Sweep: failed to auto-approve the cancellation of booking ${b.bookingId}: ${err instanceof Error ? err.message : String(err)}`
+        )
+      }
     }
 
     return result
@@ -1104,10 +1158,12 @@ export class BookingsService {
   }
 
   /**
-   * Cancel the caller's own booking (`POST /api/bookings/:id/cancel`) and
-   * compute its refund per the time-before-start policy (decision #6): ≥24h →
-   * 100%, <24h → 50%, at/after the start time → 0%. Only refunds a booking
-   * that was actually paid — an unpaid `awaiting_payment` hold cancels clean.
+   * The player cancels their own booking (`POST /api/bookings/:id/cancel`).
+   * An unpaid hold has nothing to refund and cancels outright. A paid booking
+   * is not cancelled here: it gets a cancellation request the venue must
+   * answer (docs/chinh-sach.md §2.4) while the slot stays held — see
+   * {@link decideCancelRequest}, and the sweeper's auto-approval when the
+   * venue doesn't answer in time.
    */
   async cancel(
     userId: string,
@@ -1116,24 +1172,255 @@ export class BookingsService {
   ): Promise<BookingSummary> {
     const booking = await this.bookingModel
       .findOne({ bookingId })
-      .select("venueId userId startAt")
-      .lean<{ venueId: string; userId?: string; startAt: string }>()
+      .select("venueId userId status paymentStatus startAt cancelRequest")
+      .lean<
+        Pick<
+          BookingRecord,
+          | "venueId"
+          | "userId"
+          | "status"
+          | "paymentStatus"
+          | "startAt"
+          | "cancelRequest"
+        >
+      >()
     if (!booking) throw new NotFoundException("Booking not found")
     if (booking.userId !== userId) {
       throw new ForbiddenException("This booking belongs to another account")
     }
-    const pct = refundPctFor(vnNowIso(), booking.startAt)
+
+    if (booking.paymentStatus !== "paid") {
+      const { doc } = await this.setStatus(
+        booking.venueId,
+        bookingId,
+        "cancelled",
+        reason,
+        (d) => {
+          d.cancelReason = reason
+        }
+      )
+      return bookingSummaryFrom(doc)
+    }
+
+    if (booking.status !== "pending" && booking.status !== "confirmed") {
+      throw new ConflictException("Lượt đặt này không thể huỷ nữa")
+    }
+    if (booking.cancelRequest?.declinedAt) {
+      throw new ConflictException("Chủ sân đã từ chối yêu cầu huỷ lượt đặt này")
+    }
+    if (hasOpenCancelRequest(booking)) {
+      throw new ConflictException(
+        "Bạn đã gửi yêu cầu huỷ — đang chờ chủ sân duyệt"
+      )
+    }
+    const request = buildCancelRequest(vnNowIso(), booking.startAt, reason)
+    if (!request) {
+      throw new BadRequestException(
+        "Đã qua giờ bắt đầu — không thể huỷ lượt đặt này"
+      )
+    }
+
+    const doc = await withVersionRetry(async () => {
+      const d = await this.bookingModel.findOne({ bookingId })
+      if (!d) throw new NotFoundException("Booking not found")
+      if (d.status !== "pending" && d.status !== "confirmed") {
+        throw new ConflictException("Lượt đặt này không thể huỷ nữa")
+      }
+      if (hasOpenCancelRequest(d)) return d
+      d.cancelRequest = request
+      d.markModified("cancelRequest")
+      await d.save()
+      return d
+    })
+
+    const ownerId = await this.venueOwnerId(doc.venueId)
+    if (ownerId) {
+      const deadline = formatVnTime(request.deadlineAt)
+      await this.notifications.create(ownerId, {
+        id: `booking-cancel-request-${bookingId}-${randomUUID()}`,
+        kind: "booking",
+        text:
+          request.window === "early"
+            ? `${doc.customer.name} xin huỷ lượt đặt ${bookingLabel(doc)} (trước ≥ 24 giờ). Hãy duyệt trước ${deadline} — quá hạn sẽ tự động đồng ý và hoàn 100%.`
+            : `${doc.customer.name} xin huỷ lượt đặt ${bookingLabel(doc)} (trong vòng 24 giờ). Hãy chọn hoàn 50%, 100% hoặc từ chối trước ${deadline} — quá hạn sẽ tự động hoàn 50%.`,
+        href: `/app/venue/${doc.venueId}/schedule?tab=reservations`,
+      })
+    }
+    return bookingSummaryFrom(doc)
+  }
+
+  /** The player takes back a cancellation request the venue hasn't answered yet. */
+  async withdrawCancelRequest(
+    userId: string,
+    bookingId: string
+  ): Promise<BookingSummary> {
+    const doc = await withVersionRetry(async () => {
+      const d = await this.bookingModel.findOne({ bookingId })
+      if (!d) throw new NotFoundException("Booking not found")
+      if (d.userId !== userId) {
+        throw new ForbiddenException("This booking belongs to another account")
+      }
+      if (!hasOpenCancelRequest(d)) {
+        throw new ConflictException("Không có yêu cầu huỷ nào đang chờ duyệt")
+      }
+      d.set("cancelRequest", undefined)
+      await d.save()
+      return d
+    })
+    return bookingSummaryFrom(doc)
+  }
+
+  /**
+   * The venue answers a player's cancellation request
+   * (`POST /api/bookings/:id/cancel-request/decision`). Approving cancels the
+   * booking and refunds 100% for an early request, or the venue's choice of
+   * 50%/100% for a late one. Declining (reason required) keeps the booking
+   * live — the player can still come and play.
+   */
+  async decideCancelRequest(
+    callerId: string,
+    bookingId: string,
+    decision: "approve" | "decline",
+    refundPct?: number,
+    reason?: string
+  ): Promise<BookingSummary> {
+    const venueId = await this.assertOwnsBookingVenue(callerId, bookingId)
+
+    if (decision === "decline") {
+      const doc = await withVersionRetry(async () => {
+        const d = await this.bookingModel.findOne({ bookingId, venueId })
+        if (!d) throw new NotFoundException("Booking not found")
+        if (!hasOpenCancelRequest(d)) {
+          throw new ConflictException("Yêu cầu huỷ này đã được xử lý")
+        }
+        d.cancelRequest = {
+          ...d.cancelRequest!,
+          declinedAt: vnNowIso(),
+          declineReason: reason,
+        }
+        d.markModified("cancelRequest")
+        await d.save()
+        return d
+      })
+      if (doc.userId) {
+        await this.notifications.create(doc.userId, {
+          id: `booking-cancel-declined-${bookingId}-${randomUUID()}`,
+          kind: "booking",
+          text: `Chủ sân đã từ chối yêu cầu huỷ lượt đặt ${bookingLabel(doc)}: ${reason ?? ""}. Lượt đặt vẫn được giữ — bạn vẫn có thể đến chơi.`,
+          href: "/app/bookings",
+        })
+      }
+      return bookingSummaryFrom(doc)
+    }
+
+    const current = await this.bookingModel
+      .findOne({ bookingId, venueId })
+      .select("status cancelRequest")
+      .lean<Pick<BookingRecord, "status" | "cancelRequest">>()
+    if (!current || !hasOpenCancelRequest(current)) {
+      throw new ConflictException("Yêu cầu huỷ này đã được xử lý")
+    }
+    // Early requests always refund in full; a late one is the venue's call.
+    const pct =
+      current.cancelRequest!.window === "early" || refundPct === 100 ? 100 : 50
+    const doc = await this.completeCancelRequest(venueId, bookingId, pct, false)
+    return bookingSummaryFrom(doc)
+  }
+
+  /**
+   * Put an open cancellation request through: cancel the booking, refund
+   * `pct`%, free the court of a still-open room back to "no court booked",
+   * and tell the player (and, when it was automatic, the venue).
+   */
+  private async completeCancelRequest(
+    venueId: string,
+    bookingId: string,
+    pct: number,
+    auto: boolean
+  ): Promise<BookingDocument> {
     const { doc } = await this.setStatus(
-      booking.venueId,
+      venueId,
       bookingId,
       "cancelled",
-      reason,
+      undefined,
       (d) => {
-        d.cancelReason = reason
+        if (!hasOpenCancelRequest(d)) {
+          throw new ConflictException("Yêu cầu huỷ này đã được xử lý")
+        }
+        const request = d.cancelRequest!
+        d.cancelReason = request.reason ?? "Người chơi huỷ lượt đặt"
         this.applyRefund(d, pct)
+        d.cancelRequest = {
+          ...request,
+          resolvedAt: vnNowIso(),
+          refundPct: pct,
+          ...(auto ? { auto: true } : {}),
+        }
+        d.markModified("cancelRequest")
       }
     )
-    return bookingSummaryFrom(doc)
+
+    await this.releaseRoomCourt(doc)
+    if (doc.userId) {
+      await this.notifications.create(doc.userId, {
+        id: `booking-cancel-approved-${bookingId}-${randomUUID()}`,
+        kind: "booking",
+        text: auto
+          ? `Chủ sân không phản hồi đúng hạn nên yêu cầu huỷ lượt đặt ${bookingLabel(doc)} đã được tự động chấp nhận. Bạn được hoàn ${pct}% tiền sân.`
+          : `Chủ sân đã đồng ý huỷ lượt đặt ${bookingLabel(doc)}. Bạn được hoàn ${pct}% tiền sân.`,
+        href: "/app/bookings",
+      })
+    }
+    if (auto) {
+      const ownerId = await this.venueOwnerId(venueId)
+      if (ownerId) {
+        await this.notifications.create(ownerId, {
+          id: `booking-cancel-auto-${bookingId}-${randomUUID()}`,
+          kind: "booking",
+          text: `Yêu cầu huỷ lượt đặt ${bookingLabel(doc)} của ${doc.customer.name} đã được tự động chấp nhận (hoàn ${pct}%) do quá hạn phản hồi.`,
+          href: `/app/venue/${venueId}/schedule?tab=reservations`,
+        })
+      }
+    }
+    return doc
+  }
+
+  /**
+   * A room whose booked court was just cancelled stays open for its players —
+   * it goes back to "no court booked" (keeping its planned court and time as
+   * a proposal) instead of vanishing. Only a still-listed room: a disbanded
+   * room or a solo booking keeps its link so the cancelled booking (and its
+   * refund) stays visible to the player.
+   */
+  private async releaseRoomCourt(doc: BookingDocument): Promise<void> {
+    if (!doc.sessionId) return
+    const res = await this.sessionModel.updateOne(
+      {
+        sessionId: doc.sessionId,
+        "data.reservationId": doc.bookingId,
+        "data.listed": true,
+      },
+      {
+        $set: { "data.status": "forming", "data.courtLabel": null },
+        $unset: {
+          "data.reservationId": "",
+          "data.venueId": "",
+          "data.hold": "",
+          "data.paymentStatus": "",
+          "data.paymentExpiresAt": "",
+        },
+      }
+    )
+    if (res.modifiedCount) this.roomEvents.emit(doc.sessionId)
+  }
+
+  /** The Clerk id of the account that owns `venueId`, if any. */
+  private async venueOwnerId(venueId: string): Promise<string | null> {
+    const venue = await this.venueModel
+      .findOne({ venueId })
+      .select("ownerId")
+      .lean<{ ownerId?: string }>()
+    return venue?.ownerId ?? null
   }
 
   /**

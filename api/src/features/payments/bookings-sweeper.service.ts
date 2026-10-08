@@ -40,9 +40,14 @@ export class BookingsSweeperService {
             )
           })
       }
-      if (result.expired || result.autoConfirmed || result.completed) {
+      if (
+        result.expired ||
+        result.autoConfirmed ||
+        result.completed ||
+        result.cancelsAutoApproved
+      ) {
         this.logger.log(
-          `Booking sweep: ${result.expired} expired, ${result.autoConfirmed} auto-confirmed, ${result.completed} completed`
+          `Booking sweep: ${result.expired} expired, ${result.autoConfirmed} auto-confirmed, ${result.completed} completed, ${result.cancelsAutoApproved} cancellations auto-approved`
         )
       }
     } catch (err) {

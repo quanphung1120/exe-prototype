@@ -441,6 +441,11 @@
       "pending": "Request sent — waiting for operator approval",
       "cancelled": "Booking cancelled",
       "cancelFailed": "Couldn't cancel this booking — please try again.",
+      "cancelRequested": "Cancellation request sent to the venue",
+      "cancelRequestedEarly": "Your booking is kept for now. If the venue agrees you get a 100% refund (auto-approved if it doesn't answer within 12 hours).",
+      "cancelRequestedLate": "Your booking is kept for now. The venue will refund 50% or 100%, or decline (50% is refunded automatically if it doesn't answer within 2 hours).",
+      "cancelWithdrawn": "Cancellation request withdrawn",
+      "withdrawFailed": "Couldn't withdraw the cancellation request",
       "conflict": "That slot was just taken — choose another time.",
       "holdExpired": "Your court hold expired and was released"
     },
@@ -629,6 +634,15 @@
     "openingPayment": "Opening payment…",
     "declinedNote": "The operator declined: {reason}",
     "refundedNote": "Refunded (simulated).",
+    "requestCancel": "Request cancellation",
+    "requestCancelTitle": "Request to cancel this booking?",
+    "requestCancelBody": "Cancelling needs the venue's approval; your booking is kept while you wait. Asked ≥ 24 hours ahead: a 100% refund once the venue agrees (auto-approved if it doesn't answer within 12 hours). Asked within 24 hours: the venue refunds 50% or 100%, or declines (50% is refunded automatically if it doesn't answer within 2 hours). Once the booking has started it can't be cancelled.",
+    "requestCancelConfirm": "Send request",
+    "cancelPendingNote": "Cancellation requested — the venue has until {deadline} to answer. If it doesn't, you get {pct}% back.",
+    "cancelDeclinedNote": "The venue declined your cancellation: {reason}. Your booking is kept.",
+    "cancelApprovedNote": "Cancelled at your request — {pct}% refunded.",
+    "cancelAutoNote": "Cancelled automatically (the venue didn't answer) — {pct}% refunded.",
+    "withdrawCancel": "Withdraw cancellation request",
     "tabs": {
       "upcoming": "Upcoming",
       "past": "Past",
@@ -1627,6 +1641,7 @@
     "filters": {
       "all": "All",
       "pending": "Pending",
+      "cancelRequests": "Cancel requests",
       "confirmed": "Confirmed",
       "today": "Today",
       "history": "History"
@@ -1663,6 +1678,19 @@
     "toast": {
       "approved": "Approved {name}'s booking",
       "declined": "Declined {name}'s request"
+    },
+    "cancelRequest": {
+      "badge": "Cancel request",
+      "decline": "Decline",
+      "approvePct": "Approve · refund {pct}%",
+      "hintEarly": "Asked ≥ 24 hours ahead — approving refunds 100%. Answer by {deadline}; after that it's approved automatically at {pct}%.",
+      "hintLate": "Asked within 24 hours — refund 50% or 100%, or decline. Answer by {deadline}; after that {pct}% is refunded automatically.",
+      "declineTitle": "Decline cancellation request",
+      "declineDescription": "Give a reason for declining {name}'s cancellation request. The booking stays and they're notified with this reason.",
+      "declinePlaceholder": "E.g. tournament slot, announced as non-refundable",
+      "declineConfirm": "Decline request",
+      "toastApproved": "Cancelled {name}'s booking — {pct}% refunded",
+      "toastDeclined": "Declined {name}'s cancellation request"
     }
   },
   "VenueMessages": {

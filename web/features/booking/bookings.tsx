@@ -15,6 +15,7 @@ import {
   Plus,
   RotateCcw,
   Trophy,
+  Undo2,
   UserPlus,
   Users,
 } from "lucide-react"
@@ -44,6 +45,7 @@ import {
 import {
   addMinutes,
   durationOf,
+  hasOpenCancelRequest,
   locStr,
   sportAccent,
   sportLabel,
@@ -797,6 +799,11 @@ function gapsOf(
 }
 
 /** Day words that resolve to a shared `Common.when` key (past-list labels). */
+/** "HH:MM dd/mm" of a +07:00 ISO datetime (string slicing — no timezone math). */
+function shortVnDateTime(iso: string): string {
+  return `${iso.slice(11, 16)} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+}
+
 const WHEN_KEY: Record<string, string> = {
   Today: "today",
   Tomorrow: "tomorrow",
@@ -817,6 +824,7 @@ function CalendarEvent({
   const tc = useTranslations("Common")
   const {
     cancelBooking,
+    withdrawCancel,
     rebookFrom,
     addTeamToSession,
     resumePayment,
@@ -855,6 +863,12 @@ function CalendarEvent({
     booking.paymentExpiresAt,
     isAwaitingPayment(booking)
   )
+  // Cancelling a paid booking is a request the venue answers
+  // (docs/chinh-sach.md §2.4); an unpaid hold still cancels outright.
+  const request = booking.cancelRequest
+  const requestOpen = hasOpenCancelRequest(booking)
+  const requestDeclined = Boolean(request?.declinedAt) && !cancelled
+  const paid = booking.paymentStatus === "paid"
 
   return (
     <div className="absolute inset-x-1 z-10" style={{ top: top + 1, height }}>
@@ -944,6 +958,27 @@ function CalendarEvent({
             ) : booking.status === "pending" ? (
               <p className="rounded-2xl bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
                 {t("pendingNote")}
+              </p>
+            ) : null}
+
+            {requestOpen && request ? (
+              <p className="rounded-2xl bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
+                {t("cancelPendingNote", {
+                  deadline: shortVnDateTime(request.deadlineAt),
+                  pct: request.defaultPct,
+                })}
+              </p>
+            ) : requestDeclined ? (
+              <p className="rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+                {t("cancelDeclinedNote", {
+                  reason: request?.declineReason ?? "",
+                })}
+              </p>
+            ) : cancelled && request?.resolvedAt ? (
+              <p className="rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+                {request.auto
+                  ? t("cancelAutoNote", { pct: request.refundPct ?? 0 })
+                  : t("cancelApprovedNote", { pct: request.refundPct ?? 0 })}
               </p>
             ) : null}
 
@@ -1072,36 +1107,56 @@ function CalendarEvent({
                     {t("addTeam")}
                   </Button>
                 ) : null}
-                <AlertDialog>
-                  <AlertDialogTrigger
-                    render={
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-full justify-start rounded-full text-destructive"
-                      />
-                    }
+                {requestOpen ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="w-full justify-start rounded-full text-destructive"
+                    onClick={() => withdrawCancel(booking.id)}
                   >
-                    {t("cancel")}
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="player-bookings-overlay">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t("cancelTitle")}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {hasTeam ? t("cancelTeamBody") : t("cancelSoloBody")}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t("keep")}</AlertDialogCancel>
-                      <AlertDialogAction
-                        variant="destructive"
-                        onClick={() => cancelBooking(booking.id)}
-                      >
-                        {t("cancelConfirm")}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                    <Undo2 />
+                    {t("withdrawCancel")}
+                  </Button>
+                ) : requestDeclined ? null : (
+                  <AlertDialog>
+                    <AlertDialogTrigger
+                      render={
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="w-full justify-start rounded-full text-destructive"
+                        />
+                      }
+                    >
+                      {paid ? t("requestCancel") : t("cancel")}
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="player-bookings-overlay">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {paid ? t("requestCancelTitle") : t("cancelTitle")}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {paid
+                            ? t("requestCancelBody")
+                            : hasTeam
+                              ? t("cancelTeamBody")
+                              : t("cancelSoloBody")}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{t("keep")}</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          onClick={() => cancelBooking(booking.id)}
+                        >
+                          {paid
+                            ? t("requestCancelConfirm")
+                            : t("cancelConfirm")}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             )}
           </div>

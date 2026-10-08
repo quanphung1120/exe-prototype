@@ -40,6 +40,7 @@ import { removeGroupMember } from "@/features/chat/group-actions"
 import {
   cancelBookingRecord,
   createBookingHold,
+  withdrawCancelRequest,
 } from "@/features/play/booking-actions"
 import { startPaymentCheckout } from "@/features/play/payment-actions"
 import { savePreferredLocale } from "@/lib/locale-preference"
@@ -278,6 +279,8 @@ interface SessionContextValue {
   /** Apply a server-confirmed payment to the in-memory booking immediately. */
   markPaymentPaid: (bookingId: string) => void
   cancelBooking: (id: string) => void
+  /** Take back a cancellation request the venue hasn't answered yet. */
+  withdrawCancel: (id: string) => void
   // ── Conflict (decision 2) ──
   slotBlocked: (slot: string) => boolean
   draftConflict: Conflict
@@ -443,7 +446,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           server.paymentStatus === local.paymentStatus &&
           server.paymentExpiresAt === local.paymentExpiresAt &&
           server.cancelReason === local.cancelReason &&
-          server.refunded === local.refunded
+          server.refunded === local.refunded &&
+          server.reservationId === local.reservationId &&
+          JSON.stringify(server.cancelRequest) ===
+            JSON.stringify(local.cancelRequest)
         )
           return local
         return {
@@ -457,6 +463,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           paymentExpiresAt: server.paymentExpiresAt,
           cancelReason: server.cancelReason,
           refunded: server.refunded,
+          // The venue's answer to a cancellation request; an approved one on
+          // an open room drops the court link (the room is back to forming).
+          reservationId: server.reservationId,
+          cancelRequest: server.cancelRequest,
         }
       })
     )
@@ -1212,13 +1222,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const disbandOwnRoom = async (sessionId: string): Promise<boolean> => {
     const own = sessions.find((x) => x.id === sessionId)
     if (!own) return true
+    // A paid court isn't cancelled outright: it becomes a request the venue
+    // answers (docs/chinh-sach.md §2.4), and the booking stays the host's
+    // until then. A 409 means it can't be requested again (already pending,
+    // or the venue declined) — the room still goes, the booking is kept.
+    let bookingCancelled = !own.reservationId
+    let cancelRequest = own.cancelRequest
     if (own.reservationId) {
       const cancelled = await cancelBookingRecord(own.reservationId)
-      if (!cancelled.ok) {
+      if (!cancelled.ok && cancelled.status !== 409) {
         toast.error(tb("toast.cancelFailed"), {
           description: cancelled.message,
         })
         return false
+      }
+      if (cancelled.ok) {
+        bookingCancelled = cancelled.data.status === "cancelled"
+        cancelRequest = cancelled.data.cancelRequest
       }
     }
     const result = await disbandRoom(sessionId)
@@ -1231,10 +1251,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSessions((prev) =>
       prev.flatMap((x) => {
         if (x.id !== sessionId) return [x]
-        // A booked room stays as a cancelled booking; a forming room is gone.
-        if (x.reservationId)
-          return [{ ...x, status: "cancelled" as const, listed: false }]
-        return []
+        // A forming room is gone; a booked one stays as its booking —
+        // cancelled, or still live while the venue answers the request.
+        if (!x.reservationId) return []
+        return [
+          bookingCancelled
+            ? { ...x, status: "cancelled" as const, listed: false }
+            : { ...x, listed: false, cancelRequest },
+        ]
       })
     )
     // Cancelling a booked room freezes its chat (keeps history, blocks new
@@ -1244,7 +1268,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const title = tm.has(`rooms.${sessionId}.title`)
       ? tm(`rooms.${sessionId}.title`)
       : (own.title ?? "")
-    toast(ts("toast.disbanded"), { description: title })
+    toast(ts("toast.disbanded"), {
+      description: bookingCancelled ? title : tb("toast.cancelRequested"),
+    })
     void refreshRooms()
     return true
   }
@@ -2072,11 +2098,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Cancel a booking. When it's linked to a real reservation, awaits
-   * `cancelBookingRecord` (`POST /api/bookings/:id/cancel`) first — the
-   * server computes the ≥24h/<24h/after-start refund and is the source of
-   * truth for `refunded`/`cancelReason`. A session that never made it past a
-   * client-only draft (no `reservationId`) has nothing to cancel server-side
-   * and reverts purely locally, same as before.
+   * `cancelBookingRecord` (`POST /api/bookings/:id/cancel`) first. A paid
+   * booking isn't cancelled there: it comes back still live with a
+   * `cancelRequest` the venue must answer (docs/chinh-sach.md §2.4), so this
+   * only marks it as awaiting the venue. An unpaid hold cancels outright, and
+   * a client-only draft (no `reservationId`) reverts purely locally.
    */
   const cancelBooking = async (id: string) => {
     const s = sessions.find((x) => x.id === id)
@@ -2087,8 +2113,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (s.reservationId) {
       const result = await cancelBookingRecord(s.reservationId)
       if (!result.ok) {
-        console.error("Failed to cancel booking", result.message)
-        toast.error(tb("toast.cancelFailed"))
+        toast.error(tb("toast.cancelFailed"), { description: result.message })
+        return
+      }
+      if (result.data.status !== "cancelled") {
+        const request = result.data.cancelRequest
+        setSessions((prev) =>
+          prev.map((x) => (x.id === id ? { ...x, cancelRequest: request } : x))
+        )
+        toast(tb("toast.cancelRequested"), {
+          description:
+            request?.window === "early"
+              ? tb("toast.cancelRequestedEarly")
+              : tb("toast.cancelRequestedLate"),
+        })
         return
       }
       refunded =
@@ -2124,6 +2162,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       freezeRoomChatBestEffort(id)
     }
     toast(tb("toast.cancelled"), { description: s.venue })
+  }
+
+  /** Take back a cancellation request the venue hasn't answered yet. */
+  const withdrawCancel = async (id: string) => {
+    const s = sessions.find((x) => x.id === id)
+    if (!s?.reservationId) return
+    const result = await withdrawCancelRequest(s.reservationId)
+    if (!result.ok) {
+      toast.error(tb("toast.withdrawFailed"), { description: result.message })
+      return
+    }
+    setSessions((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, cancelRequest: undefined } : x))
+    )
+    toast(tb("toast.cancelWithdrawn"))
   }
 
   const value: SessionContextValue = {
@@ -2213,6 +2266,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // so there's nothing for the caller to await.
     cancelBooking: (id: string) => {
       void cancelBooking(id)
+    },
+    withdrawCancel: (id: string) => {
+      void withdrawCancel(id)
     },
     slotBlocked,
     draftConflict,

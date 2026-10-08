@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common"
+import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
 import {
   BookingDecisionDto,
   BookingIdParamDto,
+  CancelRequestDecisionDto,
   CancelBookingDto,
   CreateBookingDto,
 } from "./bookings.dto.js"
@@ -33,7 +34,10 @@ export class BookingsController {
     return this.bookings.listMine(userId)
   }
 
-  /** Player self-cancel, refunded per the ≥24h/<24h/after-start policy. */
+  /**
+   * Player cancel: an unpaid hold cancels outright; a paid booking gets a
+   * cancellation request the venue must answer (docs/chinh-sach.md §2.4).
+   */
   @Post(":id/cancel")
   async cancel(
     @UserId() userId: string,
@@ -41,6 +45,31 @@ export class BookingsController {
     @Body() body: CancelBookingDto
   ) {
     return this.bookings.cancel(userId, param.id, body.reason)
+  }
+
+  /** Player takes back a cancellation request the venue hasn't answered. */
+  @Delete(":id/cancel-request")
+  async withdrawCancelRequest(
+    @UserId() userId: string,
+    @Param() param: BookingIdParamDto
+  ) {
+    return this.bookings.withdrawCancelRequest(userId, param.id)
+  }
+
+  /** Venue approves (with its refund % for a late request) or declines a cancellation request. */
+  @Post(":id/cancel-request/decision")
+  async decideCancelRequest(
+    @UserId() userId: string,
+    @Param() param: BookingIdParamDto,
+    @Body() body: CancelRequestDecisionDto
+  ) {
+    return this.bookings.decideCancelRequest(
+      userId,
+      param.id,
+      body.decision,
+      body.refundPct,
+      body.reason
+    )
   }
 
   /** Venue approve/decline of a pending app booking (decline always refunds 100%). */
