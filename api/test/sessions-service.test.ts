@@ -4,6 +4,8 @@ import { test } from "node:test"
 import "reflect-metadata"
 
 import { Test } from "@nestjs/testing"
+
+import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
 import { getModelToken } from "@nestjs/mongoose"
 
 import { SessionsService } from "../src/features/sessions/sessions.service.js"
@@ -114,6 +116,7 @@ async function makeService(
       SessionsService,
       { provide: getModelToken(PlaySession.name), useValue: modelMock },
       { provide: BookingsService, useValue: bookingsMock },
+      RoomEventsService,
     ],
   }).compile()
   return moduleRef.get(SessionsService)

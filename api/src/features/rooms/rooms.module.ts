@@ -5,6 +5,7 @@ import { NotificationsModule } from "../notifications/notifications.module.js"
 import { PlayersModule } from "../players/players.module.js"
 import { PlaySession, PlaySessionSchema } from "../sessions/session.schema.js"
 import { StreamModule } from "../stream/stream.module.js"
+import { RoomEventsModule } from "./room-events.module.js"
 import { RoomsController } from "./rooms.controller.js"
 import { RoomsService } from "./rooms.service.js"
 
@@ -25,6 +26,7 @@ import { RoomsService } from "./rooms.service.js"
     PlayersModule,
     NotificationsModule,
     StreamModule,
+    RoomEventsModule,
   ],
   controllers: [RoomsController],
   providers: [RoomsService],

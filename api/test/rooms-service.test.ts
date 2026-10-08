@@ -10,6 +10,8 @@ import {
   NotFoundException,
 } from "@nestjs/common"
 import { Test } from "@nestjs/testing"
+
+import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
 import { getModelToken } from "@nestjs/mongoose"
 
 import { RoomsService } from "../src/features/rooms/rooms.service.js"
@@ -74,6 +76,8 @@ interface Recorder {
   notifications: { userId: string; input: unknown }[]
   addMember: { hostUserId: string; channelId: string; memberId: string }[]
   removeMember: { userId: string; channelId: string; memberId: string }[]
+  /** Room ids announced on the live events stream. */
+  events: string[]
 }
 
 async function makeService(
@@ -97,6 +101,12 @@ async function makeService(
     notifications: [],
     addMember: [],
     removeMember: [],
+    events: [],
+  }
+  const eventsMock = {
+    emit: (roomId: string) => {
+      recorder.events.push(roomId)
+    },
   }
   const notificationsMock = {
     create: (userId: string, input: unknown) => {
@@ -135,6 +145,7 @@ async function makeService(
       { provide: ProfileService, useValue: profilesMock },
       { provide: StreamService, useValue: streamMock },
       { provide: ClerkDirectoryService, useValue: directoryMock },
+      { provide: RoomEventsService, useValue: eventsMock },
     ],
   }).compile()
   return { service: moduleRef.get(RoomsService), recorder }
@@ -535,6 +546,7 @@ void test("disbandRoom deletes a forming room and notifies every member and requ
   await service.disbandRoom("host-1", "room-1")
 
   assert.deepEqual(deleted, { _id: "doc-1" })
+  assert.deepEqual(recorder.events, ["room-1"])
   assert.deepEqual(recorder.notifications.map((n) => n.userId).sort(), [
     "user-2",
     "user-3",

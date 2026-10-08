@@ -29,6 +29,7 @@ import {
 } from "../sessions/session.schema.js"
 import { ClerkDirectoryService } from "../stream/clerk-directory.service.js"
 import { roomChannelId, StreamService } from "../stream/stream.service.js"
+import { RoomEventsService } from "./room-events.service.js"
 import type { RoomRequestDecision } from "./rooms.dto.js"
 
 const ORDER = { createdAt: 1, _id: 1 } as const
@@ -65,7 +66,9 @@ export class RoomsService {
     @Inject(StreamService)
     private readonly stream: StreamService,
     @Inject(ClerkDirectoryService)
-    private readonly directory: ClerkDirectoryService
+    private readonly directory: ClerkDirectoryService,
+    @Inject(RoomEventsService)
+    private readonly events: RoomEventsService
   ) {}
 
   private readonly nameCache = new Map<
@@ -219,6 +222,7 @@ export class RoomsService {
       text: `${requester.name} muốn tham gia phòng "${room.title}" của bạn.`,
       href: "/app/play",
     })
+    this.events.emit(roomId)
   }
 
   /**
@@ -260,6 +264,7 @@ export class RoomsService {
         text: `Chủ phòng đã từ chối yêu cầu tham gia "${room.title}".`,
         href: "/app/play",
       })
+      this.events.emit(roomId)
       await this.removeChatMemberBestEffort(hostUserId, roomId, targetUserId)
       return
     }
@@ -288,6 +293,7 @@ export class RoomsService {
       text: `Chủ phòng đã duyệt yêu cầu tham gia "${room.title}" của bạn.`,
       href: "/app/play",
     })
+    this.events.emit(roomId)
     await this.addChatMemberBestEffort(hostUserId, roomId, targetUserId)
   }
 
@@ -309,6 +315,7 @@ export class RoomsService {
       { _id: doc._id },
       { $pull: { "data.roster": { userId } } }
     )
+    this.events.emit(roomId)
     // A member always has standing to remove themselves from the chat —
     // `removeRoomMember` skips the host-only check when memberId === userId.
     try {
@@ -364,6 +371,7 @@ export class RoomsService {
           })
       )
     )
+    this.events.emit(roomId)
   }
 
   /**

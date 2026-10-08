@@ -11,6 +11,9 @@ const handleIntl = createMiddleware(routing)
 // components (the dashboard guards itself there). We don't gate routes here, so
 // the first callback arg is unused — locale routing is delegated to next-intl.
 export default clerkMiddleware((_auth, req) => {
+  // Route handlers under /api only need Clerk's auth context — never a
+  // locale prefix.
+  if (req.nextUrl.pathname.startsWith("/api/")) return
   return handleIntl(req)
 })
 
@@ -19,5 +22,7 @@ export const config = {
     // Match all pathnames except API routes, Next.js internals, and files
     // containing a dot (e.g. favicon.ico, images, fonts).
     "/((?!api|_next|_vercel|.*\\..*).*)",
+    // API route handlers (e.g. the live room events bridge) call `auth()`.
+    "/api/(.*)",
   ],
 }
