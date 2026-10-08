@@ -45,6 +45,7 @@ import { startPaymentCheckout } from "@/features/play/payment-actions"
 import { savePreferredLocale } from "@/lib/locale-preference"
 import {
   decideRoomRequest,
+  disbandRoom,
   leaveRoomMembership,
   listRooms,
   requestJoinRoom,
@@ -1155,40 +1156,57 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }
 
   /**
-   * Leave a room. My own doc is always one I host — leaving there cancels a
-   * booked room's court hold or disbands a still-forming one, purely local
-   * (the existing session-persist/cancel-booking machinery already covers
-   * it). Someone *else's* room is a real server mutation instead —
-   * `DELETE /api/rooms/:id/members/me` — which pulls my roster entry from
-   * their doc and best-effort removes me from the room's Stream chat
+   * Leave a room. My own doc is always one I host — leaving there cancels
+   * (disbands) the room server-side: any linked booking is cancelled first
+   * (`POST /api/bookings/:id/cancel` owns the refund), then
+   * `DELETE /api/rooms/:id` deletes a forming room or delists a booked one
+   * and notifies every member, so it's gone for everyone and stays gone
+   * after a reload. Someone *else's* room is
+   * `DELETE /api/rooms/:id/members/me` instead — which pulls my roster entry
+   * from their doc and best-effort removes me from the room's Stream chat
    * server-side (see `RoomsService#leaveRoom`).
    */
   const leaveRoom = (sessionId: string) => {
     const own = sessions.find((x) => x.id === sessionId)
     if (own) {
-      clearTimersFor(sessionId)
-      setSessions((prev) =>
-        prev.flatMap((x) => {
-          if (x.id !== sessionId) return [x]
-          // Booked room cancels its hold; a forming room disbands outright.
-          if (x.status === "booked")
-            return [{ ...x, status: "cancelled" as const, listed: false }]
-          return []
-        })
-      )
-      // Cancelling a booked room freezes its chat (keeps history, blocks
-      // new sends) rather than deleting it.
-      if (own.status === "booked") freezeRoomChatBestEffort(sessionId)
-      dropJoined(sessionId)
-      const title = tm.has(`rooms.${sessionId}.title`)
-        ? tm(`rooms.${sessionId}.title`)
-        : (own.title ?? "")
-      toast(
-        own.status === "booked" ? ts("toast.disbanded") : tm("toast.left"),
-        {
-          description: title,
+      void (async () => {
+        if (own.reservationId) {
+          const cancelled = await cancelBookingRecord(own.reservationId)
+          if (!cancelled.ok) {
+            toast.error(tb("toast.cancelFailed"), {
+              description: cancelled.message,
+            })
+            return
+          }
         }
-      )
+        const result = await disbandRoom(sessionId)
+        // 404: the room was never persisted — nothing to remove server-side.
+        if (!result.ok && result.status !== 404) {
+          toast.error(ts("toast.disbandFailed"), {
+            description: result.message,
+          })
+          return
+        }
+        clearTimersFor(sessionId)
+        setSessions((prev) =>
+          prev.flatMap((x) => {
+            if (x.id !== sessionId) return [x]
+            // A booked room stays as a cancelled booking; a forming room is gone.
+            if (x.reservationId)
+              return [{ ...x, status: "cancelled" as const, listed: false }]
+            return []
+          })
+        )
+        // Cancelling a booked room freezes its chat (keeps history, blocks
+        // new sends) rather than deleting it.
+        if (own.status === "booked") freezeRoomChatBestEffort(sessionId)
+        dropJoined(sessionId)
+        const title = tm.has(`rooms.${sessionId}.title`)
+          ? tm(`rooms.${sessionId}.title`)
+          : (own.title ?? "")
+        toast(ts("toast.disbanded"), { description: title })
+        void refreshRooms()
+      })()
       return
     }
 

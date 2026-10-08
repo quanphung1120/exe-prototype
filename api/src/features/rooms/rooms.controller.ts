@@ -52,6 +52,13 @@ export class RoomsController {
     return { ok: true }
   }
 
+  /** The host cancels their room — it vanishes for everyone; members are notified. */
+  @Delete(":id")
+  async disband(@UserId() userId: string, @Param() param: RoomIdParamDto) {
+    await this.rooms.disbandRoom(userId, param.id)
+    return { ok: true }
+  }
+
   /** A confirmed member leaves the room on their own. */
   @Delete(":id/members/me")
   async leave(@UserId() userId: string, @Param() param: RoomIdParamDto) {

@@ -253,6 +253,54 @@ export class RoomsService {
   }
 
   /**
+   * The host cancels (disbands) their room. A still-forming room is deleted
+   * outright; one with a linked booking is kept as history but delisted and
+   * marked cancelled (the caller cancels the booking itself first, via
+   * `POST /api/bookings/:id/cancel`, which owns the refund). Either way it
+   * drops out of `listRooms`, so every client sees it vanish on its next
+   * poll, and each member/pending requester is notified.
+   */
+  async disbandRoom(userId: string, roomId: string): Promise<void> {
+    const doc = await this.findRoomDoc(roomId)
+    if (doc.userId !== userId) {
+      throw new ForbiddenException("Chỉ chủ phòng mới có quyền huỷ phòng")
+    }
+    const room = doc.data
+    if (room.reservationId) {
+      await this.sessionModel.updateOne(
+        { _id: doc._id },
+        { $set: { "data.listed": false, "data.status": "cancelled" } }
+      )
+    } else {
+      await this.sessionModel.deleteOne({ _id: doc._id })
+    }
+
+    const memberIds = new Set(
+      (room.roster ?? []).flatMap((p) =>
+        p.rsvp !== "host" && p.userId && p.userId !== userId ? [p.userId] : []
+      )
+    )
+    // A failed notification must never undo the disband itself.
+    await Promise.all(
+      [...memberIds].map((memberId) =>
+        this.notifications
+          .create(memberId, {
+            id: `room-disbanded-${roomId}-${memberId}-${randomUUID()}`,
+            kind: "match",
+            text: `Chủ phòng đã huỷ phòng "${room.title}".`,
+            href: "/app/play",
+          })
+          .catch((err: unknown) => {
+            this.logger.error(
+              `Disband notification failed for room ${roomId}`,
+              err instanceof Error ? err.stack : String(err)
+            )
+          })
+      )
+    )
+  }
+
+  /**
    * The match a group chat is coordinating, readable by any member of the
    * chat (not just the host who owns the session doc). A room chat
    * (`room-<id>`) maps to its room; a community group maps to the latest

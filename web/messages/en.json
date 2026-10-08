@@ -514,7 +514,8 @@
       "requestFailed": "Couldn't send the join request",
       "approveFailed": "Couldn't approve the request",
       "declineFailed": "Couldn't decline the request",
-      "leaveFailed": "Couldn't leave the room"
+      "leaveFailed": "Couldn't leave the room",
+      "disbandFailed": "Couldn't cancel the room"
     }
   },
   "Shared": {
@@ -1071,12 +1072,10 @@
     "requested": "Requested",
     "cancelRequest": "Cancel request",
     "viewRoom": "View room",
+    "viewDetails": "View room details",
     "members": {
-      "title": "Members ({joined}/{capacity})",
-      "view": "See who is in this room",
       "viewProfile": "View profile",
-      "host": "Host",
-      "you": "You"
+      "host": "Host"
     }
   },
   "Overview": {
