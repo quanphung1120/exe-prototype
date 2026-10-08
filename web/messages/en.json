@@ -1034,6 +1034,9 @@
       "roomTitlePlaceholder": "Evening badminton, friendly doubles",
       "format": "Format",
       "court": "Court",
+      "courtOptional": "Proposed court (optional)",
+      "noCourt": "No court yet",
+      "courtNote": "Creating a room only finds players — no court is booked yet. Once the room fills, the host opens it and taps “Book a court” to reserve one.",
       "when": "When",
       "note": "Note for players (optional)",
       "notePlaceholder": "Bring your own paddle. We'll grab the court 10 min early.",
@@ -1073,6 +1076,9 @@
     "cancelRequest": "Cancel request",
     "viewRoom": "View room",
     "viewDetails": "View room details",
+    "courtNotBooked": "No court booked",
+    "courtBooked": "Court booked",
+    "proposedSuffix": "(proposed)",
     "members": {
       "viewProfile": "View profile",
       "host": "Host"

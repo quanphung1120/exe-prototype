@@ -1034,6 +1034,9 @@
       "roomTitlePlaceholder": "Cầu lông buổi tối, đánh đôi vui vẻ",
       "format": "Hình thức",
       "court": "Sân",
+      "courtOptional": "Sân dự kiến (tuỳ chọn)",
+      "noCourt": "Chưa chọn sân",
+      "courtNote": "Tạo phòng chỉ để tìm người chơi — sân chưa được đặt. Sau khi đủ người, chủ phòng vào phòng và bấm “Đặt sân” để giữ sân.",
       "when": "Thời gian",
       "note": "Ghi chú cho người chơi (tùy chọn)",
       "notePlaceholder": "Mang vợt của bạn. Chúng ta sẽ vào sân sớm 10 phút.",
@@ -1073,6 +1076,9 @@
     "cancelRequest": "Huỷ yêu cầu",
     "viewRoom": "Xem phòng",
     "viewDetails": "Xem chi tiết phòng",
+    "courtNotBooked": "Chưa đặt sân",
+    "courtBooked": "Đã đặt sân",
+    "proposedSuffix": "(dự kiến)",
     "members": {
       "viewProfile": "Xem hồ sơ",
       "host": "Chủ phòng"

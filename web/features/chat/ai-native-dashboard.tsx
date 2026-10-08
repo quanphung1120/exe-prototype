@@ -1492,8 +1492,14 @@ function RoomCard({
           </p>
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="size-3 shrink-0" />
-            {room.venue} · {room.ward} ·{" "}
-            <CourtDistance courtId={room.courtId} venue={room.venue} />
+            {room.venue ? (
+              <>
+                {room.venue} · {room.ward} ·{" "}
+                <CourtDistance courtId={room.courtId} venue={room.venue} />
+              </>
+            ) : (
+              tm("dialog.noCourt")
+            )}
           </p>
         </div>
         <SportTag sport={room.sport} />

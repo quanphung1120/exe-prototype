@@ -1087,7 +1087,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       )
       setActiveSessionId(room.id)
       toast(tm("toast.requested"), {
-        description: `${roomTitle(room)} · ${room.venue}`,
+        description: [roomTitle(room), room.venue].filter(Boolean).join(" · "),
       })
     })()
   }
