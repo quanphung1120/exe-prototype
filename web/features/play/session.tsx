@@ -191,6 +191,8 @@ interface SessionContextValue {
   /** Host declines a player's join request → dropped from the room. */
   declineRequest: (sessionId: string, initials: string) => void
   leaveRoom: (sessionId: string) => void
+  /** Host cancels their own room; resolves false after a (toasted) failure. */
+  disbandOwnRoom: (sessionId: string) => Promise<boolean>
   addRoom: (room: MatchRoom) => void
   createInviteRoom: (input: {
     title: string
@@ -1202,47 +1204,54 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    * from their doc and best-effort removes me from the room's Stream chat
    * server-side (see `RoomsService#leaveRoom`).
    */
-  const leaveRoom = (sessionId: string) => {
+  /**
+   * The host-side half of {@link leaveRoom}, awaitable: resolves true once
+   * the room is gone (or was never persisted), false after a toasted
+   * failure — so a caller (e.g. deleting the room's chat) can wait on it.
+   */
+  const disbandOwnRoom = async (sessionId: string): Promise<boolean> => {
     const own = sessions.find((x) => x.id === sessionId)
-    if (own) {
-      void (async () => {
-        if (own.reservationId) {
-          const cancelled = await cancelBookingRecord(own.reservationId)
-          if (!cancelled.ok) {
-            toast.error(tb("toast.cancelFailed"), {
-              description: cancelled.message,
-            })
-            return
-          }
-        }
-        const result = await disbandRoom(sessionId)
-        // 404: the room was never persisted — nothing to remove server-side.
-        if (!result.ok && result.status !== 404) {
-          toast.error(ts("toast.disbandFailed"), {
-            description: result.message,
-          })
-          return
-        }
-        clearTimersFor(sessionId)
-        setSessions((prev) =>
-          prev.flatMap((x) => {
-            if (x.id !== sessionId) return [x]
-            // A booked room stays as a cancelled booking; a forming room is gone.
-            if (x.reservationId)
-              return [{ ...x, status: "cancelled" as const, listed: false }]
-            return []
-          })
-        )
-        // Cancelling a booked room freezes its chat (keeps history, blocks
-        // new sends) rather than deleting it.
-        if (own.status === "booked") freezeRoomChatBestEffort(sessionId)
-        dropJoined(sessionId)
-        const title = tm.has(`rooms.${sessionId}.title`)
-          ? tm(`rooms.${sessionId}.title`)
-          : (own.title ?? "")
-        toast(ts("toast.disbanded"), { description: title })
-        void refreshRooms()
-      })()
+    if (!own) return true
+    if (own.reservationId) {
+      const cancelled = await cancelBookingRecord(own.reservationId)
+      if (!cancelled.ok) {
+        toast.error(tb("toast.cancelFailed"), {
+          description: cancelled.message,
+        })
+        return false
+      }
+    }
+    const result = await disbandRoom(sessionId)
+    // 404: the room was never persisted — nothing to remove server-side.
+    if (!result.ok && result.status !== 404) {
+      toast.error(ts("toast.disbandFailed"), { description: result.message })
+      return false
+    }
+    clearTimersFor(sessionId)
+    setSessions((prev) =>
+      prev.flatMap((x) => {
+        if (x.id !== sessionId) return [x]
+        // A booked room stays as a cancelled booking; a forming room is gone.
+        if (x.reservationId)
+          return [{ ...x, status: "cancelled" as const, listed: false }]
+        return []
+      })
+    )
+    // Cancelling a booked room freezes its chat (keeps history, blocks new
+    // sends) rather than deleting it.
+    if (own.status === "booked") freezeRoomChatBestEffort(sessionId)
+    dropJoined(sessionId)
+    const title = tm.has(`rooms.${sessionId}.title`)
+      ? tm(`rooms.${sessionId}.title`)
+      : (own.title ?? "")
+    toast(ts("toast.disbanded"), { description: title })
+    void refreshRooms()
+    return true
+  }
+
+  const leaveRoom = (sessionId: string) => {
+    if (sessions.some((x) => x.id === sessionId)) {
+      void disbandOwnRoom(sessionId)
       return
     }
 
@@ -2148,6 +2157,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     approveRequest,
     declineRequest,
     leaveRoom,
+    disbandOwnRoom,
     addRoom,
     createInviteRoom,
     quickJoin,

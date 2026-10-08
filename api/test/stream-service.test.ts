@@ -432,7 +432,7 @@ void test("deleteGroup rejects a member who isn't the creator", async () => {
   assert.equal(calls.deleted.length, 0)
 })
 
-void test("deleteGroup refuses room chats and DMs", async () => {
+void test("deleteGroup refuses a room chat others are still in, and DMs", async () => {
   const { client, calls } = makeFakeClient()
   const service = await makeService(client)
   await client
@@ -444,13 +444,43 @@ void test("deleteGroup refuses room chats and DMs", async () => {
 
   await assert.rejects(
     () => service.deleteGroup("host-1", "room-1"),
-    BadRequestException
+    ForbiddenException
   )
   await assert.rejects(
     () => service.deleteGroup("host-1", "dm-abc"),
     BadRequestException
   )
   assert.equal(calls.deleted.length, 0)
+})
+
+void test("deleteGroup lets the last member left delete a room chat", async () => {
+  const { client, calls } = makeFakeClient()
+  const service = await makeService(client)
+  await client
+    .channel("messaging", "room-solo", {
+      created_by_id: "host-1",
+      members: ["user-2"],
+    })
+    .create()
+
+  await service.deleteGroup("user-2", "room-solo")
+
+  assert.deepEqual(calls.deleted, ["room-solo"])
+})
+
+void test("deleteGroup lets the last member left delete a community group they didn't create", async () => {
+  const { client, calls } = makeFakeClient()
+  const service = await makeService(client)
+  await client
+    .channel("messaging", "group-solo", {
+      created_by_id: "owner-1",
+      members: ["user-2"],
+    })
+    .create()
+
+  await service.deleteGroup("user-2", "group-solo")
+
+  assert.deepEqual(calls.deleted, ["group-solo"])
 })
 
 void test("deleteGroup against a never-created group 404s as NotFoundException", async () => {

@@ -342,17 +342,28 @@ export class StreamService {
   }
 
   /**
-   * Delete a community group for everyone — the group's creator only. Unlike
-   * {@link leaveConversation} (the caller alone drops out), this removes the
-   * channel and its history for every member. Room chats are excluded: their
-   * lifecycle follows the play room (cancelling it freezes the chat).
+   * Delete a group chat for everyone. Unlike {@link leaveConversation} (the
+   * caller alone drops out), this removes the channel and its history for
+   * every member. Allowed for a community group's creator, or for whoever is
+   * the last member left in a group or room chat — leaving alone would only
+   * strand an empty chat. A room chat otherwise follows its play room
+   * (cancelling the room freezes the chat), so its host can't delete it
+   * while others are still in it.
    */
   async deleteGroup(userId: string, channelId: string): Promise<void> {
-    if (!channelId.startsWith("group-")) {
+    const isRoomChat = channelId.startsWith("room-")
+    if (!channelId.startsWith("group-") && !isRoomChat) {
       throw new BadRequestException("Chỉ có thể xoá nhóm trò chuyện")
     }
     const membership = await this.channelMembership(channelId)
-    if (membership.createdBy !== userId) {
+    const lastMember =
+      membership.memberIds.length === 1 && membership.memberIds[0] === userId
+    if (isRoomChat && !lastMember) {
+      throw new ForbiddenException(
+        "Chỉ có thể xoá nhóm phòng khi bạn là thành viên cuối cùng"
+      )
+    }
+    if (!isRoomChat && membership.createdBy !== userId && !lastMember) {
       throw new ForbiddenException("Chỉ chủ nhóm mới có quyền xoá nhóm")
     }
     await this.client.channel("messaging", channelId).delete()
