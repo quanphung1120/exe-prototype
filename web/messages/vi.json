@@ -1071,12 +1071,10 @@
     "requested": "Đã gửi yêu cầu",
     "cancelRequest": "Huỷ yêu cầu",
     "viewRoom": "Xem phòng",
+    "viewDetails": "Xem chi tiết phòng",
     "members": {
-      "title": "Thành viên ({joined}/{capacity})",
-      "view": "Xem thành viên trong phòng",
       "viewProfile": "Xem hồ sơ",
-      "host": "Chủ phòng",
-      "you": "Bạn"
+      "host": "Chủ phòng"
     }
   },
   "Overview": {

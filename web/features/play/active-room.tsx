@@ -10,6 +10,7 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Crown,
   Hourglass,
   LogOut,
   MapPin,
@@ -57,6 +58,7 @@ import {
   trustTier,
   trustTierAccent,
   type MatchRoom,
+  type RoomMember,
 } from "@/features/dashboard/data"
 import { useData } from "@/features/dashboard/data-provider"
 import { useMatchmaking } from "@/features/play/matchmaking"
@@ -155,6 +157,42 @@ export function ActiveRoomPill() {
   )
 }
 
+/**
+ * The same slide-over as the active-room pill, opened from a lobby card for
+ * any room — so a player who hasn't joined yet can see the details and the
+ * line-up (and each member's profile) before asking to join. The room is
+ * looked up live, so the footer follows a request/approval as it happens.
+ */
+export function RoomPreviewSheet({
+  roomId,
+  open,
+  onOpenChange,
+}: {
+  roomId: string | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const { rooms } = useMatchmaking()
+  const pathname = usePathname()
+  const playScope = pathname === "/app/play"
+  const room = rooms.find((r) => r.id === roomId)
+
+  return (
+    <Sheet open={open && Boolean(room)} onOpenChange={onOpenChange}>
+      <SheetContent
+        className={cn(
+          "w-full gap-0 p-0 sm:max-w-sm",
+          playScope && "player-play-overlay"
+        )}
+      >
+        {room ? (
+          <RoomDetail room={room} onClose={() => onOpenChange(false)} />
+        ) : null}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
 function RoomDetail({
   room,
   onClose,
@@ -165,8 +203,16 @@ function RoomDetail({
   const t = useTranslations("ActiveRoom")
   const tc = useTranslations("Common")
   const tm = useTranslations("MatchMaker")
-  const { joinedRooms, setActiveRoomId, leaveRoom, setRoomCapacity, userName } =
-    useMatchmaking()
+  const {
+    joinedRooms,
+    joinedIds,
+    setActiveRoomId,
+    joinRoom,
+    leaveRoom,
+    hasTimeConflict,
+    setRoomCapacity,
+    userName,
+  } = useMatchmaking()
   const sUser = useAuthUser()
   const {
     sessions,
@@ -193,6 +239,10 @@ function RoomDetail({
   // rooms), not from `session`, since a cross-user pending request never
   // lands in my own doc.
   const awaitingApproval = requestedIds.has(room.id)
+  // A player browsing a room they're not in (opened from its lobby card)
+  // sees the same details, read-only, with a join action instead.
+  const isMember = joinedIds.has(room.id)
+  const conflict = !isMember && !awaitingApproval && hasTimeConflict(room)
   const court = courtByVenue(room.venue)
   const address = court
     ? [court.ward, court.province].filter(Boolean).join(", ")
@@ -378,6 +428,7 @@ function RoomDetail({
                 key={`${initials}-${i}`}
                 sport={room.sport}
                 initials={initials}
+                member={room.members?.[i]}
                 canKick={isHost && initials !== USER.initials}
                 onKick={() => kickPlayer(room.id, initials)}
                 onViewProfile={openProfile}
@@ -455,7 +506,7 @@ function RoomDetail({
           </section>
         ) : null}
 
-        {others.length ? (
+        {isMember && others.length ? (
           <section className="flex flex-col gap-2">
             <SectionLabel>{t("otherRooms")}</SectionLabel>
             <div className="flex flex-col gap-1">
@@ -496,6 +547,26 @@ function RoomDetail({
           >
             <X />
             {t("cancelRequest")}
+          </Button>
+        ) : !isMember ? (
+          <Button
+            className="flex-1 rounded-full font-semibold"
+            disabled={full || conflict || room.demo}
+            title={room.demo ? tm("demoJoin") : undefined}
+            onClick={() => joinRoom(room)}
+          >
+            {room.demo ? (
+              tm("demoBadge")
+            ) : full ? (
+              tm("full")
+            ) : conflict ? (
+              tm("timeClash")
+            ) : (
+              <>
+                <UserPlus />
+                {tm("join")}
+              </>
+            )}
           </Button>
         ) : (
           <>
@@ -557,24 +628,33 @@ function RoomDetail({
 function ParticipantRow({
   sport,
   initials,
+  member,
   canKick,
   onKick,
   onViewProfile,
 }: {
   sport: MatchRoom["sport"]
   initials: string
+  member?: RoomMember
   canKick?: boolean
   onKick?: () => void
   onViewProfile?: (initials: string) => void
 }) {
   const t = useTranslations("ActiveRoom")
+  const tm = useTranslations("MatchMaker")
   const { userLevelForSport, userName } = useMatchmaking()
   const sUser = useAuthUser()
-  const { user: USER, playerByInitials } = useData()
+  const { user: USER, players, playerByInitials } = useData()
   const { name, level, trust } = playerByInitials(initials)
   const tier = trustTier(trust)
-  const isYou = initials === USER.initials
-  const displayName = isYou ? sUser.name || userName : name
+  const isYou = member?.userId
+    ? member.userId === sUser.id
+    : initials === USER.initials
+  // A real (non-seed) player has no seed level/trust — `playerByInitials`
+  // would only invent defaults, so their level lives on their profile.
+  const real =
+    Boolean(member?.userId) && !players.some((p) => p.initials === initials)
+  const displayName = isYou ? sUser.name || userName : member?.name || name
   const displayInitials = isYou ? initialsOf(sUser.name || userName) : initials
 
   const info = (
@@ -588,18 +668,34 @@ function ParticipantRow({
               <span className="text-muted-foreground"> ({t("you")})</span>
             ) : null}
           </span>
-          <LevelChip level={isYou ? userLevelForSport(sport) : level} />
+          {isYou || !real ? (
+            <LevelChip level={isYou ? userLevelForSport(sport) : level} />
+          ) : null}
+          {member?.host ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">
+              <Crown className="size-3" />
+              {tm("members.host")}
+            </span>
+          ) : null}
         </div>
-        <div
-          className={cn(
-            "mt-0.5 inline-flex items-center gap-1 text-xs",
-            trustTierAccent[tier]
-          )}
-        >
-          <Star className="size-3 fill-current" />
-          <span className="font-mono tabular-nums">{trust}</span>
-          <span className="text-muted-foreground">· {t(`trust.${tier}`)}</span>
-        </div>
+        {real && !isYou ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {tm("members.viewProfile")}
+          </p>
+        ) : (
+          <div
+            className={cn(
+              "mt-0.5 inline-flex items-center gap-1 text-xs",
+              trustTierAccent[tier]
+            )}
+          >
+            <Star className="size-3 fill-current" />
+            <span className="font-mono tabular-nums">{trust}</span>
+            <span className="text-muted-foreground">
+              · {t(`trust.${tier}`)}
+            </span>
+          </div>
+        )}
       </div>
     </>
   )

@@ -6,9 +6,7 @@ import * as React from "react"
 import { useTranslations } from "next-intl"
 import {
   Check,
-  ChevronRight,
   Clock,
-  Crown,
   Eye,
   Hourglass,
   LogOut,
@@ -22,20 +20,9 @@ import {
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
 import { LevelChip, SportTag } from "@/features/dashboard/shared"
-import {
-  formatVnd,
-  type MatchRoom,
-  type RoomMember,
-} from "@/features/dashboard/data"
+import { formatVnd, type MatchRoom } from "@/features/dashboard/data"
+import { RoomPreviewSheet } from "@/features/play/active-room"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { useAuthUser } from "@/features/dashboard/auth-user"
 import { useData } from "@/features/dashboard/data-provider"
@@ -63,8 +50,19 @@ export function RoomsView() {
     openQuickJoin,
     openCreateRoom,
   } = useMatchmaking()
+  // Kept separately from `open` so the sheet still has its room while it
+  // animates closed.
+  const [preview, setPreview] = React.useState<{
+    id: string | null
+    open: boolean
+  }>({ id: null, open: false })
   return (
     <div className="no-scrollbar flex flex-col gap-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+      <RoomPreviewSheet
+        roomId={preview.id}
+        open={preview.open}
+        onOpenChange={(open) => setPreview((p) => ({ ...p, open }))}
+      />
       {/* Room grid */}
       {rooms.length ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -87,7 +85,13 @@ export function RoomsView() {
                 }
                 onJoin={() => joinRoom(room)}
                 onLeave={() => leaveRoom(room.id)}
-                onView={() => openManager(room.id)}
+                // Rooms I'm in open the manager (the pill's sheet); any other
+                // room opens the same details read-only, with a join action.
+                onOpen={() =>
+                  hosted || joined
+                    ? openManager(room.id)
+                    : setPreview({ id: room.id, open: true })
+                }
               />
             )
           })}
@@ -127,7 +131,7 @@ function RoomCard({
   conflict,
   onJoin,
   onLeave,
-  onView,
+  onOpen,
 }: {
   room: MatchRoom
   hosted: boolean
@@ -136,19 +140,18 @@ function RoomCard({
   conflict: boolean
   onJoin: () => void
   onLeave: () => void
-  onView: () => void
+  onOpen: () => void
 }) {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
   const sUser = useAuthUser()
   const { userName } = useMatchmaking()
-  const { user: USER, courtByVenue } = useData()
+  const { courtByVenue } = useData()
   const court = courtByVenue(room.venue)
   const address = court
     ? [court.ward, court.province].filter(Boolean).join(", ")
     : room.ward
   const [leaveHint, setLeaveHint] = React.useState(false)
-  const [membersOpen, setMembersOpen] = React.useState(false)
   const full = room.joined >= room.capacity
   const openSeats = room.capacity - room.joined
   const title = t.has(`rooms.${room.id}.title`)
@@ -157,7 +160,7 @@ function RoomCard({
   const day = roomDayLabel(room.day, tc)
 
   return (
-    <div className="flex flex-col gap-4 rounded-[28px] border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
+    <div className="relative flex cursor-pointer flex-col gap-4 rounded-[28px] border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -174,9 +177,16 @@ function RoomCard({
               </span>
             ) : null}
           </div>
-          <p className="mt-1 truncate font-heading text-lg leading-tight font-semibold">
+          {/* Stretched over the whole card: clicking anywhere opens the
+              room's details; the footer buttons sit above it (z-10). */}
+          <button
+            type="button"
+            className="mt-1 block max-w-full truncate text-left font-heading text-lg leading-tight font-semibold after:absolute after:inset-0 after:rounded-[28px] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+            title={t("viewDetails")}
+            onClick={onOpen}
+          >
             {title}
-          </p>
+          </button>
         </div>
         <LevelChip level={room.level} className="shrink-0" />
       </div>
@@ -199,13 +209,7 @@ function RoomCard({
 
       {/* Fill meter */}
       <div className="flex items-center justify-between gap-3 rounded-2xl bg-secondary p-2.5">
-        <button
-          type="button"
-          className="-m-1 flex items-center gap-2 rounded-xl p-1 transition-colors hover:bg-background/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          title={t("members.view")}
-          aria-label={t("members.view")}
-          onClick={() => setMembersOpen(true)}
-        >
+        <div className="flex items-center gap-2">
           <AvatarGroup>
             {room.players.map((p, i) => (
               <Avatar key={i} className="size-7">
@@ -226,8 +230,7 @@ function RoomCard({
           <span className="font-mono text-xs text-muted-foreground tabular-nums">
             {room.joined}/{room.capacity}
           </span>
-          <ChevronRight className="size-3.5 text-muted-foreground" />
-        </button>
+        </div>
         <span className="text-sm font-semibold tabular-nums">
           {formatVnd(room.pricePerHour)}
           <span className="text-xs font-normal text-muted-foreground">/h</span>
@@ -237,10 +240,7 @@ function RoomCard({
       <div className="mt-auto flex items-center gap-2 pt-1">
         <span className="min-w-0 truncate text-xs text-muted-foreground">
           {t("hostedBy", {
-            name:
-              room.host.initials === USER.initials
-                ? sUser.name || userName
-                : room.host.name,
+            name: hosted ? sUser.name || userName : room.host.name,
           })}
           {!hosted && !joined && !requested && !full
             ? ` · ${t("openSeats", { count: openSeats })}`
@@ -250,8 +250,8 @@ function RoomCard({
           <Button
             size="sm"
             variant="outline"
-            className="ml-auto shrink-0 rounded-full font-semibold"
-            onClick={onView}
+            className="relative z-10 ml-auto shrink-0 rounded-full font-semibold"
+            onClick={onOpen}
           >
             <Eye />
             {t("viewRoom")}
@@ -266,7 +266,7 @@ function RoomCard({
             onFocus={() => setLeaveHint(true)}
             onBlur={() => setLeaveHint(false)}
             className={cn(
-              "ml-auto shrink-0 rounded-full",
+              "relative z-10 ml-auto shrink-0 rounded-full",
               leaveHint
                 ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
                 : "bg-amber-500/12 text-amber-700 hover:bg-amber-500/15"
@@ -294,7 +294,7 @@ function RoomCard({
             onFocus={() => setLeaveHint(true)}
             onBlur={() => setLeaveHint(false)}
             className={cn(
-              "ml-auto shrink-0 rounded-full",
+              "relative z-10 ml-auto shrink-0 rounded-full",
               leaveHint
                 ? "bg-destructive/10 text-destructive hover:bg-destructive/15"
                 : "bg-brand/10 text-brand hover:bg-brand/15"
@@ -315,7 +315,7 @@ function RoomCard({
         ) : (
           <Button
             size="sm"
-            className="ml-auto shrink-0 rounded-full font-semibold"
+            className="relative z-10 ml-auto shrink-0 rounded-full font-semibold"
             variant={full || conflict || room.demo ? "outline" : "default"}
             disabled={full || conflict || room.demo}
             title={room.demo ? t("demoJoin") : undefined}
@@ -331,135 +331,6 @@ function RoomCard({
           </Button>
         )}
       </div>
-
-      <RoomMembersDialog
-        room={room}
-        title={title}
-        hosted={hosted}
-        open={membersOpen}
-        onOpenChange={setMembersOpen}
-      />
     </div>
-  )
-}
-
-/**
- * Who's already in a room — open to anyone browsing, so a player can see the
- * line-up (and open each member's profile) before asking to join.
- */
-function RoomMembersDialog({
-  room,
-  title,
-  hosted,
-  open,
-  onOpenChange,
-}: {
-  room: MatchRoom
-  title: string
-  hosted: boolean
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const t = useTranslations("MatchMaker")
-  const sUser = useAuthUser()
-  const { userName } = useMatchmaking()
-  const { playerByInitials } = useData()
-  const [profile, setProfile] = React.useState<RoomMember | null>(null)
-  const [profileOpen, setProfileOpen] = React.useState(false)
-
-  const members: RoomMember[] =
-    room.members ??
-    room.players.map((initials) => ({
-      name: playerByInitials(initials).name,
-      initials,
-      host: initials === room.host.initials,
-    }))
-  // My own seat: the host entry of a room I host (it carries no userId), or
-  // a cross-user entry stamped with my Clerk id.
-  const isYou = (m: RoomMember) =>
-    m.userId ? m.userId === sUser.id : hosted && m.host
-  const openSeats = Math.max(0, room.capacity - members.length)
-
-  return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="player-play-overlay max-w-[calc(100%-2rem)] gap-4 sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {t("members.title", {
-                joined: members.length,
-                capacity: room.capacity,
-              })}
-            </DialogTitle>
-            <DialogDescription className="truncate">{title}</DialogDescription>
-          </DialogHeader>
-
-          <ul className="flex flex-col gap-1">
-            {members.map((m, i) => {
-              const you = isYou(m)
-              const info = (
-                <>
-                  <Avatar className="size-9">
-                    <AvatarFallback className="bg-secondary text-xs font-medium text-secondary-foreground">
-                      {m.initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                    {you ? sUser.name || userName : m.name || m.initials}
-                    {you ? (
-                      <span className="text-muted-foreground">
-                        {" "}
-                        ({t("members.you")})
-                      </span>
-                    ) : null}
-                  </span>
-                  {m.host ? (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">
-                      <Crown className="size-3" />
-                      {t("members.host")}
-                    </span>
-                  ) : null}
-                </>
-              )
-              return (
-                <li key={`${m.initials}-${i}`}>
-                  {you ? (
-                    <div className="flex items-center gap-3 rounded-xl p-2">
-                      {info}
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-muted/60"
-                      title={t("members.viewProfile")}
-                      onClick={() => {
-                        setProfile(m)
-                        setProfileOpen(true)
-                      }}
-                    >
-                      {info}
-                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-                    </button>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-
-          {openSeats ? (
-            <p className="text-xs text-muted-foreground">
-              {t("openSeats", { count: openSeats })}
-            </p>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      <PlayerProfileDialog
-        initials={profile?.initials ?? null}
-        member={profile}
-        open={profileOpen}
-        onOpenChange={setProfileOpen}
-      />
-    </>
   )
 }

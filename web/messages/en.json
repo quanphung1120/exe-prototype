@@ -1071,12 +1071,10 @@
     "requested": "Requested",
     "cancelRequest": "Cancel request",
     "viewRoom": "View room",
+    "viewDetails": "View room details",
     "members": {
-      "title": "Members ({joined}/{capacity})",
-      "view": "See who is in this room",
       "viewProfile": "View profile",
-      "host": "Host",
-      "you": "You"
+      "host": "Host"
     }
   },
   "Overview": {
