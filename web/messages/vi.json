@@ -514,7 +514,8 @@
       "requestFailed": "Không thể gửi yêu cầu tham gia",
       "approveFailed": "Không thể duyệt yêu cầu tham gia",
       "declineFailed": "Không thể từ chối yêu cầu tham gia",
-      "leaveFailed": "Không thể rời phòng"
+      "leaveFailed": "Không thể rời phòng",
+      "disbandFailed": "Không thể huỷ phòng"
     }
   },
   "Shared": {

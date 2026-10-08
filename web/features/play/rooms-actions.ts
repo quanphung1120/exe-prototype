@@ -74,6 +74,15 @@ export async function decideRoomRequest(
   )
 }
 
+/** The host cancels their room — removed for everyone, members notified. */
+export async function disbandRoom(
+  roomId: string
+): Promise<RoomActionResult<void>> {
+  return roomsApi<void>(`/api/rooms/${encodeURIComponent(roomId)}`, {
+    method: "DELETE",
+  })
+}
+
 /** A confirmed (non-host) member leaves someone else's room on their own. */
 export async function leaveRoomMembership(
   roomId: string

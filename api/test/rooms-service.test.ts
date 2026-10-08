@@ -459,6 +459,73 @@ void test("decideRequest rejects an unknown/already-resolved request", async () 
   )
 })
 
+// ── disbandRoom ──────────────────────────────────────────────────────────────
+
+const ROSTER_WITH_MEMBERS: PlaySessionData["roster"] = [
+  { name: "Host", initials: "HO", rsvp: "host" },
+  { name: "Mai", initials: "MA", rsvp: "going", userId: "user-2" },
+  { name: "Lan", initials: "LA", rsvp: "requested", userId: "user-3" },
+]
+
+void test("disbandRoom deletes a forming room and notifies every member and requester", async () => {
+  const doc = makeDoc("host-1", makeRoom({ roster: ROSTER_WITH_MEMBERS }))
+  let deleted: unknown
+  const { service, recorder } = await makeService({
+    findOne: () => Promise.resolve(doc),
+    deleteOne: (filter: unknown) => {
+      deleted = filter
+      return Promise.resolve({ deletedCount: 1 })
+    },
+  })
+
+  await service.disbandRoom("host-1", "room-1")
+
+  assert.deepEqual(deleted, { _id: "doc-1" })
+  assert.deepEqual(recorder.notifications.map((n) => n.userId).sort(), [
+    "user-2",
+    "user-3",
+  ])
+  assert.match(
+    (recorder.notifications[0]?.input as { text: string }).text,
+    /đã huỷ phòng/
+  )
+})
+
+void test("disbandRoom delists a booked room as cancelled instead of deleting it", async () => {
+  const doc = makeDoc(
+    "host-1",
+    makeRoom({ status: "booked", reservationId: "res-1" })
+  )
+  let update: unknown
+  const { service } = await makeService({
+    findOne: () => Promise.resolve(doc),
+    updateOne: (_filter: unknown, u: unknown) => {
+      update = u
+      return Promise.resolve({ acknowledged: true })
+    },
+    deleteOne: () => assert.fail("a booked room must not be deleted"),
+  })
+
+  await service.disbandRoom("host-1", "room-1")
+
+  assert.deepEqual(update, {
+    $set: { "data.listed": false, "data.status": "cancelled" },
+  })
+})
+
+void test("disbandRoom rejects anyone but the host", async () => {
+  const doc = makeDoc("host-1", makeRoom({ roster: ROSTER_WITH_MEMBERS }))
+  const { service } = await makeService({
+    findOne: () => Promise.resolve(doc),
+    deleteOne: () => assert.fail("must not delete"),
+  })
+
+  await assert.rejects(
+    service.disbandRoom("user-2", "room-1"),
+    ForbiddenException
+  )
+})
+
 // ── leaveRoom ────────────────────────────────────────────────────────────────
 
 void test("leaveRoom pulls the caller's own roster entry and removes them from chat", async () => {

@@ -514,7 +514,8 @@
       "requestFailed": "Couldn't send the join request",
       "approveFailed": "Couldn't approve the request",
       "declineFailed": "Couldn't decline the request",
-      "leaveFailed": "Couldn't leave the room"
+      "leaveFailed": "Couldn't leave the room",
+      "disbandFailed": "Couldn't cancel the room"
     }
   },
   "Shared": {
