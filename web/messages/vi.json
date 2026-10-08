@@ -2168,7 +2168,8 @@
     "reviewsLabel": "Đánh giá",
     "ratingsCount": "{count} đánh giá",
     "noReviews": "Chưa có đánh giá nào. Đánh giá sẽ xuất hiện sau khi bạn chơi cùng người khác.",
-    "reviewsUnavailable": "Không tải được đánh giá lúc này."
+    "reviewsUnavailable": "Không tải được đánh giá lúc này.",
+    "levelUnavailable": "Không tải được trình độ lúc này."
   },
   "Onboarding": {
     "metaTitle": "Chọn vai trò của Quý khách",

@@ -2168,7 +2168,8 @@
     "reviewsLabel": "Reviews",
     "ratingsCount": "{count} ratings",
     "noReviews": "No reviews yet. They appear after you play with others.",
-    "reviewsUnavailable": "Reviews are unavailable right now."
+    "reviewsUnavailable": "Reviews are unavailable right now.",
+    "levelUnavailable": "Level is unavailable right now."
   },
   "Onboarding": {
     "metaTitle": "Choose your role",

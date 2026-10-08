@@ -79,7 +79,15 @@ export class RoomsService {
       })
       .sort(ORDER)
       .lean()
-    return docs.map((d) => d.data)
+    // The host's own roster entry is written client-side without a userId;
+    // stamp it with the doc owner so a browsing player can open the host's
+    // profile (and peer reviews) before deciding to join.
+    return docs.map((d) => ({
+      ...d.data,
+      roster: d.data.roster.map((p) =>
+        p.rsvp === "host" && !p.userId ? { ...p, userId: d.userId } : p
+      ),
+    }))
   }
 
   /** Load a room by its client id, regardless of which user owns it. */

@@ -152,6 +152,28 @@ void test("listRooms queries listed, non-demo, active rooms and returns their da
   assert.equal(rooms[0]?.id, "room-1")
 })
 
+void test("listRooms stamps the host's roster entry with the owner's userId", async () => {
+  const docs = [
+    makeDoc(
+      "host-1",
+      makeRoom({
+        roster: [
+          { name: "Host", initials: "HO", rsvp: "host" },
+          { name: "Mai", initials: "MA", rsvp: "going", userId: "user-2" },
+        ],
+      })
+    ),
+  ]
+  const { service } = await makeService({ find: () => findChain(docs) })
+
+  const [room] = await service.listRooms()
+
+  assert.deepEqual(
+    room?.roster.map((p) => p.userId),
+    ["host-1", "user-2"]
+  )
+})
+
 // ── requestJoin ──────────────────────────────────────────────────────────────
 
 void test("requestJoin pushes a requested roster entry and notifies the host", async () => {
