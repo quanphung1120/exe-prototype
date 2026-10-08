@@ -408,6 +408,7 @@ function RoomDetail({
                 <RequestRow
                   key={p.initials}
                   initials={p.initials}
+                  requester={p}
                   full={full}
                   onApprove={() => approveRequest(room.id, p.initials)}
                   onDecline={() => declineRequest(room.id, p.initials)}
@@ -731,21 +732,30 @@ function ParticipantRow({
 /** A pending join request: the host reviews reliability, then approves/declines. */
 function RequestRow({
   initials,
+  requester,
   full,
   onApprove,
   onDecline,
   onViewProfile,
 }: {
   initials: string
+  /** The stored roster entry — carries a real requester's name and id. */
+  requester?: { name: string; userId?: string }
   full: boolean
   onApprove: () => void
   onDecline: () => void
   onViewProfile?: (initials: string) => void
 }) {
   const t = useTranslations("ActiveRoom")
-  const { playerByInitials } = useData()
-  const { name, level, trust } = playerByInitials(initials)
+  const tm = useTranslations("MatchMaker")
+  const { players, playerByInitials } = useData()
+  const seed = playerByInitials(initials)
+  const { level, trust } = seed
   const tier = trustTier(trust)
+  // Same rule as ParticipantRow: a real player has no seed level/trust.
+  const real =
+    Boolean(requester?.userId) && !players.some((p) => p.initials === initials)
+  const name = requester?.name || seed.name
 
   return (
     <div className="flex flex-col gap-2.5 rounded-2xl bg-muted/40 p-3">
@@ -759,20 +769,26 @@ function RequestRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-medium">{name}</span>
-            <LevelChip level={level} />
+            {real ? null : <LevelChip level={level} />}
           </div>
-          <div
-            className={cn(
-              "mt-0.5 inline-flex items-center gap-1 text-xs",
-              trustTierAccent[tier]
-            )}
-          >
-            <Star className="size-3 fill-current" />
-            <span className="font-mono tabular-nums">{trust}</span>
-            <span className="text-muted-foreground">
-              · {t("reliability")} · {t(`trust.${tier}`)}
-            </span>
-          </div>
+          {real ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {tm("members.viewProfile")}
+            </p>
+          ) : (
+            <div
+              className={cn(
+                "mt-0.5 inline-flex items-center gap-1 text-xs",
+                trustTierAccent[tier]
+              )}
+            >
+              <Star className="size-3 fill-current" />
+              <span className="font-mono tabular-nums">{trust}</span>
+              <span className="text-muted-foreground">
+                · {t("reliability")} · {t(`trust.${tier}`)}
+              </span>
+            </div>
+          )}
         </div>
       </button>
       <div className="flex items-center gap-2">

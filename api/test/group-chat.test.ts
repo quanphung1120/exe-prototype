@@ -172,6 +172,7 @@ async function makeRooms(
       { provide: NotificationsService, useValue: {} },
       { provide: ProfileService, useValue: {} },
       { provide: StreamService, useValue: { assertMember } },
+      { provide: ClerkDirectoryService, useValue: {} },
     ],
   }).compile()
   return moduleRef.get(RoomsService)

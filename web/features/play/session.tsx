@@ -478,9 +478,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const next = prev.map((s) => {
         const r = remote.find((x) => x.id === s.id)
         if (!r) return s
-        const localInitials = new Set(s.roster.map((p) => p.initials))
+        // Match on userId when present: `GET /api/rooms` shows real names,
+        // and a requester with a common initials pair must not be dropped.
+        const localKeys = new Set(s.roster.map((p) => p.userId ?? p.initials))
         const incoming = (r.roster ?? []).filter(
-          (p) => p.rsvp === "requested" && !localInitials.has(p.initials)
+          (p) =>
+            p.rsvp === "requested" && !localKeys.has(p.userId ?? p.initials)
         )
         if (!incoming.length) return s
         changed = true
@@ -1117,7 +1120,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         )
       )
       toast.success(ts("toast.approved"), {
-        description: playerByInitials(initials).name,
+        description: target.name || playerByInitials(initials).name,
       })
       void refreshRooms()
     })()
@@ -1149,7 +1152,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         )
       )
       toast(ts("toast.declined"), {
-        description: playerByInitials(initials).name,
+        description: target.name || playerByInitials(initials).name,
       })
       void refreshRooms()
     })()
@@ -1262,7 +1265,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       host: room.host,
       capacity: room.capacity,
       roster: room.players.map((init) => ({
-        name: playerByInitials(init).name,
+        name:
+          init === room.host.initials
+            ? room.host.name
+            : playerByInitials(init).name,
         initials: init,
         rsvp: init === room.host.initials ? "host" : "going",
       })),

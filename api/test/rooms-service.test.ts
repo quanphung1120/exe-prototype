@@ -17,6 +17,7 @@ import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { ProfileService } from "../src/features/players/profile.service.js"
 import { StreamService } from "../src/features/stream/stream.service.js"
+import { ClerkDirectoryService } from "../src/features/stream/clerk-directory.service.js"
 import type { PlaySession as PlaySessionData } from "../src/shared/index.js"
 
 /**
@@ -80,8 +81,18 @@ async function makeService(
   opts: {
     profile?: { name: string; initials: string }
     streamFails?: boolean
+    /** Clerk directory: user id → real display name. */
+    directory?: Record<string, string>
   } = {}
 ) {
+  const directoryMock = {
+    getMany: (ids: string[]) =>
+      Promise.resolve(
+        ids.flatMap((id) =>
+          opts.directory?.[id] ? [{ id, name: opts.directory[id] }] : []
+        )
+      ),
+  }
   const recorder: Recorder = {
     notifications: [],
     addMember: [],
@@ -123,6 +134,7 @@ async function makeService(
       { provide: NotificationsService, useValue: notificationsMock },
       { provide: ProfileService, useValue: profilesMock },
       { provide: StreamService, useValue: streamMock },
+      { provide: ClerkDirectoryService, useValue: directoryMock },
     ],
   }).compile()
   return { service: moduleRef.get(RoomsService), recorder }
@@ -172,6 +184,48 @@ void test("listRooms stamps the host's roster entry with the owner's userId", as
     room?.roster.map((p) => p.userId),
     ["host-1", "user-2"]
   )
+})
+
+void test("listRooms shows real Clerk names instead of the stored demo identity", async () => {
+  const docs = [
+    makeDoc(
+      "host-1",
+      makeRoom({
+        host: { name: "Nguyễn Minh", initials: "NM" },
+        roster: [
+          { name: "Nguyễn Minh", initials: "NM", rsvp: "host" },
+          {
+            name: "Nguyễn Minh",
+            initials: "NM",
+            rsvp: "requested",
+            userId: "user-2",
+          },
+        ],
+      })
+    ),
+  ]
+  const { service } = await makeService(
+    { find: () => findChain(docs) },
+    { directory: { "host-1": "Trương Viên", "user-2": "Lê Lan" } }
+  )
+
+  const [room] = await service.listRooms()
+
+  assert.deepEqual(room?.host, { name: "Trương Viên", initials: "TV" })
+  assert.equal(room?.roster[0]?.name, "Trương Viên")
+  assert.equal(room?.roster[0]?.initials, "TV")
+  // A request keeps its stored initials (the host's client matches on them).
+  assert.equal(room?.roster[1]?.name, "Lê Lan")
+  assert.equal(room?.roster[1]?.initials, "NM")
+})
+
+void test("listRooms keeps stored names when the Clerk directory is unavailable", async () => {
+  const docs = [makeDoc("host-1", makeRoom())]
+  const { service } = await makeService({ find: () => findChain(docs) })
+
+  const [room] = await service.listRooms()
+
+  assert.deepEqual(room?.host, { name: "Host", initials: "HO" })
 })
 
 // ── requestJoin ──────────────────────────────────────────────────────────────
