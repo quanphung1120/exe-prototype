@@ -166,12 +166,18 @@ interface PlayerProfileDialogProps {
   initials: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  /**
+   * What the caller already knows about a real (non-seed) player, e.g. a room
+   * member — their display name, and their Clerk id for peer reviews.
+   */
+  member?: { name: string; userId?: string } | null
 }
 
 export function PlayerProfileDialog({
   initials,
   open,
   onOpenChange,
+  member,
 }: PlayerProfileDialogProps) {
   const tProfile = useTranslations("Profile")
   const tc = useTranslations("Common")
@@ -184,7 +190,8 @@ export function PlayerProfileDialog({
     : null
   const rosterEntry = initials ? playerByInitials(initials) : null
 
-  const name = fullPlayer?.name ?? rosterEntry?.name ?? initials ?? ""
+  const name =
+    fullPlayer?.name || member?.name || rosterEntry?.name || initials || ""
   const level = fullPlayer?.level ?? rosterEntry?.level
   const sport = fullPlayer?.sport
   const matchPct = fullPlayer?.matchPct
@@ -280,6 +287,10 @@ export function PlayerProfileDialog({
                   {tProfile("kmAway", { km: distanceKm })}
                 </span>
               </div>
+            ) : null}
+
+            {member?.userId ? (
+              <PlayerReviews userId={member.userId} open={open} />
             ) : null}
           </div>
         </div>

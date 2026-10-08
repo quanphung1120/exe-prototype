@@ -544,6 +544,11 @@ function RoomDetail({
         initials={profileInitials}
         open={profileOpen}
         onOpenChange={setProfileOpen}
+        member={
+          [...(room.members ?? []), ...requests].find(
+            (p) => p.initials === profileInitials
+          ) ?? null
+        }
       />
     </>
   )
