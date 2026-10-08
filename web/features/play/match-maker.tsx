@@ -175,7 +175,19 @@ function RoomCard({
               >
                 {t("demoBadge")}
               </span>
-            ) : null}
+            ) : (
+              // Creating a room doesn't book a court — say so up front.
+              <span
+                className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                  room.bookingId
+                    ? "bg-brand/10 text-brand"
+                    : "bg-amber-500/12 text-amber-700 dark:text-amber-400"
+                )}
+              >
+                {room.bookingId ? t("courtBooked") : t("courtNotBooked")}
+              </span>
+            )}
           </div>
           {/* Stretched over the whole card: clicking anywhere opens the
               room's details; the footer buttons sit above it (z-10). */}
@@ -201,8 +213,14 @@ function RoomCard({
         <span className="flex min-w-0 items-center gap-1.5">
           <MapPin className="size-3.5 shrink-0" />
           <span className="min-w-0 truncate">
-            {room.venue} · {address} ·{" "}
-            <CourtDistance courtId={room.courtId} venue={room.venue} />
+            {room.venue ? (
+              <>
+                {room.venue} · {address} ·{" "}
+                <CourtDistance courtId={room.courtId} venue={room.venue} />
+              </>
+            ) : (
+              t("dialog.noCourt")
+            )}
           </span>
         </span>
       </div>
@@ -231,10 +249,14 @@ function RoomCard({
             {room.joined}/{room.capacity}
           </span>
         </div>
-        <span className="text-sm font-semibold tabular-nums">
-          {formatVnd(room.pricePerHour)}
-          <span className="text-xs font-normal text-muted-foreground">/h</span>
-        </span>
+        {room.pricePerHour ? (
+          <span className="text-sm font-semibold tabular-nums">
+            {formatVnd(room.pricePerHour)}
+            <span className="text-xs font-normal text-muted-foreground">
+              /h
+            </span>
+          </span>
+        ) : null}
       </div>
 
       <div className="mt-auto flex items-center gap-2 pt-1">

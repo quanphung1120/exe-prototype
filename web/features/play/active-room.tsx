@@ -340,18 +340,28 @@ function RoomDetail({
           <SectionLabel>{t("location")}</SectionLabel>
           <div className="flex flex-col gap-2 text-sm">
             <DetailRow icon={MapPin}>
-              {room.venue} · {address} ·{" "}
-              <CourtDistance courtId={room.courtId} venue={room.venue} />
+              {room.venue ? (
+                <>
+                  {room.venue} · {address} ·{" "}
+                  <CourtDistance courtId={room.courtId} venue={room.venue} />
+                  {/* Until booked, the court is only the host's proposal. */}
+                  {booked ? null : ` ${tm("proposedSuffix")}`}
+                </>
+              ) : (
+                tm("dialog.noCourt")
+              )}
             </DetailRow>
             <DetailRow icon={Clock}>
-              {booked
+              {room.time
                 ? `${roomDayLabel(room.day, tc)} · ${room.time}`
                 : t("noCourtYet")}
             </DetailRow>
             <DetailRow icon={Users}>
               {tc(`sports.${room.sport}`)} ·{" "}
-              {tc(`format.${room.format.toLowerCase()}`)} ·{" "}
-              {formatVnd(room.pricePerHour)}/h
+              {tc(`format.${room.format.toLowerCase()}`)}
+              {room.pricePerHour
+                ? ` · ${formatVnd(room.pricePerHour)}/h`
+                : null}
             </DetailRow>
           </div>
 
@@ -525,10 +535,12 @@ function RoomDetail({
                     <SportDot sport={r.sport} />
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {rTitle}
-                      <span className="text-muted-foreground">
-                        {" "}
-                        · {r.venue}
-                      </span>
+                      {r.venue ? (
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {r.venue}
+                        </span>
+                      ) : null}
                     </span>
                     <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
                   </button>

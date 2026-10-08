@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -265,6 +266,9 @@ function QuickJoinDialog() {
  * Host-a-room dialog. Like Quick Join, its open-state is owned by the store so
  * the topbar can trigger it; the form state stays local and resets on close.
  */
+/** Create-room court value meaning "no court picked yet" — the court is optional. */
+const NO_COURT = "none"
+
 function CreateRoomDialog() {
   const t = useTranslations("MatchMaker")
   const tc = useTranslations("Common")
@@ -294,7 +298,9 @@ function CreateRoomDialog() {
   } = useMatchmaking()
   const idRef = React.useRef(0)
   const courtName = (id: string) =>
-    COURTS.find((c) => c.id === id)?.name ?? t("selectCourt")
+    id === NO_COURT
+      ? t("dialog.noCourt")
+      : (COURTS.find((c) => c.id === id)?.name ?? t("selectCourt"))
 
   // The schema is rebuilt every render, so its refine closes over the current
   // `sessions`/`conflictFor`; useForm re-applies it via `form.update` each
@@ -308,7 +314,9 @@ function CreateRoomDialog() {
       sport: z.enum(["badminton"]),
       format: z.enum(["Singles", "Doubles"]),
       maxPlayers: z.number().int().min(2).max(8),
-      courtId: z.string().min(1, t("validation.court")),
+      // Optional: a room is about finding players; the court is only a
+      // proposal until the host actually books one.
+      courtId: z.string(),
       day: z.string().min(1),
       startTime: z.string().min(1, t("validation.time")),
       endTime: z.string().min(1, t("validation.time")),
@@ -319,13 +327,13 @@ function CreateRoomDialog() {
       message: t("validation.endAfterStart"),
       path: ["endTime"],
     })
-    // The chosen court must actually be free for the proposed range (so a room
+    // A chosen court must actually be free for the proposed range (so a room
     // can't advertise a slot the court can't honor). Ordering is validated by
     // the refine above; skip this one until the range is sane.
     .refine(
       (d) => {
         const dur = diffMinutes(d.startTime, d.endTime)
-        if (dur <= 0) return true
+        if (dur <= 0 || d.courtId === NO_COURT) return true
         return (
           conflictFor(sessions, {
             courtId: d.courtId,
@@ -344,7 +352,7 @@ function CreateRoomDialog() {
       sport: "badminton" as const,
       format: "Doubles" as "Singles" | "Doubles",
       maxPlayers: 4,
-      courtId: "c1",
+      courtId: NO_COURT,
       day: todayIso,
       startTime: "18:30",
       endTime: "19:30",
@@ -363,18 +371,20 @@ function CreateRoomDialog() {
         })
         return
       }
-      const court = COURTS.find((c) => c.id === value.courtId) ?? COURTS[0]
+      const court = COURTS.find((c) => c.id === value.courtId)
       const capacity = value.maxPlayers
       const dayLabel = locStr(dayLabelFor(value.day), locale)
       addRoom({
         id: `r-new-${idRef.current++}`,
         host: { name: userName, initials: USER.initials },
         title: value.title.trim(),
+        // No court picked: an empty venue — the room only looks for players.
+        courtId: court?.id,
         sport: value.sport,
         format: value.format,
-        venue: court.name,
-        ward: court.ward,
-        distanceKm: court.distanceKm,
+        venue: court?.name ?? "",
+        ward: court?.ward ?? "",
+        distanceKm: court?.distanceKm ?? null,
         day: dayLabel,
         dayKey: value.day,
         time: `${value.startTime} – ${value.endTime}`,
@@ -383,10 +393,12 @@ function CreateRoomDialog() {
         capacity,
         joined: 1,
         players: [USER.initials],
-        pricePerHour: court.pricePerHour,
+        pricePerHour: court?.pricePerHour ?? 0,
       })
       toast.success(t("toast.roomCreated"), {
-        description: `${value.title.trim()} · ${court.name}`,
+        description: court
+          ? `${value.title.trim()} · ${court.name}`
+          : value.title.trim(),
       })
       setCreateRoomOpen(false)
       form.reset()
@@ -518,7 +530,7 @@ function CreateRoomDialog() {
             <form.Field name="courtId">
               {(field) => (
                 <Field>
-                  <FieldLabel>{t("dialog.court")}</FieldLabel>
+                  <FieldLabel>{t("dialog.courtOptional")}</FieldLabel>
                   <Select
                     value={field.state.value}
                     onValueChange={(v) => field.handleChange(v as string)}
@@ -529,6 +541,9 @@ function CreateRoomDialog() {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="player-play-overlay">
+                      <SelectItem value={NO_COURT}>
+                        {t("dialog.noCourt")}
+                      </SelectItem>
                       {COURTS.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name} ·{" "}
@@ -537,6 +552,7 @@ function CreateRoomDialog() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <FieldDescription>{t("dialog.courtNote")}</FieldDescription>
                 </Field>
               )}
             </form.Field>
@@ -618,7 +634,14 @@ function CreateRoomDialog() {
             >
               {({ courtId, day, startTime, endTime }) => {
                 const dur = diffMinutes(startTime, endTime)
-                if (!courtId || !startTime || !endTime || dur <= 0) return null
+                if (
+                  !courtId ||
+                  courtId === NO_COURT ||
+                  !startTime ||
+                  !endTime ||
+                  dur <= 0
+                )
+                  return null
                 const conflict = conflictFor(sessions, {
                   courtId,
                   dayKey: day,
