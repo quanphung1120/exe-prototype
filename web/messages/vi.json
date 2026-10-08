@@ -358,7 +358,7 @@
       "apply": "Tìm sân",
       "reset": "Đặt lại"
     },
-    "distance": "≈ {km} km (đường chim bay)",
+    "distance": "≈ {km} km",
     "anyDay": "Ngày",
     "slotsFor": "Khung giờ trống",
     "taken": "Đã đặt",
@@ -521,7 +521,7 @@
   "Shared": {
     "next": "kế tiếp {time}",
     "perHour": "/giờ",
-    "distance": "≈ {km} km (đường chim bay)",
+    "distance": "≈ {km} km",
     "distanceUnknown": "Chưa xác định khoảng cách"
   },
   "FindCourts": {
@@ -529,7 +529,7 @@
     "metaDescription": "Khung giờ trống gần bạn, sẵn sàng để đặt.",
     "empty": "Không có sân nào phù hợp gần đây. Hãy thử bộ lọc khác.",
     "nearby": "Gần đây · {count, plural, other {# sân}}",
-    "distance": "≈ {km} km (đường chim bay)",
+    "distance": "≈ {km} km",
     "openSlots": "{count, plural, other {# khung trống hôm nay}}",
     "freePct": "Trống {pct}%",
     "perHour": "/giờ",

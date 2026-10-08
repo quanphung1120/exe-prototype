@@ -358,7 +358,7 @@
       "apply": "Find courts",
       "reset": "Reset"
     },
-    "distance": "≈ {km} km (straight line)",
+    "distance": "≈ {km} km",
     "anyDay": "Day",
     "slotsFor": "Open slots",
     "taken": "Taken",
@@ -521,7 +521,7 @@
   "Shared": {
     "next": "next {time}",
     "perHour": "/h",
-    "distance": "≈ {km} km (straight line)",
+    "distance": "≈ {km} km",
     "distanceUnknown": "Distance unavailable"
   },
   "FindCourts": {
@@ -529,7 +529,7 @@
     "metaDescription": "Open court slots near you, ready to book.",
     "empty": "No matching courts nearby. Try another filter.",
     "nearby": "Nearby · {count, plural, one {# court} other {# courts}}",
-    "distance": "≈ {km} km (straight line)",
+    "distance": "≈ {km} km",
     "openSlots": "{count, plural, one {# slot open today} other {# slots open today}}",
     "freePct": "{pct}% free",
     "perHour": "/hour",
