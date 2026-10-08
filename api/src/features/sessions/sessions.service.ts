@@ -18,6 +18,7 @@ import {
   BookingsService,
   type BookingStatusInfo,
 } from "../bookings/bookings.service.js"
+import { RoomEventsService } from "../rooms/room-events.service.js"
 import { PlaySession, type PlaySessionDocument } from "./session.schema.js"
 
 const ORDER = { createdAt: 1, _id: 1 } as const
@@ -81,7 +82,8 @@ export class SessionsService {
     // tsx don't emit the design:paramtypes metadata Nest's implicit
     // constructor-injection would otherwise rely on — see
     // test/sessions-service.test.ts.
-    @Inject(BookingsService) private readonly bookings: BookingsService
+    @Inject(BookingsService) private readonly bookings: BookingsService,
+    @Inject(RoomEventsService) private readonly roomEvents: RoomEventsService
   ) {}
 
   /**
@@ -160,6 +162,9 @@ export class SessionsService {
       { $set: { data: toSave } },
       { upsert: true }
     )
+    // A listed room (new, or its capacity/roster changed) is visible to every
+    // player — let them refetch now. Solo court holds stay private.
+    if (session.listed) this.roomEvents.emit(session.id)
     return toSave
   }
 
@@ -231,5 +236,6 @@ export class SessionsService {
   async deleteSession(userId: string, sessionId: string): Promise<void> {
     const res = await this.sessionModel.deleteOne({ userId, sessionId })
     if (res.deletedCount === 0) throw new NotFoundException("Session not found")
+    this.roomEvents.emit(sessionId)
   }
 }

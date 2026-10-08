@@ -290,6 +290,7 @@ function CreateRoomDialog() {
     hostedRoomCount,
     maxHostedRooms,
     canHostMore,
+    userName,
   } = useMatchmaking()
   const idRef = React.useRef(0)
   const courtName = (id: string) =>
@@ -367,7 +368,7 @@ function CreateRoomDialog() {
       const dayLabel = locStr(dayLabelFor(value.day), locale)
       addRoom({
         id: `r-new-${idRef.current++}`,
-        host: { name: USER.name, initials: USER.initials },
+        host: { name: userName, initials: USER.initials },
         title: value.title.trim(),
         sport: value.sport,
         format: value.format,

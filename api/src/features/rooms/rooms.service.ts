@@ -14,6 +14,7 @@ import type { Model } from "mongoose"
 
 import {
   activeRoster,
+  initialsOf,
   type GroupMatchResult,
   type PlaySession as PlaySessionData,
   type SessionPlayer,
@@ -26,10 +27,15 @@ import {
   PlaySession,
   type PlaySessionDocument,
 } from "../sessions/session.schema.js"
+import { ClerkDirectoryService } from "../stream/clerk-directory.service.js"
 import { roomChannelId, StreamService } from "../stream/stream.service.js"
+import { RoomEventsService } from "./room-events.service.js"
 import type { RoomRequestDecision } from "./rooms.dto.js"
 
 const ORDER = { createdAt: 1, _id: 1 } as const
+
+/** How long a Clerk display name is reused before it's looked up again. */
+const NAME_CACHE_MS = 5 * 60_000
 
 /** Room statuses browsable/joinable across users — excludes historical rooms. */
 const ACTIVE_ROOM_STATUSES: PlaySessionData["status"][] = ["forming", "booked"]
@@ -58,8 +64,17 @@ export class RoomsService {
     @Inject(ProfileService)
     private readonly profiles: ProfileService,
     @Inject(StreamService)
-    private readonly stream: StreamService
+    private readonly stream: StreamService,
+    @Inject(ClerkDirectoryService)
+    private readonly directory: ClerkDirectoryService,
+    @Inject(RoomEventsService)
+    private readonly events: RoomEventsService
   ) {}
+
+  private readonly nameCache = new Map<
+    string,
+    { name: string; initials: string; expiresAt: number }
+  >()
 
   /**
    * Every listed, non-demo, still-active room across all users — the
@@ -79,15 +94,65 @@ export class RoomsService {
       })
       .sort(ORDER)
       .lean()
-    // The host's own roster entry is written client-side without a userId;
-    // stamp it with the doc owner so a browsing player can open the host's
-    // profile (and peer reviews) before deciding to join.
-    return docs.map((d) => ({
-      ...d.data,
-      roster: d.data.roster.map((p) =>
-        p.rsvp === "host" && !p.userId ? { ...p, userId: d.userId } : p
-      ),
-    }))
+    const names = await this.displayNames(
+      docs.flatMap((d) => [
+        d.userId,
+        ...d.data.roster.flatMap((p) => (p.userId ? [p.userId] : [])),
+      ])
+    )
+    return docs.map((d) => {
+      // Stored names come from the client and older profiles carry the shared
+      // demo identity ("Nguyễn Minh") — show each account's real Clerk name.
+      const host = names.get(d.userId)
+      return {
+        ...d.data,
+        host: host ?? d.data.host,
+        roster: d.data.roster.map((p) => {
+          // The host's own entry is written client-side without a userId;
+          // stamp it with the doc owner so a browsing player can open the
+          // host's profile (and peer reviews) before deciding to join.
+          if (p.rsvp === "host") {
+            return { ...p, ...host, userId: p.userId ?? d.userId }
+          }
+          // Name only: the host's client matches incoming requests to its
+          // own copy of the roster by initials, so those must stay as stored.
+          const real = p.userId ? names.get(p.userId) : undefined
+          return real ? { ...p, name: real.name } : p
+        }),
+      }
+    })
+  }
+
+  /**
+   * Real display names (and initials) from Clerk, keyed by user id. Cached
+   * briefly since every signed-in client polls `listRooms`; a directory
+   * outage just yields no entries, so callers fall back to stored names.
+   */
+  private async displayNames(
+    ids: string[]
+  ): Promise<Map<string, { name: string; initials: string }>> {
+    const now = Date.now()
+    const missing = [...new Set(ids)].filter(
+      (id) => (this.nameCache.get(id)?.expiresAt ?? 0) <= now
+    )
+    if (missing.length) {
+      const users = await this.directory.getMany(missing)
+      for (const u of users) {
+        const name = u.name.trim()
+        if (!name) continue
+        this.nameCache.set(u.id, {
+          name,
+          initials: initialsOf(name),
+          expiresAt: now + NAME_CACHE_MS,
+        })
+      }
+    }
+    const out = new Map<string, { name: string; initials: string }>()
+    for (const id of ids) {
+      const hit = this.nameCache.get(id)
+      if (hit) out.set(id, { name: hit.name, initials: hit.initials })
+    }
+    return out
   }
 
   /** Load a room by its client id, regardless of which user owns it. */
@@ -128,10 +193,14 @@ export class RoomsService {
       throw new ConflictException("Phòng đã đầy")
     }
 
+    // Prefer the real Clerk name — older profiles still hold the shared demo
+    // identity — and fall back to the profile when the directory is down.
     const profile = await this.profiles.getProfile(userId)
+    const real = (await this.displayNames([userId])).get(userId)
+    const requester = real ?? profile.user
     const entry: SessionPlayer = {
-      name: profile.user.name,
-      initials: profile.user.initials,
+      name: requester.name,
+      initials: requester.initials,
       rsvp: "requested",
       rsvpAt: Date.now(),
       userId,
@@ -150,9 +219,10 @@ export class RoomsService {
       // same millisecond — so this uses `randomUUID()`.)
       id: `room-request-${roomId}-${userId}-${randomUUID()}`,
       kind: "match",
-      text: `${profile.user.name} muốn tham gia phòng "${room.title}" của bạn.`,
+      text: `${requester.name} muốn tham gia phòng "${room.title}" của bạn.`,
       href: "/app/play",
     })
+    this.events.emit(roomId)
   }
 
   /**
@@ -194,6 +264,7 @@ export class RoomsService {
         text: `Chủ phòng đã từ chối yêu cầu tham gia "${room.title}".`,
         href: "/app/play",
       })
+      this.events.emit(roomId)
       await this.removeChatMemberBestEffort(hostUserId, roomId, targetUserId)
       return
     }
@@ -222,6 +293,7 @@ export class RoomsService {
       text: `Chủ phòng đã duyệt yêu cầu tham gia "${room.title}" của bạn.`,
       href: "/app/play",
     })
+    this.events.emit(roomId)
     await this.addChatMemberBestEffort(hostUserId, roomId, targetUserId)
   }
 
@@ -243,6 +315,7 @@ export class RoomsService {
       { _id: doc._id },
       { $pull: { "data.roster": { userId } } }
     )
+    this.events.emit(roomId)
     // A member always has standing to remove themselves from the chat —
     // `removeRoomMember` skips the host-only check when memberId === userId.
     try {
@@ -298,6 +371,7 @@ export class RoomsService {
           })
       )
     )
+    this.events.emit(roomId)
   }
 
   /**

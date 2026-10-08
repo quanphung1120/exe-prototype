@@ -119,6 +119,8 @@ export function GroupInfoSheet({
     bookCourtForSession,
     createGroupSession,
     leaveRoom,
+    disbandOwnRoom,
+    joinedIds,
   } = useSession()
 
   const channelId = channel.id ?? ""
@@ -279,12 +281,19 @@ export function GroupInfoSheet({
   const [adding, setAdding] = React.useState(false)
 
   // ── Leave ──
+  const roomId = isRoom ? channelId.slice("room-".length) : ""
+  // The play room behind a room chat is still open and I'm in it (as host or
+  // member). Once it's gone (cancelled), its chat is just a group chat.
+  const roomActive = isRoom && joinedIds.has(roomId)
+  const hostOfRoom = roomActive && isOwner
+  // Leaving alone would only strand an empty chat — the last member left
+  // deletes it instead.
+  const lastMember = memberIds.length === 1 && memberIds[0] === currentUserId
   const [confirmLeave, setConfirmLeave] = React.useState(false)
-  const hostOfRoom = isRoom && isOwner
   const leave = async () => {
     setConfirmLeave(false)
     try {
-      if (isRoom) leaveRoom(channelId.slice("room-".length))
+      if (roomActive) leaveRoom(roomId)
       else await leaveConversation(channelId)
       handleOpenChange(false)
       void setActiveChannel(undefined)
@@ -295,14 +304,19 @@ export function GroupInfoSheet({
     }
   }
 
-  // ── Delete (community group owner) ──
-  const canDelete = isCommunity && isOwner
+  // ── Delete (community group owner, or the last member left) ──
+  const canDelete = (isCommunity && isOwner) || lastMember
   const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
   const removeGroup = async () => {
     setDeleting(true)
     try {
+      // A host alone in a still-open room cancels the room first (refund
+      // and all) — deleting only its chat would leave a room with no chat.
+      if (lastMember && hostOfRoom && !(await disbandOwnRoom(roomId))) return
       await deleteGroup(channelId)
+      // A member somehow alone in an open room drops their seat too.
+      if (lastMember && roomActive && !isOwner) leaveRoom(roomId)
       setConfirmDelete(false)
       handleOpenChange(false)
       void setActiveChannel(undefined)
@@ -515,15 +529,17 @@ export function GroupInfoSheet({
 
             {/* Leave / delete */}
             <section className="mt-auto flex flex-col gap-2">
-              <button
-                type="button"
-                disabled={hostOfRoom}
-                onClick={() => setConfirmLeave(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-full border border-[#f6c9c9] bg-white px-4 py-3 text-sm font-bold text-[#b42318] transition-colors hover:bg-[#fdecec] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <LogOut className="size-4" />
-                {t("leave")}
-              </button>
+              {lastMember ? null : (
+                <button
+                  type="button"
+                  disabled={hostOfRoom}
+                  onClick={() => setConfirmLeave(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-[#f6c9c9] bg-white px-4 py-3 text-sm font-bold text-[#b42318] transition-colors hover:bg-[#fdecec] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <LogOut className="size-4" />
+                  {t("leave")}
+                </button>
+              )}
               {canDelete ? (
                 <button
                   type="button"
@@ -531,10 +547,14 @@ export function GroupInfoSheet({
                   className="flex w-full items-center justify-center gap-2 rounded-full bg-[#b42318] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#912018]"
                 >
                   <Trash2 className="size-4" />
-                  {t("deleteGroup")}
+                  {lastMember ? t("leaveAndDelete") : t("deleteGroup")}
                 </button>
               ) : null}
-              {hostOfRoom ? (
+              {lastMember ? (
+                <p className="mt-2 text-center text-[11px] text-[var(--pc-muted)]">
+                  {t("lastMemberHint")}
+                </p>
+              ) : hostOfRoom ? (
                 <p className="mt-2 text-center text-[11px] text-[var(--pc-muted)]">
                   {t("hostCannotLeave")}
                 </p>
@@ -574,7 +594,7 @@ export function GroupInfoSheet({
           <AlertDialogHeader>
             <AlertDialogTitle>{t("leaveTitle", { name })}</AlertDialogTitle>
             <AlertDialogDescription>
-              {isRoom ? t("leaveRoomBody") : t("leaveBody")}
+              {roomActive ? t("leaveRoomBody") : t("leaveBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -596,8 +616,18 @@ export function GroupInfoSheet({
       >
         <AlertDialogContent className="player-chat-dialog">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteTitle", { name })}</AlertDialogTitle>
-            <AlertDialogDescription>{t("deleteBody")}</AlertDialogDescription>
+            <AlertDialogTitle>
+              {lastMember
+                ? t("leaveAndDeleteTitle", { name })
+                : t("deleteTitle", { name })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {lastMember
+                ? hostOfRoom
+                  ? t("leaveAndDeleteRoomBody")
+                  : t("leaveAndDeleteBody")
+                : t("deleteBody")}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>
@@ -609,7 +639,7 @@ export function GroupInfoSheet({
               onClick={() => void removeGroup()}
             >
               {deleting ? <Spinner className="size-4" /> : <Trash2 />}
-              {t("deleteGroup")}
+              {lastMember ? t("leaveAndDelete") : t("deleteGroup")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

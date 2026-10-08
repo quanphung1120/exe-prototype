@@ -9,6 +9,8 @@ import {
   NotFoundException,
 } from "@nestjs/common"
 import { Test } from "@nestjs/testing"
+
+import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
 import { getModelToken } from "@nestjs/mongoose"
 
 import {
@@ -172,6 +174,8 @@ async function makeRooms(
       { provide: NotificationsService, useValue: {} },
       { provide: ProfileService, useValue: {} },
       { provide: StreamService, useValue: { assertMember } },
+      { provide: ClerkDirectoryService, useValue: {} },
+      RoomEventsService,
     ],
   }).compile()
   return moduleRef.get(RoomsService)

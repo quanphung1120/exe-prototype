@@ -78,6 +78,9 @@ const INVITE_EXPIRY_MS = 6 * 60 * 60 * 1000
 // mirrors `NotificationsProvider`'s POLL_MS.
 const ROOMS_POLL_MS = 30_000
 
+/** Window event fired when the live stream reports a room change. */
+export const ROOMS_CHANGED_EVENT = "sportmatch:rooms-changed"
+
 /**
  * Keep only well-formed rooms from `GET /api/rooms`. The PlaySession body is
  * stored unvalidated, so another user's document may lack a roster — and one
@@ -188,6 +191,8 @@ interface SessionContextValue {
   /** Host declines a player's join request → dropped from the room. */
   declineRequest: (sessionId: string, initials: string) => void
   leaveRoom: (sessionId: string) => void
+  /** Host cancels their own room; resolves false after a (toasted) failure. */
+  disbandOwnRoom: (sessionId: string) => Promise<boolean>
   addRoom: (room: MatchRoom) => void
   createInviteRoom: (input: {
     title: string
@@ -461,15 +466,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // `GET /api/rooms` is the only place a room I've joined but don't host is
   // discoverable — see the `localJoinedIds`/`crossRooms` doc comments above.
   //
-  // A join request lands directly on the *host's* doc server-side (see
-  // `RoomsService#requestJoin`) — never routed through this client's own
-  // `setSessions`. Surface a fresh one on a room I host by folding any
-  // `requested` roster entry the latest `GET /api/rooms` snapshot has that my
-  // local copy doesn't, additively only (never removes/mutates an entry) so
-  // it can't clobber an in-flight optimistic approve/decline. There's a small
-  // eventual-consistency window where a stale snapshot could re-add an entry
-  // a decline just removed locally — every mutation below re-fetches right
-  // after deciding, which supersedes it almost immediately; acceptable for a
+  // Join requests and members leaving land directly on the *host's* doc
+  // server-side (see `RoomsService#requestJoin`/`#leaveRoom`) — never routed
+  // through this client's own `setSessions`. Mirror them onto a room I host
+  // from the latest `GET /api/rooms` snapshot: fold in any `requested` entry
+  // my local copy lacks, and drop any real (userId) entry the server no
+  // longer has. Rsvp flips are left alone so a snapshot can't clobber an
+  // in-flight optimistic approve/decline. There's a small eventual-
+  // consistency window where a stale snapshot could re-add an entry a decline
+  // just removed locally — every mutation below re-fetches right after
+  // deciding, which supersedes it almost immediately; acceptable for a
   // coordination-only layer with no money on the line (same tolerance the
   // API side documents for concurrent join requests).
   const mergeIncomingRequests = (remote: PlaySession[]) => {
@@ -478,13 +484,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const next = prev.map((s) => {
         const r = remote.find((x) => x.id === s.id)
         if (!r) return s
-        const localInitials = new Set(s.roster.map((p) => p.initials))
-        const incoming = (r.roster ?? []).filter(
-          (p) => p.rsvp === "requested" && !localInitials.has(p.initials)
+        const remoteRoster = r.roster ?? []
+        const remoteIds = new Set(remoteRoster.flatMap((p) => p.userId ?? []))
+        // Match on userId when present: `GET /api/rooms` shows real names,
+        // and a requester with a common initials pair must not be dropped.
+        const localKeys = new Set(s.roster.map((p) => p.userId ?? p.initials))
+        const incoming = remoteRoster.filter(
+          (p) =>
+            p.rsvp === "requested" && !localKeys.has(p.userId ?? p.initials)
         )
-        if (!incoming.length) return s
+        const kept = s.roster.filter(
+          (p) => p.rsvp === "host" || !p.userId || remoteIds.has(p.userId)
+        )
+        if (!incoming.length && kept.length === s.roster.length) return s
         changed = true
-        return { ...s, roster: [...s.roster, ...incoming] }
+        return { ...s, roster: [...kept, ...incoming] }
       })
       return changed ? next : prev
     })
@@ -501,9 +515,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Polled on an interval (mirroring `NotificationsProvider`) plus on
-  // focus/visibility, so a host picks up a fresh join request — and a
-  // requester picks up the host's decision — without a hard reload.
+  // Live: the api pushes a `room` event whenever any room is created,
+  // changed or removed (`/api/rooms/events`, bridged same-origin with the
+  // Clerk token), and every client refetches right away — so a new/cancelled
+  // room or a member joining/leaving shows up for everyone within a moment.
+  // The interval poll plus focus/visibility refetch stay as a fallback for
+  // when the stream is down (EventSource reconnects on its own).
   React.useEffect(() => {
     let cancelled = false
     const poll = async () => {
@@ -524,9 +541,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     document.addEventListener("visibilitychange", onFocusOrVisible)
     window.addEventListener("focus", onFocusOrVisible)
+
+    // A burst of changes (e.g. approve → chat add → notify) collapses into
+    // one refetch.
+    let debounce: ReturnType<typeof setTimeout> | undefined
+    const onRoomEvent = () => {
+      clearTimeout(debounce)
+      debounce = setTimeout(() => {
+        void poll()
+        // Room changes usually come with a notification (request, approval,
+        // cancellation) — let the bell refresh too.
+        window.dispatchEvent(new Event(ROOMS_CHANGED_EVENT))
+      }, 250)
+    }
+    const events =
+      typeof EventSource === "undefined"
+        ? null
+        : new EventSource("/api/rooms/events")
+    events?.addEventListener("room", onRoomEvent)
+
     return () => {
       cancelled = true
       clearInterval(interval)
+      clearTimeout(debounce)
+      events?.close()
       document.removeEventListener("visibilitychange", onFocusOrVisible)
       window.removeEventListener("focus", onFocusOrVisible)
     }
@@ -1117,7 +1155,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         )
       )
       toast.success(ts("toast.approved"), {
-        description: playerByInitials(initials).name,
+        description: target.name || playerByInitials(initials).name,
       })
       void refreshRooms()
     })()
@@ -1149,7 +1187,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         )
       )
       toast(ts("toast.declined"), {
-        description: playerByInitials(initials).name,
+        description: target.name || playerByInitials(initials).name,
       })
       void refreshRooms()
     })()
@@ -1166,47 +1204,54 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
    * from their doc and best-effort removes me from the room's Stream chat
    * server-side (see `RoomsService#leaveRoom`).
    */
-  const leaveRoom = (sessionId: string) => {
+  /**
+   * The host-side half of {@link leaveRoom}, awaitable: resolves true once
+   * the room is gone (or was never persisted), false after a toasted
+   * failure — so a caller (e.g. deleting the room's chat) can wait on it.
+   */
+  const disbandOwnRoom = async (sessionId: string): Promise<boolean> => {
     const own = sessions.find((x) => x.id === sessionId)
-    if (own) {
-      void (async () => {
-        if (own.reservationId) {
-          const cancelled = await cancelBookingRecord(own.reservationId)
-          if (!cancelled.ok) {
-            toast.error(tb("toast.cancelFailed"), {
-              description: cancelled.message,
-            })
-            return
-          }
-        }
-        const result = await disbandRoom(sessionId)
-        // 404: the room was never persisted — nothing to remove server-side.
-        if (!result.ok && result.status !== 404) {
-          toast.error(ts("toast.disbandFailed"), {
-            description: result.message,
-          })
-          return
-        }
-        clearTimersFor(sessionId)
-        setSessions((prev) =>
-          prev.flatMap((x) => {
-            if (x.id !== sessionId) return [x]
-            // A booked room stays as a cancelled booking; a forming room is gone.
-            if (x.reservationId)
-              return [{ ...x, status: "cancelled" as const, listed: false }]
-            return []
-          })
-        )
-        // Cancelling a booked room freezes its chat (keeps history, blocks
-        // new sends) rather than deleting it.
-        if (own.status === "booked") freezeRoomChatBestEffort(sessionId)
-        dropJoined(sessionId)
-        const title = tm.has(`rooms.${sessionId}.title`)
-          ? tm(`rooms.${sessionId}.title`)
-          : (own.title ?? "")
-        toast(ts("toast.disbanded"), { description: title })
-        void refreshRooms()
-      })()
+    if (!own) return true
+    if (own.reservationId) {
+      const cancelled = await cancelBookingRecord(own.reservationId)
+      if (!cancelled.ok) {
+        toast.error(tb("toast.cancelFailed"), {
+          description: cancelled.message,
+        })
+        return false
+      }
+    }
+    const result = await disbandRoom(sessionId)
+    // 404: the room was never persisted — nothing to remove server-side.
+    if (!result.ok && result.status !== 404) {
+      toast.error(ts("toast.disbandFailed"), { description: result.message })
+      return false
+    }
+    clearTimersFor(sessionId)
+    setSessions((prev) =>
+      prev.flatMap((x) => {
+        if (x.id !== sessionId) return [x]
+        // A booked room stays as a cancelled booking; a forming room is gone.
+        if (x.reservationId)
+          return [{ ...x, status: "cancelled" as const, listed: false }]
+        return []
+      })
+    )
+    // Cancelling a booked room freezes its chat (keeps history, blocks new
+    // sends) rather than deleting it.
+    if (own.status === "booked") freezeRoomChatBestEffort(sessionId)
+    dropJoined(sessionId)
+    const title = tm.has(`rooms.${sessionId}.title`)
+      ? tm(`rooms.${sessionId}.title`)
+      : (own.title ?? "")
+    toast(ts("toast.disbanded"), { description: title })
+    void refreshRooms()
+    return true
+  }
+
+  const leaveRoom = (sessionId: string) => {
+    if (sessions.some((x) => x.id === sessionId)) {
+      void disbandOwnRoom(sessionId)
       return
     }
 
@@ -1262,7 +1307,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       host: room.host,
       capacity: room.capacity,
       roster: room.players.map((init) => ({
-        name: playerByInitials(init).name,
+        name:
+          init === room.host.initials
+            ? room.host.name
+            : playerByInitials(init).name,
         initials: init,
         rsvp: init === room.host.initials ? "host" : "going",
       })),
@@ -1369,20 +1417,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setManagerOpen(true)
   }
 
+  // Both persist so the change reaches the server — and, via the live room
+  // events, every other player browsing the room.
   const setRoomCapacity = (sessionId: string, capacity: number) => {
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === sessionId
-          ? {
-              ...s,
-              capacity: Math.max(
-                activeRoster(s).length,
-                Math.min(MAX_CAPACITY, capacity)
-              ),
-            }
-          : s
-      )
-    )
+    const s = sessions.find((x) => x.id === sessionId)
+    if (!s) return
+    const next: PlaySession = {
+      ...s,
+      capacity: Math.max(
+        activeRoster(s).length,
+        Math.min(MAX_CAPACITY, capacity)
+      ),
+    }
+    if (next.capacity === s.capacity) return
+    setSessions((prev) => prev.map((x) => (x.id === sessionId ? next : x)))
+    persist(next)
   }
 
   const invitePlayer = (sessionId: string, initials: string) => {
@@ -1393,24 +1442,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       s.roster.some((p) => p.initials === initials)
     )
       return
-    setSessions((prev) =>
-      prev.map((x) =>
-        x.id === sessionId && !x.roster.some((p) => p.initials === initials)
-          ? {
-              ...x,
-              roster: [
-                ...x.roster,
-                {
-                  name: playerByInitials(initials).name,
-                  initials,
-                  rsvp: "pending",
-                  rsvpAt: Date.now(),
-                },
-              ],
-            }
-          : x
-      )
-    )
+    const next: PlaySession = {
+      ...s,
+      roster: [
+        ...s.roster,
+        {
+          name: playerByInitials(initials).name,
+          initials,
+          rsvp: "pending",
+          rsvpAt: Date.now(),
+        },
+      ],
+    }
+    setSessions((prev) => prev.map((x) => (x.id === sessionId ? next : x)))
+    persist(next)
   }
 
   const kickPlayer = (sessionId: string, initials: string) => {
@@ -2112,6 +2157,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     approveRequest,
     declineRequest,
     leaveRoom,
+    disbandOwnRoom,
     addRoom,
     createInviteRoom,
     quickJoin,

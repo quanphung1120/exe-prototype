@@ -30,6 +30,7 @@ import {
   markNotificationRead,
 } from "@/features/dashboard/notification-actions"
 import { useMatchmaking } from "@/features/play/matchmaking"
+import { ROOMS_CHANGED_EVENT } from "@/features/play/session"
 import { roomChannelId } from "@/features/chat/channel-ids"
 import { useRouter } from "@/i18n/navigation"
 
@@ -158,9 +159,13 @@ export function NotificationsProvider({
     }
     document.addEventListener("visibilitychange", onFocusOrVisible)
     window.addEventListener("focus", onFocusOrVisible)
+    // A live room change usually comes with a notification for this user.
+    const onRoomsChanged = () => void poll()
+    window.addEventListener(ROOMS_CHANGED_EVENT, onRoomsChanged)
     return () => {
       cancelled = true
       clearInterval(interval)
+      window.removeEventListener(ROOMS_CHANGED_EVENT, onRoomsChanged)
       document.removeEventListener("visibilitychange", onFocusOrVisible)
       window.removeEventListener("focus", onFocusOrVisible)
     }

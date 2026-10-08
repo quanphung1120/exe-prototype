@@ -91,7 +91,7 @@ export class StreamController {
     return { ok: true }
   }
 
-  /** Group creator deletes their community group for every member. */
+  /** Delete a group chat for every member — its creator, or the last member left. */
   @Delete("groups")
   async deleteGroup(
     @UserId() userId: string,
