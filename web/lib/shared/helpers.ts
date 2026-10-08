@@ -640,6 +640,12 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
     capacity: s.capacity,
     joined: active.length,
     players: active.map((p) => p.initials),
+    members: active.map((p) => ({
+      name: p.name,
+      initials: p.initials,
+      host: p.rsvp === "host",
+      ...(p.userId ? { userId: p.userId } : {}),
+    })),
     pricePerHour: s.pricePerHour,
     durationMin: s.durationMin,
     bookingId: s.status === "booked" ? s.id : undefined,

@@ -95,6 +95,14 @@ export interface Court {
 
 // ── Match rooms (Match Maker lobbies) ────────────────────────────────────────
 
+/** One confirmed seat in a {@link MatchRoom} (see `MatchRoom.members`). */
+export interface RoomMember {
+  name: string
+  initials: string
+  host: boolean
+  userId?: string
+}
+
 /** An open match lobby other players can join (Match Maker). */
 export interface MatchRoom {
   id: string
@@ -118,6 +126,12 @@ export interface MatchRoom {
   /** Seats already taken. `players` holds their initials. */
   joined: number
   players: string[]
+  /**
+   * The confirmed seats (host + going) with display names, in `players`
+   * order — set by the session projection so anyone browsing can see who's
+   * in a room. `userId` is present for real cross-user members.
+   */
+  members?: RoomMember[]
   pricePerHour: number
   /** Session length in minutes; derived from `time` when omitted. */
   durationMin?: number

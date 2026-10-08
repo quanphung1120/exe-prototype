@@ -159,6 +159,8 @@ interface SessionContextValue {
   joinedRooms: MatchRoom[]
   /** Rooms the user asked to join that are still awaiting host approval. */
   requestedIds: Set<string>
+  /** Listed, still-active rooms the user hosts (shown as "Xem phòng"). */
+  hostedIds: Set<string>
   /** Open rooms the user currently hosts (counts toward the anti-spam cap). */
   hostedRoomCount: number
   /** Ceiling on how many open rooms a single player may host at once. */
@@ -776,9 +778,28 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   // just local bookkeeping over my own session doc — it's my own doc's rooms
   // UNION whichever of *other* users' rooms `GET /api/rooms` currently shows
   // me as an approved member of.
+  // Listed, still-active rooms I host. Derived from my own session docs (not
+  // `localJoinedIds`, which starts empty on every load) so a room I created
+  // earlier still reads as mine — "Xem phòng", never "Tham gia".
+  const hostedIds = React.useMemo(
+    () =>
+      new Set(
+        sessions
+          .filter(
+            (s) =>
+              s.listed &&
+              !s.demo &&
+              s.host.initials === USER.initials &&
+              s.status !== "cancelled" &&
+              s.status !== "completed"
+          )
+          .map((s) => s.id)
+      ),
+    [sessions, USER.initials]
+  )
   const joinedIds = React.useMemo(
-    () => new Set([...localJoinedIds, ...remoteJoinedIds]),
-    [localJoinedIds, remoteJoinedIds]
+    () => new Set([...localJoinedIds, ...hostedIds, ...remoteJoinedIds]),
+    [localJoinedIds, hostedIds, remoteJoinedIds]
   )
   const roomForViewer = React.useCallback(
     (session: PlaySession) => {
@@ -803,7 +824,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     () => [
       ...sessions.filter(
         (s) =>
-          localJoinedIds.has(s.id) &&
+          (localJoinedIds.has(s.id) || hostedIds.has(s.id)) &&
           s.status !== "cancelled" &&
           s.status !== "completed"
       ),
@@ -814,7 +835,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           r.status !== "completed"
       ),
     ],
-    [sessions, localJoinedIds, otherRoomsRaw, remoteJoinedIds]
+    [sessions, localJoinedIds, hostedIds, otherRoomsRaw, remoteJoinedIds]
   )
   const joinedRooms = React.useMemo(
     () => joinedSessions.map(roomForViewer),
@@ -2055,6 +2076,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     rooms,
     joinedRooms,
     requestedIds,
+    hostedIds,
     hostedRoomCount,
     maxHostedRooms: MAX_HOSTED_ROOMS,
     canHostMore,

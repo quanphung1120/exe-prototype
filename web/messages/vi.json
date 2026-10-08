@@ -1069,7 +1069,15 @@
     },
     "leave": "Rời",
     "requested": "Đã gửi yêu cầu",
-    "cancelRequest": "Huỷ yêu cầu"
+    "cancelRequest": "Huỷ yêu cầu",
+    "viewRoom": "Xem phòng",
+    "members": {
+      "title": "Thành viên ({joined}/{capacity})",
+      "view": "Xem thành viên trong phòng",
+      "viewProfile": "Xem hồ sơ",
+      "host": "Chủ phòng",
+      "you": "Bạn"
+    }
   },
   "Overview": {
     "metaTitle": "Tổng quan",

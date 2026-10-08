@@ -17,6 +17,7 @@ export function useMatchmaking() {
     joinedIds: s.joinedIds,
     joinedRooms: s.joinedRooms,
     requestedIds: s.requestedIds,
+    hostedIds: s.hostedIds,
     hostedRoomCount: s.hostedRoomCount,
     maxHostedRooms: s.maxHostedRooms,
     canHostMore: s.canHostMore,
