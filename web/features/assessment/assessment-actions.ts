@@ -1,6 +1,6 @@
 "use server"
 
-import type { PlayerAssessment } from "@/lib/shared"
+import type { PlayerAssessment, PlayerSkillLevel } from "@/lib/shared"
 
 import { apiFetch } from "@/lib/api"
 
@@ -11,6 +11,15 @@ import { apiFetch } from "@/lib/api"
 // device/browser switch. We deliberately do NOT revalidate: the client already
 // holds the value; the persisted copy is what a cold load reads back via the
 // seed merge.
+
+/** Another player's assessed level per sport (empty until they take it). */
+export async function playerSkillLevels(
+  userId: string
+): Promise<PlayerSkillLevel[]> {
+  return apiFetch<PlayerSkillLevel[]>(
+    `/api/assessment/users/${encodeURIComponent(userId)}/levels`
+  )
+}
 
 /** Persist (insert or replace) the signed-in user's skills assessment. */
 export async function saveAssessment(

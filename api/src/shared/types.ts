@@ -977,6 +977,16 @@ export interface SportAssessmentResult {
 }
 
 /**
+ * The public slice of another player's assessment, shown on their profile —
+ * the level they landed on per sport, never their individual answers.
+ */
+export interface PlayerSkillLevel {
+  sport: AssessmentSport
+  level: Level
+  score: number
+}
+
+/**
  * A player's completed skills self-assessment. Persisted per Clerk user (Mongo,
  * layered into the seed) with `localStorage` as a client cache — the many
  * synchronous readers (matchmaking, profile, gate) read the cache, which the

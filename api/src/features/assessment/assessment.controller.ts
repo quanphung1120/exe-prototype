@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Put,
   Res,
 } from "@nestjs/common"
@@ -11,6 +12,7 @@ import type { Response } from "express"
 import type { PlayerAssessment as PlayerAssessmentData } from "../../shared/index.js"
 
 import { UserId } from "../../common/user-id.decorator.js"
+import { AssessmentUserIdParamDto } from "./assessment.dto.js"
 import { AssessmentService } from "./assessment.service.js"
 
 // A player's skills assessment (per Clerk user). A single per-user resource (no
@@ -26,6 +28,12 @@ export class AssessmentController {
     // Serialize explicitly so an untaken assessment sends a literal `null` body
     // (the web's fetchAssessment does `res.json()`, which an empty body breaks).
     res.json(await this.assessment.getUserAssessment(userId))
+  }
+
+  /** Another player's level per sport — shown on their profile. */
+  @Get("users/:userId/levels")
+  levels(@Param() param: AssessmentUserIdParamDto) {
+    return this.assessment.getPublicLevels(param.userId)
   }
 
   @Put()

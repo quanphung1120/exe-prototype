@@ -2,7 +2,10 @@ import { Injectable } from "@nestjs/common"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
-import type { PlayerAssessment as PlayerAssessmentData } from "../../shared/index.js"
+import type {
+  PlayerAssessment as PlayerAssessmentData,
+  PlayerSkillLevel,
+} from "../../shared/index.js"
 
 import {
   PlayerAssessment,
@@ -26,6 +29,17 @@ export class AssessmentService {
   ): Promise<PlayerAssessmentData | null> {
     const doc = await this.assessmentModel.findOne({ userId }).lean()
     return doc?.data ?? null
+  }
+
+  /**
+   * Another player's level per assessed sport, for their profile — only the
+   * level and score; the raw answers stay private. Empty until they take it.
+   */
+  async getPublicLevels(userId: string): Promise<PlayerSkillLevel[]> {
+    const assessment = await this.getUserAssessment(userId)
+    return Object.values(assessment?.results ?? {}).flatMap((r) =>
+      r?.bucket ? [{ sport: r.sport, level: r.bucket, score: r.score }] : []
+    )
   }
 
   /** Insert or replace this user's assessment (one row per user). */

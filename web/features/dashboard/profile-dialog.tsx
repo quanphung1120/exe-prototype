@@ -3,7 +3,11 @@
 import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { RotateCcw, Star } from "lucide-react"
-import { initialsOf, type RatingSummary } from "@/lib/shared"
+import {
+  initialsOf,
+  type PlayerSkillLevel,
+  type RatingSummary,
+} from "@/lib/shared"
 
 import { cn } from "@/lib/utils"
 import { useRouter, usePathname } from "@/i18n/navigation"
@@ -19,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { useAuthUser } from "@/features/dashboard/auth-user"
 import { playerRatingSummary } from "@/features/chat/group-actions"
+import { playerSkillLevels } from "@/features/assessment/assessment-actions"
 import { useData } from "@/features/dashboard/data-provider"
 import { useMatchmaking } from "@/features/play/matchmaking"
 import { LevelChip, SportDot } from "@/features/dashboard/shared"
@@ -289,6 +294,10 @@ export function PlayerProfileDialog({
               </div>
             ) : null}
 
+            {member?.userId && !fullPlayer ? (
+              <PlayerSkillLevels userId={member.userId} open={open} />
+            ) : null}
+
             {member?.userId ? (
               <PlayerReviews userId={member.userId} open={open} />
             ) : null}
@@ -296,6 +305,79 @@ export function PlayerProfileDialog({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * A real player's assessed level per sport
+ * (`/api/assessment/users/:id/levels`) — fetched each time the profile opens,
+ * so a browsing player can judge the line-up before asking to join a room.
+ */
+function PlayerSkillLevels({
+  userId,
+  open,
+}: {
+  userId: string
+  open: boolean
+}) {
+  const tProfile = useTranslations("Profile")
+  const tc = useTranslations("Common")
+  const [state, setState] = React.useState<{
+    userId: string
+    levels: PlayerSkillLevel[] | null
+  } | null>(null)
+
+  React.useEffect(() => {
+    if (!open || !userId) return
+    let active = true
+    void playerSkillLevels(userId)
+      .then((levels) => {
+        if (active) setState({ userId, levels })
+      })
+      .catch(() => {
+        if (active) setState({ userId, levels: null })
+      })
+    return () => {
+      active = false
+    }
+  }, [open, userId])
+
+  const loading = state?.userId !== userId
+  const levels = state?.levels ?? []
+
+  return (
+    <div className="mt-5 flex flex-col gap-3">
+      <h4 className="font-mono text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+        {tProfile("playerLevel")}
+      </h4>
+      {loading ? (
+        <div className="h-16 animate-pulse rounded-2xl bg-muted/50" />
+      ) : levels.length ? (
+        levels.map((l) => (
+          <div
+            key={l.sport}
+            className="flex items-center gap-3 rounded-2xl border border-chart-3/20 bg-chart-3/5 p-3.5"
+          >
+            <SportDot sport={l.sport} />
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-semibold text-foreground">
+                {tc(`sports.${l.sport}`)}
+              </span>
+              <LevelChip level={l.level} />
+            </div>
+            <span className="ml-auto font-mono text-sm font-bold text-brand tabular-nums">
+              {tProfile("points", { score: l.score })}
+            </span>
+          </div>
+        ))
+      ) : (
+        <p className="rounded-2xl border border-dashed border-border px-4 py-4 text-center text-xs text-muted-foreground">
+          {state?.levels
+            ? tProfile("notAssessed")
+            : tProfile("levelUnavailable")}
+        </p>
+      )}
+    </div>
   )
 }
 
