@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -57,7 +58,6 @@ import {
 } from "@/features/venue/venue-actions"
 import {
   BOOKING_TRANSITIONS,
-  formatVnd,
   hasOpenCancelRequest,
   locStr,
   reservationStatusAccent,
@@ -268,7 +268,7 @@ function useReservationColumns(
         ),
         cell: ({ getValue }) => (
           <span className="font-semibold tabular-nums">
-            {formatVnd(getValue())}
+            {formatVndText(getValue())}
           </span>
         ),
       }),
@@ -911,7 +911,7 @@ function RefundQueuePanel({
             </div>
             <div className="text-right">
               <p className="font-mono text-sm font-semibold tabular-nums">
-                {formatVnd(item.refund.amount)}
+                {formatVndText(item.refund.amount)}
               </p>
               <p className="text-xs text-muted-foreground">
                 {t("refundQueue.pct", { pct: item.refund.pct })}

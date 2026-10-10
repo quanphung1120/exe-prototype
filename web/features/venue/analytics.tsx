@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -51,7 +52,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Link } from "@/i18n/navigation"
-import { formatVnd, formatVndFull } from "@/features/dashboard/data"
+import { formatVndFull } from "@/features/dashboard/data"
 import { useData } from "@/features/dashboard/data-provider"
 import { venueBase } from "@/features/venue/nav"
 import { addCourtBlock } from "@/features/venue/venue-actions"
@@ -164,7 +165,7 @@ export function VenueAnalyticsView({
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <VenueStat
           label={t("kpi.revenue")}
-          value={formatVnd(weeklyTotal)}
+          value={formatVndText(weeklyTotal)}
           delta={VENUE_STATS.revenueDelta}
           deltaSuffix="%"
           icon={TrendingUp}
@@ -239,7 +240,7 @@ export function VenueAnalyticsView({
             <span className="font-mono tabular-nums">
               {t("revenue.peakDay", {
                 day: peakDayLabel,
-                amount: formatVnd(peakRevenue),
+                amount: formatVndText(peakRevenue),
               })}
             </span>
           </div>
@@ -427,7 +428,7 @@ function RevenueBars({
                 : "text-muted-foreground"
             )}
           >
-            {formatVnd(v)}
+            {formatVndText(v)}
           </span>
           <div className="flex h-28 w-full items-end">
             <div

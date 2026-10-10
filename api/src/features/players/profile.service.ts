@@ -104,11 +104,6 @@ export class ProfileService {
     return emptyProfileData("")
   }
 
-  /** Total signed-in accounts with a dashboard profile — the admin overview KPI. */
-  async countUsers(): Promise<number> {
-    return this.profileModel.countDocuments()
-  }
-
   /** Set the user's self-declared account type, creating their profile first if needed. */
   async setAccountType(
     userId: string,

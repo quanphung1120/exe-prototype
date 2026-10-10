@@ -27,6 +27,21 @@ export class ClerkDirectoryService {
   ) {}
 
   /**
+   * Accounts that can still sign in: every Clerk user that is neither banned
+   * nor locked. Pages through the whole directory, so use it for admin
+   * dashboards, not on a hot path.
+   */
+  async countActiveUsers(): Promise<number> {
+    const limit = 500
+    let active = 0
+    for (let offset = 0; ; offset += limit) {
+      const { data } = await this.clerk.users.getUserList({ limit, offset })
+      active += data.filter((u) => !u.banned && !u.locked).length
+      if (data.length < limit) return active
+    }
+  }
+
+  /**
    * Find real users by name (partial) or email (exact) — the caller is
    * always filtered out of the results. Degrades to `[]` on a Clerk API
    * error rather than 500ing (search is a nice-to-have, not load-bearing).

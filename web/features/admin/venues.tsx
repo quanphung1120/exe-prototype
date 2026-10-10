@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import * as React from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -18,7 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatVnd } from "@/lib/shared"
 import { VenuePanel, VenueEmpty } from "@/features/venue/shared"
 import {
   AlertDialog,
@@ -194,7 +194,7 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
                       {venue.bookings}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
-                      {formatVnd(venue.revenue)}
+                      {formatVndText(venue.revenue)}
                     </TableCell>
                     <TableCell className="text-right">
                       {venue.archived ? (

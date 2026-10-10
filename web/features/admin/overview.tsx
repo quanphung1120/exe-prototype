@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 
-import { formatVnd } from "@/lib/shared"
+import { formatVndText } from "@/lib/money"
 import { VenueStat } from "@/features/venue/shared"
 import type { AdminOverview } from "@/features/admin/admin-types"
 
@@ -56,7 +56,7 @@ export function AdminOverviewView({ overview }: { overview: AdminOverview }) {
         />
         <VenueStat
           label={t("kpi.grossRevenue")}
-          value={formatVnd(overview.grossRevenue)}
+          value={formatVndText(overview.grossRevenue)}
           icon={CircleDollarSign}
         />
         <VenueStat

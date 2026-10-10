@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { Link } from "@/i18n/navigation"
@@ -19,7 +20,6 @@ import {
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { formatVnd } from "@/features/dashboard/data"
 import { useVenueData } from "@/features/venue/venue-data-provider"
 import { SportTag } from "@/features/dashboard/shared"
 import { useVenue } from "@/features/venue/venue-provider"
@@ -138,7 +138,7 @@ export function VenueCommandView() {
         />
         <VenueStat
           label={t("kpi.revenueToday")}
-          value={formatVnd(stats.revenueToday)}
+          value={formatVndText(stats.revenueToday)}
           delta={stats.revenueDelta}
           deltaSuffix="%"
           icon={CircleDollarSign}
@@ -301,7 +301,7 @@ export function VenueCommandView() {
                 <MicroLabel>{t("today")}</MicroLabel>
                 <div className="flex items-baseline gap-1.5">
                   <span className="font-heading text-4xl leading-none font-bold tracking-tight tabular-nums">
-                    {formatVnd(todayRevenue)}
+                    {formatVndText(todayRevenue)}
                   </span>
                   <RevenueDelta delta={stats.revenueDelta} />
                 </div>
