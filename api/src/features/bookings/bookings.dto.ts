@@ -58,6 +58,25 @@ export class BookingDecisionDto {
   reason?: string
 }
 
+/**
+ * `POST /api/bookings/:id/cancel-request/decision` — the venue's answer to a
+ * player's cancellation request. `refundPct` only matters for a late (<24h)
+ * request; a decline requires its reason.
+ */
+export class CancelRequestDecisionDto {
+  @IsIn(DECISIONS)
+  decision: (typeof DECISIONS)[number]
+
+  @IsOptional()
+  @IsIn([50, 100])
+  refundPct?: 50 | 100
+
+  @ValidateIf((o: CancelRequestDecisionDto) => o.decision === "decline")
+  @IsString()
+  @Length(3, 200)
+  reason?: string
+}
+
 export class BookingIdParamDto {
   @IsString()
   @IsNotEmpty()

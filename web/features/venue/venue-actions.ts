@@ -260,12 +260,28 @@ export async function decideReservation(
   )
 }
 
-/** Check in an arrival (→ checked-in). */
-export async function checkInReservation(
+/**
+ * Answer a player's cancellation request (docs/chinh-sach.md §2.4): approve
+ * with a refund (`pct` only matters for a late request — an early one is
+ * always 100%), or decline with a reason (the booking stays live). Returns
+ * what the reservation row needs to reflect the answer.
+ */
+export async function answerCancelRequest(
   venueId: string,
-  reservationId: string
-): Promise<Reservation> {
-  return setReservationStatus(venueId, reservationId, "checked-in")
+  reservationId: string,
+  answer:
+    | { decision: "approve"; refundPct?: 50 | 100 }
+    | {
+        decision: "decline"
+        reason: string
+      }
+): Promise<Pick<Reservation, "status" | "cancelRequest">> {
+  const booking = await api<Pick<Reservation, "status" | "cancelRequest">>(
+    `/api/bookings/${encodeURIComponent(reservationId)}/cancel-request/decision`,
+    { method: "POST", body: JSON.stringify(answer) }
+  )
+  revalidatePath(`/app/venue/${venueId}`, "layout")
+  return { status: booking.status, cancelRequest: booking.cancelRequest }
 }
 
 /**

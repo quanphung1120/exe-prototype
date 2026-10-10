@@ -4,10 +4,16 @@ import { test } from "node:test"
 import "reflect-metadata"
 
 import { Test } from "@nestjs/testing"
+
+import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
+import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { ConfigService } from "@nestjs/config"
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
+import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
+import { RoomShare } from "../src/features/rooms/room-share.schema.js"
+import { WalletService } from "../src/features/wallet/wallet.service.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
@@ -15,7 +21,11 @@ import { ProfileService } from "../src/features/players/profile.service.js"
 import { ClerkDirectoryService } from "../src/features/stream/clerk-directory.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
 import { addMinutesToIso, vnNowIso } from "../src/shared/index.js"
-import type { BookingRecordStatus, PaymentStatus } from "../src/shared/index.js"
+import type {
+  BookingCancelRequest,
+  BookingRecordStatus,
+  PaymentStatus,
+} from "../src/shared/index.js"
 
 /**
  * Phase 5 scheduler: `BookingsService.sweep` is the whole state machine
@@ -41,6 +51,15 @@ interface FakeBooking {
   confirmDeadlineAt?: string
   endAt?: string
   checkedInAt?: string
+  courtName?: string
+  start?: string
+  dateKey?: string
+  customer?: { name: string; initials: string }
+  price?: number
+  cancelReason?: string
+  refund?: unknown
+  cancelRequest?: BookingCancelRequest
+  markModified?: (path: string) => void
   statusHistory: { status: BookingRecordStatus; at: string }[]
   save: () => Promise<void>
 }
@@ -79,7 +98,8 @@ async function makeService(bookings: FakeBooking[]) {
 
   const bookingModelMock = {
     find: (filter: {
-      status?: BookingRecordStatus
+      status?: BookingRecordStatus | { $in: BookingRecordStatus[] }
+      "cancelRequest.deadlineAt"?: { $lte: string }
       paymentStatus?: PaymentStatus
       holdExpiresAt?: { $lte: string }
       confirmDeadlineAt?: { $lte: string }
@@ -87,8 +107,20 @@ async function makeService(bookings: FakeBooking[]) {
     }) =>
       makeQuery(
         bookings.filter((b) => {
-          if (filter.status !== undefined && b.status !== filter.status)
+          if (typeof filter.status === "object") {
+            if (!filter.status.$in.includes(b.status)) return false
+          } else if (filter.status !== undefined && b.status !== filter.status)
             return false
+          const deadline = filter["cancelRequest.deadlineAt"]
+          if (deadline) {
+            const r = b.cancelRequest
+            return (
+              !!r &&
+              !r.declinedAt &&
+              !r.resolvedAt &&
+              r.deadlineAt <= deadline.$lte
+            )
+          }
           if (
             filter.paymentStatus !== undefined &&
             b.paymentStatus !== filter.paymentStatus
@@ -130,7 +162,10 @@ async function makeService(bookings: FakeBooking[]) {
       BookingsService,
       { provide: getModelToken(Booking.name), useValue: bookingModelMock },
       { provide: getModelToken(BookingLock.name), useValue: {} },
-      { provide: getModelToken(Venue.name), useValue: {} },
+      {
+        provide: getModelToken(Venue.name),
+        useValue: { findOne: () => makeQuery({ ownerId: "owner-1" }) },
+      },
       {
         provide: getConnectionToken(),
         useValue: {
@@ -144,6 +179,22 @@ async function makeService(bookings: FakeBooking[]) {
         useValue: { getOne: () => Promise.resolve(null) },
       },
       { provide: ConfigService, useValue: configMock },
+      {
+        provide: getModelToken(RoomShare.name),
+        useValue: { find: () => Promise.resolve([]) },
+      },
+      { provide: getModelToken(RoomComplaint.name), useValue: {} },
+      {
+        provide: WalletService,
+        useValue: {
+          credit: () => Promise.resolve({ balance: 0, applied: true }),
+        },
+      },
+      {
+        provide: getModelToken(PlaySession.name),
+        useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
+      },
+      { provide: RoomEventsService, useValue: { emit: () => {} } },
     ],
   }).compile()
 
@@ -165,6 +216,7 @@ void test("sweep expires an unpaid hold past holdExpiresAt and returns its booki
     expired: 1,
     autoConfirmed: 0,
     completed: 0,
+    cancelsAutoApproved: 0,
     expiredBookingIds: ["b1"],
   })
   assert.equal(booking.status, "expired")
@@ -200,6 +252,7 @@ void test("sweep auto-confirms a paid pending booking past the confirm SLA and n
     expired: 0,
     autoConfirmed: 1,
     completed: 0,
+    cancelsAutoApproved: 0,
     expiredBookingIds: [],
   })
   assert.equal(booking.status, "confirmed")
@@ -252,7 +305,7 @@ void test("sweep skips the auto-confirm notification for a walk-in with no linke
   assert.equal(notifications.length, 0)
 })
 
-// ── Rule 3: checked-in → completed ──────────────────────────────────────────
+// ── Rule 3: confirmed (or legacy checked-in) → completed ──────────────────────────────────────────
 
 void test("sweep completes a checked-in booking past its endAt", async () => {
   const booking = makeBooking({
@@ -267,15 +320,16 @@ void test("sweep completes a checked-in booking past its endAt", async () => {
     expired: 0,
     autoConfirmed: 0,
     completed: 1,
+    cancelsAutoApproved: 0,
     expiredBookingIds: [],
   })
   assert.equal(booking.status, "completed")
 })
 
-void test("sweep never touches no-show — it stays a manual venue action", async () => {
+void test("sweep completes a confirmed booking past its endAt (venues don't check players in)", async () => {
   const booking = makeBooking({
     status: "confirmed",
-    endAt: "2026-01-01T00:00:00+07:00", // long past, but "confirmed" has no clock rule
+    endAt: "2026-07-20T19:00:00+07:00",
   })
   const { service } = await makeService([booking])
 
@@ -284,10 +338,93 @@ void test("sweep never touches no-show — it stays a manual venue action", asyn
   assert.deepEqual(result, {
     expired: 0,
     autoConfirmed: 0,
-    completed: 0,
+    completed: 1,
+    cancelsAutoApproved: 0,
     expiredBookingIds: [],
   })
+  assert.equal(booking.status, "completed")
+})
+
+void test("sweep leaves a confirmed booking alone until it ends, and never marks no-show", async () => {
+  const booking = makeBooking({
+    status: "confirmed",
+    endAt: "2026-07-20T19:00:00+07:00",
+  })
+  const { service } = await makeService([booking])
+
+  const result = await service.sweep("2026-07-20T18:59:59+07:00")
+
+  assert.equal(result.completed, 0)
   assert.equal(booking.status, "confirmed")
+})
+
+// ── Cancellation requests the venue didn't answer ───────────────────────────
+
+function bookingWithRequest(request: Partial<BookingCancelRequest>) {
+  return makeBooking({
+    status: "confirmed",
+    paymentStatus: "paid",
+    userId: "player-1",
+    price: 200_000,
+    courtName: "Sân 2",
+    start: "18:00",
+    dateKey: "2026-07-21",
+    customer: { name: "Lan", initials: "LA" },
+    markModified: () => {},
+    cancelRequest: {
+      requestedAt: "2026-07-20T08:00:00+07:00",
+      window: "late",
+      deadlineAt: "2026-07-20T10:00:00+07:00",
+      defaultPct: 50,
+      ...request,
+    },
+  })
+}
+
+void test("sweep auto-approves a late cancellation request past its deadline at 50% and tells both sides", async () => {
+  const booking = bookingWithRequest({})
+  const { service, notifications } = await makeService([booking])
+
+  const result = await service.sweep("2026-07-20T10:01:00+07:00")
+
+  assert.equal(result.cancelsAutoApproved, 1)
+  assert.equal(booking.status, "cancelled")
+  assert.equal(booking.cancelRequest?.refundPct, 50)
+  assert.equal(booking.cancelRequest?.auto, true)
+  assert.deepEqual(
+    booking.refund && (booking.refund as { pct: number }).pct,
+    50
+  )
+  assert.deepEqual(notifications.map((n) => n.userId).sort(), [
+    "owner-1",
+    "player-1",
+  ])
+})
+
+void test("sweep auto-approves an early request at 100%", async () => {
+  const booking = bookingWithRequest({ window: "early", defaultPct: 100 })
+  const { service } = await makeService([booking])
+
+  await service.sweep("2026-07-20T10:01:00+07:00")
+
+  assert.equal(booking.status, "cancelled")
+  assert.equal(booking.cancelRequest?.refundPct, 100)
+})
+
+void test("sweep leaves a request alone before its deadline, and a declined one forever", async () => {
+  const open = bookingWithRequest({})
+  const declined = bookingWithRequest({
+    deadlineAt: "2026-07-20T09:00:00+07:00",
+    declinedAt: "2026-07-20T08:30:00+07:00",
+  })
+  declined.bookingId = "b2"
+  const { service } = await makeService([open, declined])
+
+  const result = await service.sweep("2026-07-20T09:59:00+07:00")
+
+  assert.equal(result.cancelsAutoApproved, 0)
+  assert.equal(open.status, "confirmed")
+  assert.equal(declined.status, "confirmed")
 })
 
 // ── Idempotency ──────────────────────────────────────────────────────────────

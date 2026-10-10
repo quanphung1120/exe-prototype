@@ -6,11 +6,15 @@ import "reflect-metadata"
 import {
   ConflictException,
   ForbiddenException,
+  HttpException,
   Logger,
   UnauthorizedException,
 } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { Test } from "@nestjs/testing"
+
+import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
+import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { getModelToken } from "@nestjs/mongoose"
 
 import { Payment } from "../src/features/payments/payment.schema.js"
@@ -21,6 +25,8 @@ import {
 } from "../src/features/payments/sepay.client.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
+import { WalletService } from "../src/features/wallet/wallet.service.js"
+import { TopUpsService } from "../src/features/payments/topups.service.js"
 import { DiscountsService } from "../src/features/discounts/discounts.service.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
@@ -186,6 +192,8 @@ interface Deps {
     usageLimit?: number
     perUserLimit?: number
   }
+  /** The wallet balance `payWithWallet` sees; defaults to 0. */
+  walletBalance?: number
   /** Stubs what `DiscountsService#applyUsage` resolves to; defaults to `"applied"`. */
   applyUsageResult?: "applied" | "over_limit" | "missing"
 }
@@ -248,6 +256,9 @@ function makeService(deps: Deps = {}) {
     getOrThrow: () => "http://localhost:3000/app/bookings",
   }
   const applyUsageCalls: string[] = []
+  const walletDebits: { amount: number; txId: string }[] = []
+  const walletCredits: { amount: number; txId: string }[] = []
+  const topUpSettles: string[] = []
   const discountsMock = {
     validate: (code: string, amount: number) => {
       if (deps.discountValidate) {
@@ -272,6 +283,34 @@ function makeService(deps: Deps = {}) {
       { provide: NotificationsService, useValue: notificationsMock },
       { provide: DiscountsService, useValue: discountsMock },
       { provide: ConfigService, useValue: configMock },
+      {
+        provide: WalletService,
+        useValue: {
+          getBalance: () => Promise.resolve(deps.walletBalance ?? 0),
+          debit: (_u: string, amount: number, m: { txId: string }) => {
+            walletDebits.push({ amount, txId: m.txId })
+            return Promise.resolve({ balance: 0, applied: true })
+          },
+          credit: (_u: string, amount: number, m: { txId: string }) => {
+            walletCredits.push({ amount, txId: m.txId })
+            return Promise.resolve({ balance: 0, applied: true })
+          },
+        },
+      },
+      {
+        provide: TopUpsService,
+        useValue: {
+          settle: (invoice: string) => {
+            topUpSettles.push(invoice)
+            return Promise.resolve(null)
+          },
+        },
+      },
+      {
+        provide: getModelToken(PlaySession.name),
+        useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
+      },
+      { provide: RoomEventsService, useValue: { emit: () => {} } },
     ],
   })
     .compile()
@@ -282,6 +321,9 @@ function makeService(deps: Deps = {}) {
       cancelCalls,
       confirmPaymentCalls,
       applyUsageCalls,
+      walletDebits,
+      walletCredits,
+      topUpSettles,
     }))
 }
 
@@ -1001,4 +1043,66 @@ void test("cancelOrderForBooking no-ops when checkout was never started", async 
   const { service, cancelCalls } = await makeService()
   await service.cancelOrderForBooking("never-checked-out")
   assert.equal(cancelCalls.length, 0)
+})
+
+// ── Pay with the wallet ──────────────────────────────────────────────────────
+
+void test("payWithWallet debits the wallet, settles the payment and confirms the booking", async () => {
+  const { service, store, walletDebits, confirmPaymentCalls, cancelCalls } =
+    await makeService({ walletBalance: 500_000 })
+
+  const result = await service.payWithWallet("user-1", "b1")
+
+  assert.equal(result.status, "paid")
+  assert.equal(result.amount, 200_000)
+  assert.deepEqual(walletDebits, [{ amount: 200_000, txId: "pay-b1" }])
+  assert.deepEqual(confirmPaymentCalls, ["b1"])
+  assert.equal(store.get("b1")?.status, "paid")
+  // No SePay checkout was opened, so there is nothing to cancel there.
+  assert.deepEqual(cancelCalls, [])
+})
+
+void test("payWithWallet with too little balance throws 402 and charges nothing", async () => {
+  const { service, walletDebits, confirmPaymentCalls } = await makeService({
+    walletBalance: 100_000,
+  })
+
+  await assert.rejects(
+    () => service.payWithWallet("user-1", "b1"),
+    (err: unknown) => err instanceof HttpException && err.getStatus() === 402
+  )
+  assert.deepEqual(walletDebits, [])
+  assert.deepEqual(confirmPaymentCalls, [])
+})
+
+void test("payWithWallet rejects a caller who doesn't own the booking", async () => {
+  const { service, walletDebits } = await makeService({
+    walletBalance: 500_000,
+  })
+
+  await assert.rejects(
+    () => service.payWithWallet("someone-else", "b1"),
+    ForbiddenException
+  )
+  assert.deepEqual(walletDebits, [])
+})
+
+void test("payWithWallet cancels an already-opened SePay order so it can't be paid twice", async () => {
+  const { service, cancelCalls } = await makeService({ walletBalance: 500_000 })
+  await service.checkout("user-1", "b1")
+
+  await service.payWithWallet("user-1", "b1")
+
+  assert.deepEqual(cancelCalls, ["b1"])
+})
+
+// ── IPN routing ──────────────────────────────────────────────────────────────
+
+void test("an IPN for a TU- invoice settles a wallet top-up, not a booking payment", async () => {
+  const { service, topUpSettles, confirmPaymentCalls } = await makeService()
+
+  await service.handleIpn(Buffer.from(ipnBody("TU-abc")), {})
+
+  assert.deepEqual(topUpSettles, ["TU-abc"])
+  assert.deepEqual(confirmPaymentCalls, [])
 })

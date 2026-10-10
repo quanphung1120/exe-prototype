@@ -132,7 +132,11 @@
     "admin": "Admin",
     "account": "Account",
     "logout": "Sign out",
-    "group": "Play"
+    "group": "Play",
+    "wallet": {
+      "label": "Wallet",
+      "caption": "Top up and view transactions"
+    }
   },
   "Sidebar": {
     "workspaces": "Workspaces",
@@ -430,10 +434,18 @@
       "payNow": "Pay {amount}",
       "processing": "Redirecting to checkout…",
       "redirectNotice": "You'll be redirected to SePay's checkout (VietQR or card) to complete payment.",
-      "refundPolicy": "If a booking is cancelled or declined, any refund is sent by manual bank transfer within 24–48 business hours — we never refund instantly.",
+      "approvalReply": "If you pay now, the venue will reply by {time} {day, select, today {today} other {tomorrow}}.",
+      "approvalNote": "After you pay, the venue has 30 minutes (counted within its opening hours) to confirm. If you pay while the venue is closed, the clock starts when it reopens — e.g. paying at 03:00 means a reply by 06:30. Bookings the venue could not confirm before play time are not accepted.",
+      "refundPolicy": "If a booking is cancelled or declined, any refund is added to your wallet right away. Bookings not tied to an account are refunded by manual bank transfer within 24–48 business hours.",
       "checkoutFailed": "Couldn't open checkout — please try again.",
       "paymentExpired": "The court hold expired. Please book this time slot again.",
-      "secure": "Payment is secured by SePay."
+      "secure": "Payment is secured by SePay.",
+      "payWallet": "Pay with wallet ({amount})",
+      "walletBalance": "Wallet balance: {balance}",
+      "walletShort": "Not enough balance — you need {missing} more.",
+      "walletTopUp": "Top up",
+      "walletOr": "or",
+      "walletFailed": "Couldn't pay with your wallet — please try again."
     },
     "roomTitle": "{sport} at {court}",
     "toast": {
@@ -441,6 +453,11 @@
       "pending": "Request sent — waiting for operator approval",
       "cancelled": "Booking cancelled",
       "cancelFailed": "Couldn't cancel this booking — please try again.",
+      "cancelRequested": "Cancellation request sent to the venue",
+      "cancelRequestedEarly": "Your booking is kept for now. If the venue agrees you get a 100% refund (auto-approved if it doesn't answer within 12 hours).",
+      "cancelRequestedLate": "Your booking is kept for now. The venue will refund 50% or 100%, or decline (50% is refunded automatically if it doesn't answer within 2 hours).",
+      "cancelWithdrawn": "Cancellation request withdrawn",
+      "withdrawFailed": "Couldn't withdraw the cancellation request",
       "conflict": "That slot was just taken — choose another time.",
       "holdExpired": "Your court hold expired and was released"
     },
@@ -515,7 +532,8 @@
       "approveFailed": "Couldn't approve the request",
       "declineFailed": "Couldn't decline the request",
       "leaveFailed": "Couldn't leave the room",
-      "disbandFailed": "Couldn't cancel the room"
+      "disbandFailed": "Couldn't cancel the room",
+      "leaveRequested": "Leave request sent — waiting for the host"
     }
   },
   "Shared": {
@@ -629,6 +647,15 @@
     "openingPayment": "Opening payment…",
     "declinedNote": "The operator declined: {reason}",
     "refundedNote": "Refunded (simulated).",
+    "requestCancel": "Request cancellation",
+    "requestCancelTitle": "Request to cancel this booking?",
+    "requestCancelBody": "Cancelling needs the venue's approval; your booking is kept while you wait. Asked ≥ 24 hours ahead: a 100% refund once the venue agrees (auto-approved if it doesn't answer within 12 hours). Asked within 24 hours: the venue refunds 50% or 100%, or declines (50% is refunded automatically if it doesn't answer within 2 hours). Once the booking has started it can't be cancelled.",
+    "requestCancelConfirm": "Send request",
+    "cancelPendingNote": "Cancellation requested — the venue has until {deadline} to answer. If it doesn't, you get {pct}% back.",
+    "cancelDeclinedNote": "The venue declined your cancellation: {reason}. Your booking is kept.",
+    "cancelApprovedNote": "Cancelled at your request — {pct}% refunded.",
+    "cancelAutoNote": "Cancelled automatically (the venue didn't answer) — {pct}% refunded.",
+    "withdrawCancel": "Withdraw cancellation request",
     "tabs": {
       "upcoming": "Upcoming",
       "past": "Past",
@@ -1505,8 +1532,6 @@
     "emptyInsight": "No open pricing moves — new suggestions appear in Analytics as demand shifts.",
     "upcomingArrivals": "Upcoming arrivals",
     "seeAll": "See all",
-    "checkIn": "Check in",
-    "checkedIn": "Checked in",
     "emptyArrivals": "No more arrivals expected today.",
     "revenueWeek": "Revenue this week",
     "today": "Today",
@@ -1627,6 +1652,7 @@
     "filters": {
       "all": "All",
       "pending": "Pending",
+      "cancelRequests": "Cancel requests",
       "confirmed": "Confirmed",
       "today": "Today",
       "history": "History"
@@ -1663,6 +1689,19 @@
     "toast": {
       "approved": "Approved {name}'s booking",
       "declined": "Declined {name}'s request"
+    },
+    "cancelRequest": {
+      "badge": "Cancel request",
+      "decline": "Decline",
+      "approvePct": "Approve · refund {pct}%",
+      "hintEarly": "Asked ≥ 24 hours ahead — approving refunds 100%. Answer by {deadline}; after that it's approved automatically at {pct}%.",
+      "hintLate": "Asked within 24 hours — refund 50% or 100%, or decline. Answer by {deadline}; after that {pct}% is refunded automatically.",
+      "declineTitle": "Decline cancellation request",
+      "declineDescription": "Give a reason for declining {name}'s cancellation request. The booking stays and they're notified with this reason.",
+      "declinePlaceholder": "E.g. tournament slot, announced as non-refundable",
+      "declineConfirm": "Decline request",
+      "toastApproved": "Cancelled {name}'s booking — {pct}% refunded",
+      "toastDeclined": "Declined {name}'s cancellation request"
     }
   },
   "VenueMessages": {
@@ -2220,6 +2259,14 @@
     "reviews": {
       "label": "App reviews",
       "caption": "Moderate reviews quoted on the landing page"
+    },
+    "complaints": {
+      "label": "Complaints",
+      "caption": "Complaints about leaving a room and court refunds"
+    },
+    "withdrawals": {
+      "label": "Withdrawals",
+      "caption": "Wallet withdrawals awaiting a bank transfer"
     }
   },
   "AdminOverview": {
@@ -2553,5 +2600,152 @@
     "alt": "{name} — photo {n}",
     "previous": "Previous photo",
     "next": "Next photo"
+  },
+  "Wallet": {
+    "metaTitle": "Wallet",
+    "metaDescription": "Top up, check your balance and transaction history",
+    "title": "My wallet",
+    "subtitle": "Top up to pay for courts faster. Refunds from cancelled bookings land here too.",
+    "balance": "Current balance",
+    "topUpTitle": "Top up",
+    "customAmount": "Or enter another amount",
+    "customPlaceholder": "e.g. 300,000",
+    "limits": "Minimum {min}, maximum {max} per top-up.",
+    "topUpButton": "Top up {amount}",
+    "redirecting": "Redirecting to SePay…",
+    "note": "You'll be redirected to SePay's checkout (VietQR or card). Your balance updates as soon as the payment succeeds.",
+    "topUpFailed": "Couldn't start the top-up — please try again.",
+    "history": "Transaction history",
+    "empty": "No transactions yet.",
+    "return": {
+      "checking": "Confirming your top-up with SePay…",
+      "paid": "Top-up successful. Your balance has been updated.",
+      "failed": "The top-up didn't go through. You haven't been charged.",
+      "cancelled": "You cancelled the top-up.",
+      "timeout": "No confirmation from SePay yet. If you've paid, your balance will update in a few minutes — please reload."
+    },
+    "withdraw": {
+      "title": "Withdraw to a bank account",
+      "note": "The amount leaves your wallet right away. We send the bank transfer by hand; if it can't be sent, the money goes back to your wallet.",
+      "amount": "Amount",
+      "amountPlaceholder": "e.g. 200,000",
+      "available": "Available: {balance}",
+      "bank": "Bank",
+      "bankPlaceholder": "e.g. Vietcombank",
+      "accountNumber": "Account number",
+      "accountHolder": "Account holder",
+      "holderPlaceholder": "Name on the card",
+      "submit": "Request withdrawal",
+      "sent": "Withdrawal requested. We'll transfer it as soon as we can.",
+      "ref": "Transfer ref: {ref}",
+      "status": {
+        "pending": "Awaiting transfer",
+        "completed": "Sent",
+        "rejected": "Rejected — refunded to wallet"
+      }
+    }
+  },
+  "RoomShare": {
+    "joinTitle": "This room already has a court",
+    "joinBody": "The host has paid for the court. To join you pay your share: the court price split evenly across the room's max of {capacity} players.",
+    "yourShare": "Your share",
+    "walletBalance": "Wallet balance",
+    "short": "Not enough balance — you need {missing} more.",
+    "refundNote": "The amount is held with your request. If the host declines it goes straight back to your wallet; if they approve, it moves to the host.",
+    "cancel": "Not now",
+    "topUp": "Top up",
+    "confirmJoin": "Pay {amount} & request",
+    "dueTitle": "Time to pay your share of the court",
+    "dueBody": "{host} booked the court for “{room}”. Your share: {amount}.",
+    "payShare": "Pay {amount}",
+    "paidToast": "Paid {amount} to the host.",
+    "perSeat": "Court cost per player",
+    "status": {
+      "paid": "Paid",
+      "held": "Awaiting host",
+      "due": "Not paid"
+    },
+    "leaveNeedsApproval": "You've paid your share: leaving needs the host's OK, and only then is it refunded to your wallet. If you stay, it isn't refunded.",
+    "leavePendingHost": "{name} asked to leave and wants a refund.",
+    "leavePendingMine": "You asked to leave — waiting for the host.",
+    "leavePendingOther": "Waiting for the host to answer a leave request.",
+    "approveLeave": "Refund {amount}",
+    "declineLeave": "Decline",
+    "leaveApproved": "Approved — refunded to the member's wallet.",
+    "leaveDeclined": "Leave request declined.",
+    "leaveRejected": "The host refused to let {name} leave.",
+    "leaveRejectedMine": "The host didn't agree to let you leave, so what you paid isn't refunded yet. You can send the leave request again, or complain to the platform if that seems unfair.",
+    "complain": "Complain to the platform",
+    "complaintTitle": "File a complaint",
+    "complaintBody": "The platform will review refunding {amount} of court cost to you. Explain why — for a pending request you can file after 24 hours.",
+    "complaintPlaceholder": "Describe the reason (at least 10 characters)",
+    "sendComplaint": "Send complaint",
+    "complaintSent": "Complaint sent. We'll reply through notifications.",
+    "complaintStatus": {
+      "open": "Your complaint is being reviewed.",
+      "refunded": "Complaint upheld — refunded.",
+      "dismissed": "Complaint dismissed."
+    }
+  },
+  "AdminComplaints": {
+    "metaTitle": "Complaints",
+    "metaDescription": "Member complaints about leaving a room after paying court cost",
+    "title": "Complaints",
+    "subtitle": "Members who paid court cost but the host won't let them leave (or doesn't answer). Uphold to refund the member's wallet.",
+    "empty": "No complaints yet.",
+    "open": "Open",
+    "refunded": "Refunded",
+    "dismissed": "Dismissed",
+    "platformFunded": "Platform-funded (host wallet too low)",
+    "from": "{member} → host {host}",
+    "room": "Room “{room}”",
+    "refund": "Refund",
+    "dismiss": "Dismiss",
+    "noteLabel": "Note to the member (optional)",
+    "notePlaceholder": "e.g. verified with the host",
+    "refundTitle": "Refund the member?",
+    "refundDescription": "The court share is taken from the host's wallet and refunded to the member, who leaves the room. If the host's wallet can't cover it, the platform pays.",
+    "dismissTitle": "Dismiss the complaint?",
+    "dismissDescription": "The member stays in the room and isn't refunded.",
+    "back": "Back",
+    "confirm": "Confirm",
+    "kind": {
+      "room_leave": "Leave a room",
+      "cancel_decline": "Venue refused cancel"
+    },
+    "violations": "Venue has {count} wrongful decline(s)"
+  },
+  "CancelComplaint": {
+    "button": "Complain to the platform",
+    "title": "Complain about the refused cancellation",
+    "body": "You asked to cancel at least 24 hours before play but the venue refused. If you think there was no good reason, the platform will review it and may refund 100%.",
+    "placeholder": "Describe the reason (at least 10 characters)",
+    "cancel": "Not now",
+    "send": "Send complaint",
+    "sent": "Complaint sent. We'll reply through notifications.",
+    "sentNote": "Your complaint is being reviewed."
+  },
+  "AdminWithdrawals": {
+    "metaTitle": "Withdrawals",
+    "metaDescription": "Players' wallet withdrawal requests",
+    "title": "Withdrawals",
+    "subtitle": "Send the bank transfer by hand to the details the player gave, then record its reference. If it can't be sent, reject it to refund the wallet.",
+    "empty": "No withdrawal requests yet.",
+    "pending": "Awaiting transfer",
+    "completed": "Sent",
+    "rejected": "Rejected",
+    "ref": "Transfer ref: {ref}",
+    "complete": "Mark transferred",
+    "reject": "Reject",
+    "completeTitle": "Confirm the transfer was sent?",
+    "completeDescription": "Record the bank's transaction reference once you've paid the player.",
+    "refLabel": "Bank transfer reference",
+    "refPlaceholder": "e.g. bank transaction id",
+    "rejectTitle": "Reject this withdrawal?",
+    "rejectDescription": "The money goes back into the player's wallet and they see the reason below.",
+    "noteLabel": "Reason",
+    "notePlaceholder": "e.g. wrong account number",
+    "back": "Back",
+    "confirm": "Confirm"
   }
 }

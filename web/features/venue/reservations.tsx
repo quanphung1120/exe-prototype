@@ -51,10 +51,14 @@ import {
   VenuePanel,
 } from "@/features/venue/shared"
 import { useVenueData } from "@/features/venue/venue-data-provider"
-import { decideReservation } from "@/features/venue/venue-actions"
+import {
+  answerCancelRequest,
+  decideReservation,
+} from "@/features/venue/venue-actions"
 import {
   BOOKING_TRANSITIONS,
   formatVnd,
+  hasOpenCancelRequest,
   locStr,
   reservationStatusAccent,
   type BookingSource,
@@ -67,7 +71,11 @@ type Translate = ReturnType<typeof useTranslations>
 
 type Decision = "approved" | "declined"
 
-type FilterKey = "all" | "pending" | "confirmed" | "today" | "history"
+type FilterKey =
+  "all" | "pending" | "cancelRequests" | "confirmed" | "today" | "history"
+
+/** How the operator answers a player's cancellation request. */
+type CancelAnswer = "decline" | 50 | 100
 
 const HISTORY_STATUSES: ReservationStatus[] = [
   "completed",
@@ -100,6 +108,8 @@ function matchesFilter(r: Reservation, filter: FilterKey): boolean {
       return true
     case "pending":
       return r.status === "pending"
+    case "cancelRequests":
+      return hasOpenCancelRequest(r)
     case "confirmed":
       return r.status === "confirmed"
     case "today":
@@ -135,7 +145,8 @@ function useReservationColumns(
   t: Translate,
   locale: string,
   decisions: Record<string, Decision>,
-  onDecide: (r: Reservation, d: Decision) => void
+  onDecide: (r: Reservation, d: Decision) => void,
+  onAnswerCancel: (r: Reservation, answer: CancelAnswer) => void
 ) {
   return React.useMemo(
     () => [
@@ -235,11 +246,18 @@ function useReservationColumns(
           const r = row.original
           const status = effectiveStatus(r, decisions[r.id])
           return (
-            <Badge
-              className={cn("capitalize", reservationStatusAccent[status])}
-            >
-              {t(`status.${status}`)}
-            </Badge>
+            <div className="flex flex-col items-start gap-1">
+              <Badge
+                className={cn("capitalize", reservationStatusAccent[status])}
+              >
+                {t(`status.${status}`)}
+              </Badge>
+              {hasOpenCancelRequest(r) ? (
+                <Badge className="bg-amber-500/12 text-amber-700 dark:text-amber-400">
+                  {t("cancelRequest.badge")}
+                </Badge>
+              ) : null}
+            </div>
           )
         },
       }),
@@ -262,12 +280,13 @@ function useReservationColumns(
             reservation={row.original}
             decision={decisions[row.original.id]}
             onDecide={onDecide}
+            onAnswerCancel={onAnswerCancel}
             t={t}
           />
         ),
       }),
     ],
-    [t, locale, decisions, onDecide]
+    [t, locale, decisions, onDecide, onAnswerCancel]
   )
 }
 
@@ -298,11 +317,16 @@ export function VenueReservationsView({
     null
   )
   const [declineReason, setDeclineReason] = React.useState("")
+  // Declining a player's cancellation request also needs a reason.
+  const [cancelDeclineTarget, setCancelDeclineTarget] =
+    React.useState<Reservation | null>(null)
+  const [cancelDeclineReason, setCancelDeclineReason] = React.useState("")
 
   // ── Summary counts (against the source data, not the filtered slice) ──
   const pendingCount = RESERVATIONS.filter(
     (r) => effectiveStatus(r, decisions[r.id]) === "pending"
   ).length
+  const cancelRequestCount = RESERVATIONS.filter(hasOpenCancelRequest).length
   const todayConfirmed = RESERVATIONS.filter(
     (r) =>
       r.day.en === "Today" &&
@@ -372,6 +396,53 @@ export function VenueReservationsView({
     [decide]
   )
 
+  /** Answer a cancellation request; a decline first collects its reason. */
+  const answerCancel = React.useCallback(
+    (r: Reservation, answer: CancelAnswer, reason?: string) => {
+      if (answer === "decline" && !reason) {
+        setCancelDeclineReason("")
+        setCancelDeclineTarget(r)
+        return
+      }
+      const name = r.customer.name
+      startTransition(async () => {
+        try {
+          const updated = await answerCancelRequest(
+            venueId,
+            r.id,
+            answer === "decline"
+              ? { decision: "decline", reason: reason ?? "" }
+              : { decision: "approve", refundPct: answer }
+          )
+          updateReservation(r.id, updated)
+          if (answer === "decline") {
+            toast(t("cancelRequest.toastDeclined", { name }))
+          } else {
+            toast.success(
+              t("cancelRequest.toastApproved", {
+                name,
+                pct: updated.cancelRequest?.refundPct ?? answer,
+              })
+            )
+          }
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : "Failed to answer request"
+          )
+        }
+      })
+    },
+    [t, venueId, updateReservation]
+  )
+
+  const confirmCancelDecline = () => {
+    const target = cancelDeclineTarget
+    const reason = cancelDeclineReason.trim()
+    if (!target || !reason) return
+    setCancelDeclineTarget(null)
+    answerCancel(target, "decline", reason)
+  }
+
   const confirmDecline = () => {
     const target = declineTarget
     const reason = declineReason.trim()
@@ -380,7 +451,13 @@ export function VenueReservationsView({
     decide(target, "declined", reason)
   }
 
-  const columns = useReservationColumns(t, locale, decisions, handleDecide)
+  const columns = useReservationColumns(
+    t,
+    locale,
+    decisions,
+    handleDecide,
+    answerCancel
+  )
 
   const table = useReactTable({
     data,
@@ -399,7 +476,8 @@ export function VenueReservationsView({
   // Column sorting still applies within each status group.
   const sortedRows = table.getSortedRowModel().rows
   const needsApproval = (row: (typeof sortedRows)[number]) =>
-    effectiveStatus(row.original, decisions[row.original.id]) === "pending"
+    effectiveStatus(row.original, decisions[row.original.id]) === "pending" ||
+    hasOpenCancelRequest(row.original)
   const orderedRows = [
     ...sortedRows.filter(needsApproval),
     ...sortedRows.filter((row) => !needsApproval(row)),
@@ -412,6 +490,7 @@ export function VenueReservationsView({
   const FILTERS: { key: FilterKey; count?: number }[] = [
     { key: "all", count: RESERVATIONS.length },
     { key: "pending", count: pendingCount },
+    { key: "cancelRequests", count: cancelRequestCount },
     { key: "confirmed" },
     { key: "today" },
     { key: "history" },
@@ -556,6 +635,25 @@ export function VenueReservationsView({
         <RefundQueuePanel items={REFUND_QUEUE} t={t} locale={locale} />
       ) : null}
 
+      {/* Declining a cancellation request — the reason goes to the player. */}
+      <ReasonDialog
+        open={cancelDeclineTarget !== null}
+        onOpenChange={(o) => {
+          if (!o) setCancelDeclineTarget(null)
+        }}
+        title={t("cancelRequest.declineTitle")}
+        description={t("cancelRequest.declineDescription", {
+          name: cancelDeclineTarget?.customer.name ?? "",
+        })}
+        reasonLabel={t("declineDialog.reasonLabel")}
+        reasonPlaceholder={t("cancelRequest.declinePlaceholder")}
+        cancelLabel={t("declineDialog.cancel")}
+        confirmLabel={t("cancelRequest.declineConfirm")}
+        reason={cancelDeclineReason}
+        onReasonChange={setCancelDeclineReason}
+        onConfirm={confirmCancelDecline}
+      />
+
       {/* Decline reason — required before the decline is sent to the player. */}
       <ReasonDialog
         open={declineTarget !== null}
@@ -612,13 +710,66 @@ function ReservationActions({
   reservation: r,
   decision,
   onDecide,
+  onAnswerCancel,
   t,
 }: {
   reservation: Reservation
   decision?: Decision
   onDecide: (r: Reservation, d: Decision) => void
+  onAnswerCancel: (r: Reservation, answer: CancelAnswer) => void
   t: Translate
 }) {
+  // A player asked to cancel: the venue answers before anything else
+  // (docs/chinh-sach.md §2.4). Early requests always refund 100%; a late one
+  // is the venue's call between 50% and 100%.
+  if (hasOpenCancelRequest(r) && r.cancelRequest) {
+    const request = r.cancelRequest
+    const at = request.deadlineAt
+    const deadline = `${at.slice(11, 16)} ${at.slice(8, 10)}/${at.slice(5, 7)}`
+    return (
+      <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            onClick={() => onAnswerCancel(r, "decline")}
+          >
+            <X />
+            {t("cancelRequest.decline")}
+          </Button>
+          {request.window === "late" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={() => onAnswerCancel(r, 50)}
+            >
+              {t("cancelRequest.approvePct", { pct: 50 })}
+            </Button>
+          ) : null}
+          <Button
+            size="sm"
+            className="rounded-full"
+            onClick={() => onAnswerCancel(r, 100)}
+          >
+            <Check />
+            {t("cancelRequest.approvePct", { pct: 100 })}
+          </Button>
+        </div>
+        <span className="max-w-64 text-right text-[11px] text-muted-foreground">
+          {t(
+            request.window === "early"
+              ? "cancelRequest.hintEarly"
+              : "cancelRequest.hintLate",
+            { deadline, pct: request.defaultPct }
+          )}
+          {request.reason ? ` · “${request.reason}”` : ""}
+        </span>
+      </div>
+    )
+  }
+
   if (decision != null) {
     return decision === "approved" ? (
       <span className="inline-flex items-center gap-1.5 text-xs font-medium text-brand">

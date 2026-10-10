@@ -133,6 +133,8 @@ export class SessionsService {
     }
     if (mapped.hold) next.hold = mapped.hold
     else delete next.hold
+    if (info.cancelRequest) next.cancelRequest = info.cancelRequest
+    else delete next.cancelRequest
     if (info.status === "cancelled") {
       next.cancelReason = info.declineReason ?? info.cancelReason
       next.refunded =

@@ -28,3 +28,27 @@ export function paymentReturnUrls(
     cancelUrl: `${root}/failed/${id}?reason=cancelled`,
   }
 }
+
+/**
+ * Where SePay sends the player back after a wallet top-up: the wallet page,
+ * which reads `?topup=<invoice>` (and `&status=failed|cancelled`) and polls
+ * the order. Derived from the same `SEPAY_RETURN_URL` base as
+ * {@link paymentReturnUrls} — `…/app/payment` becomes `…/app/wallet`.
+ */
+export function topUpReturnUrls(
+  base: string,
+  invoiceNumber: string
+): { successUrl: string; errorUrl: string; cancelUrl: string } {
+  const root = base
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/success$/, "")
+    .replace(/\/dashboard\/payment$/, "/app/payment")
+    .replace(/\/payment$/, "/wallet")
+  const id = encodeURIComponent(invoiceNumber)
+  return {
+    successUrl: `${root}?topup=${id}`,
+    errorUrl: `${root}?topup=${id}&status=failed`,
+    cancelUrl: `${root}?topup=${id}&status=cancelled`,
+  }
+}

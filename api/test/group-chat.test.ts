@@ -20,6 +20,10 @@ import {
   toGroupMatch,
 } from "../src/features/rooms/group-match.js"
 import { RoomsService } from "../src/features/rooms/rooms.service.js"
+import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
+import { RoomShare } from "../src/features/rooms/room-share.schema.js"
+import { BookingsService } from "../src/features/bookings/bookings.service.js"
+import { WalletService } from "../src/features/wallet/wallet.service.js"
 import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { ProfileService } from "../src/features/players/profile.service.js"
@@ -175,6 +179,17 @@ async function makeRooms(
       { provide: ProfileService, useValue: {} },
       { provide: StreamService, useValue: { assertMember } },
       { provide: ClerkDirectoryService, useValue: {} },
+      // Court-share collaborators — groupMatch never touches them.
+      { provide: getModelToken(Booking.name), useValue: {} },
+      { provide: getModelToken(RoomShare.name), useValue: {} },
+      { provide: WalletService, useValue: {} },
+      {
+        provide: BookingsService,
+        useValue: {
+          refundDeclinedCancel: () => Promise.resolve(1),
+        },
+      },
+      { provide: getModelToken(RoomComplaint.name), useValue: {} },
       RoomEventsService,
     ],
   }).compile()

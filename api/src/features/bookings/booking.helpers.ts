@@ -6,6 +6,7 @@ import { Types } from "mongoose"
 
 import {
   addMinutes,
+  addMinutesToIso,
   combineDateTime,
   dayLabelFor,
   isoDateOf,
@@ -15,6 +16,7 @@ import {
   slotRange,
   toMinutes,
   vnNowIso,
+  type BookingCancelRequest,
   type BookingCustomer,
   type BookingRecord,
   type BookingRecordStatus,
@@ -221,6 +223,54 @@ export function refundPctFor(nowIso: string, startAt: string): number {
   return hoursUntilStart >= 24 ? 100 : 50
 }
 
+// ── Player cancellation requests (docs/chinh-sach.md §2.4) ───────────────────
+
+/** Hours the venue has to answer a request made ≥24h before the start. */
+export const CANCEL_REVIEW_EARLY_HOURS = 12
+/** Hours the venue has to answer a request made <24h before the start. */
+export const CANCEL_REVIEW_LATE_HOURS = 2
+
+/**
+ * A fresh cancellation request made at `nowIso`, or null once the booking has
+ * started (no cancelling then — the no-show rules apply). The 24h window is
+ * fixed here, at request time, so a slow venue answer never costs the player.
+ * The venue must answer within 12h (early) or 2h (late, and before the
+ * start); past that the sweeper applies `defaultPct`: 100% early, 50% late.
+ */
+export function buildCancelRequest(
+  nowIso: string,
+  startAt: string,
+  reason?: string
+): BookingCancelRequest | null {
+  const now = new Date(nowIso).getTime()
+  const start = new Date(startAt).getTime()
+  if (now >= start) return null
+  const early = start - now >= 24 * 60 * 60 * 1000
+  const deadline = early
+    ? now + CANCEL_REVIEW_EARLY_HOURS * 60 * 60 * 1000
+    : Math.min(now + CANCEL_REVIEW_LATE_HOURS * 60 * 60 * 1000, start)
+  return {
+    requestedAt: nowIso,
+    window: early ? "early" : "late",
+    deadlineAt: addMinutesToIso(nowIso, Math.round((deadline - now) / 60_000)),
+    defaultPct: early ? 100 : 50,
+    ...(reason ? { reason } : {}),
+  }
+}
+
+/** "HH:MM dd/mm" of a +07:00 ISO datetime, for notification copy. */
+export function formatVnTime(iso: string): string {
+  return `${iso.slice(11, 16)} ${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+}
+
+/** "Sân 2 lúc 18:00 ngày 12/10" — a booking as named in notifications. */
+export function bookingLabel(
+  booking: Pick<BookingRecord, "courtName" | "start" | "dateKey">
+): string {
+  const { courtName, start, dateKey } = booking
+  return `${courtName} lúc ${start} ngày ${dateKey.slice(8, 10)}/${dateKey.slice(5, 7)}`
+}
+
 // ── Building / updating a BookingRecord ────────────────────────────────────
 
 export interface NewBookingInput {
@@ -339,6 +389,7 @@ export type BookingLean = Pick<
   | "status"
   | "price"
   | "declineReason"
+  | "cancelRequest"
 >
 
 /**
@@ -375,6 +426,7 @@ export function reservationFromBooking(
     noShowRisk: booking.source === "walk-in" ? 5 : 10,
     isRegular: false,
     declineReason: booking.declineReason,
+    cancelRequest: booking.cancelRequest,
   }
 }
 
@@ -444,6 +496,7 @@ export type BookingSummary = Pick<
   | "declineReason"
   | "cancelReason"
   | "refund"
+  | "cancelRequest"
 >
 
 /** Project a full `BookingRecord` (a lean/hydrated doc) to `BookingSummary`. */
@@ -471,6 +524,7 @@ export function bookingSummaryFrom(booking: BookingRecord): BookingSummary {
     declineReason: booking.declineReason,
     cancelReason: booking.cancelReason,
     refund: booking.refund,
+    cancelRequest: booking.cancelRequest,
   }
 }
 

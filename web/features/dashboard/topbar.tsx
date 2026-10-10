@@ -19,6 +19,7 @@ const PLAYER_HEADER_NAV = [
   { key: "play", href: "/app/play" },
   { key: "chat", href: "/app/chat" },
   { key: "bookings", href: "/app/bookings" },
+  { key: "wallet", href: "/app/wallet" },
 ] as const
 
 /** Header icon buttons — same 44px circle as the avatar so the three line up. */
@@ -38,6 +39,7 @@ export function DashboardTopbar() {
     pathname === "/app/chat" ||
     pathname === "/app/bookings" ||
     pathname === "/app/book" ||
+    pathname === "/app/wallet" ||
     pathname.startsWith("/app/payment/")
   ) {
     const activeKey =
@@ -45,11 +47,13 @@ export function DashboardTopbar() {
         ? "chat"
         : pathname === "/app/bookings"
           ? "bookings"
-          : pathname === "/app/play"
-            ? "play"
-            : pathname === "/app"
-              ? "dashboard"
-              : undefined
+          : pathname === "/app/wallet"
+            ? "wallet"
+            : pathname === "/app/play"
+              ? "play"
+              : pathname === "/app"
+                ? "dashboard"
+                : undefined
     return (
       <header className="z-20 grid h-[88px] shrink-0 grid-cols-[1fr_auto_1fr] items-center bg-[#2046ed] px-5 text-white md:px-10 xl:px-[7.5%]">
         <Link

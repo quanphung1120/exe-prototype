@@ -66,6 +66,7 @@ import { useSession } from "@/features/play/session"
 import { PlayerProfileDialog } from "@/features/dashboard/profile-dialog"
 import { usePathname, useRouter } from "@/i18n/navigation"
 import { initialsOf } from "@/lib/shared"
+import { RoomSharePanel } from "@/features/play/room-share"
 import { useAuthUser } from "@/features/dashboard/auth-user"
 
 /** Map a stored English day word ("Today"/"Tomorrow") to a localized label. */
@@ -367,26 +368,29 @@ function RoomDetail({
 
           {/* Court status — shown to ALL members */}
           {booked ? (
-            <div className="flex items-center justify-between gap-2 rounded-2xl bg-brand/10 px-3 py-2 text-sm">
-              <span className="inline-flex items-center gap-1.5 text-brand">
-                <CalendarCheck className="size-4" />
-                {t("booked", {
-                  day: roomDayLabel(room.day, tc),
-                  time: room.time,
-                })}
-              </span>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="rounded-full"
-                onClick={() => {
-                  router.push("/app/bookings")
-                  onClose()
-                }}
-              >
-                {t("viewInBookings")}
-              </Button>
-            </div>
+            <>
+              <div className="flex items-center justify-between gap-2 rounded-2xl bg-brand/10 px-3 py-2 text-sm">
+                <span className="inline-flex items-center gap-1.5 text-brand">
+                  <CalendarCheck className="size-4" />
+                  {t("booked", {
+                    day: roomDayLabel(room.day, tc),
+                    time: room.time,
+                  })}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="rounded-full"
+                  onClick={() => {
+                    router.push("/app/bookings")
+                    onClose()
+                  }}
+                >
+                  {t("viewInBookings")}
+                </Button>
+              </div>
+              <RoomSharePanel roomId={room.id} isHost={isHost} />
+            </>
           ) : isHost ? (
             <Button
               variant="outline"

@@ -40,8 +40,12 @@ import { removeGroupMember } from "@/features/chat/group-actions"
 import {
   cancelBookingRecord,
   createBookingHold,
+  withdrawCancelRequest,
 } from "@/features/play/booking-actions"
-import { startPaymentCheckout } from "@/features/play/payment-actions"
+import {
+  payBookingWithWallet,
+  startPaymentCheckout,
+} from "@/features/play/payment-actions"
 import { savePreferredLocale } from "@/lib/locale-preference"
 import {
   decideRoomRequest,
@@ -186,6 +190,13 @@ interface SessionContextValue {
    */
   hasTimeConflict: (room: MatchRoom) => boolean
   joinRoom: (room: MatchRoom) => void
+  /**
+   * A room whose court the host already paid for: joining costs the seat's
+   * share, so the player confirms it in a dialog before the request is sent.
+   */
+  shareJoinRoom: MatchRoom | null
+  confirmShareJoin: () => void
+  dismissShareJoin: () => void
   /** Host approves a player's join request → confirmed seat. */
   approveRequest: (sessionId: string, initials: string) => void
   /** Host declines a player's join request → dropped from the room. */
@@ -272,12 +283,20 @@ interface SessionContextValue {
    * discount code is forwarded to `startPaymentCheckout` unchanged.
    */
   pay: (discountCode?: string) => void
+  /**
+   * Reserve the court (if not already held) and pay it straight from the
+   * wallet — no redirect; lands on the payment-success screen. A short balance
+   * surfaces as `checkoutError`.
+   */
+  payWithWallet: (discountCode?: string) => void
   /** Resume checkout for an existing unpaid booking hold. */
   resumePayment: (bookingId: string) => void
   resumingPaymentId: string | null
   /** Apply a server-confirmed payment to the in-memory booking immediately. */
   markPaymentPaid: (bookingId: string) => void
   cancelBooking: (id: string) => void
+  /** Take back a cancellation request the venue hasn't answered yet. */
+  withdrawCancel: (id: string) => void
   // ── Conflict (decision 2) ──
   slotBlocked: (slot: string) => boolean
   draftConflict: Conflict
@@ -327,7 +346,7 @@ function clampSlot(slot: string): string | null {
  * this is a genuine full-page navigation away from the app to SePay's
  * hosted checkout, not a fetch, so nothing runs after this call.
  */
-function submitSepayCheckoutForm(
+export function submitSepayCheckoutForm(
   fields: Record<string, string | number | undefined>,
   checkoutUrl: string
 ): void {
@@ -443,7 +462,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           server.paymentStatus === local.paymentStatus &&
           server.paymentExpiresAt === local.paymentExpiresAt &&
           server.cancelReason === local.cancelReason &&
-          server.refunded === local.refunded
+          server.refunded === local.refunded &&
+          server.reservationId === local.reservationId &&
+          JSON.stringify(server.cancelRequest) ===
+            JSON.stringify(local.cancelRequest)
         )
           return local
         return {
@@ -457,6 +479,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           paymentExpiresAt: server.paymentExpiresAt,
           cancelReason: server.cancelReason,
           refunded: server.refunded,
+          // The venue's answer to a cancellation request; an approved one on
+          // an open room drops the court link (the room is back to forming).
+          reservationId: server.reservationId,
+          cancelRequest: server.cancelRequest,
         }
       })
     )
@@ -1092,6 +1118,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     })()
   }
 
+  const [shareJoinRoom, setShareJoinRoom] = React.useState<MatchRoom | null>(
+    null
+  )
+  const confirmShareJoin = () => {
+    if (!shareJoinRoom) return
+    requestJoin(shareJoinRoom)
+    setShareJoinRoom(null)
+  }
+  const dismissShareJoin = () => setShareJoinRoom(null)
+
   const joinRoom = (room: MatchRoom) => {
     if (room.demo) {
       toast.error(tm("toast.demoRoom"))
@@ -1113,6 +1149,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       toast.error(ts("toast.overlapTitle"), {
         description: ts("toast.overlapBody", { title: clash.title }),
       })
+      return
+    }
+    // The host's court is paid for: joining costs a share of it, confirmed first.
+    if (room.sharePrice) {
+      setShareJoinRoom(room)
       return
     }
     requestJoin(room)
@@ -1212,13 +1253,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const disbandOwnRoom = async (sessionId: string): Promise<boolean> => {
     const own = sessions.find((x) => x.id === sessionId)
     if (!own) return true
+    // A paid court isn't cancelled outright: it becomes a request the venue
+    // answers (docs/chinh-sach.md §2.4), and the booking stays the host's
+    // until then. A 409 means it can't be requested again (already pending,
+    // or the venue declined) — the room still goes, the booking is kept.
+    let bookingCancelled = !own.reservationId
+    let cancelRequest = own.cancelRequest
     if (own.reservationId) {
       const cancelled = await cancelBookingRecord(own.reservationId)
-      if (!cancelled.ok) {
+      if (!cancelled.ok && cancelled.status !== 409) {
         toast.error(tb("toast.cancelFailed"), {
           description: cancelled.message,
         })
         return false
+      }
+      if (cancelled.ok) {
+        bookingCancelled = cancelled.data.status === "cancelled"
+        cancelRequest = cancelled.data.cancelRequest
       }
     }
     const result = await disbandRoom(sessionId)
@@ -1231,10 +1282,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     setSessions((prev) =>
       prev.flatMap((x) => {
         if (x.id !== sessionId) return [x]
-        // A booked room stays as a cancelled booking; a forming room is gone.
-        if (x.reservationId)
-          return [{ ...x, status: "cancelled" as const, listed: false }]
-        return []
+        // A forming room is gone; a booked one stays as its booking —
+        // cancelled, or still live while the venue answers the request.
+        if (!x.reservationId) return []
+        return [
+          bookingCancelled
+            ? { ...x, status: "cancelled" as const, listed: false }
+            : { ...x, listed: false, cancelRequest },
+        ]
       })
     )
     // Cancelling a booked room freezes its chat (keeps history, blocks new
@@ -1244,7 +1299,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     const title = tm.has(`rooms.${sessionId}.title`)
       ? tm(`rooms.${sessionId}.title`)
       : (own.title ?? "")
-    toast(ts("toast.disbanded"), { description: title })
+    toast(ts("toast.disbanded"), {
+      description: bookingCancelled ? title : tb("toast.cancelRequested"),
+    })
     void refreshRooms()
     return true
   }
@@ -1265,6 +1322,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const result = await leaveRoomMembership(sessionId)
       if (!result.ok) {
         toast.error(ts("toast.leaveFailed"), { description: result.message })
+        return
+      }
+      // A member who paid toward the court only filed a request: the host must
+      // approve (and refund) it, so they stay in the room for now.
+      if (result.data.status === "requested") {
+        toast(ts("toast.leaveRequested"), { description: title })
+        void refreshRooms()
         return
       }
       setCrossRooms((prev) =>
@@ -1898,7 +1962,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       // A 409 here is the same race conflictFor's pre-check above already
       // guards against — any other failure degrades to the same message
       // rather than leaving the player stuck with no feedback.
-      toast.error(tb("toast.conflict"))
+      // 422 = the venue can't answer before play time (see createHold) — the
+      // server's message names the time it will reply, so show it as-is.
+      toast.error(result.status === 422 ? result.message : tb("toast.conflict"))
       return null
     }
     const summary = result.data
@@ -2070,13 +2136,44 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     })()
   }
 
+  const payWithWallet = (discountCode?: string) => {
+    if (!court || !draft.slot || paying) return
+    if (draftConflict) {
+      toast.error(tb("toast.conflict"))
+      return
+    }
+    setCheckoutError(null)
+    setPaying(true)
+    void (async () => {
+      try {
+        const bookingId = await reserveHold()
+        if (!bookingId) return // reserveHold already toasted the failure
+        const result = await payBookingWithWallet(bookingId, discountCode)
+        if (!result.ok) {
+          // 402 = balance too low; the server's Vietnamese message says so.
+          setCheckoutError(
+            result.status === 402 ? result.message : tb("pay.walletFailed")
+          )
+          return
+        }
+        markPaymentPaid(bookingId)
+        router.push(`/app/payment/success/${encodeURIComponent(bookingId)}`)
+      } catch (err) {
+        console.error("Wallet payment failed", err)
+        setCheckoutError(tb("pay.walletFailed"))
+      } finally {
+        setPaying(false)
+      }
+    })()
+  }
+
   /**
    * Cancel a booking. When it's linked to a real reservation, awaits
-   * `cancelBookingRecord` (`POST /api/bookings/:id/cancel`) first — the
-   * server computes the ≥24h/<24h/after-start refund and is the source of
-   * truth for `refunded`/`cancelReason`. A session that never made it past a
-   * client-only draft (no `reservationId`) has nothing to cancel server-side
-   * and reverts purely locally, same as before.
+   * `cancelBookingRecord` (`POST /api/bookings/:id/cancel`) first. A paid
+   * booking isn't cancelled there: it comes back still live with a
+   * `cancelRequest` the venue must answer (docs/chinh-sach.md §2.4), so this
+   * only marks it as awaiting the venue. An unpaid hold cancels outright, and
+   * a client-only draft (no `reservationId`) reverts purely locally.
    */
   const cancelBooking = async (id: string) => {
     const s = sessions.find((x) => x.id === id)
@@ -2087,8 +2184,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (s.reservationId) {
       const result = await cancelBookingRecord(s.reservationId)
       if (!result.ok) {
-        console.error("Failed to cancel booking", result.message)
-        toast.error(tb("toast.cancelFailed"))
+        toast.error(tb("toast.cancelFailed"), { description: result.message })
+        return
+      }
+      if (result.data.status !== "cancelled") {
+        const request = result.data.cancelRequest
+        setSessions((prev) =>
+          prev.map((x) => (x.id === id ? { ...x, cancelRequest: request } : x))
+        )
+        toast(tb("toast.cancelRequested"), {
+          description:
+            request?.window === "early"
+              ? tb("toast.cancelRequestedEarly")
+              : tb("toast.cancelRequestedLate"),
+        })
         return
       }
       refunded =
@@ -2126,6 +2235,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     toast(tb("toast.cancelled"), { description: s.venue })
   }
 
+  /** Take back a cancellation request the venue hasn't answered yet. */
+  const withdrawCancel = async (id: string) => {
+    const s = sessions.find((x) => x.id === id)
+    if (!s?.reservationId) return
+    const result = await withdrawCancelRequest(s.reservationId)
+    if (!result.ok) {
+      toast.error(tb("toast.withdrawFailed"), { description: result.message })
+      return
+    }
+    setSessions((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, cancelRequest: undefined } : x))
+    )
+    toast(tb("toast.cancelWithdrawn"))
+  }
+
   const value: SessionContextValue = {
     sessions,
     joinedIds,
@@ -2154,6 +2278,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     isSuitable,
     hasTimeConflict: (room) => overlappingCommitment(room) !== null,
     joinRoom,
+    shareJoinRoom,
+    confirmShareJoin,
+    dismissShareJoin,
     approveRequest,
     declineRequest,
     leaveRoom,
@@ -2204,6 +2331,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     checkoutError,
     clearCheckoutError,
     pay,
+    payWithWallet,
     resumePayment,
     resumingPaymentId,
     markPaymentPaid,
@@ -2213,6 +2341,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // so there's nothing for the caller to await.
     cancelBooking: (id: string) => {
       void cancelBooking(id)
+    },
+    withdrawCancel: (id: string) => {
+      void withdrawCancel(id)
     },
     slotBlocked,
     draftConflict,

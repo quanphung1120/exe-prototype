@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose"
 import { Schema as MongooseSchema, type HydratedDocument } from "mongoose"
 
 import type {
+  BookingCancelRequest,
   BookingCustomer,
   BookingRecordStatus,
   BookingRefund,
@@ -51,6 +52,8 @@ export class Booking {
   @Prop({ type: String }) declineReason?: string
   @Prop({ type: String }) cancelReason?: string
   @Prop({ type: MongooseSchema.Types.Mixed }) refund?: BookingRefund
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  cancelRequest?: BookingCancelRequest
   @Prop({ type: MongooseSchema.Types.Mixed, default: [] })
   statusHistory: BookingStatusEvent[]
 }
@@ -70,6 +73,8 @@ BookingSchema.index({ sessionId: 1 })
 // pending bookings past the 30-minute approval SLA.
 BookingSchema.index({ status: 1, holdExpiresAt: 1 })
 BookingSchema.index({ status: 1, confirmDeadlineAt: 1 })
+// Sweeper: open cancellation requests past the venue's answer deadline.
+BookingSchema.index({ status: 1, "cancelRequest.deadlineAt": 1 })
 // The admin cross-tenant worklist (`BookingsService#listRecent`) sorts every
 // booking by `createdAt` with no other filter — without this, that sort scans
 // and in-memory-sorts the entire collection on every admin bookings-page load.

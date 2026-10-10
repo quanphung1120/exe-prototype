@@ -185,3 +185,11 @@ export const HEATMAP_DAYS: Localized[] = [
 
 /** A heatmap cell at or below this occupancy (%) counts as a "cold" slot. */
 export const COLD_SLOT_THRESHOLD = 30
+
+/** Wallet top-up bounds (VND) and the quick-pick amounts the UI offers. */
+export const TOPUP_MIN = 10_000
+export const TOPUP_MAX = 5_000_000
+export const TOPUP_PRESETS = [50_000, 100_000, 200_000, 500_000]
+
+/** How many withdrawals may wait for a transfer at once. */
+export const WITHDRAW_MAX_PENDING = 3

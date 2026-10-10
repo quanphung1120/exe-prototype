@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useVenueData } from "@/features/venue/venue-data-provider"
 import { VenueScheduleView } from "@/features/venue/schedule"
 import { VenueReservationsView } from "@/features/venue/reservations"
+import { hasOpenCancelRequest } from "@/features/venue/data"
 
 export type ScheduleTab = "calendar" | "reservations"
 
@@ -30,7 +31,10 @@ export function VenueScheduleWorkspace({
   const { reservations: RESERVATIONS } = useVenueData()
   const [tab, setTab] = React.useState<ScheduleTab>(initialTab)
 
-  const pendingCount = RESERVATIONS.filter((r) => r.status === "pending").length
+  // Rows waiting on the operator: approvals plus players' cancellation requests.
+  const pendingCount = RESERVATIONS.filter(
+    (r) => r.status === "pending" || hasOpenCancelRequest(r)
+  ).length
 
   return (
     <div className="flex flex-col gap-5">

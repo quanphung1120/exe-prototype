@@ -91,6 +91,9 @@ export interface Court {
   lng: number | null
   /** The owning venue's photo gallery (Cloudinary URLs, cover first). */
   photos?: string[]
+  /** The owning venue's opening hours ("HH:MM"), for the approval-window note. */
+  openFrom?: string
+  openTo?: string
 }
 
 // ── Match rooms (Match Maker lobbies) ────────────────────────────────────────
@@ -139,6 +142,12 @@ export interface MatchRoom {
   bookingId?: string
   /** Seed liquidity, not a real room — browsable but never joinable/bookable. */
   demo?: boolean
+  /**
+   * VND each member pays the host for the court (price ÷ max capacity) — set
+   * by `GET /api/rooms` only once the host has paid for a court. A player
+   * asking to join such a room pays this up front.
+   */
+  sharePrice?: number
 }
 
 // ── Bookings ─────────────────────────────────────────────────────────────────
@@ -179,6 +188,8 @@ export interface Booking {
   declineReason?: string
   /** Simulated pre-paid refund marker (projected from the session). */
   refunded?: boolean
+  /** The player's cancellation request on the linked booking, if any. */
+  cancelRequest?: BookingCancelRequest
   result?: "W" | "L"
   score?: string
 }
@@ -265,6 +276,8 @@ export interface PlaySession {
   cancelReason?: string
   /** Simulated pre-paid refund marker, set when an app booking is declined. */
   refunded?: boolean
+  /** The player's cancellation request on the linked booking, if any. */
+  cancelRequest?: BookingCancelRequest
   /** Visible as an open lobby ("room") in Match Maker. */
   listed: boolean
   fillIntent: "court" | "invite" | "find"
@@ -282,6 +295,12 @@ export interface PlaySession {
   chatChannelId?: string
   /** Seed liquidity (from the demo ROOMS catalog) — browsable but never joinable/bookable. */
   demo?: boolean
+  /**
+   * VND each member pays the host for the court (price ÷ max capacity) — set
+   * by `GET /api/rooms` only once the host has paid for a court. A player
+   * asking to join such a room pays this up front.
+   */
+  sharePrice?: number
 }
 
 export type Conflict = "court-taken" | "self-overlap" | null
@@ -740,6 +759,8 @@ export interface Reservation {
   isRegular: boolean
   /** Operator's reason when this app reservation is declined (status "cancelled"). */
   declineReason?: string
+  /** The player's cancellation request, when there is one. */
+  cancelRequest?: BookingCancelRequest
 }
 
 export type RiskTier = "low" | "medium" | "high"
@@ -798,6 +819,44 @@ export interface BookingRefund {
   status: "manual" | "settled"
   /** Manual transfer reference, once an operator/admin completes it. */
   ref?: string
+  /**
+   * Set when a later booking took the same court time and the refund was
+   * raised to 100% (a late cancel's venue shouldn't be paid twice).
+   */
+  upgradedAt?: string
+  /** The booking that took the slot and triggered the upgrade. */
+  upgradedBy?: string
+}
+
+/**
+ * A player's request to cancel a paid booking, which the venue must answer
+ * (cancellation policy, docs/chinh-sach.md §2.4). The booking keeps its slot
+ * while the request is open. The 24h window is measured from `requestedAt`
+ * (when the player asked), never from when the venue answers.
+ */
+export interface BookingCancelRequest {
+  /** ISO datetime (+07:00) the player asked to cancel. */
+  requestedAt: string
+  /** "early" = asked ≥24h before the start, "late" = less than 24h before. */
+  window: "early" | "late"
+  /** ISO deadline for the venue's answer; past it `defaultPct` applies. */
+  deadlineAt: string
+  /** Refund applied when the venue doesn't answer in time (100 early, 50 late). */
+  defaultPct: number
+  /** The player's optional reason. */
+  reason?: string
+  /** Set once the venue declines — the booking stays live. */
+  declinedAt?: string
+  /** The venue's reason for declining. */
+  declineReason?: string
+  /** Set once the cancellation went through (approved or auto-approved). */
+  resolvedAt?: string
+  /** Percent actually refunded when it went through. */
+  refundPct?: number
+  /** True when the sweeper approved it because the venue didn't answer. */
+  auto?: boolean
+  /** True when an admin upheld a complaint and refunded after the venue declined. */
+  byAdmin?: boolean
 }
 
 export interface BookingStatusEvent {
@@ -850,6 +909,8 @@ export interface BookingRecord {
   /** Player's or operator's reason for a post-confirm cancellation. */
   cancelReason?: string
   refund?: BookingRefund
+  /** A player's cancellation request awaiting (or answered by) the venue. */
+  cancelRequest?: BookingCancelRequest
   statusHistory: BookingStatusEvent[]
 }
 
@@ -1111,4 +1172,148 @@ export interface AppReviewsPublic {
 export interface AdminAppReviewRow extends AppReview {
   userId: string
   hidden: boolean
+}
+
+// ── Wallet (ví) ──────────────────────────────────────────────────────────────
+
+/** Why a wallet balance moved. */
+export type WalletTxKind =
+  | "topup"
+  | "payment"
+  | "refund"
+  | "share"
+  | "withdrawal"
+
+/** One line of a player's wallet history (newest first when listed). */
+export interface WalletTransaction {
+  id: string
+  kind: WalletTxKind
+  /** Signed VND: positive credits the wallet, negative debits it. */
+  amount: number
+  balanceAfter: number
+  /** Short Vietnamese description, server-authored. */
+  note: string
+  /** The booking this moved money for (payment / refund). */
+  bookingId?: string
+  /** ISO datetime (+07:00). */
+  at: string
+}
+
+/** `GET /api/wallet` — the signed-in player's balance and recent history. */
+export interface WalletSummary {
+  balance: number
+  transactions: WalletTransaction[]
+}
+
+/** A SePay top-up order's lifecycle. */
+export type TopUpStatus = "awaiting" | "paid" | "cancelled"
+
+/** `GET /api/wallet/topups/:id` — polled while the player returns from SePay. */
+export interface TopUpSummary {
+  id: string
+  amount: number
+  status: TopUpStatus
+  paidAt?: string
+}
+
+// ── Room cost sharing ────────────────────────────────────────────────────────
+
+/**
+ * A member's share of a booked room's court price. `held`: paid up front with
+ * a join request and parked until the host answers; `paid`: in the host's
+ * wallet; `refunded`: returned to the member.
+ */
+export type RoomShareStatus = "held" | "paid" | "refunded"
+
+/** A share a room member still owes (`GET /api/rooms/shares/due`). */
+export interface DueRoomShare {
+  roomId: string
+  title: string
+  hostName: string
+  venue: string
+  /** VND — court price ÷ the room's max capacity. */
+  amount: number
+  /** ISO datetime (+07:00) the match starts. */
+  startAt?: string
+}
+
+/** One member's line in `GET /api/rooms/:id/shares`. */
+export interface RoomShareMember {
+  userId: string
+  name: string
+  status: RoomShareStatus | "due"
+  /** Set while the member's request to leave is pending or was refused. */
+  leave?: RoomLeaveStatus
+  /** The member's latest complaint about a refused leave, if any. */
+  complaint?: ComplaintStatus
+}
+
+/** `GET /api/rooms/:id/shares` — who has paid their part of the court. */
+export interface RoomSharesInfo {
+  /** VND per seat; 0 while the court isn't paid for yet. */
+  amount: number
+  members: RoomShareMember[]
+}
+
+/** A paid member's request to leave a booked room, awaiting / refused by the host. */
+export type RoomLeaveStatus = "pending" | "rejected"
+
+/** A member's complaint to the platform about a refused leave request. */
+export type ComplaintStatus = "open" | "refunded" | "dismissed"
+
+/** What a complaint is about. */
+export type ComplaintKind = "room_leave" | "cancel_decline"
+
+/** `DELETE /api/rooms/:id/members/me` — left at once, or waiting on the host. */
+export interface LeaveRoomResult {
+  status: "left" | "requested"
+}
+
+/** One room-share complaint as the admin sees it (`GET /api/admin/complaints`). */
+export interface RoomComplaintRow {
+  id: string
+  /** `room_leave`: a member stuck in a paid room; `cancel_decline`: a venue refused an early cancel. */
+  kind: ComplaintKind
+  roomId: string
+  roomTitle: string
+  bookingId: string
+  memberUserId: string
+  memberName: string
+  hostUserId: string
+  hostName: string
+  /** VND the member paid for their seat. */
+  amount: number
+  reason: string
+  status: ComplaintStatus
+  /** The admin's note on the decision. */
+  adminNote?: string
+  /** True when the host's wallet couldn't cover a refund the admin granted. */
+  platformFunded?: boolean
+  /** `cancel_decline` only: the venue's running count of wrongful declines, after this one. */
+  venueViolations?: number
+  /** ISO datetime (+07:00). */
+  createdAt: string
+  resolvedAt?: string
+}
+
+/** A wallet withdrawal's lifecycle: an admin transfers it by hand. */
+export type WithdrawalStatus = "pending" | "completed" | "rejected"
+
+/** One withdrawal request (`GET /api/wallet/withdrawals`, and the admin queue). */
+export interface WithdrawalRow {
+  id: string
+  userId: string
+  /** VND taken out of the wallet when requested. */
+  amount: number
+  bankName: string
+  accountNumber: string
+  accountHolder: string
+  status: WithdrawalStatus
+  /** The bank transfer reference, once sent. */
+  ref?: string
+  /** Why it was rejected. */
+  adminNote?: string
+  /** ISO datetime (+07:00). */
+  requestedAt: string
+  resolvedAt?: string
 }

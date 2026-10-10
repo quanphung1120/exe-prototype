@@ -7,6 +7,8 @@ import {
   Logger,
   NotFoundException,
   UnauthorizedException,
+  HttpException,
+  HttpStatus,
 } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { InjectModel } from "@nestjs/mongoose"
@@ -19,6 +21,9 @@ import { BookingsService } from "../bookings/bookings.service.js"
 import { DiscountsService } from "../discounts/discounts.service.js"
 import { NotificationsService } from "../notifications/notifications.service.js"
 import { Venue, type VenueDocument } from "../venues/venue.schema.js"
+import { WalletService } from "../wallet/wallet.service.js"
+import { TOPUP_INVOICE_PREFIX } from "./topup.schema.js"
+import { TopUpsService } from "./topups.service.js"
 import {
   Payment,
   type PaymentDocument,
@@ -118,6 +123,8 @@ export class PaymentsService {
     @Inject(NotificationsService)
     private readonly notifications: NotificationsService,
     @Inject(DiscountsService) private readonly discounts: DiscountsService,
+    @Inject(WalletService) private readonly wallet: WalletService,
+    @Inject(TopUpsService) private readonly topUps: TopUpsService,
     // Explicit token (not just the TS type) since esbuild-based runners like
     // tsx don't emit the design:paramtypes metadata implicit constructor
     // injection would otherwise rely on — see the same note on
@@ -257,6 +264,116 @@ export class PaymentsService {
     }
   }
 
+  // ── Pay with the wallet ──────────────────────────────────────────────────
+
+  /**
+   * Pay the caller's own `awaiting_payment` hold from their wallet balance —
+   * `POST /api/payments/wallet-pay`. Prices exactly like {@link checkout}
+   * (same ownership/status guards, same discount re-validation, same
+   * `Payment` doc), then debits the wallet and settles through the same
+   * {@link markPaid} a SePay IPN uses — so the booking moves to `pending` and
+   * the venue is notified identically.
+   *
+   * The debit is keyed `pay-<bookingId>`, so a retry after a crash between
+   * debit and settle debits nothing a second time and just finishes settling.
+   */
+  async payWithWallet(
+    userId: string,
+    bookingId: string,
+    discountCode?: string
+  ): Promise<PaymentSummary> {
+    const booking = await this.bookingModel
+      .findOne({ bookingId })
+      .select("venueId userId status price courtName")
+      .lean<{
+        venueId: string
+        userId?: string
+        status: string
+        price: number
+        courtName: string
+      }>()
+    if (!booking) throw new NotFoundException("Booking not found")
+    if (booking.userId !== userId) {
+      throw new ForbiddenException("This booking belongs to another account")
+    }
+    if (booking.status !== "awaiting_payment") {
+      throw new ConflictException(
+        `Cannot start checkout for a booking in status "${booking.status}"`
+      )
+    }
+
+    const discount = discountCode
+      ? await this.discounts.validate(discountCode, booking.price)
+      : null
+    if (discount) await this.assertRedemptionQuota(discount, userId, bookingId)
+
+    const payment = await this.paymentModel.findOneAndUpdate(
+      { bookingId },
+      {
+        $setOnInsert: {
+          invoiceNumber: bookingId,
+          bookingId,
+          venueId: booking.venueId,
+          userId,
+          amount: discount ? discount.finalAmount : booking.price,
+          currency: "VND",
+          status: "awaiting",
+          ...(discount
+            ? {
+                originalAmount: booking.price,
+                discountCode: discount.code,
+                discountAmount: discount.discountAmount,
+              }
+            : {}),
+        },
+      },
+      { upsert: true, new: true }
+    )
+    if (payment.status !== "awaiting") {
+      throw new ConflictException("Payment already settled for this booking")
+    }
+
+    const insufficient = () =>
+      new HttpException(
+        "Số dư ví không đủ — vui lòng nạp thêm tiền",
+        HttpStatus.PAYMENT_REQUIRED
+      )
+    // Checked before touching SePay so a short wallet leaves the card/QR
+    // checkout fully usable.
+    if ((await this.wallet.getBalance(userId)) < payment.amount) {
+      throw insufficient()
+    }
+    // The wallet is paying — an already-opened SePay order must not also be payable.
+    if (payment.checkoutUrl) await this.sepay.cancelOrder(payment.invoiceNumber)
+
+    await this.wallet.debit(userId, payment.amount, {
+      txId: `pay-${bookingId}`,
+      kind: "payment",
+      note: `Thanh toán đặt sân ${booking.courtName}`,
+      bookingId,
+    })
+
+    const paid = await this.markPaid(
+      payment.invoiceNumber,
+      { method: "wallet" },
+      payment.amount
+    )
+    if (!paid) {
+      // The payment stopped being payable between the check and the debit
+      // (e.g. the hold just expired) — give the money straight back.
+      await this.wallet.credit(userId, payment.amount, {
+        txId: `refund-pay-${bookingId}`,
+        kind: "refund",
+        note: `Hoàn tiền thanh toán đặt sân ${booking.courtName}`,
+        bookingId,
+      })
+      throw new ConflictException(
+        "Lượt giữ sân đã hết hạn — đã hoàn tiền vào ví"
+      )
+    }
+    return toPaymentSummary(paid)
+  }
+
   // ── Status polling ───────────────────────────────────────────────────────
 
   /**
@@ -328,6 +445,16 @@ export class PaymentsService {
     if (payload.notification_type !== "ORDER_PAID" || !invoiceNumber) {
       // Not a paid-order notification we act on (e.g. TRANSACTION_VOID) —
       // acknowledge without a side effect.
+      return { received: true }
+    }
+
+    // A wallet top-up shares the same IPN endpoint; its invoice number says so.
+    if (invoiceNumber.startsWith(TOPUP_INVOICE_PREFIX)) {
+      await this.topUps.settle(
+        invoiceNumber,
+        payload,
+        payload.order?.order_amount
+      )
       return { received: true }
     }
 

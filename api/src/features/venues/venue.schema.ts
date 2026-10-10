@@ -47,6 +47,8 @@ export class Venue {
   // read treats an absent value as "approved" (see `withApproval`,
   // venues.service.ts) rather than backfilling every existing document.
   @Prop({ type: String, index: true }) approval?: VenueApprovalStatus
+  /** Times an admin upheld a complaint that this venue wrongly refused an early cancel. */
+  @Prop({ type: Number }) cancelViolations?: number
   @Prop({ type: String }) approvalReason?: string
   @Prop({ type: String }) approvedAt?: string
 }

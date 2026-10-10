@@ -131,7 +131,7 @@ void test("canTransitionBooking allows the documented forward edges", () => {
   assert.ok(canTransitionBooking("awaiting_payment", "cancelled"))
   assert.ok(canTransitionBooking("pending", "confirmed"))
   assert.ok(canTransitionBooking("pending", "cancelled"))
-  assert.ok(canTransitionBooking("confirmed", "checked-in"))
+  assert.ok(canTransitionBooking("confirmed", "completed"))
   assert.ok(canTransitionBooking("confirmed", "cancelled"))
   assert.ok(canTransitionBooking("confirmed", "no-show"))
   assert.ok(canTransitionBooking("checked-in", "completed"))
@@ -140,6 +140,8 @@ void test("canTransitionBooking allows the documented forward edges", () => {
 
 void test("canTransitionBooking rejects skipping or reversing states", () => {
   assert.equal(canTransitionBooking("pending", "checked-in"), false)
+  // Venues no longer check players in, so nothing new enters "checked-in".
+  assert.equal(canTransitionBooking("confirmed", "checked-in"), false)
   assert.equal(canTransitionBooking("pending", "completed"), false)
   assert.equal(canTransitionBooking("confirmed", "pending"), false)
   assert.equal(canTransitionBooking("completed", "confirmed"), false)
@@ -179,7 +181,7 @@ void test("ReservationStatusDto requires a reason (>=3 chars) when cancelling", 
 
 void test("ReservationStatusDto does not require a reason for other statuses", () => {
   assert.equal(statusDtoValid({ status: "confirmed" }), true)
-  assert.equal(statusDtoValid({ status: "checked-in" }), true)
+  assert.equal(statusDtoValid({ status: "completed" }), true)
   assert.equal(statusDtoValid({ status: "no-show" }), true)
 })
 
