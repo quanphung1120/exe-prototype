@@ -637,35 +637,9 @@ void test("nextDateForWeekday returns the nearest upcoming date otherwise", () =
   assert.equal(nextDateForWeekday(6, TODAY_ISO), addDaysIso(TODAY_ISO, 6)) // Sun
 })
 
-// ── Phase 10: courtDayEvents fake filler disabled for owned venues ──────────
+// ── courtDayEvents never fabricates bookings ─────────────────────────────────
 
-void test("courtDayEvents returns no fabricated filler when fillerEnabled is false", () => {
-  const events = courtDayEvents(
-    makeVenue(),
-    [makeCourt()],
-    "v9c1",
-    TODAY_ISO,
-    TODAY_ISO,
-    false
-  )
-  assert.deepEqual(events, [])
-})
-
-void test("courtDayEvents still returns a real maintenance block when filler is disabled", () => {
-  const court = makeCourt({ state: "maintenance" })
-  const events = courtDayEvents(
-    makeVenue(),
-    [court],
-    court.id,
-    TODAY_ISO,
-    TODAY_ISO,
-    false
-  )
-  assert.equal(events.length, 1)
-  assert.equal(events[0].kind, "blocked")
-})
-
-void test("courtDayEvents fabricates filler by default (fillerEnabled defaults to true)", () => {
+void test("courtDayEvents returns no fabricated bookings for a normal court", () => {
   const events = courtDayEvents(
     makeVenue(),
     [makeCourt()],
@@ -673,7 +647,20 @@ void test("courtDayEvents fabricates filler by default (fillerEnabled defaults t
     TODAY_ISO,
     TODAY_ISO
   )
-  assert.ok(events.length > 0)
+  assert.deepEqual(events, [])
+})
+
+void test("courtDayEvents still returns a real maintenance block", () => {
+  const court = makeCourt({ state: "maintenance" })
+  const events = courtDayEvents(
+    makeVenue(),
+    [court],
+    court.id,
+    TODAY_ISO,
+    TODAY_ISO
+  )
+  assert.equal(events.length, 1)
+  assert.equal(events[0].kind, "blocked")
 })
 
 // ── computeCustomerStats (Phase 6, decision #15/default) ────────────────────
