@@ -291,7 +291,7 @@ async function makeService(
       return chain
     },
     create: (doc: Omit<FakeComplaint, "save">) => {
-      const row = { ...doc, save: () => Promise.resolve() } as FakeComplaint
+      const row = { ...doc, save: () => Promise.resolve() }
       complaints.push(row)
       return Promise.resolve(row)
     },

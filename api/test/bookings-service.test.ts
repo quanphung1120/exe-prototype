@@ -878,7 +878,7 @@ void test("an approved cancellation drops a still-open room back to 'no court bo
     bookingDoc: {
       ...makeBookingDoc({ startAt: startIn(30 * HOUR) }),
       sessionId: "room-7",
-    } as FakeBookingDoc,
+    },
   })
   await service.cancel("user-1", "b1")
 
