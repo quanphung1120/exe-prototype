@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useForm } from "@tanstack/react-form"
+import { useForm, useStore } from "@tanstack/react-form"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import * as z from "zod"
@@ -302,6 +302,12 @@ function CreateRoomDialog() {
       ? t("dialog.noCourt")
       : (COURTS.find((c) => c.id === id)?.name ?? t("selectCourt"))
 
+  /** Opening window of a court ("HH:MM"); the global window backs courts with none. */
+  const openHoursOf = (id: string) => {
+    const c = COURTS.find((x) => x.id === id)
+    return { from: c?.openFrom ?? "06:00", to: c?.openTo ?? "23:00" }
+  }
+
   // The schema is rebuilt every render, so its refine closes over the current
   // `sessions`/`conflictFor`; useForm re-applies it via `form.update` each
   // render, so submit-time validation always sees the latest availability.
@@ -326,6 +332,18 @@ function CreateRoomDialog() {
     .refine((d) => d.endTime > d.startTime, {
       message: t("validation.endAfterStart"),
       path: ["endTime"],
+    })
+    // A chosen court only takes bookings inside its venue's opening hours.
+    .superRefine((d, ctx) => {
+      if (d.courtId === NO_COURT) return
+      const hours = openHoursOf(d.courtId)
+      if (d.startTime < hours.from || d.endTime > hours.to) {
+        ctx.addIssue({
+          code: "custom",
+          message: t("validation.outsideHours", hours),
+          path: ["startTime"],
+        })
+      }
     })
     // A chosen court must actually be free for the proposed range (so a room
     // can't advertise a slot the court can't honor). Ordering is validated by
@@ -405,6 +423,7 @@ function CreateRoomDialog() {
     },
   })
 
+  const courtIdValue = useStore(form.store, (s) => s.values.courtId)
   return (
     <Dialog
       open={createRoomOpen}
@@ -584,8 +603,8 @@ function CreateRoomDialog() {
                       <FieldLabel>{t("dialog.startTime")}</FieldLabel>
                       <Input
                         type="time"
-                        min="06:00"
-                        max="22:00"
+                        min={openHoursOf(courtIdValue).from}
+                        max={openHoursOf(courtIdValue).to}
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
@@ -608,8 +627,8 @@ function CreateRoomDialog() {
                       <FieldLabel>{t("dialog.endTime")}</FieldLabel>
                       <Input
                         type="time"
-                        min="06:00"
-                        max="23:00"
+                        min={openHoursOf(courtIdValue).from}
+                        max={openHoursOf(courtIdValue).to}
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}

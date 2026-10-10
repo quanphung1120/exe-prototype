@@ -1084,7 +1084,8 @@
       "time": "Hãy chọn thời gian.",
       "noteMax": "Ghi chú dưới 120 ký tự.",
       "endAfterStart": "Giờ kết thúc phải sau giờ bắt đầu.",
-      "slotTaken": "Sân này không trống vào khung giờ đó — hãy chọn giờ khác."
+      "slotTaken": "Sân này không trống vào khung giờ đó — hãy chọn giờ khác.",
+      "outsideHours": "Sân này chỉ mở cửa từ {from} đến {to}."
     },
     "toast": {
       "roomCreated": "Đã tạo phòng",

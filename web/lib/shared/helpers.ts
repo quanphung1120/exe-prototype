@@ -585,8 +585,10 @@ export function courtDayGaps(
   now: number = Date.now()
 ): CourtBand[] {
   if (dayKey < vnDateOf(now)) return []
-  const openStart = toMinutes(COURT_OPEN_FROM)
-  const openEnd = toMinutes(COURT_OPEN_TO)
+  // The court's own venue hours; the global window only backs courts with none.
+  const court = courts.find((c) => c.id === courtId)
+  const openStart = toMinutes(court?.openFrom ?? COURT_OPEN_FROM)
+  const openEnd = toMinutes(court?.openTo ?? COURT_OPEN_TO)
   const gaps: CourtBand[] = []
   const currentDate = new Date(now + VN_OFFSET_MS)
   const current = currentDate.getUTCHours() * 60 + currentDate.getUTCMinutes()

@@ -333,10 +333,14 @@ function emptyDraft(todayIso: string): BookingDraft {
  * calendar and render an invisible band. Zero-padded "HH:MM" strings compare
  * lexicographically, so a string clamp is enough. Empty → null (no selection).
  */
-function clampSlot(slot: string): string | null {
+function clampSlot(
+  slot: string,
+  from: string = COURT_OPEN_FROM,
+  to: string = COURT_OPEN_TO
+): string | null {
   if (!slot) return null
-  if (slot < COURT_OPEN_FROM) return COURT_OPEN_FROM
-  if (slot > COURT_OPEN_TO) return COURT_OPEN_TO
+  if (slot < from) return from
+  if (slot > to) return to
   return slot
 }
 
@@ -1782,7 +1786,10 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const setDay = (dayKey: string) =>
     setDraft((d) => ({ ...d, dayKey, slot: null }))
   const setSlot = (slot: string) =>
-    setDraft((d) => ({ ...d, slot: clampSlot(slot) }))
+    setDraft((d) => ({
+      ...d,
+      slot: clampSlot(slot, court?.openFrom, court?.openTo),
+    }))
   const setDuration = (durationMin: number) =>
     setDraft((d) => ({
       ...d,

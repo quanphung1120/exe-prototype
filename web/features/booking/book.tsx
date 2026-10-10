@@ -902,14 +902,15 @@ function CourtSlotGrid({
 
   const hours = React.useMemo(() => {
     const out: number[] = []
+    // Only the hours this branch is actually open.
     for (
-      let m = toMin(COURT_OPEN_FROM);
-      m + 60 <= toMin(COURT_OPEN_TO);
+      let m = toMin(current?.openFrom ?? COURT_OPEN_FROM);
+      m + 60 <= toMin(current?.openTo ?? COURT_OPEN_TO);
       m += 60
     )
       out.push(m)
     return out
-  }, [])
+  }, [current?.openFrom, current?.openTo])
 
   const ignore = roomId ?? undefined
   const bands = new Map(

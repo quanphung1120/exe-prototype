@@ -1084,7 +1084,8 @@
       "time": "Pick a time.",
       "noteMax": "Keep your note under 120 characters.",
       "endAfterStart": "End time must be after start time.",
-      "slotTaken": "This court isn't free at that time — pick another slot."
+      "slotTaken": "This court isn't free at that time — pick another slot.",
+      "outsideHours": "This court is only open {from} – {to}."
     },
     "toast": {
       "roomCreated": "Room created",
