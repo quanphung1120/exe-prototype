@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { SendHorizontal } from "lucide-react"
+import { toast } from "sonner"
 import {
   useChannelStateContext,
   useTranslationContext,
@@ -58,7 +59,23 @@ export function Composer() {
     if (!trimmed || frozen) return
     setText("")
     void channel.stopTyping()
-    void channel.sendMessage({ text: trimmed })
+    void (async () => {
+      try {
+        // A chat that was just opened (e.g. a first message to a venue) may
+        // not be watched yet — watch it so the send and its `message.new`
+        // event are both delivered to this client.
+        if (!channel.state.messages.length) await channel.watch()
+        await channel.sendMessage({ text: trimmed })
+      } catch (err) {
+        // Never lose the text silently: put it back and say why.
+        setText((current) => current || trimmed)
+        toast.error(
+          err instanceof Error && err.message
+            ? err.message
+            : t("Error sending message")
+        )
+      }
+    })()
   }
 
   if (frozen) {
