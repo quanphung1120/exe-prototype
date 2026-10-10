@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { createRoomChat } from "@/features/chat/stream-actions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -281,11 +282,17 @@ function RoomDetail({
   }
 
   const openChat = () => {
-    // The room's chat channel already exists — created host-only the moment
-    // the room was, with real members added/removed as join requests are
-    // approved/declined/left (Phase 9 G2) — so this just deep-links into it.
-    router.push(`/app/chat?channel=room-${room.id}`)
-    onClose()
+    // Real members are added/removed as join requests are approved/declined/
+    // left (Phase 9 G2). A booking only gets a chat once it's opened to
+    // others, so the host makes sure it exists (idempotent) before going in.
+    const go = () => {
+      router.push(`/app/chat?channel=room-${room.id}`)
+      onClose()
+    }
+    if (room.host.initials !== USER.initials) return go()
+    void createRoomChat({ roomId: room.id, name: room.title })
+      .catch((err: unknown) => console.error("Failed to create room chat", err))
+      .then(go)
   }
 
   const leave = () => {

@@ -1709,6 +1709,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   /** Open a booked solo session to add a team (decision 5). */
   const addTeamToSession = (sessionId: string) => {
+    // A solo booking has no chat; opening it to others is when it gets one.
+    const target = sessions.find((x) => x.id === sessionId)
+    if (target) openRoomChat(sessionId, target.title)
     setSessions((prev) =>
       prev.map((s) =>
         s.id === sessionId ? { ...s, listed: true, fillIntent: "invite" } : s
@@ -1914,7 +1917,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     setSessions((prev) => [next, ...prev])
     persist(next)
-    openRoomChat(id, next.title)
     setLinkedId(id)
   }
 
@@ -2046,7 +2048,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       reservationId: summary.bookingId,
     }
     setSessions((prev) => [next, ...prev])
-    openRoomChat(roomId, next.title)
     // A retry after this branch (e.g. checkout failed) needs to find the same
     // held session again via `linkedId` — see the `linked?.reservationId`
     // early-return above.
