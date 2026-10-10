@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from "@nestjs/common"
 
+import { UserId } from "../../common/user-id.decorator.js"
 import { Roles } from "../../common/roles.decorator.js"
 import { RolesGuard } from "../../common/roles.guard.js"
 import { ResolveComplaintBodyDto } from "../rooms/rooms.dto.js"
@@ -29,9 +30,11 @@ import {
   RejectBrandDto,
   SettleRefundDto,
   UpdateDiscountDto,
+  OwnerIdParamDto,
   VenueIdParamDto,
 } from "./admin.dto.js"
 import { AdminService } from "./admin.service.js"
+import { OwnerRemovalService } from "./owner-removal.service.js"
 
 /**
  * The admin workspace's api surface, mounted at /api/admin — every route here
@@ -44,7 +47,10 @@ import { AdminService } from "./admin.service.js"
 @Roles("admin")
 @UseGuards(RolesGuard)
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly ownerRemoval: OwnerRemovalService
+  ) {}
 
   @Get("overview")
   overview() {
@@ -121,6 +127,16 @@ export class AdminController {
   async suspendVenue(@Param() param: VenueIdParamDto) {
     await this.admin.suspendVenue(param.venueId)
     return { ok: true }
+  }
+
+  /**
+   * Delete a venue owner's account together with their brands, venues and
+   * everything those produced. Irreversible; refused while a venue still has a
+   * live future booking.
+   */
+  @Delete("owners/:ownerId")
+  removeOwner(@UserId() adminId: string, @Param() param: OwnerIdParamDto) {
+    return this.ownerRemoval.removeOwner(param.ownerId, adminId)
   }
 
   @Post("venues/:venueId/restore")

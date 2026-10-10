@@ -126,3 +126,9 @@ export class ComplaintIdParamDto {
   @IsNotEmpty()
   id: string
 }
+
+export class OwnerIdParamDto {
+  @IsString()
+  @IsNotEmpty()
+  ownerId: string
+}

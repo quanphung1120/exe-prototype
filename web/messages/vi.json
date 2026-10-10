@@ -2311,6 +2311,14 @@
       "active": "Hoạt động",
       "archived": "Đã lưu trữ"
     },
+    "removeOwner": {
+      "button": "Xoá chủ sân",
+      "title": "Xoá chủ sân \"{name}\"?",
+      "body": "Tài khoản chủ sân cùng toàn bộ thương hiệu, chi nhánh, lượt đặt, thanh toán và trò chuyện liên quan sẽ bị xoá vĩnh viễn và không thể khôi phục. Nếu còn lượt đặt trong tương lai, hãy huỷ và hoàn tiền trước.",
+      "cancel": "Quay lại",
+      "confirm": "Xoá vĩnh viễn",
+      "done": "Đã xoá chủ sân và các sân của họ"
+    },
     "suspend": "Tạm ngưng",
     "restore": "Khôi phục",
     "empty": "Chưa có venue nào",

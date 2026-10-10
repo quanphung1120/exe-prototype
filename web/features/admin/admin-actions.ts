@@ -37,14 +37,53 @@ export async function rejectBrand(
   revalidateAdmin()
 }
 
-export async function suspendVenue(venueId: string): Promise<void> {
-  await api(`/api/admin/venues/${venueId}/suspend`, { method: "POST" })
-  revalidateAdmin()
+/**
+ * Result-object shape for the venue actions whose failure message matters to
+ * the admin (e.g. "còn lượt đặt tương lai"): Next redacts the message of an
+ * error thrown out of a server action in production, a returned object isn't.
+ */
+export type AdminActionResult = { ok: true } | { ok: false; message: string }
+
+async function toResult(
+  run: () => Promise<unknown>
+): Promise<AdminActionResult> {
+  try {
+    await run()
+    revalidateAdmin()
+    return { ok: true }
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Request failed",
+    }
+  }
 }
 
-export async function restoreVenue(venueId: string): Promise<void> {
-  await api(`/api/admin/venues/${venueId}/restore`, { method: "POST" })
-  revalidateAdmin()
+export async function suspendVenue(
+  venueId: string
+): Promise<AdminActionResult> {
+  return toResult(() =>
+    api(`/api/admin/venues/${venueId}/suspend`, { method: "POST" })
+  )
+}
+
+export async function restoreVenue(
+  venueId: string
+): Promise<AdminActionResult> {
+  return toResult(() =>
+    api(`/api/admin/venues/${venueId}/restore`, { method: "POST" })
+  )
+}
+
+/** Delete a venue owner's account with all their brands, venues and data. */
+export async function removeVenueOwner(
+  ownerId: string
+): Promise<AdminActionResult> {
+  return toResult(() =>
+    api(`/api/admin/owners/${encodeURIComponent(ownerId)}`, {
+      method: "DELETE",
+    })
+  )
 }
 
 export async function settleRefund(

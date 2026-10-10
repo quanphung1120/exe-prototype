@@ -25,6 +25,7 @@ export interface AdminBrandGroup {
     id: string
     name: string
     initials: string
+    ownerId: string
     contactPhone?: string
   } | null
   venues: AdminVenueRow[]

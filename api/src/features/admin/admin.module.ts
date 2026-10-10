@@ -7,9 +7,11 @@ import { PlayersModule } from "../players/players.module.js"
 import { RoomsModule } from "../rooms/rooms.module.js"
 import { WalletModule } from "../wallet/wallet.module.js"
 import { SessionsModule } from "../sessions/sessions.module.js"
+import { StreamModule } from "../stream/stream.module.js"
 import { VenuesModule } from "../venues/venues.module.js"
 import { AdminController } from "./admin.controller.js"
 import { AdminService } from "./admin.service.js"
+import { OwnerRemovalService } from "./owner-removal.service.js"
 
 // Every cross-tenant read/write composes the existing feature services'
 // unscoped methods — no new schema registrations of its own.
@@ -23,8 +25,9 @@ import { AdminService } from "./admin.service.js"
     DiscountsModule,
     RoomsModule,
     WalletModule,
+    StreamModule,
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [AdminService, OwnerRemovalService],
 })
 export class AdminModule {}

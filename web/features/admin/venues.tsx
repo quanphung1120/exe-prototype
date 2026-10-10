@@ -20,7 +20,21 @@ import {
 } from "@/components/ui/table"
 import { formatVnd } from "@/lib/shared"
 import { VenuePanel, VenueEmpty } from "@/features/venue/shared"
-import { restoreVenue, suspendVenue } from "@/features/admin/admin-actions"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  removeVenueOwner,
+  restoreVenue,
+  suspendVenue,
+  type AdminActionResult,
+} from "@/features/admin/admin-actions"
 import { ContactPhone } from "@/features/admin/contact-phone"
 import type {
   AdminBrandGroup,
@@ -37,26 +51,50 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
   const t = useTranslations("AdminVenues")
   const [pending, setPending] = React.useState<string | null>(null)
 
-  const handleSuspend = async (venue: AdminVenueRow) => {
-    setPending(venue.id)
+  const [removing, setRemoving] = React.useState<{
+    ownerId: string
+    name: string
+  } | null>(null)
+
+  // The server actions return a result object (a thrown error's message is
+  // redacted in production), so the reason — e.g. "still has future
+  // bookings" — reaches the toast.
+  const run = async (
+    id: string,
+    action: () => Promise<AdminActionResult>,
+    success?: string
+  ) => {
+    setPending(id)
     try {
-      await suspendVenue(venue.id)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Request failed")
+      const result = await action()
+      if (result.ok) {
+        if (success) toast.success(success)
+      } else {
+        toast.error(result.message)
+      }
+      return result.ok
+    } catch {
+      toast.error("Request failed")
+      return false
     } finally {
       setPending(null)
     }
   }
 
-  const handleRestore = async (venue: AdminVenueRow) => {
-    setPending(venue.id)
-    try {
-      await restoreVenue(venue.id)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Request failed")
-    } finally {
-      setPending(null)
-    }
+  const handleSuspend = (venue: AdminVenueRow) =>
+    void run(venue.id, () => suspendVenue(venue.id))
+
+  const handleRestore = (venue: AdminVenueRow) =>
+    void run(venue.id, () => restoreVenue(venue.id))
+
+  const confirmRemove = async () => {
+    if (!removing) return
+    const ok = await run(
+      removing.ownerId,
+      () => removeVenueOwner(removing.ownerId),
+      t("removeOwner.done")
+    )
+    if (ok) setRemoving(null)
   }
 
   const totalVenues = groups.reduce((n, g) => n + g.venues.length, 0)
@@ -92,10 +130,26 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
             title={group.brand?.name ?? t("noBrand")}
             action={
               group.brand ? (
-                <ContactPhone
-                  phone={group.brand.contactPhone}
-                  emptyLabel={t("noPhone")}
-                />
+                <div className="flex items-center gap-3">
+                  <ContactPhone
+                    phone={group.brand.contactPhone}
+                    emptyLabel={t("noPhone")}
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="rounded-full"
+                    disabled={pending === group.brand.ownerId}
+                    onClick={() =>
+                      setRemoving({
+                        ownerId: group.brand!.ownerId,
+                        name: group.brand!.name,
+                      })
+                    }
+                  >
+                    {t("removeOwner.button")}
+                  </Button>
+                </div>
               ) : null
             }
           >
@@ -149,7 +203,7 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
                           variant="outline"
                           className="rounded-full"
                           disabled={pending === venue.id}
-                          onClick={() => void handleRestore(venue)}
+                          onClick={() => handleRestore(venue)}
                         >
                           {t("restore")}
                         </Button>
@@ -159,7 +213,7 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
                           variant="destructive"
                           className="rounded-full"
                           disabled={pending === venue.id}
-                          onClick={() => void handleSuspend(venue)}
+                          onClick={() => handleSuspend(venue)}
                         >
                           {t("suspend")}
                         </Button>
@@ -173,6 +227,35 @@ export function AdminVenuesView({ groups }: { groups: AdminBrandGroup[] }) {
         ))
       )}
       <AdminPagination pagination={pagination} />
+      <AlertDialog
+        open={removing !== null}
+        onOpenChange={(open) => {
+          if (!open && !pending) setRemoving(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("removeOwner.title", { name: removing?.name ?? "" })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("removeOwner.body")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending !== null}>
+              {t("removeOwner.cancel")}
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={pending !== null}
+              onClick={() => void confirmRemove()}
+            >
+              {t("removeOwner.confirm")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

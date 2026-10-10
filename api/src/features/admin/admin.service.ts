@@ -31,6 +31,7 @@ export interface AdminBrandGroup {
     id: string
     name: string
     initials: string
+    ownerId: string
     contactPhone?: string
   } | null
   venues: AdminVenueRow[]
@@ -152,6 +153,7 @@ export class AdminService {
           id: brand.id,
           name: brand.name,
           initials: brand.initials,
+          ownerId: brand.ownerId,
           contactPhone: brand.contactPhone,
         },
         venues: [],

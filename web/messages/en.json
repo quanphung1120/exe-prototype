@@ -2311,6 +2311,14 @@
       "active": "Active",
       "archived": "Archived"
     },
+    "removeOwner": {
+      "button": "Delete owner",
+      "title": "Delete the owner of \"{name}\"?",
+      "body": "The owner account and all their brands, branches, bookings, payments and related chats are permanently deleted and cannot be restored. If any future bookings remain, cancel and refund them first.",
+      "cancel": "Cancel",
+      "confirm": "Delete permanently",
+      "done": "Owner and their venues deleted"
+    },
     "suspend": "Suspend",
     "restore": "Restore",
     "empty": "No venues yet",
