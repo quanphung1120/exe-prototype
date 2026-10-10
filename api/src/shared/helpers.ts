@@ -241,6 +241,33 @@ export function addMinutesToIso(iso: string, mins: number): string {
   return vnIsoOf(new Date(iso).getTime() + mins * 60_000)
 }
 
+/**
+ * The venue's approval deadline for a booking paid at `paidIso`: `slaMin`
+ * minutes of *opening time*, not wall-clock time. Paid while the venue is
+ * closed (e.g. 03:00), the clock starts at the next opening; a window that
+ * runs past closing time carries its remainder over to the next morning.
+ * Assumes `openFrom` < `openTo` within one day, like the rest of the venue
+ * hours logic.
+ */
+export function approvalDeadlineIso(
+  paidIso: string,
+  openFrom: string,
+  openTo: string,
+  slaMin: number
+): string {
+  const open = toMinutes(openFrom)
+  const close = toMinutes(openTo)
+  const paidMin = toMinutes(isoToHHMM(paidIso))
+  const day = isoDateOf(paidIso)
+  if (paidMin >= open && paidMin + slaMin <= close) {
+    return addMinutesToIso(paidIso, slaMin)
+  }
+  // Minutes of the SLA still unspent when the next opening starts.
+  const spent = paidMin >= open && paidMin < close ? close - paidMin : 0
+  const nextDay = paidMin < open ? day : addDaysIso(day, 1)
+  return addMinutesToIso(combineDateTime(nextDay, openFrom), slaMin - spent)
+}
+
 /** "YYYY-MM-DD" (Asia/Ho_Chi_Minh) for an arbitrary epoch-ms instant. */
 const vnDateOf = (epochMs: number) => isoDateOf(vnIsoOf(epochMs))
 
@@ -651,6 +678,7 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
     durationMin: s.durationMin,
     bookingId: s.status === "booked" ? s.id : undefined,
     demo: s.demo,
+    sharePrice: s.sharePrice,
   }
 }
 
@@ -1054,6 +1082,8 @@ export function venueCourtToCourt(venue: Venue, court: VenueCourt): Court {
     lat: venue.lat ?? null,
     lng: venue.lng ?? null,
     ...(venue.photos?.length ? { photos: venue.photos } : {}),
+    openFrom: venue.openFrom,
+    openTo: venue.openTo,
   }
 }
 
@@ -1093,7 +1123,10 @@ export const BOOKING_TRANSITIONS: Record<
   // (silence = consent) also lands on "confirmed" through this same edge.
   awaiting_payment: ["pending", "expired", "cancelled"],
   pending: ["confirmed", "cancelled"],
-  confirmed: ["checked-in", "cancelled", "no-show"],
+  // Venues no longer check players in (they paid up front), so a confirmed
+  // booking goes straight to completed once it ends. "checked-in" stays only
+  // for bookings checked in before that was removed.
+  confirmed: ["completed", "cancelled", "no-show"],
   "checked-in": ["completed", "cancelled"],
   completed: [],
   expired: [],

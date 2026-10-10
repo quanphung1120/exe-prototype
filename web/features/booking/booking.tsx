@@ -43,6 +43,7 @@ export function useBooking() {
     checkoutError: s.checkoutError,
     clearCheckoutError: s.clearCheckoutError,
     pay: s.pay,
+    payWithWallet: s.payWithWallet,
     resumePayment: s.resumePayment,
     resumingPaymentId: s.resumingPaymentId,
     markPaymentPaid: s.markPaymentPaid,

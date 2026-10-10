@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { toast } from "sonner"
 import { useLocale, useTranslations } from "next-intl"
 import { Link } from "@/i18n/navigation"
 import {
@@ -22,7 +21,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { formatVnd } from "@/features/dashboard/data"
 import { useVenueData } from "@/features/venue/venue-data-provider"
-import { checkInReservation } from "@/features/venue/venue-actions"
 import { SportTag } from "@/features/dashboard/shared"
 import { useVenue } from "@/features/venue/venue-provider"
 import { venueBase } from "@/features/venue/nav"
@@ -288,7 +286,7 @@ export function VenueCommandView() {
           {arrivals.length ? (
             <div className="flex flex-col gap-1">
               {arrivals.map((rv) => (
-                <ArrivalRow key={rv.id} rv={rv} checkInLabel={t("checkIn")} />
+                <ArrivalRow key={rv.id} rv={rv} />
               ))}
             </div>
           ) : (
@@ -364,37 +362,8 @@ function RevenueDelta({ delta }: { delta: number }) {
   )
 }
 
-/** One upcoming-arrival line with a cosmetic check-in action. */
-function ArrivalRow({
-  rv,
-  checkInLabel,
-}: {
-  rv: Reservation
-  checkInLabel: string
-}) {
-  const t = useTranslations("VenueCommand")
-  const { venueId, updateReservation } = useVenueData()
-  // Optimistic check-in for instant feedback; the server action persists the
-  // status and `updateReservation` folds it into the shared reservation data.
-  const [justCheckedIn, setJustCheckedIn] = React.useState(false)
-  const [isPending, startTransition] = React.useTransition()
-  const checkedIn = rv.status === "checked-in" || justCheckedIn
-
-  const checkIn = () => {
-    setJustCheckedIn(true)
-    startTransition(async () => {
-      try {
-        await checkInReservation(venueId, rv.id)
-        updateReservation(rv.id, { status: "checked-in" })
-        toast.success(t("checkedIn"), { description: rv.customer.name })
-      } catch (error) {
-        setJustCheckedIn(false)
-        toast.error(
-          error instanceof Error ? error.message : "Failed to check in"
-        )
-      }
-    })
-  }
+/** One upcoming-arrival line. Players pay up front, so there is nothing to check in. */
+function ArrivalRow({ rv }: { rv: Reservation }) {
   return (
     <div className="flex items-center gap-3 rounded-3xl p-2 transition-colors hover:bg-muted/60">
       <Avatar>
@@ -405,12 +374,6 @@ function ArrivalRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-medium">{rv.customer.name}</span>
-          {checkedIn ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-lime/20 px-2 py-0.5 text-[10px] font-semibold text-brand">
-              <UserCheck className="size-3" />
-              {t("checkedIn")}
-            </span>
-          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 truncate text-xs text-muted-foreground">
           <SportTag sport={rv.sport} />
@@ -423,22 +386,11 @@ function ArrivalRow({
           </span>
         </div>
       </div>
-      <div className="hidden text-right sm:block">
+      <div className="text-right">
         <span className="font-mono text-xs text-muted-foreground tabular-nums">
           {rv.time.split(" – ")[0]}
         </span>
       </div>
-      {checkedIn ? null : (
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0 rounded-full"
-          disabled={isPending}
-          onClick={checkIn}
-        >
-          {checkInLabel}
-        </Button>
-      )}
     </div>
   )
 }

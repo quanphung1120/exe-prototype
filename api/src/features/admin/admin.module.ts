@@ -4,6 +4,8 @@ import { BookingsModule } from "../bookings/bookings.module.js"
 import { BrandsModule } from "../brands/brands.module.js"
 import { DiscountsModule } from "../discounts/discounts.module.js"
 import { PlayersModule } from "../players/players.module.js"
+import { RoomsModule } from "../rooms/rooms.module.js"
+import { WalletModule } from "../wallet/wallet.module.js"
 import { SessionsModule } from "../sessions/sessions.module.js"
 import { VenuesModule } from "../venues/venues.module.js"
 import { AdminController } from "./admin.controller.js"
@@ -19,6 +21,8 @@ import { AdminService } from "./admin.service.js"
     PlayersModule,
     SessionsModule,
     DiscountsModule,
+    RoomsModule,
+    WalletModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

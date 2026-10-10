@@ -15,6 +15,7 @@ import {
   Locate,
   LocateFixed,
   Lock,
+  Wallet,
   Map as MapIcon,
   MapPin,
   Navigation,
@@ -48,6 +49,10 @@ import {
   COURT_OPEN_FROM,
   COURT_OPEN_TO,
   addMinutes,
+  addMinutesToIso,
+  approvalDeadlineIso,
+  isoDateOf,
+  isoToHHMM,
   formatDuration,
   formatVnd,
   formatVndFull,
@@ -56,6 +61,7 @@ import {
   slotRange,
   type Court,
 } from "@/features/dashboard/data"
+import { getWallet } from "@/features/wallet/wallet-actions"
 import { addDays, mondayIndex } from "@/features/booking/calendar"
 import { toMin } from "@/features/booking/calendar-ui"
 import { useData } from "@/features/dashboard/data-provider"
@@ -154,6 +160,9 @@ function PriceBreakdown({
   )
 }
 
+/** Minutes a venue has to answer a paid booking (the API's default SLA). */
+const APPROVAL_SLA_MIN = 30
+
 /**
  * The court-booking wizard, rendered as a full dashboard page (it used to live
  * in a small dialog, which left no room for the day calendar — especially on
@@ -187,6 +196,7 @@ export function BookView() {
     checkoutError,
     clearCheckoutError,
     pay,
+    payWithWallet,
   } = useBooking()
   const { courts: COURTS, dayLabelFor } = useData()
 
@@ -225,6 +235,39 @@ export function BookView() {
           Math.floor((holdRemainingMs % 60000) / 1000)
         ).padStart(2, "0")}`
       : null
+
+  // Wallet balance for the "pay with wallet" option — fetched when the pay
+  // step opens (and again after a failed attempt, since a refund or top-up in
+  // another tab may have changed it). Null until known or if it can't load.
+  const [walletBalance, setWalletBalance] = React.useState<number | null>(null)
+  React.useEffect(() => {
+    if (stepName !== "pay") return
+    let cancelled = false
+    void getWallet().then((result) => {
+      if (!cancelled && result.ok) setWalletBalance(result.data.balance)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [stepName, checkoutError])
+
+  // When the venue would answer if the player paid right now — its 30-minute
+  // approval window only runs during opening hours (mirrors the API's
+  // `approvalDeadlineIso` in confirmPayment). Ticks with `holdNow`.
+  let approvalReply: { time: string; day: "today" | "tomorrow" } | null = null
+  if (holdNow != null && court?.openFrom && court.openTo) {
+    const nowVn = addMinutesToIso(new Date(holdNow).toISOString(), 0)
+    const answerBy = approvalDeadlineIso(
+      nowVn,
+      court.openFrom,
+      court.openTo,
+      APPROVAL_SLA_MIN
+    )
+    approvalReply = {
+      time: isoToHHMM(answerBy),
+      day: isoDateOf(answerBy) === isoDateOf(nowVn) ? "today" : "tomorrow",
+    }
+  }
 
   // Free-form booking: a start + end time (any minute), priced pro-rata.
   const total = court ? priceFor(court.pricePerHour, draft.durationMin) : 0
@@ -658,6 +701,44 @@ export function BookView() {
                     )}
                   </div>
 
+                  {walletBalance !== null ? (
+                    <div className="flex flex-col gap-3 rounded-3xl border px-4 py-4">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <span className="flex items-center gap-2 text-muted-foreground">
+                          <Wallet className="size-4" />
+                          {t("pay.walletBalance", {
+                            balance: formatVndFull(walletBalance),
+                          })}
+                        </span>
+                        <Link
+                          href="/app/wallet"
+                          className="font-medium text-brand hover:underline"
+                        >
+                          {t("pay.walletTopUp")}
+                        </Link>
+                      </div>
+                      {walletBalance >= finalTotal ? (
+                        <Button
+                          variant="outline"
+                          className="h-11 rounded-full text-base"
+                          disabled={!canPay}
+                          onClick={() => payWithWallet(activeDiscount?.code)}
+                        >
+                          <Wallet />
+                          {t("pay.payWallet", {
+                            amount: formatVnd(finalTotal),
+                          })}
+                        </Button>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          {t("pay.walletShort", {
+                            missing: formatVndFull(finalTotal - walletBalance),
+                          })}
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+
                   {/* SePay hosts the actual checkout (VietQR/card) — this button
                   submits a hidden, HMAC-signed form there (see session.tsx#pay). */}
                   <div className="flex flex-col items-center gap-3 rounded-3xl bg-muted/40 px-4 py-5 text-center">
@@ -675,6 +756,15 @@ export function BookView() {
                       <span>{checkoutError}</span>
                     </div>
                   ) : null}
+
+                  <p className="rounded-2xl bg-muted/40 px-3.5 py-2.5 text-xs text-muted-foreground">
+                    {approvalReply ? (
+                      <span className="mb-1 block font-medium text-foreground">
+                        {t("pay.approvalReply", approvalReply)}
+                      </span>
+                    ) : null}
+                    {t("pay.approvalNote")}
+                  </p>
 
                   <p className="text-center text-xs text-muted-foreground">
                     {t("pay.refundPolicy")}

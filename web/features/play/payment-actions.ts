@@ -115,3 +115,18 @@ export async function getPaymentStatus(
     `/api/payments/by-booking/${encodeURIComponent(bookingId)}`
   )
 }
+
+/**
+ * Pay the caller's own `awaiting_payment` hold from their wallet balance —
+ * `POST /api/payments/wallet-pay`. Settles immediately (no redirect): the
+ * returned summary is already `paid`. A short balance comes back as status 402.
+ */
+export async function payBookingWithWallet(
+  bookingId: string,
+  discountCode?: string
+): Promise<PaymentActionResult<PaymentSummary>> {
+  return paymentsApi<PaymentSummary>("/api/payments/wallet-pay", {
+    method: "POST",
+    body: discountCode ? { bookingId, discountCode } : { bookingId },
+  })
+}

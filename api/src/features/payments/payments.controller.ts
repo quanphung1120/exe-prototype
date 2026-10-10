@@ -13,7 +13,7 @@ import type { Request } from "express"
 import { Public } from "../../common/public.decorator.js"
 import { UserId } from "../../common/user-id.decorator.js"
 import { UserThrottle } from "../../common/user-throttler.guard.js"
-import { BookingIdParamDto, CheckoutDto } from "./payments.dto.js"
+import { BookingIdParamDto, CheckoutDto, WalletPayDto } from "./payments.dto.js"
 import { PaymentsService } from "./payments.service.js"
 
 // SePay checkout + IPN (VienTD-Review Phase 4). `checkout`/`byBooking` are
@@ -33,6 +33,17 @@ export class PaymentsController {
   @Post("checkout")
   async checkout(@UserId() userId: string, @Body() body: CheckoutDto) {
     return this.payments.checkout(userId, body.bookingId, body.discountCode)
+  }
+
+  /** Pay the caller's own booking hold from their wallet balance. */
+  @UserThrottle({ limit: 10, ttl: 60_000 })
+  @Post("wallet-pay")
+  async walletPay(@UserId() userId: string, @Body() body: WalletPayDto) {
+    return this.payments.payWithWallet(
+      userId,
+      body.bookingId,
+      body.discountCode
+    )
   }
 
   /**

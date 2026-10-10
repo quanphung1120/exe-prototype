@@ -1,10 +1,12 @@
 import {
   BadgeCheck,
   Banknote,
+  Landmark,
   Building2,
   CalendarClock,
   LayoutDashboard,
   MessageSquareQuote,
+  MessageSquareWarning,
   TicketPercent,
 } from "lucide-react"
 
@@ -16,6 +18,8 @@ export type AdminSectionKey =
   | "bookings"
   | "discounts"
   | "refunds"
+  | "complaints"
+  | "withdrawals"
   | "approvals"
   | "reviews"
 
@@ -62,6 +66,20 @@ export const ADMIN_NAV: NavItem<AdminSectionKey>[] = [
     label: "Refund queue",
     icon: Banknote,
     caption: "Manual refunds awaiting settlement",
+  },
+  {
+    key: "withdrawals",
+    href: `${ADMIN_BASE_PREFIX}/withdrawals`,
+    label: "Withdrawals",
+    icon: Landmark,
+    caption: "Wallet withdrawals awaiting a bank transfer",
+  },
+  {
+    key: "complaints",
+    href: `${ADMIN_BASE_PREFIX}/complaints`,
+    label: "Complaints",
+    icon: MessageSquareWarning,
+    caption: "Room-share complaints awaiting a decision",
   },
   {
     key: "approvals",

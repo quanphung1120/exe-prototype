@@ -29,6 +29,7 @@ import { SessionsModule } from "./features/sessions/sessions.module.js"
 import { StreamModule } from "./features/stream/stream.module.js"
 import { VenueWorkspaceModule } from "./features/venue-workspace/venue-workspace.module.js"
 import { VenuesModule } from "./features/venues/venues.module.js"
+import { WalletModule } from "./features/wallet/wallet.module.js"
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { VenuesModule } from "./features/venues/venues.module.js"
     NotificationsModule,
     DiscountsModule,
     PaymentsModule,
+    WalletModule,
     SeedModule,
     AdminModule,
     AppReviewsModule,

@@ -11,6 +11,9 @@ import { ConfigService } from "@nestjs/config"
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
+import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
+import { RoomShare } from "../src/features/rooms/room-share.schema.js"
+import { WalletService } from "../src/features/wallet/wallet.service.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
@@ -177,6 +180,17 @@ async function makeService(bookings: FakeBooking[]) {
       },
       { provide: ConfigService, useValue: configMock },
       {
+        provide: getModelToken(RoomShare.name),
+        useValue: { find: () => Promise.resolve([]) },
+      },
+      { provide: getModelToken(RoomComplaint.name), useValue: {} },
+      {
+        provide: WalletService,
+        useValue: {
+          credit: () => Promise.resolve({ balance: 0, applied: true }),
+        },
+      },
+      {
         provide: getModelToken(PlaySession.name),
         useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
       },
@@ -291,7 +305,7 @@ void test("sweep skips the auto-confirm notification for a walk-in with no linke
   assert.equal(notifications.length, 0)
 })
 
-// ── Rule 3: checked-in → completed ──────────────────────────────────────────
+// ── Rule 3: confirmed (or legacy checked-in) → completed ──────────────────────────────────────────
 
 void test("sweep completes a checked-in booking past its endAt", async () => {
   const booking = makeBooking({
@@ -312,10 +326,10 @@ void test("sweep completes a checked-in booking past its endAt", async () => {
   assert.equal(booking.status, "completed")
 })
 
-void test("sweep never touches no-show — it stays a manual venue action", async () => {
+void test("sweep completes a confirmed booking past its endAt (venues don't check players in)", async () => {
   const booking = makeBooking({
     status: "confirmed",
-    endAt: "2026-01-01T00:00:00+07:00", // long past, but "confirmed" has no clock rule
+    endAt: "2026-07-20T19:00:00+07:00",
   })
   const { service } = await makeService([booking])
 
@@ -324,10 +338,23 @@ void test("sweep never touches no-show — it stays a manual venue action", asyn
   assert.deepEqual(result, {
     expired: 0,
     autoConfirmed: 0,
-    completed: 0,
+    completed: 1,
     cancelsAutoApproved: 0,
     expiredBookingIds: [],
   })
+  assert.equal(booking.status, "completed")
+})
+
+void test("sweep leaves a confirmed booking alone until it ends, and never marks no-show", async () => {
+  const booking = makeBooking({
+    status: "confirmed",
+    endAt: "2026-07-20T19:00:00+07:00",
+  })
+  const { service } = await makeService([booking])
+
+  const result = await service.sweep("2026-07-20T18:59:59+07:00")
+
+  assert.equal(result.completed, 0)
   assert.equal(booking.status, "confirmed")
 })
 

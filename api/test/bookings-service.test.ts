@@ -17,6 +17,9 @@ import { ConfigService } from "@nestjs/config"
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
+import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
+import { RoomShare } from "../src/features/rooms/room-share.schema.js"
+import { WalletService } from "../src/features/wallet/wallet.service.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
@@ -69,6 +72,7 @@ interface FakeBookingDoc {
   sport: string
   source: string
   userId?: string
+  sessionId?: string
   customer: { name: string; initials: string }
   startAt: string
   endAt: string
@@ -81,7 +85,13 @@ interface FakeBookingDoc {
   checkedInAt?: string
   declineReason?: string
   cancelReason?: string
-  refund?: { pct: number; amount: number; at: string }
+  refund?: {
+    pct: number
+    amount: number
+    at: string
+    status?: string
+    ref?: string
+  }
   cancelRequest?: BookingCancelRequest
   statusHistory: { status: BookingRecordStatus; at: string }[]
   save: () => Promise<void>
@@ -117,8 +127,12 @@ function makeBookingDoc(
     markModified: () => {},
     ...overrides,
   }
+  // Dotted paths ("refund.status") reach into nested objects, like Mongoose.
   doc.set = (path, value) => {
-    ;(doc as unknown as Record<string, unknown>)[path] = value
+    const keys = path.split(".")
+    let target = doc as unknown as Record<string, unknown>
+    for (const k of keys.slice(0, -1)) target = target[k] as typeof target
+    target[keys[keys.length - 1]] = value
   }
   return doc
 }
@@ -146,6 +160,30 @@ function makeVenueDoc(overrides: Record<string, unknown> = {}) {
   }
 }
 
+interface FakeShare {
+  shareId: string
+  roomId: string
+  bookingId: string
+  memberUserId: string
+  amount: number
+  status: "held" | "paid" | "refunded"
+  bookingRefund?: number
+  save: () => Promise<void>
+}
+
+function makeShare(overrides: Partial<FakeShare> = {}): FakeShare {
+  return {
+    shareId: "room-1:m1:0",
+    roomId: "room-1",
+    bookingId: "b1",
+    memberUserId: "m1",
+    amount: 100_000,
+    status: "paid",
+    save: () => Promise.resolve(),
+    ...overrides,
+  }
+}
+
 interface Deps {
   bookingDoc?: FakeBookingDoc
   venueDoc?: ReturnType<typeof makeVenueDoc>
@@ -156,6 +194,12 @@ interface Deps {
   directoryUser?: { id: string; name: string } | null
   directoryUsers?: { id: string; name: string }[]
   confirmSlaMinutes?: number
+  /** Paid-booking cancel requests the player already made this month. */
+  cancelsThisMonth?: number
+  /** Cancelled bookings the late-refund upgrade scans (`status: "cancelled"` finds). */
+  cancelledBookings?: unknown[]
+  /** The room `RoomShare` rows. */
+  shares?: FakeShare[]
   /** Whether `bookingModel.exists({ venueId })` reports a booking already on file. */
   bookingsExist?: boolean
   /** What `bookingModel.findOneAndUpdate` resolves to — defaults to
@@ -172,16 +216,25 @@ async function makeService(deps: Deps = {}) {
   const bulkWrites: unknown[] = []
 
   const findOneAndUpdateCalls: unknown[] = []
+  const walletCredits: { userId: string; amount: number; txId: string }[] = []
+  const refundSettles: unknown[] = []
   const sessionUpdates: { filter: unknown; update: unknown }[] = []
   const roomEvents: string[] = []
   const bookingModelMock = {
     findOne: () => makeQuery(bookingDoc),
-    find: (filter: { dateKey?: string; venueId?: string }) =>
+    countDocuments: () => Promise.resolve(deps.cancelsThisMonth ?? 0),
+    find: (filter: { dateKey?: string; venueId?: string; status?: string }) =>
       makeQuery(
-        filter.venueId !== undefined
-          ? (deps.overlapExisting ?? [])
-          : (deps.ownBookings ?? [])
+        filter.status === "cancelled"
+          ? (deps.cancelledBookings ?? [])
+          : filter.venueId !== undefined
+            ? (deps.overlapExisting ?? [])
+            : (deps.ownBookings ?? [])
       ),
+    updateOne: (filter: unknown, update: unknown) => {
+      refundSettles.push({ filter, update })
+      return Promise.resolve({ modifiedCount: 1 })
+    },
     findOneAndUpdate: (filter: unknown) => {
       findOneAndUpdateCalls.push(filter)
       return makeQuery(
@@ -209,8 +262,45 @@ async function makeService(deps: Deps = {}) {
       return Promise.resolve({ modifiedCount: writes.length })
     },
   }
+  const venueViolations = { count: 0 }
   const venueModelMock = {
     findOne: () => makeQuery(venueDoc),
+    findOneAndUpdate: () => {
+      venueViolations.count++
+      return Promise.resolve({
+        ownerId: "owner-1",
+        cancelViolations: venueViolations.count,
+      })
+    },
+  }
+  const shares = deps.shares ?? []
+  const shareMatches = (s: FakeShare, f: Record<string, unknown>) =>
+    Object.entries(f).every(([k, v]) => {
+      const actual = (s as unknown as Record<string, unknown>)[k]
+      if (v && typeof v === "object" && "$in" in v) {
+        return (v as { $in: unknown[] }).$in.includes(actual)
+      }
+      if (v && typeof v === "object" && "$exists" in v) {
+        return (actual !== undefined) === (v as { $exists: boolean }).$exists
+      }
+      return actual === v
+    })
+  const shareModelMock = {
+    find: (f: Record<string, unknown>) =>
+      Promise.resolve(shares.filter((s) => shareMatches(s, f))),
+  }
+  const complaints: Record<string, unknown>[] = []
+  const complaintModelMock = {
+    exists: (f: Record<string, unknown>) =>
+      Promise.resolve(
+        complaints.find((c) => Object.entries(f).every(([k, v]) => c[k] === v))
+          ? {}
+          : null
+      ),
+    create: (doc: Record<string, unknown>) => {
+      complaints.push(doc)
+      return Promise.resolve(doc)
+    },
   }
   const connectionMock = {
     transaction: (fn: (session?: unknown) => Promise<unknown>) => fn(undefined),
@@ -248,6 +338,20 @@ async function makeService(deps: Deps = {}) {
       { provide: NotificationsService, useValue: notificationsMock },
       { provide: ClerkDirectoryService, useValue: clerkDirectoryMock },
       { provide: ConfigService, useValue: configMock },
+      { provide: getModelToken(RoomShare.name), useValue: shareModelMock },
+      {
+        provide: getModelToken(RoomComplaint.name),
+        useValue: complaintModelMock,
+      },
+      {
+        provide: WalletService,
+        useValue: {
+          credit: (userId: string, amount: number, m: { txId: string }) => {
+            walletCredits.push({ userId, amount, txId: m.txId })
+            return Promise.resolve({ balance: amount, applied: true })
+          },
+        },
+      },
       {
         provide: getModelToken(PlaySession.name),
         useValue: {
@@ -273,6 +377,11 @@ async function makeService(deps: Deps = {}) {
     bulkWrites,
     sessionUpdates,
     roomEvents,
+    walletCredits,
+    refundSettles,
+    shares,
+    complaints,
+    venueViolations,
   }
 }
 
@@ -301,7 +410,7 @@ void test("createHold creates an awaiting_payment booking with a 20-minute serve
 
   const result = await service.createHold("user-1", {
     courtId: "v9c1",
-    dateKey: "2026-07-21",
+    dateKey: "2099-07-21",
     start: "18:00",
     durationMin: 60,
   })
@@ -326,7 +435,7 @@ void test("createHold uses the signed-in player's Clerk name instead of the seed
 
   await service.createHold("user-1", {
     courtId: "v9c1",
-    dateKey: "2026-07-21",
+    dateKey: "2099-07-21",
     start: "18:00",
     durationMin: 60,
   })
@@ -345,7 +454,7 @@ void test("createHold adds the app booker to the venue's CRM customers once", as
 
   await service.createHold("user-1", {
     courtId: "v9c1",
-    dateKey: "2026-07-21",
+    dateKey: "2099-07-21",
     start: "18:00",
     durationMin: 60,
   })
@@ -365,7 +474,7 @@ void test("createHold does not duplicate an app booker already in the venue's CR
 
   await service.createHold("user-1", {
     courtId: "v9c1",
-    dateKey: "2026-07-21",
+    dateKey: "2099-07-21",
     start: "18:00",
     durationMin: 60,
   })
@@ -378,7 +487,7 @@ void test("createHold hard-blocks the user's own overlapping booking on another 
     ownBookings: [
       {
         bookingId: "other",
-        dateKey: "2026-07-21",
+        dateKey: "2099-07-21",
         start: "18:00",
         durationMin: 60,
         status: "confirmed",
@@ -390,7 +499,7 @@ void test("createHold hard-blocks the user's own overlapping booking on another 
     () =>
       service.createHold("user-1", {
         courtId: "v9c1",
-        dateKey: "2026-07-21",
+        dateKey: "2099-07-21",
         start: "18:30",
         durationMin: 60,
       }),
@@ -404,7 +513,7 @@ void test("createHold rejects a slot outside opening hours", async () => {
     () =>
       service.createHold("user-1", {
         courtId: "v9c1",
-        dateKey: "2026-07-21",
+        dateKey: "2099-07-21",
         start: "23:30",
         durationMin: 60,
       }),
@@ -420,7 +529,7 @@ void test("createHold rejects a slot overlapping a court block (decision #12)", 
         {
           id: "v9b1",
           courtId: "v9c1",
-          dateKey: "2026-07-21",
+          dateKey: "2099-07-21",
           start: "17:30",
           durationMin: 90,
           reason: "maintenance",
@@ -434,7 +543,7 @@ void test("createHold rejects a slot overlapping a court block (decision #12)", 
     () =>
       service.createHold("user-1", {
         courtId: "v9c1",
-        dateKey: "2026-07-21",
+        dateKey: "2099-07-21",
         start: "18:00",
         durationMin: 60,
       }),
@@ -450,7 +559,7 @@ void test("createHold allows a slot that doesn't touch an unrelated block", asyn
         {
           id: "v9b1",
           courtId: "v9c1",
-          dateKey: "2026-07-21",
+          dateKey: "2099-07-21",
           start: "06:00",
           durationMin: 60,
           reason: "break",
@@ -465,7 +574,7 @@ void test("createHold allows a slot that doesn't touch an unrelated block", asyn
 
   await service.createHold("user-1", {
     courtId: "v9c1",
-    dateKey: "2026-07-21",
+    dateKey: "2099-07-21",
     start: "18:00",
     durationMin: 60,
   })
@@ -494,7 +603,7 @@ void test("createHold rejects an archived court", async () => {
     () =>
       service.createHold("user-1", {
         courtId: "v9c1",
-        dateKey: "2026-07-21",
+        dateKey: "2099-07-21",
         start: "18:00",
         durationMin: 60,
       }),
@@ -511,7 +620,7 @@ void test("createHold tolerates a persisted venue doc that predates ops.blocks",
 
   await service.createHold("user-1", {
     courtId: "v9c1",
-    dateKey: "2026-07-21",
+    dateKey: "2099-07-21",
     start: "18:00",
     durationMin: 60,
   })
@@ -529,7 +638,7 @@ void test("createHold 404s when the court doesn't resolve to a venue", async () 
     () =>
       service.createHold("user-1", {
         courtId: "does-not-exist",
-        dateKey: "2026-07-21",
+        dateKey: "2099-07-21",
         start: "18:00",
         durationMin: 60,
       }),
@@ -902,19 +1011,6 @@ void test("updateStatus never refunds an unpaid hold cancelled by the venue", as
   assert.equal(bookingDoc.paymentStatus, "awaiting")
 })
 
-// ── checkIn ──────────────────────────────────────────────────────────────────
-
-void test("checkIn marks a confirmed booking checked-in", async () => {
-  const { service, bookingDoc } = await makeService({
-    bookingDoc: makeBookingDoc({ status: "confirmed" }),
-  })
-
-  const result = await service.checkIn("owner-1", "b1")
-
-  assert.equal(result.status, "checked-in")
-  assert.ok(bookingDoc.checkedInAt)
-})
-
 // ── markNoShow ───────────────────────────────────────────────────────────────
 
 void test("markNoShow rejects before the 30-minute grace window has passed", async () => {
@@ -1009,9 +1105,9 @@ void test("confirmPayment moves awaiting_payment to pending and stamps a confirm
   assert.ok(bookingDoc.statusHistory.some((h) => h.status === "pending"))
   assert.ok(doc.confirmDeadlineAt)
   const deadlineMs = new Date(doc.confirmDeadlineAt).getTime()
-  // Default SLA is 30 minutes when BOOKING_CONFIRM_SLA_MINUTES is unset.
+  // Default SLA is 30 minutes when BOOKING_CONFIRM_SLA_MINUTES is unset; the
+  // upper bound depends on opening hours (see approvalDeadlineIso tests).
   assert.ok(deadlineMs - before >= 29 * 60_000)
-  assert.ok(deadlineMs - before <= 31 * 60_000)
 })
 
 void test("confirmPayment honors a configured BOOKING_CONFIRM_SLA_MINUTES", async () => {
@@ -1029,7 +1125,6 @@ void test("confirmPayment honors a configured BOOKING_CONFIRM_SLA_MINUTES", asyn
   assert.ok(doc?.confirmDeadlineAt)
   const deadlineMs = new Date(doc.confirmDeadlineAt).getTime()
   assert.ok(deadlineMs - before >= 4 * 60_000)
-  assert.ok(deadlineMs - before <= 6 * 60_000)
 })
 
 void test("confirmPayment is a no-op past awaiting_payment (idempotent against IPN replay)", async () => {
@@ -1104,4 +1199,353 @@ void test("confirmPayment doesn't double-refund a late payment on an already-ref
 
   assert.equal(bookingDoc.paymentStatus, "refunded")
   assert.equal(notifications.length, 0)
+})
+
+// ── Refunds land in the wallet ───────────────────────────────────────────────
+
+void test("an approved cancellation refunds the player's wallet and settles the refund", async () => {
+  const { service, bookingDoc, walletCredits, refundSettles } =
+    await makeService({
+      bookingDoc: makeBookingDoc({
+        startAt: startIn(30 * HOUR),
+        price: 100_000,
+      }),
+    })
+  await service.cancel("user-1", "b1")
+
+  const result = await service.decideCancelRequest("owner-1", "b1", "approve")
+
+  assert.deepEqual(walletCredits, [
+    { userId: "user-1", amount: 100_000, txId: "refund-b1" },
+  ])
+  assert.equal(refundSettles.length, 1)
+  assert.equal(bookingDoc.refund?.status, "settled")
+  assert.equal(bookingDoc.refund?.ref, "wallet")
+  assert.equal(result.refund?.status, "settled")
+})
+
+void test("a venue-fault cancel refunds 100% into the wallet", async () => {
+  const { service, walletCredits } = await makeService({
+    bookingDoc: makeBookingDoc({ status: "pending", price: 150_000 }),
+  })
+
+  await service.updateStatus("v9", "b1", "cancelled", "Sân hỏng")
+
+  assert.deepEqual(walletCredits, [
+    { userId: "user-1", amount: 150_000, txId: "refund-b1" },
+  ])
+})
+
+void test("a booking with no player account keeps its refund on the manual queue", async () => {
+  const { service, walletCredits, bookingDoc } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "pending",
+      userId: undefined,
+      source: "walk-in",
+    }),
+  })
+
+  await service.updateStatus("v9", "b1", "cancelled")
+
+  assert.deepEqual(walletCredits, [])
+  assert.equal(bookingDoc.refund?.status, "manual")
+})
+
+// ── Room shares follow the booking's refund ──────────────────────────────────
+
+const credits = (
+  list: { userId: string; amount: number; txId: string }[]
+): Record<string, number> =>
+  Object.fromEntries(list.map((c) => [c.userId, c.amount]))
+
+void test("a venue cancel refunds room members their paid shares out of the host's refund", async () => {
+  const { service, walletCredits, shares } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "pending",
+      price: 400_000,
+      sessionId: "room-1",
+    }),
+    shares: [
+      makeShare({ shareId: "s1", memberUserId: "m1" }),
+      makeShare({ shareId: "s2", memberUserId: "m2" }),
+      makeShare({ shareId: "s3", memberUserId: "m3", status: "held" }),
+    ],
+  })
+
+  await service.updateStatus("v9", "b1", "cancelled", "Sân hỏng")
+
+  // Members get 100% of their shares; the host gets the rest of the 400k.
+  assert.deepEqual(credits(walletCredits), {
+    m1: 100_000,
+    m2: 100_000,
+    m3: 100_000,
+    "user-1": 200_000,
+  })
+  assert.deepEqual(
+    shares.map((s) => [s.status, s.bookingRefund]),
+    [
+      ["refunded", 100_000],
+      ["refunded", 100_000],
+      ["refunded", undefined],
+    ]
+  )
+})
+
+void test("a 50% late cancel refunds members 50% of their shares, funded by the host's refund", async () => {
+  const { service, walletCredits } = await makeService({
+    bookingDoc: makeBookingDoc({
+      startAt: startIn(5 * HOUR),
+      price: 400_000,
+      sessionId: "room-1",
+    }),
+    shares: [
+      makeShare({ shareId: "s1", memberUserId: "m1" }),
+      makeShare({ shareId: "s2", memberUserId: "m2" }),
+    ],
+  })
+  await service.cancel("user-1", "b1")
+
+  await service.decideCancelRequest("owner-1", "b1", "approve")
+
+  // 50% of 400k = 200k refund: 50k to each member, the other 100k to the host.
+  assert.deepEqual(credits(walletCredits), {
+    m1: 50_000,
+    m2: 50_000,
+    "user-1": 100_000,
+  })
+})
+
+void test("a cancelled booking with no room moves only the host's refund", async () => {
+  const { service, walletCredits } = await makeService({
+    bookingDoc: makeBookingDoc({ status: "pending", price: 150_000 }),
+  })
+
+  await service.updateStatus("v9", "b1", "cancelled", "Sân hỏng")
+
+  assert.deepEqual(credits(walletCredits), { "user-1": 150_000 })
+})
+
+// ── Cancel cap ───────────────────────────────────────────────────────────────
+
+void test("a player can ask to cancel at most 3 paid bookings a month", async () => {
+  const blocked = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(30 * HOUR) }),
+    cancelsThisMonth: 3,
+  })
+  await assert.rejects(
+    () => blocked.service.cancel("user-1", "b1"),
+    /3 lượt huỷ/
+  )
+  assert.equal(blocked.bookingDoc.cancelRequest, undefined)
+
+  const allowed = await makeService({
+    bookingDoc: makeBookingDoc({ startAt: startIn(30 * HOUR) }),
+    cancelsThisMonth: 2,
+  })
+  await allowed.service.cancel("user-1", "b1")
+  assert.ok(allowed.bookingDoc.cancelRequest)
+})
+
+void test("cancelling an unpaid hold never counts against the monthly cap", async () => {
+  const { service } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "awaiting_payment",
+      paymentStatus: "awaiting",
+    }),
+    cancelsThisMonth: 3,
+  })
+
+  const result = await service.cancel("user-1", "b1")
+
+  assert.equal(result.status, "cancelled")
+})
+
+// ── A re-sold slot lifts the late-cancel refund to 100% ──────────────────────
+
+function lateCancelled(overrides: Record<string, unknown> = {}) {
+  const old = {
+    bookingId: "old-1",
+    venueId: "v9",
+    courtId: "v9c1",
+    courtName: "Sân 1",
+    userId: "user-9",
+    dateKey: "2026-07-21",
+    start: "18:00",
+    durationMin: 60,
+    startAt: "2099-07-21T18:00:00+07:00",
+    status: "cancelled",
+    price: 200_000,
+    refund: {
+      pct: 50,
+      amount: 100_000,
+      at: "2026-07-20T10:00:00+07:00",
+      status: "settled",
+    } as Record<string, unknown>,
+    cancelRequest: { window: "late" },
+    markModified: () => {},
+    save: () => Promise.resolve(),
+    ...overrides,
+  }
+  return old
+}
+
+void test("a new paid booking on a late-cancelled slot lifts that refund to 100%", async () => {
+  const old = lateCancelled()
+  const { service, walletCredits } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "awaiting_payment",
+      paymentStatus: "awaiting",
+    }),
+    cancelledBookings: [old],
+  })
+
+  await service.confirmPayment("b1")
+
+  assert.deepEqual(
+    walletCredits.filter((c) => c.userId === "user-9"),
+    [{ userId: "user-9", amount: 100_000, txId: "refund-topup-old-1" }]
+  )
+  assert.equal(old.refund.pct, 100)
+  assert.equal(old.refund.amount, 200_000)
+  assert.equal(old.refund.upgradedBy, "b1")
+})
+
+void test("the upgrade also tops up room members, and leaves the host only the remainder", async () => {
+  const old = lateCancelled({
+    sessionId: "room-1",
+    price: 400_000,
+    refund: {
+      pct: 50,
+      amount: 200_000,
+      at: "2026-07-20T10:00:00+07:00",
+      status: "settled",
+    },
+  })
+  const { service, walletCredits } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "awaiting_payment",
+      paymentStatus: "awaiting",
+    }),
+    cancelledBookings: [old],
+    shares: [
+      makeShare({
+        shareId: "s1",
+        bookingId: "old-1",
+        status: "refunded",
+        bookingRefund: 50_000,
+      }),
+    ],
+  })
+
+  await service.confirmPayment("b1")
+
+  // Member: 100k share − 50k already refunded = 50k more. Host: 200k − 50k.
+  assert.deepEqual(
+    credits(walletCredits.filter((c) => c.userId !== "user-1")),
+    { m1: 50_000, "user-9": 150_000 }
+  )
+})
+
+void test("the upgrade ignores other courts' times, non-overlapping slots and early cancels' full refunds", async () => {
+  const apart = lateCancelled({
+    start: "20:00",
+    startAt: "2099-07-21T20:00:00+07:00",
+  })
+  const { service, walletCredits } = await makeService({
+    bookingDoc: makeBookingDoc({
+      status: "awaiting_payment",
+      paymentStatus: "awaiting",
+    }),
+    cancelledBookings: [apart],
+  })
+
+  await service.confirmPayment("b1")
+
+  assert.deepEqual(walletCredits, [])
+  assert.equal(apart.refund.pct, 50)
+})
+
+// ── Complaints about a refused early cancel ──────────────────────────────────
+
+function declinedEarly(overrides: Record<string, unknown> = {}) {
+  return makeBookingDoc({
+    startAt: startIn(30 * HOUR),
+    cancelRequest: {
+      requestedAt: "2026-07-20T10:00:00+07:00",
+      window: "early",
+      deadlineAt: "2026-07-20T22:00:00+07:00",
+      defaultPct: 100,
+      declinedAt: "2026-07-20T12:00:00+07:00",
+      declineReason: "Không có lý do",
+    },
+    ...overrides,
+  })
+}
+
+void test("a player can complain when a venue refuses an early cancel", async () => {
+  const { service, complaints, notifications } = await makeService({
+    bookingDoc: declinedEarly(),
+  })
+
+  await service.fileCancelComplaint("user-1", "b1", "Sân từ chối vô lý")
+
+  assert.equal(complaints.length, 1)
+  assert.equal(complaints[0]?.kind, "cancel_decline")
+  assert.equal(complaints[0]?.status, "open")
+  assert.equal(complaints[0]?.memberUserId, "user-1")
+  assert.equal(notifications.at(-1)?.userId, "owner-1")
+})
+
+void test("a cancel complaint needs an early, declined request — one open per booking, owner only", async () => {
+  const late = await makeService({
+    bookingDoc: declinedEarly({
+      cancelRequest: {
+        requestedAt: "x",
+        window: "late",
+        deadlineAt: "x",
+        defaultPct: 50,
+        declinedAt: "y",
+      },
+    }),
+  })
+  await assert.rejects(
+    () => late.service.fileCancelComplaint("user-1", "b1", "Lý do dài đủ"),
+    ConflictException
+  )
+
+  const open = await makeService({ bookingDoc: makeBookingDoc() })
+  await assert.rejects(
+    () => open.service.fileCancelComplaint("user-1", "b1", "Lý do dài đủ"),
+    ConflictException
+  )
+
+  const twice = await makeService({ bookingDoc: declinedEarly() })
+  await twice.service.fileCancelComplaint("user-1", "b1", "Lý do dài đủ")
+  await assert.rejects(
+    () => twice.service.fileCancelComplaint("user-1", "b1", "Lý do dài đủ"),
+    /đã gửi khiếu nại/
+  )
+
+  const stranger = await makeService({ bookingDoc: declinedEarly() })
+  await assert.rejects(
+    () => stranger.service.fileCancelComplaint("user-2", "b1", "Lý do dài đủ"),
+    ForbiddenException
+  )
+})
+
+void test("overturning a refused cancel refunds 100% and counts a venue violation", async () => {
+  const { service, bookingDoc, walletCredits, venueViolations, notifications } =
+    await makeService({ bookingDoc: declinedEarly({ price: 200_000 }) })
+
+  const violations = await service.refundDeclinedCancel("b1")
+
+  assert.equal(violations, 1)
+  assert.equal(venueViolations.count, 1)
+  assert.equal(bookingDoc.status, "cancelled")
+  assert.equal(bookingDoc.cancelRequest?.byAdmin, true)
+  assert.deepEqual(credits(walletCredits), { "user-1": 200_000 })
+  assert.match(
+    (notifications.at(-1)?.item as { text: string }).text,
+    /Cảnh cáo/
+  )
 })

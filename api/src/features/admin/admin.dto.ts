@@ -119,3 +119,10 @@ export class UpdateDiscountDto {
   @MaxLength(200)
   description?: string
 }
+
+/** `/api/admin/complaints/:id` path param. */
+export class ComplaintIdParamDto {
+  @IsString()
+  @IsNotEmpty()
+  id: string
+}

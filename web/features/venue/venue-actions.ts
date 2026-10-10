@@ -284,14 +284,6 @@ export async function answerCancelRequest(
   return { status: booking.status, cancelRequest: booking.cancelRequest }
 }
 
-/** Check in an arrival (→ checked-in). */
-export async function checkInReservation(
-  venueId: string,
-  reservationId: string
-): Promise<Reservation> {
-  return setReservationStatus(venueId, reservationId, "checked-in")
-}
-
 /**
  * Cancel a reservation (→ cancelled), e.g. from the schedule event popover.
  * The API requires a reason for any cancellation; it flows back to the

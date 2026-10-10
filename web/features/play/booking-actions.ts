@@ -126,3 +126,17 @@ export async function withdrawCancelRequest(
     { method: "DELETE" }
   )
 }
+
+/**
+ * Complain to the platform that the venue refused a cancel request made ≥ 24h
+ * before the start — `POST /api/bookings/:id/complaints`.
+ */
+export async function fileCancelComplaint(
+  bookingId: string,
+  reason: string
+): Promise<BookingActionResult<{ ok: true }>> {
+  return bookingsApi<{ ok: true }>(
+    `/api/bookings/${encodeURIComponent(bookingId)}/complaints`,
+    { method: "POST", body: { reason: reason.trim() } }
+  )
+}

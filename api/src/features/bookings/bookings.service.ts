@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnprocessableEntityException,
 } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { InjectConnection, InjectModel } from "@nestjs/mongoose"
@@ -14,10 +15,23 @@ import type { ClientSession, Connection, Model } from "mongoose"
 import { randomUUID } from "node:crypto"
 
 import {
+  RoomComplaint,
+  type RoomComplaintDocument,
+} from "../rooms/room-complaint.schema.js"
+import {
+  RoomShare,
+  type RoomShareDocument,
+} from "../rooms/room-share.schema.js"
+import { WalletService } from "../wallet/wallet.service.js"
+import {
   addMinutesToIso,
+  approvalDeadlineIso,
+  combineDateTime,
   hasOpenCancelRequest,
+  rangesOverlap,
   initialsOf,
   isoDateOf,
+  isoToHHMM,
   vnNowIso,
   canTransitionBooking,
   type BookingCancelRequest,
@@ -90,6 +104,9 @@ const HOLD_MIN = 20
  * see `confirmSlaMinutes` below, which reads the configurable value.
  */
 const DEFAULT_CONFIRM_SLA_MIN = 30
+
+/** Paid bookings a player may ask to cancel per calendar month (anti hold-abuse). */
+export const MAX_CANCELS_PER_MONTH = 3
 
 /** One sweep run's tally of guarded transitions actually applied — for logging/tests. */
 export interface SweepResult {
@@ -221,7 +238,13 @@ export class BookingsService {
     // to "no court booked" (`releaseRoomCourt`) and announce it live.
     @InjectModel(PlaySession.name)
     private readonly sessionModel: Model<PlaySessionDocument>,
-    @Inject(RoomEventsService) private readonly roomEvents: RoomEventsService
+    @Inject(RoomEventsService) private readonly roomEvents: RoomEventsService,
+    // Refunds land in the player's wallet (`refundToWallet`).
+    @Inject(WalletService) private readonly wallet: WalletService,
+    @InjectModel(RoomShare.name)
+    private readonly shareModel: Model<RoomShareDocument>,
+    @InjectModel(RoomComplaint.name)
+    private readonly complaintModel: Model<RoomComplaintDocument>
   ) {}
 
   /**
@@ -571,6 +594,7 @@ export class BookingsService {
       input.customerPhone,
       court.sport
     )
+    await this.upgradeLateRefunds(created)
 
     return reservationFromBooking(created, isoDateOf(vnNowIso()))
   }
@@ -658,7 +682,7 @@ export class BookingsService {
     // so `doc.status` itself still reads as `prevStatus` at that point too.
     extra?: (doc: BookingDocument, prevStatus: BookingRecordStatus) => void
   ): Promise<{ doc: BookingDocument; prevStatus: BookingRecordStatus | null }> {
-    return withVersionRetry(async () => {
+    const result = await withVersionRetry(async () => {
       const doc = await this.bookingModel.findOne({ bookingId, venueId })
       if (!doc) throw new NotFoundException("Reservation not found")
       if (doc.status === status) return { doc, prevStatus: null }
@@ -670,7 +694,6 @@ export class BookingsService {
       const prevStatus = doc.status
       extra?.(doc, prevStatus)
       doc.status = status
-      if (status === "checked-in") doc.checkedInAt = vnNowIso()
       doc.statusHistory = [
         ...(doc.statusHistory ?? []),
         { status, at: vnNowIso(), reason },
@@ -678,6 +701,348 @@ export class BookingsService {
       await doc.save()
       return { doc, prevStatus }
     })
+    // A cancel/decline just queued a refund — pay it into the wallet now.
+    if (result.prevStatus !== null) await this.refundToWallet(result.doc)
+    return result
+  }
+
+  /**
+   * Pay a freshly queued refund (`refund.status: "manual"`) into the player's
+   * wallet and mark it settled, so it drops off the operators' manual-refund
+   * worklist. Best-effort and idempotent: the credit is keyed
+   * `refund-<bookingId>`, and a failure just leaves the refund queued for an
+   * operator to settle by hand (the pre-wallet behaviour) — it never fails the
+   * cancel that triggered it. Walk-in/venue-made bookings (no `userId`) have
+   * no wallet, so they stay on the manual queue.
+   */
+  private async refundToWallet(doc: BookingDocument): Promise<void> {
+    const refund = doc.refund
+    if (!doc.userId || !refund || refund.status !== "manual") return
+    if (!(refund.amount > 0)) return
+    try {
+      // Room members who had already paid the host get their share back at the
+      // same refund % — out of this refund, never out of the host's wallet.
+      const toMembers = await this.refundRoomShares(doc, refund.pct)
+      const hostAmount = Math.max(0, refund.amount - toMembers)
+      if (hostAmount > 0) {
+        await this.wallet.credit(doc.userId, hostAmount, {
+          txId: `refund-${doc.bookingId}`,
+          kind: "refund",
+          note: `Hoàn ${refund.pct}% tiền đặt sân ${doc.courtName}`,
+          bookingId: doc.bookingId,
+        })
+      }
+      await this.bookingModel.updateOne(
+        { bookingId: doc.bookingId, "refund.status": "manual" },
+        { $set: { "refund.status": "settled", "refund.ref": "wallet" } }
+      )
+      doc.set("refund.status", "settled")
+      doc.set("refund.ref", "wallet")
+    } catch (err) {
+      this.logger.warn(
+        `Refund to wallet failed for booking ${doc.bookingId} — left on the manual queue: ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
+  }
+
+  /**
+   * Pay a cancelled booking's room members their share of the refund and return
+   * the VND that came out of the host's refund for it. A member the host was
+   * already paid by gets `pct`% of their share (the booking's own refund %); a
+   * share still held in escrow (a pending join request) goes back in full — the
+   * host never got it. Idempotent: ledger keys are per share, and shares paid
+   * on an earlier attempt still count toward the total via `bookingRefund`.
+   */
+  private async refundRoomShares(
+    doc: BookingDocument,
+    pct: number
+  ): Promise<number> {
+    if (!doc.sessionId) return 0
+    const done = await this.shareModel.find({
+      roomId: doc.sessionId,
+      bookingId: doc.bookingId,
+      bookingRefund: { $exists: true },
+    })
+    let fromHostRefund = done.reduce(
+      (sum, s) => sum + (s.bookingRefund ?? 0),
+      0
+    )
+    const live = await this.shareModel.find({
+      roomId: doc.sessionId,
+      bookingId: doc.bookingId,
+      status: { $in: ["held", "paid"] },
+    })
+    for (const share of live) {
+      const wasPaid = share.status === "paid"
+      const payout = wasPaid
+        ? Math.round((share.amount * pct) / 100)
+        : share.amount
+      if (payout > 0) {
+        await this.wallet.credit(share.memberUserId, payout, {
+          txId: `share-refund-${share.shareId}`,
+          kind: "refund",
+          note: wasPaid
+            ? `Hoàn ${pct}% phần tiền sân ${doc.courtName}`
+            : `Hoàn phần tiền sân ${doc.courtName}`,
+          bookingId: doc.bookingId,
+        })
+      }
+      share.status = "refunded"
+      if (wasPaid) {
+        share.bookingRefund = payout
+        fromHostRefund += payout
+      }
+      await share.save()
+    }
+    return fromHostRefund
+  }
+
+  /** Paid-booking cancel requests the player has made this calendar month. */
+  private async cancelsThisMonth(userId: string): Promise<number> {
+    const month = vnNowIso().slice(0, 7)
+    return this.bookingModel.countDocuments({
+      userId,
+      "cancelRequest.requestedAt": { $regex: `^${month}` },
+    })
+  }
+
+  /**
+   * A late-cancelled booking (refunded less than 100%) whose court time is then
+   * taken by someone else — a new paid booking or a walk-in — means the venue
+   * is being paid twice for it. Raise that cancel's refund to 100% and pay the
+   * difference: to the player, and to any room members for the rest of their
+   * shares. Best-effort and idempotent (ledger keys per booking/share).
+   */
+  private async upgradeLateRefunds(fresh: {
+    bookingId: string
+    venueId: string
+    courtId: string
+    dateKey: string
+    start: string
+    durationMin: number
+  }): Promise<void> {
+    try {
+      const now = vnNowIso()
+      const candidates = await this.bookingModel.find({
+        venueId: fresh.venueId,
+        courtId: fresh.courtId,
+        dateKey: fresh.dateKey,
+        status: "cancelled",
+        "cancelRequest.window": "late",
+        "refund.pct": { $lt: 100 },
+      })
+      for (const old of candidates) {
+        if (
+          old.bookingId === fresh.bookingId ||
+          !old.refund ||
+          old.startAt <= now ||
+          !rangesOverlap(
+            old.start,
+            old.durationMin,
+            fresh.start,
+            fresh.durationMin
+          )
+        ) {
+          continue
+        }
+        const shares = old.sessionId
+          ? await this.shareModel.find({
+              roomId: old.sessionId,
+              bookingId: old.bookingId,
+              bookingRefund: { $exists: true },
+            })
+          : []
+        let owedToMembers = 0
+        for (const share of shares) {
+          const extra = share.amount - (share.bookingRefund ?? 0)
+          if (extra <= 0) continue
+          owedToMembers += extra
+          await this.wallet.credit(share.memberUserId, extra, {
+            txId: `share-refund-topup-${share.shareId}`,
+            kind: "refund",
+            note: `Bù thêm tiền sân ${old.courtName} — khung giờ đã có người đặt`,
+            bookingId: old.bookingId,
+          })
+        }
+        const hostDiff = old.price - old.refund.amount - owedToMembers
+        if (old.userId && hostDiff > 0) {
+          await this.wallet.credit(old.userId, hostDiff, {
+            txId: `refund-topup-${old.bookingId}`,
+            kind: "refund",
+            note: `Bù thêm tiền sân ${old.courtName} — khung giờ đã có người đặt`,
+            bookingId: old.bookingId,
+          })
+        }
+        old.refund = {
+          ...old.refund,
+          pct: 100,
+          amount: old.price,
+          upgradedAt: now,
+          upgradedBy: fresh.bookingId,
+        }
+        old.markModified("refund")
+        await old.save()
+        for (const share of shares) {
+          share.bookingRefund = share.amount
+          await share.save()
+        }
+        if (old.userId) {
+          await this.notifications
+            .create(old.userId, {
+              id: `booking-refund-upgraded-${old.bookingId}`,
+              kind: "booking",
+              text: `Khung giờ ${bookingLabel(old)} đã có người đặt lại nên khoản hoàn của bạn được nâng lên 100%.`,
+              href: "/app/wallet",
+            })
+            .catch(() => undefined)
+        }
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Late-refund upgrade failed after booking ${fresh.bookingId}: ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
+  }
+
+  /**
+   * `POST /api/bookings/:id/complaints` — the player complains to the platform
+   * that the venue refused a cancel request made ≥ 24h before the start (the
+   * policy only lets it decline those for a good reason). One open complaint
+   * per booking; an admin decides it in the shared complaints queue.
+   */
+  async fileCancelComplaint(
+    userId: string,
+    bookingId: string,
+    reason: string
+  ): Promise<void> {
+    const booking = await this.bookingModel
+      .findOne({ bookingId })
+      .lean<BookingRecord>()
+    if (!booking) throw new NotFoundException("Booking not found")
+    if (booking.userId !== userId) {
+      throw new ForbiddenException("This booking belongs to another account")
+    }
+    const request = booking.cancelRequest
+    if (
+      !request?.declinedAt ||
+      request.window !== "early" ||
+      request.resolvedAt
+    ) {
+      throw new ConflictException(
+        "Chỉ khiếu nại được khi chủ sân từ chối yêu cầu huỷ gửi trước giờ chơi từ 24 giờ trở lên"
+      )
+    }
+    if (booking.status !== "pending" && booking.status !== "confirmed") {
+      throw new ConflictException("Lượt đặt này không còn hiệu lực")
+    }
+    const open = await this.complaintModel.exists({
+      bookingId,
+      kind: "cancel_decline",
+      status: "open",
+    })
+    if (open)
+      throw new ConflictException("Bạn đã gửi khiếu nại cho lượt đặt này")
+
+    const venue = await this.venueModel
+      .findOne({ venueId: booking.venueId })
+      .select("ownerId info")
+      .lean<{ ownerId?: string; info: { name: string } }>()
+    const complaintId = randomUUID()
+    await this.complaintModel.create({
+      complaintId,
+      kind: "cancel_decline",
+      roomId: "",
+      roomTitle: bookingLabel(booking),
+      shareId: "",
+      bookingId,
+      memberUserId: userId,
+      memberName: booking.customer.name,
+      hostUserId: venue?.ownerId ?? booking.venueId,
+      hostName: venue?.info.name ?? booking.venueId,
+      amount: booking.price,
+      reason: reason.trim(),
+      status: "open",
+      filedAt: vnNowIso(),
+    })
+    if (venue?.ownerId) {
+      await this.notifications
+        .create(venue.ownerId, {
+          id: `booking-cancel-complaint-${complaintId}`,
+          kind: "booking",
+          text: `${booking.customer.name} đã khiếu nại việc bạn từ chối huỷ lượt đặt ${bookingLabel(booking)}. Hệ thống sẽ xem xét.`,
+          href: `/app/venue/${booking.venueId}/schedule?tab=reservations`,
+        })
+        .catch(() => undefined)
+    }
+  }
+
+  /**
+   * An admin upholds a `cancel_decline` complaint: the venue's refusal stands
+   * overturned — the booking cancels with a 100% refund, and the venue is
+   * credited one more wrongful decline (the warning/sanction count). Returns
+   * that count.
+   */
+  async refundDeclinedCancel(bookingId: string): Promise<number> {
+    const booking = await this.bookingModel
+      .findOne({ bookingId })
+      .select("venueId")
+      .lean<{ venueId: string }>()
+    if (!booking) throw new NotFoundException("Booking not found")
+    const { doc } = await this.setStatus(
+      booking.venueId,
+      bookingId,
+      "cancelled",
+      undefined,
+      (d) => {
+        const request = d.cancelRequest
+        if (!request?.declinedAt || request.resolvedAt) {
+          throw new ConflictException(
+            "Lượt đặt này không còn yêu cầu huỷ nào bị từ chối"
+          )
+        }
+        d.cancelReason = request.reason ?? "Người chơi huỷ lượt đặt"
+        this.applyRefund(d, 100)
+        d.cancelRequest = {
+          ...request,
+          resolvedAt: vnNowIso(),
+          refundPct: 100,
+          byAdmin: true,
+        }
+        d.markModified("cancelRequest")
+      }
+    )
+    await this.releaseRoomCourt(doc)
+    if (doc.userId) {
+      await this.notifications
+        .create(doc.userId, {
+          id: `booking-cancel-overturned-${bookingId}`,
+          kind: "booking",
+          text: `Hệ thống đã chấp nhận khiếu nại của bạn: lượt đặt ${bookingLabel(doc)} được huỷ và hoàn 100%.`,
+          href: "/app/wallet",
+        })
+        .catch(() => undefined)
+    }
+    const venue = await this.venueModel.findOneAndUpdate(
+      { venueId: booking.venueId },
+      { $inc: { cancelViolations: 1 } },
+      { new: true }
+    )
+    const violations = venue?.cancelViolations ?? 1
+    const ownerId = venue?.ownerId
+    if (ownerId) {
+      await this.notifications
+        .create(ownerId, {
+          id: `venue-cancel-violation-${bookingId}`,
+          kind: "booking",
+          text:
+            violations >= 3
+              ? `Hệ thống ghi nhận lần thứ ${violations} sân từ chối huỷ sai quy định (lượt ${bookingLabel(doc)}). Sân có thể bị giảm thứ hạng hiển thị.`
+              : `Cảnh cáo: sân từ chối huỷ sai quy định lượt ${bookingLabel(doc)} (lần ${violations}). Khoản tiền đã được hoàn cho người chơi.`,
+          href: `/app/venue/${booking.venueId}/schedule?tab=reservations`,
+        })
+        .catch(() => undefined)
+    }
+    return violations
   }
 
   /**
@@ -856,10 +1221,15 @@ export class BookingsService {
       if (doc.status === "awaiting_payment") {
         doc.status = "pending"
         doc.paymentStatus = "paid"
-        doc.confirmDeadlineAt = addMinutesToIso(
-          vnNowIso(),
-          this.confirmSlaMinutes()
-        )
+        const venue = await this.venueModel.findOne({ venueId: doc.venueId })
+        doc.confirmDeadlineAt = venue
+          ? approvalDeadlineIso(
+              vnNowIso(),
+              venue.info.openFrom,
+              venue.info.openTo,
+              this.confirmSlaMinutes()
+            )
+          : addMinutesToIso(vnNowIso(), this.confirmSlaMinutes())
         doc.statusHistory = [
           ...(doc.statusHistory ?? []),
           { status: "pending", at: vnNowIso() },
@@ -896,10 +1266,15 @@ export class BookingsService {
     })
 
     if (lateRefund) {
+      if (doc) await this.refundToWallet(doc)
+      const where =
+        doc?.refund?.ref === "wallet"
+          ? "đã được hoàn vào ví"
+          : "sẽ được hoàn lại"
       const text =
         lateRefund.status === "cancelled"
-          ? "Thanh toán đã nhận nhưng lượt đặt sân đã bị hủy — khoản tiền sẽ được hoàn lại (mô phỏng)."
-          : "Thanh toán đã nhận nhưng lượt giữ chỗ đã hết hạn — khoản tiền sẽ được hoàn lại (mô phỏng)."
+          ? `Thanh toán đã nhận nhưng lượt đặt sân đã bị hủy — khoản tiền ${where}.`
+          : `Thanh toán đã nhận nhưng lượt giữ chỗ đã hết hạn — khoản tiền ${where}.`
       await this.notifications
         .create(lateRefund.userId, {
           id: `booking-late-refund-${bookingId}`,
@@ -914,6 +1289,7 @@ export class BookingsService {
         })
     }
 
+    if (doc?.status === "pending") await this.upgradeLateRefunds(doc)
     return doc
   }
 
@@ -925,7 +1301,7 @@ export class BookingsService {
    * this every minute): an unpaid hold past `holdExpiresAt` expires; a
    * `pending` (paid) booking whose venue hasn't decided within the confirm
    * SLA silently auto-confirms (decision #5, "silence = consent"), notifying
-   * the player; a checked-in booking past its `endAt` completes. No-show
+   * the player; a confirmed booking past its `endAt` completes. No-show
    * stays a manual venue action — an empty court isn't a fact the clock alone
    * can establish.
    *
@@ -993,7 +1369,12 @@ export class BookingsService {
     }
 
     const completing = await this.bookingModel
-      .find({ status: "checked-in", endAt: { $lte: now } })
+      // Confirmed bookings complete on their own at the end time; "checked-in"
+      // is only left over from before venue check-in was removed.
+      .find({
+        status: { $in: ["confirmed", "checked-in"] },
+        endAt: { $lte: now },
+      })
       .select("bookingId venueId")
       .lean<{ bookingId: string; venueId: string }[]>()
     for (const b of completing) {
@@ -1091,6 +1472,22 @@ export class BookingsService {
       input.start,
       input.durationMin
     )
+
+    // The venue's approval clock only runs while it's open, and silence means
+    // approval — so a slot the venue couldn't answer before it starts (e.g. a
+    // 06:00 slot paid at 03:00) is refused up front instead of auto-confirming
+    // after play time.
+    const answerBy = approvalDeadlineIso(
+      vnNowIso(),
+      venueDoc.info.openFrom,
+      venueDoc.info.openTo,
+      this.confirmSlaMinutes()
+    )
+    if (answerBy > combineDateTime(input.dateKey, input.start)) {
+      throw new UnprocessableEntityException(
+        `Chủ sân chưa kịp xác nhận trước giờ chơi (sân mở cửa lúc ${venueDoc.info.openFrom}, sẽ phản hồi trước ${isoToHHMM(answerBy)}). Vui lòng chọn khung giờ muộn hơn hoặc đặt trong giờ mở cửa của sân.`
+      )
+    }
 
     // Self-overlap hard block. Best-effort (outside the per-court transaction
     // below, which only serializes one court+day — a user racing two holds on
@@ -1211,6 +1608,11 @@ export class BookingsService {
     if (hasOpenCancelRequest(booking)) {
       throw new ConflictException(
         "Bạn đã gửi yêu cầu huỷ — đang chờ chủ sân duyệt"
+      )
+    }
+    if ((await this.cancelsThisMonth(userId)) >= MAX_CANCELS_PER_MONTH) {
+      throw new ConflictException(
+        `Bạn đã dùng hết ${MAX_CANCELS_PER_MONTH} lượt huỷ đặt sân trong tháng này — vui lòng thử lại vào tháng sau`
       )
     }
     const request = buildCancelRequest(vnNowIso(), booking.startAt, reason)
@@ -1469,16 +1871,9 @@ export class BookingsService {
     return bookingSummaryFrom(doc)
   }
 
-  /** Check a confirmed booking's customer in (`POST /api/bookings/:id/check-in`). */
-  async checkIn(callerId: string, bookingId: string): Promise<BookingSummary> {
-    const venueId = await this.assertOwnsBookingVenue(callerId, bookingId)
-    const { doc } = await this.setStatus(venueId, bookingId, "checked-in")
-    return bookingSummaryFrom(doc)
-  }
-
   /**
    * Mark a confirmed booking a no-show (`POST /api/bookings/:id/no-show`) —
-   * rejected unless the customer never checked in *and* at least 30 minutes
+   * rejected unless at least 30 minutes
    * have passed since the booking's start time (gives a late arrival a grace
    * window before the venue can free the slot to walk-ins).
    */
@@ -1493,7 +1888,7 @@ export class BookingsService {
       if (doc.status === "no-show") return doc
       if (doc.status !== "confirmed" || doc.checkedInAt) {
         throw new ConflictException(
-          "Chỉ có thể đánh dấu vắng mặt cho lượt đặt đã duyệt và chưa check-in"
+          "Chỉ có thể đánh dấu vắng mặt cho lượt đặt đã duyệt"
         )
       }
       const now = vnNowIso()

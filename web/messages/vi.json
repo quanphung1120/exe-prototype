@@ -132,7 +132,11 @@
     "admin": "Quản trị",
     "account": "Tài khoản",
     "logout": "Đăng xuất",
-    "group": "Chơi"
+    "group": "Chơi",
+    "wallet": {
+      "label": "Ví",
+      "caption": "Nạp tiền và xem giao dịch"
+    }
   },
   "Sidebar": {
     "workspaces": "Không gian làm việc",
@@ -430,10 +434,18 @@
       "payNow": "Trả {amount}",
       "processing": "Đang chuyển đến trang thanh toán…",
       "redirectNotice": "Quý khách sẽ được chuyển đến trang thanh toán của SePay (VietQR hoặc thẻ) để hoàn tất giao dịch.",
-      "refundPolicy": "Nếu lượt đặt bị huỷ hoặc bị từ chối, khoản hoàn tiền (nếu có) sẽ được chuyển khoản thủ công trong vòng 24–48 giờ làm việc — chúng tôi không hoàn tiền tức thì.",
+      "approvalReply": "Nếu thanh toán ngay bây giờ, chủ sân sẽ phản hồi trước {time} {day, select, today {hôm nay} other {ngày mai}}.",
+      "approvalNote": "Sau khi thanh toán, chủ sân có 30 phút (tính trong giờ mở cửa của sân) để xác nhận. Nếu Quý khách thanh toán khi sân đã đóng cửa, thời gian này sẽ bắt đầu tính từ lúc sân mở cửa trở lại — ví dụ thanh toán lúc 03:00 thì sân phản hồi trước 06:30. Lượt đặt sát giờ chơi mà chủ sân không kịp xác nhận sẽ không được nhận.",
+      "refundPolicy": "Nếu lượt đặt bị huỷ hoặc bị từ chối, khoản hoàn tiền (nếu có) sẽ được cộng vào ví của Quý khách ngay lập tức. Lượt đặt không gắn với tài khoản sẽ được hoàn bằng chuyển khoản thủ công trong vòng 24–48 giờ làm việc.",
       "checkoutFailed": "Không thể mở trang thanh toán — vui lòng thử lại.",
       "paymentExpired": "Thời gian giữ sân đã hết. Vui lòng đặt lại khung giờ này.",
-      "secure": "Thanh toán được bảo mật bởi SePay."
+      "secure": "Thanh toán được bảo mật bởi SePay.",
+      "payWallet": "Trả bằng ví ({amount})",
+      "walletBalance": "Số dư ví: {balance}",
+      "walletShort": "Số dư chưa đủ — cần thêm {missing}.",
+      "walletTopUp": "Nạp thêm",
+      "walletOr": "hoặc",
+      "walletFailed": "Không thể thanh toán bằng ví — vui lòng thử lại."
     },
     "roomTitle": "{sport} tại {court}",
     "toast": {
@@ -520,7 +532,8 @@
       "approveFailed": "Không thể duyệt yêu cầu tham gia",
       "declineFailed": "Không thể từ chối yêu cầu tham gia",
       "leaveFailed": "Không thể rời phòng",
-      "disbandFailed": "Không thể huỷ phòng"
+      "disbandFailed": "Không thể huỷ phòng",
+      "leaveRequested": "Đã gửi yêu cầu rời phòng — chờ chủ phòng duyệt"
     }
   },
   "Shared": {
@@ -1519,8 +1532,6 @@
     "emptyInsight": "Chưa có điều chỉnh giá nào đang chờ — đề xuất mới xuất hiện trong Phân tích khi nhu cầu thay đổi.",
     "upcomingArrivals": "Khách sắp đến",
     "seeAll": "Xem tất cả",
-    "checkIn": "Nhận sân",
-    "checkedIn": "Đã nhận sân",
     "emptyArrivals": "Hôm nay không còn khách đến dự kiến.",
     "revenueWeek": "Doanh thu tuần này",
     "today": "Hôm nay",
@@ -2248,6 +2259,14 @@
     "reviews": {
       "label": "Đánh giá ứng dụng",
       "caption": "Kiểm duyệt đánh giá hiển thị trên trang giới thiệu"
+    },
+    "complaints": {
+      "label": "Khiếu nại",
+      "caption": "Khiếu nại về việc rời phòng và hoàn tiền sân"
+    },
+    "withdrawals": {
+      "label": "Rút tiền",
+      "caption": "Yêu cầu rút tiền ví chờ chuyển khoản"
     }
   },
   "AdminOverview": {
@@ -2581,5 +2600,152 @@
     "alt": "{name} — ảnh {n}",
     "previous": "Ảnh trước",
     "next": "Ảnh tiếp theo"
+  },
+  "Wallet": {
+    "metaTitle": "Ví",
+    "metaDescription": "Nạp tiền, xem số dư và lịch sử giao dịch",
+    "title": "Ví của tôi",
+    "subtitle": "Nạp tiền để thanh toán đặt sân nhanh hơn. Tiền hoàn từ các lượt huỷ cũng được cộng vào đây.",
+    "balance": "Số dư hiện tại",
+    "topUpTitle": "Nạp tiền",
+    "customAmount": "Hoặc nhập số tiền khác",
+    "customPlaceholder": "Ví dụ: 300.000",
+    "limits": "Tối thiểu {min}, tối đa {max} mỗi lần nạp.",
+    "topUpButton": "Nạp {amount}",
+    "redirecting": "Đang chuyển đến SePay…",
+    "note": "Quý khách sẽ được chuyển đến trang thanh toán của SePay (VietQR hoặc thẻ). Số dư được cộng ngay khi giao dịch thành công.",
+    "topUpFailed": "Không thể tạo lệnh nạp tiền — vui lòng thử lại.",
+    "history": "Lịch sử giao dịch",
+    "empty": "Chưa có giao dịch nào.",
+    "return": {
+      "checking": "Đang xác nhận giao dịch nạp tiền với SePay…",
+      "paid": "Nạp tiền thành công. Số dư đã được cập nhật.",
+      "failed": "Giao dịch nạp tiền không thành công. Quý khách chưa bị trừ tiền.",
+      "cancelled": "Quý khách đã huỷ giao dịch nạp tiền.",
+      "timeout": "Chưa nhận được xác nhận từ SePay. Nếu đã chuyển tiền, số dư sẽ được cập nhật trong ít phút — vui lòng tải lại trang."
+    },
+    "withdraw": {
+      "title": "Rút tiền về tài khoản",
+      "note": "Số tiền rút được trừ khỏi ví ngay. Hệ thống sẽ chuyển khoản thủ công cho Quý khách; nếu không chuyển được, tiền được hoàn lại vào ví.",
+      "amount": "Số tiền rút",
+      "amountPlaceholder": "VD: 200.000",
+      "available": "Số dư khả dụng: {balance}",
+      "bank": "Ngân hàng",
+      "bankPlaceholder": "VD: Vietcombank",
+      "accountNumber": "Số tài khoản",
+      "accountHolder": "Chủ tài khoản",
+      "holderPlaceholder": "Tên in trên thẻ",
+      "submit": "Gửi yêu cầu rút tiền",
+      "sent": "Đã gửi yêu cầu rút tiền. Chúng tôi sẽ chuyển khoản sớm nhất có thể.",
+      "ref": "Mã chuyển khoản: {ref}",
+      "status": {
+        "pending": "Chờ chuyển khoản",
+        "completed": "Đã chuyển",
+        "rejected": "Bị từ chối — đã hoàn ví"
+      }
+    }
+  },
+  "RoomShare": {
+    "joinTitle": "Phòng này đã đặt sân",
+    "joinBody": "Chủ phòng đã thanh toán tiền sân. Khi tham gia, Quý khách đóng phần của mình: giá sân chia đều cho {capacity} người chơi tối đa.",
+    "yourShare": "Phần của bạn",
+    "walletBalance": "Số dư ví",
+    "short": "Số dư chưa đủ — cần thêm {missing}.",
+    "refundNote": "Số tiền được giữ cùng yêu cầu tham gia. Nếu chủ phòng từ chối, tiền được hoàn lại vào ví ngay; nếu duyệt, tiền chuyển cho chủ phòng.",
+    "cancel": "Để sau",
+    "topUp": "Nạp ví",
+    "confirmJoin": "Đóng {amount} & gửi yêu cầu",
+    "dueTitle": "Đến lượt bạn đóng tiền sân",
+    "dueBody": "{host} đã đặt sân cho phòng “{room}”. Phần của bạn: {amount}.",
+    "payShare": "Đóng {amount}",
+    "paidToast": "Đã đóng {amount} cho chủ phòng.",
+    "perSeat": "Tiền sân mỗi người",
+    "status": {
+      "paid": "Đã đóng",
+      "held": "Chờ chủ phòng duyệt",
+      "due": "Chưa đóng"
+    },
+    "leaveNeedsApproval": "Bạn đã đóng tiền sân: muốn rời phòng cần chủ phòng đồng ý, khi đó phần tiền mới được hoàn vào ví. Nếu không rời, khoản này không được hoàn.",
+    "leavePendingHost": "{name} xin rời phòng và đề nghị hoàn tiền.",
+    "leavePendingMine": "Bạn đã gửi yêu cầu rời phòng — đang chờ chủ phòng duyệt.",
+    "leavePendingOther": "Đang chờ chủ phòng duyệt yêu cầu rời phòng.",
+    "approveLeave": "Đồng ý hoàn {amount}",
+    "declineLeave": "Từ chối",
+    "leaveApproved": "Đã đồng ý — tiền được hoàn vào ví thành viên.",
+    "leaveDeclined": "Đã từ chối yêu cầu rời phòng.",
+    "leaveRejected": "Chủ phòng đã từ chối cho {name} rời phòng.",
+    "leaveRejectedMine": "Chủ phòng không đồng ý cho bạn rời phòng nên khoản đã đóng chưa được hoàn. Bạn có thể gửi lại yêu cầu rời phòng, hoặc khiếu nại lên hệ thống nếu thấy chưa hợp lý.",
+    "complain": "Khiếu nại lên hệ thống",
+    "complaintTitle": "Gửi khiếu nại",
+    "complaintBody": "Hệ thống sẽ xem xét việc hoàn {amount} tiền sân cho bạn. Hãy nêu rõ lý do — với yêu cầu đang chờ, chỉ gửi được sau 24 giờ.",
+    "complaintPlaceholder": "Mô tả lý do (ít nhất 10 ký tự)",
+    "sendComplaint": "Gửi khiếu nại",
+    "complaintSent": "Đã gửi khiếu nại. Chúng tôi sẽ phản hồi qua thông báo.",
+    "complaintStatus": {
+      "open": "Khiếu nại đang được hệ thống xem xét.",
+      "refunded": "Khiếu nại được chấp nhận — đã hoàn tiền.",
+      "dismissed": "Khiếu nại không được chấp nhận."
+    }
+  },
+  "AdminComplaints": {
+    "metaTitle": "Khiếu nại",
+    "metaDescription": "Khiếu nại của thành viên về việc rời phòng đã đóng tiền sân",
+    "title": "Khiếu nại",
+    "subtitle": "Thành viên đã đóng tiền sân nhưng chủ phòng không cho rời phòng (hoặc không phản hồi). Chấp nhận để hoàn tiền vào ví thành viên.",
+    "empty": "Chưa có khiếu nại nào.",
+    "open": "Đang chờ",
+    "refunded": "Đã hoàn tiền",
+    "dismissed": "Đã bác bỏ",
+    "platformFunded": "Hệ thống chi trả (ví chủ phòng không đủ)",
+    "from": "{member} → chủ phòng {host}",
+    "room": "Phòng “{room}”",
+    "refund": "Hoàn tiền",
+    "dismiss": "Bác bỏ",
+    "noteLabel": "Ghi chú gửi cho thành viên (không bắt buộc)",
+    "notePlaceholder": "VD: đã xác minh với chủ phòng",
+    "refundTitle": "Hoàn tiền cho thành viên?",
+    "refundDescription": "Phần tiền sân sẽ được trừ từ ví chủ phòng và hoàn vào ví thành viên; thành viên rời phòng. Nếu ví chủ phòng không đủ, hệ thống sẽ chi trả.",
+    "dismissTitle": "Bác bỏ khiếu nại?",
+    "dismissDescription": "Thành viên vẫn ở trong phòng và không được hoàn tiền.",
+    "back": "Quay lại",
+    "confirm": "Xác nhận",
+    "kind": {
+      "room_leave": "Xin rời phòng",
+      "cancel_decline": "Sân từ chối huỷ"
+    },
+    "violations": "Sân đã vi phạm {count} lần (từ chối huỷ sai quy định)"
+  },
+  "CancelComplaint": {
+    "button": "Khiếu nại lên hệ thống",
+    "title": "Khiếu nại việc từ chối huỷ",
+    "body": "Yêu cầu huỷ của bạn được gửi trước giờ chơi từ 24 giờ nhưng chủ sân đã từ chối. Nếu cho rằng chưa có lý do chính đáng, hệ thống sẽ xem xét và có thể hoàn 100%.",
+    "placeholder": "Mô tả lý do (ít nhất 10 ký tự)",
+    "cancel": "Để sau",
+    "send": "Gửi khiếu nại",
+    "sent": "Đã gửi khiếu nại. Chúng tôi sẽ phản hồi qua thông báo.",
+    "sentNote": "Khiếu nại của bạn đang được hệ thống xem xét."
+  },
+  "AdminWithdrawals": {
+    "metaTitle": "Rút tiền",
+    "metaDescription": "Yêu cầu rút tiền từ ví của người chơi",
+    "title": "Rút tiền",
+    "subtitle": "Chuyển khoản thủ công theo thông tin người chơi cung cấp, rồi ghi lại mã giao dịch. Nếu không chuyển được, từ chối để hoàn tiền vào ví.",
+    "empty": "Chưa có yêu cầu rút tiền nào.",
+    "pending": "Chờ chuyển",
+    "completed": "Đã chuyển",
+    "rejected": "Đã từ chối",
+    "ref": "Mã chuyển khoản: {ref}",
+    "complete": "Đã chuyển khoản",
+    "reject": "Từ chối",
+    "completeTitle": "Xác nhận đã chuyển khoản?",
+    "completeDescription": "Ghi lại mã giao dịch ngân hàng sau khi đã chuyển tiền cho người chơi.",
+    "refLabel": "Mã giao dịch chuyển khoản",
+    "refPlaceholder": "VD: mã giao dịch ngân hàng",
+    "rejectTitle": "Từ chối yêu cầu rút tiền?",
+    "rejectDescription": "Số tiền sẽ được hoàn lại vào ví người chơi và họ nhận được lý do bên dưới.",
+    "noteLabel": "Lý do từ chối",
+    "notePlaceholder": "VD: sai số tài khoản",
+    "back": "Quay lại",
+    "confirm": "Xác nhận"
   }
 }

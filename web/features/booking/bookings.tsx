@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { CancelComplaintButton } from "@/features/booking/cancel-complaint"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -980,6 +981,12 @@ function CalendarEvent({
                   ? t("cancelAutoNote", { pct: request.refundPct ?? 0 })
                   : t("cancelApprovedNote", { pct: request.refundPct ?? 0 })}
               </p>
+            ) : null}
+
+            {requestDeclined && request?.window === "early" ? (
+              <CancelComplaintButton
+                bookingId={booking.reservationId ?? booking.id}
+              />
             ) : null}
 
             {cancelled && booking.declineReason ? (

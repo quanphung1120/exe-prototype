@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
+import { UserThrottle } from "../../common/user-throttler.guard.js"
+import { RoomComplaintBodyDto } from "../rooms/rooms.dto.js"
 import {
   BookingDecisionDto,
   BookingIdParamDto,
@@ -82,10 +84,16 @@ export class BookingsController {
     return this.bookings.decide(userId, param.id, body.decision, body.reason)
   }
 
-  /** Venue check-in for a confirmed booking. */
-  @Post(":id/check-in")
-  async checkIn(@UserId() userId: string, @Param() param: BookingIdParamDto) {
-    return this.bookings.checkIn(userId, param.id)
+  /** The player complains about a venue refusing an early cancel request. */
+  @UserThrottle({ limit: 5, ttl: 60_000 })
+  @Post(":id/complaints")
+  async complain(
+    @UserId() userId: string,
+    @Param() param: BookingIdParamDto,
+    @Body() body: RoomComplaintBodyDto
+  ) {
+    await this.bookings.fileCancelComplaint(userId, param.id, body.reason)
+    return { ok: true }
   }
 
   /** Venue no-show, gated to ≥30 minutes past the booking's start time. */

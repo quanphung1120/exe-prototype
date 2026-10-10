@@ -58,7 +58,6 @@ const COURT_STATES = [
 const RESERVATION_STATUSES = [
   "pending",
   "confirmed",
-  "checked-in",
   "completed",
   "cancelled",
   "no-show",

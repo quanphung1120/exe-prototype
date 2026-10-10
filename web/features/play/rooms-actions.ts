@@ -1,6 +1,6 @@
 "use server"
 
-import type { PlaySession } from "@/lib/shared"
+import type { LeaveRoomResult, PlaySession } from "@/lib/shared"
 
 import { apiFetch } from "@/lib/api"
 
@@ -83,11 +83,18 @@ export async function disbandRoom(
   })
 }
 
-/** A confirmed (non-host) member leaves someone else's room on their own. */
+/**
+ * A confirmed (non-host) member leaves someone else's room. Free unless they've
+ * paid toward the court: then it only files a request (`status: "requested"`)
+ * the host must approve, and they stay in the room meanwhile.
+ */
 export async function leaveRoomMembership(
   roomId: string
-): Promise<RoomActionResult<void>> {
-  return roomsApi<void>(`/api/rooms/${encodeURIComponent(roomId)}/members/me`, {
-    method: "DELETE",
-  })
+): Promise<RoomActionResult<LeaveRoomResult>> {
+  return roomsApi<LeaveRoomResult>(
+    `/api/rooms/${encodeURIComponent(roomId)}/members/me`,
+    {
+      method: "DELETE",
+    }
+  )
 }
