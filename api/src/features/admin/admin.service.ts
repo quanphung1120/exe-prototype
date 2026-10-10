@@ -15,6 +15,7 @@ import type { AdminDiscountRow } from "../discounts/discounts.service.js"
 import { DiscountsService } from "../discounts/discounts.service.js"
 import { ProfileService } from "../players/profile.service.js"
 import { RoomsService } from "../rooms/rooms.service.js"
+import { ClerkDirectoryService } from "../stream/clerk-directory.service.js"
 import { WithdrawalsService } from "../wallet/withdrawals.service.js"
 import { SessionsService } from "../sessions/sessions.service.js"
 import { VenuesService } from "../venues/venues.service.js"
@@ -86,7 +87,9 @@ export class AdminService {
     @Inject(DiscountsService) private readonly discounts: DiscountsService,
     @Inject(RoomsService) private readonly rooms: RoomsService,
     @Inject(WithdrawalsService)
-    private readonly withdrawals: WithdrawalsService
+    private readonly withdrawals: WithdrawalsService,
+    @Inject(ClerkDirectoryService)
+    private readonly directory: ClerkDirectoryService
   ) {}
 
   async overview(): Promise<AdminOverview> {
@@ -108,7 +111,7 @@ export class AdminService {
       this.bookings.venueTotals(),
       this.sessions.countActive(),
       this.bookings.listRefundQueueAll(),
-      this.profiles.countUsers(),
+      this.directory.countActiveUsers(),
     ])
 
     const pending = allVenues.filter((v) => v.approval === "pending").length

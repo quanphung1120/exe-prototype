@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import { useLocale, useTranslations } from "next-intl"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -8,7 +9,7 @@ import {
   AdminPagination,
   useAdminPagination,
 } from "@/features/admin/pagination"
-import { formatVnd, locStr } from "@/lib/shared"
+import { locStr } from "@/lib/shared"
 import { VenuePanel, VenueEmpty, ReasonDialog } from "@/features/venue/shared"
 import { useReasonConfirm } from "@/features/admin/use-reason-confirm"
 import { settleRefund } from "@/features/admin/admin-actions"
@@ -62,7 +63,7 @@ export function AdminRefundsView({ refunds }: { refunds: AdminRefundRow[] }) {
                   <div className="flex items-center gap-4">
                     <div className="text-right">
                       <p className="font-mono text-sm font-semibold tabular-nums">
-                        {formatVnd(item.refund.amount)}
+                        {formatVndText(item.refund.amount)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {t("pct", { pct: item.refund.pct })}

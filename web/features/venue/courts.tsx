@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import * as React from "react"
 import { toast } from "sonner"
 import { useTranslations } from "next-intl"
@@ -40,7 +41,6 @@ import {
 } from "@/components/ui/table"
 import {
   courtStateAccent,
-  formatVnd,
   type CourtState,
   type SportKey,
   type VenueCourt,
@@ -242,7 +242,7 @@ export function VenueCourtsView({
                       {court.surface || "—"}
                     </TableCell>
                     <TableCell className="px-4 py-3 text-right align-middle font-heading text-sm font-semibold text-foreground tabular-nums">
-                      {formatVnd(court.pricePerHour)}
+                      {formatVndText(court.pricePerHour)}
                     </TableCell>
                     <TableCell className="px-4 py-3 align-middle">
                       <span

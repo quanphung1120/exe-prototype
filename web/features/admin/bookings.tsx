@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import { useTranslations } from "next-intl"
 
 import { Badge } from "@/components/ui/badge"
@@ -16,7 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatVnd } from "@/lib/shared"
 import { VenueEmpty, ReasonDialog } from "@/features/venue/shared"
 import { useReasonConfirm } from "@/features/admin/use-reason-confirm"
 import { forceCancelBooking } from "@/features/admin/admin-actions"
@@ -101,7 +101,7 @@ export function AdminBookingsView({
                     {b.dateKey} · {b.start}
                   </TableCell>
                   <TableCell className="text-right font-mono tabular-nums">
-                    {formatVnd(b.price)}
+                    {formatVndText(b.price)}
                   </TableCell>
                   <TableCell>
                     <Badge variant={STATUS_VARIANT[b.status] ?? "outline"}>

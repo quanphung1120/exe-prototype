@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import * as React from "react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -34,7 +35,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatVnd } from "@/lib/shared"
 import { VenueEmpty } from "@/features/venue/shared"
 import {
   createDiscount,
@@ -171,16 +171,18 @@ export function AdminDiscountsView({
                         {row.maxDiscount !== undefined ? (
                           <span className="ml-1 text-xs text-muted-foreground">
                             ({t("dialog.maxDiscount")}:{" "}
-                            {formatVnd(row.maxDiscount)})
+                            {formatVndText(row.maxDiscount)})
                           </span>
                         ) : null}
                       </span>
                     ) : (
-                      formatVnd(row.value)
+                      formatVndText(row.value)
                     )}
                   </TableCell>
                   <TableCell>
-                    {row.minOrder !== undefined ? formatVnd(row.minOrder) : "—"}
+                    {row.minOrder !== undefined
+                      ? formatVndText(row.minOrder)
+                      : "—"}
                   </TableCell>
                   <TableCell className="text-sm whitespace-nowrap">
                     {formatValidity(row)}

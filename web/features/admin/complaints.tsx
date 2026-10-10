@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import { useTranslations } from "next-intl"
 
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +9,7 @@ import {
   AdminPagination,
   useAdminPagination,
 } from "@/features/admin/pagination"
-import { formatVnd, type RoomComplaintRow } from "@/lib/shared"
+import { type RoomComplaintRow } from "@/lib/shared"
 import { VenuePanel, VenueEmpty, ReasonDialog } from "@/features/venue/shared"
 import { useReasonConfirm } from "@/features/admin/use-reason-confirm"
 import { resolveComplaint } from "@/features/admin/admin-actions"
@@ -73,7 +74,7 @@ export function AdminComplaintsView({
                     </div>
                     <div className="flex items-center gap-3">
                       <p className="font-mono text-sm font-semibold tabular-nums">
-                        {formatVnd(item.amount)}
+                        {formatVndText(item.amount)}
                       </p>
                       <Badge variant={STATUS_VARIANT[item.status]}>
                         {t(item.status)}

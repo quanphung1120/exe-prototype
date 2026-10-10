@@ -1,5 +1,6 @@
 "use client"
 
+import { formatVndText } from "@/lib/money"
 import * as React from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
@@ -45,7 +46,6 @@ import {
 } from "@/components/ui/table"
 import {
   customerTierAccent,
-  formatVnd,
   locStr,
   type CustomerTier,
   type VenueCustomer,
@@ -252,7 +252,7 @@ export function VenueCustomersView({
         header: ({ column }) => headerCellRight(t("col.ltv"), column),
         cell: ({ row }) => (
           <div className="text-right font-heading text-sm font-semibold text-brand tabular-nums">
-            {formatVnd(row.original.ltv)}
+            {formatVndText(row.original.ltv)}
           </div>
         ),
       },
