@@ -258,7 +258,6 @@ export function VenueDataProvider({
     // A venue with a real operator gets an honest schedule — no fabricated
     // filler bookings, only real reservations (overlaid below) and genuine
     // court state (e.g. a maintenance block, which the helper still returns).
-    const isOwned = Boolean(venue.ownerId)
 
     /** Real `CourtBlock` records for a court/day, projected to `ScheduleEvent`s. */
     const blockDayEvents = (courtId: string, dayKey: string): ScheduleEvent[] =>
@@ -286,8 +285,7 @@ export function VenueDataProvider({
         courts,
         courtId,
         dayKey,
-        todayIso,
-        !isOwned
+        todayIso
       )
       const reservationOverlays = reservations
         .filter((reservation) => {

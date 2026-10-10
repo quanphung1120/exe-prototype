@@ -868,28 +868,9 @@ export function riskTier(risk: number): "low" | "medium" | "high" {
 
 // ── Venue: schedule generators ───────────────────────────────────────────────
 
-const SCHED_NAMES = [
-  "Trần Huy",
-  "Lê Lan",
-  "Phạm Quân",
-  "Đỗ Anh",
-  "Vũ Hà",
-  "Bùi Khang",
-  "Ngô Sơn",
-  "Đặng Thu",
-  "Hồ Nam",
-  "Lý Mai",
-]
-
 const minutesOf = (hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number)
   return (h || 0) * 60 + (m || 0)
-}
-const toHHMM = (min: number) => {
-  const x = ((min % 1440) + 1440) % 1440
-  return `${String(Math.floor(x / 60)).padStart(2, "0")}:${String(
-    x % 60
-  ).padStart(2, "0")}`
 }
 const eventsOverlap = (aS: number, aD: number, bS: number, bD: number) =>
   aS < bS + bD && bS < aS + aD
@@ -900,24 +881,16 @@ export const courtById = (courts: VenueCourt[], id: string) =>
   courts.find((c) => c.id === id)
 
 /**
- * Deterministic calendar events for a court on a day: variable-length blocks
- * with gaps and off-the-hour starts, denser toward the evening peak. A
- * maintenance court is a single all-day block. Same court + day → same schedule
- * (no Date/random), so server and client renders agree.
- *
- * `fillerEnabled` (default true) gates only the fabricated busy blocks below —
- * a real court's `maintenance` status still renders (it's genuine operator
- * data, not filler). Venues with a real operator (`info.ownerId`) pass `false`
- * so the schedule shows an honest empty grid instead of invented bookings; the
- * caller still overlays real reservations on top regardless.
+ * Calendar events a court contributes to a day on its own: only a maintenance
+ * court's single all-day block. Bookings, walk-ins and blocks are overlaid from
+ * the venue's real data by the caller — nothing is fabricated here.
  */
 export function courtDayEvents(
   venue: Venue,
   courts: VenueCourt[],
   courtId: string,
   dayKey: string,
-  todayIso: string,
-  fillerEnabled = true
+  todayIso: string
 ): ScheduleEvent[] {
   const court = courtById(courts, courtId)
   const sport: SportKey = court?.sport ?? "badminton"
@@ -940,42 +913,7 @@ export function courtDayEvents(
     ]
   }
 
-  if (!fillerEnabled) return []
-
-  const events: ScheduleEvent[] = []
-  let cursor = open
-  let guard = 0
-  while (cursor < close - 30 && guard < 48) {
-    guard++
-    const h = hashStr(`${courtId}:${dayKey}:${cursor}:${guard}`)
-    const evening = cursor >= minutesOf("17:00")
-    // Leading gap (free time) — rarer in the evening peak.
-    if (h % 100 < (evening ? 22 : 52)) {
-      cursor += 30 + (h % 3) * 30 // 30 / 60 / 90 min gap
-      continue
-    }
-    const pool = evening ? [60, 75, 90, 90, 120] : [45, 60, 60, 90]
-    // Unsigned shift: hashStr is a uint32, so a signed >> can go negative for
-    // h ≥ 2³¹ → negative index → undefined dur → NaN block height (and a NaN
-    // cursor that silently truncates the rest of the day).
-    let dur = pool[(h >>> 3) % pool.length]
-    if (cursor + dur > close) dur = close - cursor
-    if (dur < 30) break
-    const walkIn = h % 13 === 0
-    events.push({
-      id: `${courtId}-${cursor}`,
-      courtId,
-      start: toHHMM(cursor),
-      durationMin: dur,
-      kind: walkIn ? "walk-in" : "booked",
-      customer: SCHED_NAMES[(h >>> 5) % SCHED_NAMES.length],
-      sport,
-      party: 2 + (h % 3),
-      past: isToday && cursor + dur <= now,
-    })
-    cursor += dur + (h % 4 === 0 ? 15 : 0) // occasional turnover buffer
-  }
-  return events
+  return []
 }
 
 /** Calendar events for every court, in `courts` order. */
@@ -1035,25 +973,6 @@ export function venueScheduleFor(
 }
 
 // ── Venue: derived analytics ─────────────────────────────────────────────────
-
-/**
- * 7 days × {@link HEATMAP_HOURS} utilization intensities, 0–100, seeded per
- * venue so each venue's heatmap differs (it used to be a single module-level
- * constant, so every venue — including brand-new empty ones — showed the
- * flagship's pattern). Callers should show a zeroed grid for venues with no
- * activity rather than a fabricated one.
- */
-export function utilizationHeatmap(seed: string): number[][] {
-  return HEATMAP_DAYS.map((_, d) =>
-    HEATMAP_HOURS.map((h, i) => {
-      const peak = i >= 4 // 16:00+
-      const weekend = d >= 5
-      const base = peak ? 70 : 30
-      const v = base + (weekend ? 18 : 0) + (hashStr(`${seed}:${d}:${h}`) % 26)
-      return Math.min(100, v)
-    })
-  )
-}
 
 // ── Unified court catalog (venue courts → discovery courts) ───────────────────
 
@@ -1330,8 +1249,7 @@ export function computePeakHours(
  * Real 7-day × {@link HEATMAP_HOURS} utilization grid (oldest → today; pair
  * with {@link heatmapRowLabels} for row labels) — share of the venue's courts
  * with a live reservation overlapping each 2-hour column, from the venue's
- * own reservations. Counterpart to the seeded, hash-based
- * {@link utilizationHeatmap} used for demo venues.
+ * own reservations.
  */
 export function computeUtilizationHeatmap(
   courts: VenueCourt[],
