@@ -98,13 +98,14 @@ export class OwnerRemovalService {
     const venueIds = venues.map((v) => v.venueId)
     const brandIds = brands.map((b) => b.brandId)
 
-    const clerkUser = await this.clerk.users.getUser(ownerId).catch(() => null)
-    if (!clerkUser) {
-      throw new NotFoundException(
-        "Không tìm thấy tài khoản chủ sân trong Clerk"
-      )
-    }
-    if ((clerkUser.publicMetadata as { role?: string })?.role === "admin") {
+    // An owner whose Clerk account is already gone (a leftover from a deleted
+    // user) is still removable — only their data is left to clean up. Any
+    // other Clerk failure (outage, bad key) must not read as "gone".
+    const clerkUser = await this.clerk.users.getUser(ownerId).catch((err) => {
+      if ((err as { status?: number })?.status === 404) return null
+      throw err
+    })
+    if ((clerkUser?.publicMetadata as { role?: string })?.role === "admin") {
       throw new BadRequestException("Không thể xoá tài khoản quản trị viên")
     }
 
@@ -199,7 +200,7 @@ export class OwnerRemovalService {
         .catch((err: unknown) =>
           this.logger.warn(`Stream user ${ownerId} not deleted: ${String(err)}`)
         )
-      await this.clerk.users.deleteUser(ownerId)
+      if (clerkUser) await this.clerk.users.deleteUser(ownerId)
     }
 
     this.logger.log(
