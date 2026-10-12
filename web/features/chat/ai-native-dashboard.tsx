@@ -244,7 +244,8 @@ export function AiNativeDashboardView() {
     [getToken]
   )
   // AI SDK v6 — sendMessage replaces handleSubmit/append
-  const { messages, sendMessage, status, setMessages } = useChat({ transport })
+  const { messages, sendMessage, status, setMessages, error, regenerate } =
+    useChat({ transport })
   const isLoading = status === "streaming" || status === "submitted"
 
   React.useEffect(() => {
@@ -658,6 +659,25 @@ export function AiNativeDashboardView() {
               onJoinRoom={joinRoom}
             />
           ))}
+
+          {/* A failed request used to leave the chat silent — say so and
+              let the player retry the same message. */}
+          {error && !isLoading ? (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+            >
+              <span className="min-w-0 flex-1">{t("errorMessage")}</span>
+              <button
+                type="button"
+                onClick={() => void regenerate()}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border-2 border-lime px-3 text-xs font-bold text-brand transition-colors hover:bg-lime/30"
+              >
+                <RotateCcw className="size-3.5" />
+                {t("retry")}
+              </button>
+            </div>
+          ) : null}
 
           {/* Pulse while waiting for first token */}
           {isLoading && messages[messages.length - 1]?.role === "user" ? (
