@@ -11,10 +11,7 @@ import { Input } from "@/components/ui/input"
 import { useRouter } from "@/i18n/navigation"
 import { formatVndFull } from "@/features/dashboard/data"
 import { createWithdrawal } from "@/features/wallet/wallet-actions"
-import {
-  type WithdrawalRow,
-  type WithdrawalStatus,
-} from "@/lib/shared"
+import { type WithdrawalRow, type WithdrawalStatus } from "@/lib/shared"
 
 const STATUS_STYLE: Record<WithdrawalStatus, string> = {
   pending: "text-amber-600",
@@ -73,12 +70,10 @@ export function WithdrawSection({
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-3xl border bg-card p-5">
+    <section className="flex flex-col gap-4 rounded-3xl border border-[#eaf0fc] bg-white p-5 shadow-[0_3px_16px_#14205006]">
       <div className="flex flex-col gap-1">
         <h2 className="text-base font-semibold">{t("withdraw.title")}</h2>
-        <p className="text-xs text-muted-foreground">
-          {t("withdraw.note")}
-        </p>
+        <p className="text-xs text-muted-foreground">{t("withdraw.note")}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm">

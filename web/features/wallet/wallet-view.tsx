@@ -142,111 +142,120 @@ export function WalletView({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-      </header>
-
-      {returned ? <ReturnBanner state={returned} t={t} /> : null}
-
-      <section className="flex items-center gap-4 rounded-3xl bg-[#2046ed] p-6 text-white">
-        <div className="grid size-12 shrink-0 place-items-center rounded-full bg-white/15">
-          <Wallet className="size-6" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm text-white/80">{t("balance")}</p>
-          <p className="text-3xl font-semibold tabular-nums">
-            {formatVndFull(wallet.balance)}
+    // Same frame as Bookings / Play: the player header only, no sidebar.
+    <div className="player-bookings min-h-full bg-[#f6f9ff] text-[#0b1224]">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-5 sm:px-6">
+        <header className="flex flex-col gap-1">
+          <h1 className="font-heading text-2xl font-black tracking-tight sm:text-3xl">
+            {t("title")}
+          </h1>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {t("subtitle")}
           </p>
-        </div>
-      </section>
+        </header>
 
-      <section className="flex flex-col gap-4 rounded-3xl border bg-card p-5">
-        <h2 className="text-base font-semibold">{t("topUpTitle")}</h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {TOPUP_PRESETS.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              onClick={() => pickPreset(preset)}
-              aria-pressed={!custom && amount === preset}
+        {returned ? <ReturnBanner state={returned} t={t} /> : null}
+
+        <section className="flex items-center gap-4 rounded-3xl bg-[#2046ed] p-6 text-white">
+          <div className="grid size-12 shrink-0 place-items-center rounded-full bg-white/15">
+            <Wallet className="size-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm text-white/80">{t("balance")}</p>
+            <p className="text-3xl font-semibold tabular-nums">
+              {formatVndFull(wallet.balance)}
+            </p>
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-4 rounded-3xl border border-[#eaf0fc] bg-white p-5 shadow-[0_3px_16px_#14205006]">
+          <h2 className="text-base font-semibold">{t("topUpTitle")}</h2>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {TOPUP_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => pickPreset(preset)}
+                aria-pressed={!custom && amount === preset}
+                className={cn(
+                  "rounded-2xl border px-3 py-3 text-sm font-medium tabular-nums transition-colors",
+                  !custom && amount === preset
+                    ? "border-[#2046ed] bg-[#2046ed]/10 text-[#2046ed]"
+                    : "hover:bg-muted"
+                )}
+              >
+                {formatVndFull(preset)}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="topup-custom"
+              className="text-sm text-muted-foreground"
+            >
+              {t("customAmount")}
+            </label>
+            <Input
+              id="topup-custom"
+              inputMode="numeric"
+              placeholder={t("customPlaceholder")}
+              value={custom ? Number(custom).toLocaleString("vi-VN") : ""}
+              onChange={(e) => onCustom(e.target.value)}
+            />
+            <p
               className={cn(
-                "rounded-2xl border px-3 py-3 text-sm font-medium tabular-nums transition-colors",
-                !custom && amount === preset
-                  ? "border-[#2046ed] bg-[#2046ed]/10 text-[#2046ed]"
-                  : "hover:bg-muted"
+                "text-xs",
+                amount > 0 && !valid
+                  ? "text-destructive"
+                  : "text-muted-foreground"
               )}
             >
-              {formatVndFull(preset)}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label
-            htmlFor="topup-custom"
-            className="text-sm text-muted-foreground"
+              {t("limits", {
+                min: formatVndFull(TOPUP_MIN),
+                max: formatVndFull(TOPUP_MAX),
+              })}
+            </p>
+          </div>
+          <Button
+            size="lg"
+            disabled={!valid || submitting}
+            onClick={submit}
+            className="w-full sm:w-auto sm:self-start"
           >
-            {t("customAmount")}
-          </label>
-          <Input
-            id="topup-custom"
-            inputMode="numeric"
-            placeholder={t("customPlaceholder")}
-            value={custom ? Number(custom).toLocaleString("vi-VN") : ""}
-            onChange={(e) => onCustom(e.target.value)}
-          />
-          <p
-            className={cn(
-              "text-xs",
-              amount > 0 && !valid
-                ? "text-destructive"
-                : "text-muted-foreground"
+            {submitting ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                {t("redirecting")}
+              </>
+            ) : (
+              <>
+                <Plus className="size-4" />
+                {t("topUpButton", {
+                  amount: formatVndFull(valid ? amount : 0),
+                })}
+              </>
             )}
-          >
-            {t("limits", {
-              min: formatVndFull(TOPUP_MIN),
-              max: formatVndFull(TOPUP_MAX),
-            })}
-          </p>
-        </div>
-        <Button
-          size="lg"
-          disabled={!valid || submitting}
-          onClick={submit}
-          className="w-full sm:w-auto sm:self-start"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              {t("redirecting")}
-            </>
+          </Button>
+          <p className="text-xs text-muted-foreground">{t("note")}</p>
+        </section>
+
+        <WithdrawSection balance={wallet.balance} withdrawals={withdrawals} />
+
+        <section className="flex flex-col gap-3">
+          <h2 className="text-base font-semibold">{t("history")}</h2>
+          {wallet.transactions.length === 0 ? (
+            <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+              {t("empty")}
+            </p>
           ) : (
-            <>
-              <Plus className="size-4" />
-              {t("topUpButton", { amount: formatVndFull(valid ? amount : 0) })}
-            </>
+            <ul className="flex flex-col divide-y rounded-3xl border border-[#eaf0fc] bg-white shadow-[0_3px_16px_#14205006]">
+              {wallet.transactions.map((tx) => (
+                <TransactionRow key={tx.id} tx={tx} />
+              ))}
+            </ul>
           )}
-        </Button>
-        <p className="text-xs text-muted-foreground">{t("note")}</p>
-      </section>
-
-      <WithdrawSection balance={wallet.balance} withdrawals={withdrawals} />
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-semibold">{t("history")}</h2>
-        {wallet.transactions.length === 0 ? (
-          <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-            {t("empty")}
-          </p>
-        ) : (
-          <ul className="flex flex-col divide-y rounded-3xl border bg-card">
-            {wallet.transactions.map((tx) => (
-              <TransactionRow key={tx.id} tx={tx} />
-            ))}
-          </ul>
-        )}
-      </section>
+        </section>
+      </div>
     </div>
   )
 }
