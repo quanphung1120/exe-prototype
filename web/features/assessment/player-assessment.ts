@@ -19,6 +19,32 @@ export interface AssessmentQuestion {
   id: string
   text: string
   answers: AssessmentAnswer[]
+  /**
+   * "Which ... (những ...)" questions take several answers. The stored value is
+   * the chosen keys joined by "," (e.g. "B,C"); a single-choice answer is just
+   * its key, so previously saved assessments stay valid.
+   */
+  multiple?: boolean
+}
+
+/** Questions phrased "những …" ask for every option that applies. */
+const isMultipleChoice = (text: string) => /(^|\s)những(\s|$)/i.test(text)
+
+/** The answer keys inside a stored answer ("B,C" → ["B", "C"]). */
+export const answerKeys = (value: string | undefined): string[] =>
+  value ? value.split(",").filter(Boolean) : []
+
+function question(
+  id: string,
+  text: string,
+  items: readonly string[]
+): AssessmentQuestion {
+  return {
+    id,
+    text,
+    answers: answerSet(items),
+    multiple: isMultipleChoice(text),
+  }
 }
 
 export interface AssessmentRange {
@@ -101,31 +127,23 @@ export const ASSESSMENTS: AssessmentDefinition[] = [
     description:
       "Mỗi câu trả lời được chấm từ 1-6 điểm theo đáp án A-F trong Bộ câu hỏi.",
     questions: [
-      {
-        id: "q1",
-        text: "Bạn đã chơi cầu lông bao lâu?",
-        answers: answerSet(badmintonAnswers.q1),
-      },
-      {
-        id: "q2",
-        text: "Mức độ kiểm soát đường cầu của bạn?",
-        answers: answerSet(badmintonAnswers.q2),
-      },
-      {
-        id: "q3",
-        text: "Bạn thực hiện được những kỹ thuật nào?",
-        answers: answerSet(badmintonAnswers.q3),
-      },
-      {
-        id: "q4",
-        text: "Bạn xây dựng chiến thuật khi thi đấu như thế nào?",
-        answers: answerSet(badmintonAnswers.q4),
-      },
-      {
-        id: "q5",
-        text: "Bạn tham gia thi đấu ở mức nào?",
-        answers: answerSet(badmintonAnswers.q5),
-      },
+      question("q1", "Bạn đã chơi cầu lông bao lâu?", badmintonAnswers.q1),
+      question(
+        "q2",
+        "Mức độ kiểm soát đường cầu của bạn?",
+        badmintonAnswers.q2
+      ),
+      question(
+        "q3",
+        "Bạn thực hiện được những kỹ thuật nào?",
+        badmintonAnswers.q3
+      ),
+      question(
+        "q4",
+        "Bạn xây dựng chiến thuật khi thi đấu như thế nào?",
+        badmintonAnswers.q4
+      ),
+      question("q5", "Bạn tham gia thi đấu ở mức nào?", badmintonAnswers.q5),
     ],
     ranges: [
       { min: 5, max: 10, label: "Yếu", bucket: "beginner" },
@@ -142,11 +160,14 @@ export function calculateAssessmentResult(
   definition: AssessmentDefinition,
   answers: Record<string, string>
 ): SportAssessmentResult {
+  // A multi-answer question counts its best selected answer: a player who
+  // can do an advanced technique plainly can do the simpler ones too.
   const score = definition.questions.reduce((total, question) => {
-    const selected = question.answers.find(
-      (answer) => answer.key === answers[question.id]
-    )
-    return total + (selected?.score ?? 0)
+    const keys = answerKeys(answers[question.id])
+    const best = question.answers
+      .filter((answer) => keys.includes(answer.key))
+      .reduce((max, answer) => Math.max(max, answer.score), 0)
+    return total + best
   }, 0)
   const range =
     definition.ranges.find((r) => score >= r.min && score <= r.max) ??
@@ -183,13 +204,16 @@ export function isCompleteAssessment(
     if (typeof result.levelLabel !== "string") return false
     if (!["beginner", "intermediate", "advanced"].includes(result.bucket))
       return false
-    return definition.questions.every(
-      (question) =>
-        typeof result.answers?.[question.id] === "string" &&
-        question.answers.some(
-          (answer) => answer.key === result.answers[question.id]
-        )
-    )
+    return definition.questions.every((question) => {
+      const value = result.answers?.[question.id]
+      if (typeof value !== "string") return false
+      const keys = answerKeys(value)
+      return (
+        keys.length > 0 &&
+        (question.multiple || keys.length === 1) &&
+        keys.every((key) => question.answers.some((a) => a.key === key))
+      )
+    })
   })
 }
 

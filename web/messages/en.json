@@ -2186,6 +2186,7 @@
       "complete": "Complete assessment",
       "redo": "Redo assessment"
     },
+    "multipleHint": "Select every answer that applies — your score uses the highest one you pick.",
     "validation": {
       "missingAnswer": "Please choose an answer for this question.",
       "incompleteAlert": "Please answer all questions before continuing."
