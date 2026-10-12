@@ -44,7 +44,8 @@ export interface Player {
   initials: string
   level: Level
   sport: SportKey
-  distanceKm: number
+  /** Km from the viewer, or null when the player's position isn't known. */
+  distanceKm: number | null
   /** AI compatibility score, 0–100. */
   matchPct: number
   /** Reliability/reputation score, 0–100. */
