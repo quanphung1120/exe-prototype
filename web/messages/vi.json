@@ -2013,6 +2013,8 @@
       "newMatches": "Có trận mới phù hợp trình độ của bạn",
       "newMatchesTime": "5 giờ trước"
     },
+    "errorMessage": "Trợ lý chưa trả lời được lần này. Bạn thử gửi lại nhé.",
+    "retry": "Thử lại",
     "thinking": "Đang suy nghĩ…",
     "reasoning": "Lập luận",
     "searchingCourts": "Đang tìm kiếm sân…",

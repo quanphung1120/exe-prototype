@@ -2013,6 +2013,8 @@
       "newMatches": "New matches available near your level",
       "newMatchesTime": "5h ago"
     },
+    "errorMessage": "The assistant couldn't reply this time. Please try again.",
+    "retry": "Retry",
     "thinking": "Thinking…",
     "reasoning": "Reasoning",
     "searchingCourts": "Searching courts…",

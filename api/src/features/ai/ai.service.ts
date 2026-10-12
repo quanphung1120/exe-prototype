@@ -3,7 +3,7 @@ import {
   distanceKmBetween,
   compareDistance,
 } from "../../shared/location.js"
-import { Inject, Injectable } from "@nestjs/common"
+import { Inject, Injectable, Logger } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import {
   streamText,
@@ -25,6 +25,25 @@ import { findMatchedPlayers } from "./player-matching.js"
 type SportLevels = Partial<Record<SportKey, Level>>
 type LatLng = { lat: number; lng: number }
 type CourtSort = "rating" | "price" | "distance" | "team"
+
+/**
+ * Drop the model's earlier reasoning from the history we send back. The UI
+ * keeps it for display, but replaying another turn's reasoning to the provider
+ * is what makes a follow-up message fail on some OpenRouter models (the chat
+ * then just goes silent). A message left with no parts is dropped too.
+ */
+export function stripReasoningParts(messages: UIMessage[]): UIMessage[] {
+  return messages
+    .map((message) =>
+      message.role === "assistant"
+        ? {
+            ...message,
+            parts: message.parts.filter((part) => part.type !== "reasoning"),
+          }
+        : message
+    )
+    .filter((message) => message.parts.length > 0)
+}
 
 export function normalizeUserLocation(
   location: LatLng | null | undefined
@@ -193,6 +212,8 @@ Be friendly and concise. Keep every text response to 1–2 short sentences.`
 // Clerk Bearer token.
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name)
+
   constructor(
     // Explicit `@Inject()` tokens — see SeedService/PaymentsService for why
     // (the tsx/esbuild runner doesn't emit design:paramtypes metadata).
@@ -224,7 +245,10 @@ export class AiService {
     let seedPromise: ReturnType<SeedService["buildSeed"]> | null = null
     const getSeed = () => (seedPromise ??= this.seed.buildSeed(userId))
 
-    const messages = await convertToModelMessages(args.messages)
+    const messages = await convertToModelMessages(
+      stripReasoningParts(args.messages),
+      { ignoreIncompleteToolCalls: true }
+    )
 
     const result = streamText({
       // `reasoning: { effort: "low" }` is passed through to the OpenRouter API
@@ -555,6 +579,14 @@ export class AiService {
     // `result`'s type is only ever inferred locally (never named in a public
     // signature), so there's no TS4053 (the internal `Output` type from "ai"
     // isn't exported) and no cast is needed here.
-    result.pipeUIMessageStreamToResponse(res, { sendReasoning: true })
+    result.pipeUIMessageStreamToResponse(res, {
+      sendReasoning: true,
+      // A failed model call used to vanish silently; log it for us and hand the
+      // client a readable message instead of the SDK's masked default.
+      onError: (error) => {
+        this.logger.error(`AI chat stream failed: ${String(error)}`)
+        return "AI_UNAVAILABLE"
+      },
+    })
   }
 }
