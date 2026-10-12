@@ -12,7 +12,7 @@ import {
   hasToolCall,
   convertToModelMessages,
 } from "ai"
-import type { UIMessage } from "ai"
+import type { ModelMessage, UIMessage } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { z } from "zod"
 import type { Response } from "express"
@@ -52,6 +52,44 @@ export function stripReasoningParts(messages: UIMessage[]): UIMessage[] {
         : message
     )
     .filter((message) => message.parts.length > 0)
+}
+
+/**
+ * Remove tool calls whose name came back empty (some streamed model replies
+ * leave one in the history) together with their results. The provider rejects
+ * the whole request with "tool_calls[0].function.name must be a non-empty
+ * string", which is what silenced the follow-up message.
+ */
+export function dropEmptyToolCalls(messages: ModelMessage[]): ModelMessage[] {
+  const broken = new Set<string>()
+  for (const message of messages) {
+    if (message.role !== "assistant" || typeof message.content === "string")
+      continue
+    for (const part of message.content) {
+      if (part.type === "tool-call" && !part.toolName?.trim()) {
+        broken.add(part.toolCallId)
+      }
+    }
+  }
+  if (!broken.size) return messages
+
+  const out: ModelMessage[] = []
+  for (const message of messages) {
+    if (message.role === "assistant" && typeof message.content !== "string") {
+      const content = message.content.filter(
+        (part) => !(part.type === "tool-call" && broken.has(part.toolCallId))
+      )
+      if (content.length) out.push({ ...message, content })
+    } else if (message.role === "tool") {
+      const content = message.content.filter(
+        (part) => !(part.type === "tool-result" && broken.has(part.toolCallId))
+      )
+      if (content.length) out.push({ ...message, content })
+    } else {
+      out.push(message)
+    }
+  }
+  return out
 }
 
 /** A short, safe-to-show reason for a failed model call. */
@@ -265,9 +303,10 @@ export class AiService {
     let seedPromise: ReturnType<SeedService["buildSeed"]> | null = null
     const getSeed = () => (seedPromise ??= this.seed.buildSeed(userId))
 
-    const messages = await convertToModelMessages(
-      stripReasoningParts(args.messages),
-      { ignoreIncompleteToolCalls: true }
+    const messages = dropEmptyToolCalls(
+      await convertToModelMessages(stripReasoningParts(args.messages), {
+        ignoreIncompleteToolCalls: true,
+      })
     )
 
     const result = streamText({
