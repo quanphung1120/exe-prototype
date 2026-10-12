@@ -49,7 +49,7 @@ export class SeedService {
     ] = await Promise.all([
       this.courts.listCourts(),
       this.venues.catalogVenues(),
-      this.players.listPlayers(),
+      this.players.listRealPlayers(userId),
       userId
         ? this.profiles.getProfile(userId)
         : Promise.resolve(this.profiles.defaultProfile()),

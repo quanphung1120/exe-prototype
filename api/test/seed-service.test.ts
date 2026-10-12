@@ -102,7 +102,7 @@ function makeService(deps: Deps = {}) {
     },
   }
   const courtsMock = { listCourts: () => Promise.resolve([]) }
-  const playersMock = { listPlayers: () => Promise.resolve([]) }
+  const playersMock = { listRealPlayers: () => Promise.resolve([]) }
   const profilesMock = {
     getProfile: () => Promise.resolve(makeProfile()),
     defaultProfile: () => makeProfile(),

@@ -227,7 +227,7 @@ export function findMatchedPlayers(
           score += 20
           reasons.push("near your area")
         }
-      } else if (profile.distanceKm <= 3) {
+      } else if (profile.distanceKm !== null && profile.distanceKm <= 3) {
         score += 20
         reasons.push("near you")
       }
