@@ -2186,6 +2186,7 @@
       "complete": "Hoàn thành đánh giá",
       "redo": "Làm lại đánh giá"
     },
+    "multipleHint": "Chọn tất cả đáp án phù hợp — điểm tính theo đáp án cao nhất bạn chọn.",
     "validation": {
       "missingAnswer": "Vui lòng chọn một đáp án cho câu này.",
       "incompleteAlert": "Hãy trả lời đầy đủ trước khi tiếp tục."

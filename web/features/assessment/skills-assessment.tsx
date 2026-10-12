@@ -11,6 +11,7 @@ import { useRouter } from "@/i18n/navigation"
 import { cn } from "@/lib/utils"
 import {
   ASSESSMENTS,
+  answerKeys,
   calculateAssessmentResult,
   getRangeIndex,
   readStoredAssessment,
@@ -86,6 +87,24 @@ export function SkillsAssessmentView({
         [questionId]: answerKey,
       },
     }))
+  }
+
+  /** Multi-answer question: add/remove one key; an empty set is "unanswered". */
+  const toggleAnswer = (
+    definition: AssessmentDefinition,
+    questionId: string,
+    answerKey: string
+  ) => {
+    setSubmitted(false)
+    setAnswers((prev) => {
+      const forSport = { ...(prev[definition.sport] ?? {}) }
+      const keys = new Set(answerKeys(forSport[questionId]))
+      if (keys.has(answerKey)) keys.delete(answerKey)
+      else keys.add(answerKey)
+      if (keys.size) forSport[questionId] = [...keys].sort().join(",")
+      else delete forSport[questionId]
+      return { ...prev, [definition.sport]: forSport }
+    })
   }
 
   const finish = () => {
@@ -177,6 +196,7 @@ export function SkillsAssessmentView({
                     answers={currentAnswers}
                     submitted={submitted}
                     onAnswer={setAnswer}
+                    onToggle={toggleAnswer}
                   />
                 ) : null}
               </main>
@@ -203,11 +223,17 @@ function QuestionsStep({
   answers,
   submitted,
   onAnswer,
+  onToggle,
 }: {
   definition: AssessmentDefinition
   answers: Record<string, string>
   submitted: boolean
   onAnswer: (
+    definition: AssessmentDefinition,
+    questionId: string,
+    answerKey: string
+  ) => void
+  onToggle: (
     definition: AssessmentDefinition,
     questionId: string,
     answerKey: string
@@ -248,9 +274,16 @@ function QuestionsStep({
                 {t(`${definition.sport}.questions.${question.id}.text`)}
               </span>
             </legend>
+            {question.multiple ? (
+              <p className="mt-1 px-1 text-xs text-muted-foreground">
+                {t("multipleHint")}
+              </p>
+            ) : null}
             <div className="mt-3 grid gap-2">
               {question.answers.map((answer) => {
-                const selected = answers[question.id] === answer.key
+                const selected = answerKeys(answers[question.id]).includes(
+                  answer.key
+                )
                 return (
                   <label
                     key={answer.key}
@@ -262,18 +295,21 @@ function QuestionsStep({
                     )}
                   >
                     <input
-                      type="radio"
+                      type={question.multiple ? "checkbox" : "radio"}
                       name={`${definition.sport}-${question.id}`}
                       value={answer.key}
                       className="sr-only"
                       checked={selected}
                       onChange={() =>
-                        onAnswer(definition, question.id, answer.key)
+                        question.multiple
+                          ? onToggle(definition, question.id, answer.key)
+                          : onAnswer(definition, question.id, answer.key)
                       }
                     />
                     <span
                       className={cn(
-                        "grid size-6 shrink-0 place-items-center rounded-full border text-xs font-bold transition-colors",
+                        "grid size-6 shrink-0 place-items-center border text-xs font-bold transition-colors",
+                        question.multiple ? "rounded-md" : "rounded-full",
                         selected
                           ? "border-brand bg-brand text-white"
                           : "border-border bg-card text-muted-foreground"
