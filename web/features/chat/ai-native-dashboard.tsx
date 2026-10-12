@@ -667,7 +667,14 @@ export function AiNativeDashboardView() {
               role="alert"
               className="flex flex-wrap items-center gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
             >
-              <span className="min-w-0 flex-1">{t("errorMessage")}</span>
+              <span className="min-w-0 flex-1">
+                {t("errorMessage")}
+                {error.message ? (
+                  <span className="mt-1 block text-xs break-words opacity-70">
+                    {error.message}
+                  </span>
+                ) : null}
+              </span>
               <button
                 type="button"
                 onClick={() => void regenerate()}
