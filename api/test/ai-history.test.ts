@@ -37,3 +37,22 @@ void test("stripReasoningParts drops an assistant turn that was only reasoning",
     ["u1"]
   )
 })
+
+void test("stripReasoningParts drops provider metadata carried over from earlier replies", () => {
+  const messages = [
+    {
+      id: "a1",
+      role: "assistant",
+      parts: [
+        {
+          type: "text",
+          text: "Hello",
+          providerMetadata: { openrouter: { reasoning_details: [{}] } },
+        },
+      ],
+    },
+  ] as UIMessage[]
+  assert.deepEqual(stripReasoningParts(messages)[0].parts, [
+    { type: "text", text: "Hello" },
+  ])
+})

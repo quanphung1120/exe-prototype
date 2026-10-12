@@ -30,7 +30,9 @@ type CourtSort = "rating" | "price" | "distance" | "team"
  * Drop the model's earlier reasoning from the history we send back. The UI
  * keeps it for display, but replaying another turn's reasoning to the provider
  * is what makes a follow-up message fail on some OpenRouter models (the chat
- * then just goes silent). A message left with no parts is dropped too.
+ * then just goes silent). The provider metadata a previous response attached
+ * to its parts (OpenRouter's `reasoning_details` etc.) is dropped for the same
+ * reason. A message left with no parts is dropped too.
  */
 export function stripReasoningParts(messages: UIMessage[]): UIMessage[] {
   return messages
@@ -38,11 +40,29 @@ export function stripReasoningParts(messages: UIMessage[]): UIMessage[] {
       message.role === "assistant"
         ? {
             ...message,
-            parts: message.parts.filter((part) => part.type !== "reasoning"),
+            parts: message.parts
+              .filter((part) => part.type !== "reasoning")
+              .map((part) => {
+                const copy: Record<string, unknown> = { ...part }
+                delete copy.providerMetadata
+                delete copy.callProviderMetadata
+                return copy as typeof part
+              }),
           }
         : message
     )
     .filter((message) => message.parts.length > 0)
+}
+
+/** A short, safe-to-show reason for a failed model call. */
+export function describeAiError(error: unknown): string {
+  const text =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : ""
+  return (text || "AI_UNAVAILABLE").replace(/\s+/g, " ").slice(0, 200)
 }
 
 export function normalizeUserLocation(
@@ -585,7 +605,7 @@ export class AiService {
       // client a readable message instead of the SDK's masked default.
       onError: (error) => {
         this.logger.error(`AI chat stream failed: ${String(error)}`)
-        return "AI_UNAVAILABLE"
+        return describeAiError(error)
       },
     })
   }
