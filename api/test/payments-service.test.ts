@@ -162,6 +162,8 @@ function makeBookingLean(overrides: Record<string, unknown> = {}) {
     status: "awaiting_payment",
     price: 200_000,
     courtName: "Sân 1",
+    dateKey: "2026-10-12",
+    start: "18:30",
     ...overrides,
   }
 }
