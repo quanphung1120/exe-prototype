@@ -1,3 +1,4 @@
+import { bookingDescription } from "./descriptions.js"
 import {
   BadRequestException,
   ConflictException,
@@ -158,13 +159,15 @@ export class PaymentsService {
   ): Promise<CheckoutResult> {
     const booking = await this.bookingModel
       .findOne({ bookingId })
-      .select("venueId userId status price courtName")
+      .select("venueId userId status price courtName dateKey start")
       .lean<{
         venueId: string
         userId?: string
         status: string
         price: number
         courtName: string
+        dateKey: string
+        start: string
       }>()
     if (!booking) throw new NotFoundException("Booking not found")
     if (booking.userId !== userId) {
@@ -210,7 +213,7 @@ export class PaymentsService {
     const { fields, checkoutUrl } = this.sepay.initCheckout({
       invoiceNumber: payment.invoiceNumber,
       amountVnd: payment.amount,
-      description: `Thanh toan dat san ${booking.courtName} - ${bookingId}`,
+      description: bookingDescription({ ...booking, bookingId }),
       ...paymentReturnUrls(this.returnUrl, bookingId),
     })
     payment.checkoutUrl = checkoutUrl

@@ -1,3 +1,4 @@
+import { topUpDescription } from "./descriptions.js"
 import { randomUUID } from "node:crypto"
 
 import {
@@ -76,7 +77,7 @@ export class TopUpsService {
     const { fields, checkoutUrl } = this.sepay.initCheckout({
       invoiceNumber,
       amountVnd: amount,
-      description: `Nap vi SportMatch - ${invoiceNumber}`,
+      description: topUpDescription(invoiceNumber),
       ...topUpReturnUrls(this.returnUrl, invoiceNumber),
     })
     return { topUp: toSummary(topUp), fields, checkoutUrl }
