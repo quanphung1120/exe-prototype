@@ -3,7 +3,6 @@
 import * as React from "react"
 import { Menu, X } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useUser } from "@clerk/nextjs"
 
 import { cn } from "@/lib/utils"
 import { Link } from "@/i18n/navigation"
@@ -30,14 +29,10 @@ export function SiteHeader({ className }: { className?: string }) {
   const [open, setOpen] = React.useState(false)
   const [scrolled, setScrolled] = React.useState(false)
 
-  // Public landing page, so default to logged-out: while the session resolves
-  // (and for the common anonymous visitor) show "Login"; once an authed session
-  // is confirmed, swap to the "Try the demo" shortcut into the dashboard.
-  const { isSignedIn, isLoaded } = useUser()
-  const isAuthed = isLoaded && Boolean(isSignedIn)
-  const authCta = isAuthed
-    ? { href: "/app", label: t("demo") }
-    : { href: "/sign-in", label: t("login") }
+  // Always "Login", for every visitor. The button used to swap to "Try the
+  // demo" once Clerk reported a session, which made it flicker between the two
+  // after load; the sign-in page already forwards a signed-in user onward.
+  const authCta = { href: "/sign-in", label: t("login") }
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
