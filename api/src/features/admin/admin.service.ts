@@ -4,7 +4,6 @@ import type {
   Brand as BrandInfo,
   RefundQueueItem,
   RoomComplaintRow,
-  WithdrawalRow,
   Venue as VenueInfo,
 } from "../../shared/index.js"
 
@@ -16,7 +15,6 @@ import { DiscountsService } from "../discounts/discounts.service.js"
 import { ProfileService } from "../players/profile.service.js"
 import { RoomsService } from "../rooms/rooms.service.js"
 import { ClerkDirectoryService } from "../stream/clerk-directory.service.js"
-import { WithdrawalsService } from "../wallet/withdrawals.service.js"
 import { SessionsService } from "../sessions/sessions.service.js"
 import { VenuesService } from "../venues/venues.service.js"
 import type { CreateDiscountDto, UpdateDiscountDto } from "./admin.dto.js"
@@ -86,8 +84,6 @@ export class AdminService {
     @Inject(SessionsService) private readonly sessions: SessionsService,
     @Inject(DiscountsService) private readonly discounts: DiscountsService,
     @Inject(RoomsService) private readonly rooms: RoomsService,
-    @Inject(WithdrawalsService)
-    private readonly withdrawals: WithdrawalsService,
     @Inject(ClerkDirectoryService)
     private readonly directory: ClerkDirectoryService
   ) {}
@@ -230,19 +226,6 @@ export class AdminService {
     return this.bookings.listRefundQueueAll()
   }
 
-  /** Wallet withdrawals awaiting a manual bank transfer, oldest first. */
-  async listWithdrawals(): Promise<WithdrawalRow[]> {
-    return this.withdrawals.listAll()
-  }
-
-  async completeWithdrawal(id: string, ref: string): Promise<WithdrawalRow> {
-    return this.withdrawals.complete(id, ref)
-  }
-
-  async rejectWithdrawal(id: string, note: string): Promise<WithdrawalRow> {
-    return this.withdrawals.reject(id, note)
-  }
-
   /** Room-share complaints, open ones first. */
   async listComplaints(): Promise<RoomComplaintRow[]> {
     return this.rooms.listComplaints()
@@ -250,7 +233,7 @@ export class AdminService {
 
   async resolveComplaint(
     id: string,
-    decision: "refund" | "dismiss",
+    decision: "resolve" | "dismiss",
     note?: string
   ): Promise<RoomComplaintRow> {
     return this.rooms.resolveComplaint(id, decision, note)

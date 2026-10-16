@@ -128,6 +128,10 @@ export interface BookingStatusInfo {
   declineReason?: string
   cancelReason?: string
   cancelRequest?: BookingCancelRequest
+  confirmDeadlineAt?: string
+  refund?: BookingRecord["refund"]
+  refundConfirmation?: "received" | "not_received"
+  transferMemo?: string
 }
 
 function sleep(ms: number): Promise<void> {
@@ -412,6 +416,10 @@ export class BookingsService {
           declineReason: d.declineReason,
           cancelReason: d.cancelReason,
           cancelRequest: d.cancelRequest,
+          confirmDeadlineAt: d.confirmDeadlineAt,
+          refund: d.refund,
+          refundConfirmation: d.refundConfirmation?.result,
+          transferMemo: d.transferMemo,
         },
       ])
     )

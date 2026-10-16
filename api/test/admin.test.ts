@@ -20,8 +20,6 @@ import { BrandsService } from "../src/features/brands/brands.service.js"
 import { VenuesService } from "../src/features/venues/venues.service.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
-import { RoomShare } from "../src/features/rooms/room-share.schema.js"
-import { WalletService } from "../src/features/wallet/wallet.service.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
@@ -352,17 +350,7 @@ async function makeBookingsService(venueDoc: ReturnType<typeof makeVenueDoc>) {
         useValue: { getOne: () => Promise.resolve(null) },
       },
       { provide: ConfigService, useValue: configMock },
-      {
-        provide: getModelToken(RoomShare.name),
-        useValue: { find: () => Promise.resolve([]) },
-      },
       { provide: getModelToken(RoomComplaint.name), useValue: {} },
-      {
-        provide: WalletService,
-        useValue: {
-          credit: () => Promise.resolve({ balance: 0, applied: true }),
-        },
-      },
       {
         provide: getModelToken(PlaySession.name),
         useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },

@@ -138,7 +138,26 @@ export class SessionsService {
     else delete next.hold
     if (info.cancelRequest) next.cancelRequest = info.cancelRequest
     else delete next.cancelRequest
-    if (info.status === "cancelled") {
+    next.bookingStatus = info.status
+    if (info.confirmDeadlineAt) next.confirmDeadlineAt = info.confirmDeadlineAt
+    else delete next.confirmDeadlineAt
+    if (info.transferMemo) next.transferMemo = info.transferMemo
+    else delete next.transferMemo
+    if (info.refund) {
+      next.refund = {
+        amount: info.refund.amount,
+        status: info.refund.status,
+        ...(info.refund.proofUrl ? { proofUrl: info.refund.proofUrl } : {}),
+      }
+    } else delete next.refund
+    if (info.refundConfirmation)
+      next.refundConfirmation = info.refundConfirmation
+    else delete next.refundConfirmation
+    if (
+      info.status === "cancelled" ||
+      info.status === "rejected_refund_pending" ||
+      info.status === "refunded"
+    ) {
       next.cancelReason = info.declineReason ?? info.cancelReason
       next.refunded =
         info.paymentStatus === "refunded" ||

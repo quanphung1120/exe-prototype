@@ -29,6 +29,12 @@ import { buildVietQrImageUrl, generateTransferMemo } from "./vietqr.js"
 /** What the payment screen shows: where to transfer, how much, and the memo. */
 export interface PaymentStart {
   bookingId: string
+  venueId: string
+  courtName: string
+  startAt: string
+  dateKey: string
+  start: string
+  durationMin: number
   /** VND to transfer (the booking price minus any discount). */
   amount: number
   originalAmount: number
@@ -48,6 +54,11 @@ type StartableBooking = Pick<
   BookingRecord,
   | "venueId"
   | "userId"
+  | "courtName"
+  | "startAt"
+  | "dateKey"
+  | "start"
+  | "durationMin"
   | "status"
   | "price"
   | "amountDue"
@@ -94,7 +105,7 @@ export class PaymentsService {
     const booking = await this.bookingModel
       .findOne({ bookingId })
       .select(
-        "venueId userId status price amountDue transferMemo payoutSnapshot discountCode discountAmount originalAmount"
+        "venueId userId courtName startAt dateKey start durationMin status price amountDue transferMemo payoutSnapshot discountCode discountAmount originalAmount"
       )
       .lean<StartableBooking>()
     if (!booking) throw new NotFoundException("Booking not found")
@@ -212,6 +223,12 @@ export class PaymentsService {
     const memo = booking.transferMemo ?? ""
     return {
       bookingId,
+      venueId: booking.venueId,
+      courtName: booking.courtName,
+      startAt: booking.startAt,
+      dateKey: booking.dateKey,
+      start: booking.start,
+      durationMin: booking.durationMin,
       amount,
       originalAmount: booking.originalAmount ?? booking.price,
       ...(booking.discountCode

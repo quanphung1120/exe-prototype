@@ -41,7 +41,7 @@ export class RoomComplaintBodyDto {
   reason: string
 }
 
-export const COMPLAINT_DECISIONS = ["refund", "dismiss"] as const
+export const COMPLAINT_DECISIONS = ["resolve", "dismiss"] as const
 export type ComplaintDecision = (typeof COMPLAINT_DECISIONS)[number]
 
 /** `POST /api/admin/complaints/:id/resolve`. */

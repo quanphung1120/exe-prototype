@@ -15,11 +15,6 @@ import { Roles } from "../../common/roles.decorator.js"
 import { RolesGuard } from "../../common/roles.guard.js"
 import { ResolveComplaintBodyDto } from "../rooms/rooms.dto.js"
 import {
-  CompleteWithdrawalDto,
-  RejectWithdrawalDto,
-  WithdrawalIdParamDto,
-} from "../wallet/wallet.dto.js"
-import {
   BookingIdParamDto,
   ComplaintIdParamDto,
   BrandIdParamDto,
@@ -72,27 +67,6 @@ export class AdminController {
   @Get("refunds")
   refunds() {
     return this.admin.refundQueue()
-  }
-
-  @Get("withdrawals")
-  withdrawals() {
-    return this.admin.listWithdrawals()
-  }
-
-  @Post("withdrawals/:id/complete")
-  completeWithdrawal(
-    @Param() param: WithdrawalIdParamDto,
-    @Body() body: CompleteWithdrawalDto
-  ) {
-    return this.admin.completeWithdrawal(param.id, body.ref)
-  }
-
-  @Post("withdrawals/:id/reject")
-  rejectWithdrawal(
-    @Param() param: WithdrawalIdParamDto,
-    @Body() body: RejectWithdrawalDto
-  ) {
-    return this.admin.rejectWithdrawal(param.id, body.note)
   }
 
   @Get("complaints")
