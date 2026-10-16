@@ -5,6 +5,7 @@ import { BrandsModule } from "../brands/brands.module.js"
 import { NotificationsModule } from "../notifications/notifications.module.js"
 import { PlayersModule } from "../players/players.module.js"
 import { RoomEventsModule } from "../rooms/room-events.module.js"
+import { SessionEventsModule } from "../sessions/session-events.module.js"
 import { PlaySession, PlaySessionSchema } from "../sessions/session.schema.js"
 import { StreamModule } from "../stream/stream.module.js"
 import {
@@ -46,6 +47,7 @@ import { BookingsService } from "./bookings.service.js"
     NotificationsModule,
     StreamModule,
     RoomEventsModule,
+    SessionEventsModule,
     // Creating a booking needs the venue to have a payout account.
     BrandsModule,
   ],

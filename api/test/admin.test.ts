@@ -7,6 +7,7 @@ import { ForbiddenException, BadRequestException } from "@nestjs/common"
 import { Test } from "@nestjs/testing"
 
 import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
+import { SessionEventsService } from "../src/features/sessions/session-events.service.js"
 import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { ConfigService } from "@nestjs/config"
 import { Reflector } from "@nestjs/core"
@@ -357,6 +358,7 @@ async function makeBookingsService(venueDoc: ReturnType<typeof makeVenueDoc>) {
         useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
       },
       { provide: RoomEventsService, useValue: { emit: () => {} } },
+      { provide: SessionEventsService, useValue: { emit: () => {} } },
       { provide: BookingChatService, useValue: { post: () => Promise.resolve() } },
     ],
   }).compile()

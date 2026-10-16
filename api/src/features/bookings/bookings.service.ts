@@ -42,6 +42,7 @@ import {
 import { NotificationsService } from "../notifications/notifications.service.js"
 import { ProfileService } from "../players/profile.service.js"
 import { RoomEventsService } from "../rooms/room-events.service.js"
+import { SessionEventsService } from "../sessions/session-events.service.js"
 import {
   PlaySession,
   type PlaySessionDocument,
@@ -228,7 +229,9 @@ export class BookingsService {
     @InjectModel(RoomComplaint.name)
     private readonly complaintModel: Model<RoomComplaintDocument>,
     // Milestones are echoed into the booking's own chat (best-effort).
-    @Inject(BookingChatService) private readonly chat: BookingChatService
+    @Inject(BookingChatService) private readonly chat: BookingChatService,
+    @Inject(SessionEventsService)
+    private readonly sessionEvents: SessionEventsService
   ) {}
 
   /**
@@ -1264,6 +1267,7 @@ export class BookingsService {
     )
     await this.notifyDecision(doc, prevStatus, status, reason)
     if (prevStatus !== null) await this.chatForStatus(doc, status)
+    if (doc.userId) this.sessionEvents.emit(doc.userId)
     return bookingSummaryFrom(doc)
   }
 
@@ -1332,6 +1336,7 @@ export class BookingsService {
       }
     )
     if (prevStatus !== null) await this.chatForStatus(doc, target)
+    if (doc.userId) this.sessionEvents.emit(doc.userId)
     return {
       reservation: reservationFromBooking(doc, isoDateOf(vnNowIso())),
       prevStatus,

@@ -48,6 +48,7 @@ import {
   listRooms,
   requestJoinRoom,
 } from "@/features/play/rooms-actions"
+import { listPlayerSessions } from "@/features/play/session-actions"
 import {
   createRoomChat,
   freezeRoomChat,
@@ -72,9 +73,58 @@ const INVITE_EXPIRY_MS = 6 * 60 * 60 * 1000
 // How often `GET /api/rooms` (every other user's listed rooms) is repolled —
 // mirrors `NotificationsProvider`'s POLL_MS.
 const ROOMS_POLL_MS = 30_000
+// How often `GET /api/sessions` is repolled as a fallback when the SSE stream
+// is unavailable — same cadence as rooms.
+const SESSIONS_POLL_MS = 30_000
 
 /** Window event fired when the live stream reports a room change. */
 export const ROOMS_CHANGED_EVENT = "sportmatch:rooms-changed"
+
+/**
+ * Merge server-side session snapshots into local state: only update
+ * booking-derived fields (status, hold, bookingStatus, etc.) — never overwrite
+ * the host's own roster/capacity/listing edits or an in-flight court hold.
+ */
+function applyServerSessions(
+  prev: PlaySession[],
+  server: PlaySession[]
+): PlaySession[] {
+  const byId = new Map(server.map((s) => [s.id, s]))
+  let dirty = false
+  const next = prev.map((s) => {
+    const remote = byId.get(s.id)
+    if (!remote) return s
+    // Forming rooms and active payment holds are purely client-driven.
+    if (s.status === "forming" || s.holdExpiresAt) return s
+    if (
+      remote.bookingStatus === s.bookingStatus &&
+      remote.status === s.status &&
+      remote.hold === s.hold &&
+      remote.paymentStatus === s.paymentStatus &&
+      remote.cancelReason === s.cancelReason &&
+      remote.refunded === s.refunded &&
+      remote.refundConfirmation === s.refundConfirmation
+    )
+      return s
+    dirty = true
+    return {
+      ...s,
+      status: remote.status,
+      hold: remote.hold,
+      paymentStatus: remote.paymentStatus,
+      paymentExpiresAt: remote.paymentExpiresAt,
+      bookingStatus: remote.bookingStatus,
+      cancelReason: remote.cancelReason,
+      refunded: remote.refunded,
+      cancelRequest: remote.cancelRequest,
+      confirmDeadlineAt: remote.confirmDeadlineAt,
+      transferMemo: remote.transferMemo,
+      refund: remote.refund,
+      refundConfirmation: remote.refundConfirmation,
+    }
+  })
+  return dirty ? next : prev
+}
 
 /**
  * Keep only well-formed rooms from `GET /api/rooms`. The PlaySession body is
@@ -534,6 +584,50 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         ? null
         : new EventSource("/api/rooms/events")
     events?.addEventListener("room", onRoomEvent)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+      clearTimeout(debounce)
+      events?.close()
+      document.removeEventListener("visibilitychange", onFocusOrVisible)
+      window.removeEventListener("focus", onFocusOrVisible)
+    }
+  }, [])
+
+  // Live: poll `GET /api/sessions` and subscribe to per-user SSE so booking
+  // status changes (venue approve/decline) reach the player without a refresh.
+  // Uses the same pattern as the rooms live stream above.
+  React.useEffect(() => {
+    let cancelled = false
+    const fetchSessions = async () => {
+      try {
+        const remote = await listPlayerSessions()
+        if (cancelled) return
+        setSessions((prev) => applyServerSessions(prev, remote))
+      } catch {
+        // Network hiccup — next poll / SSE event will catch it
+      }
+    }
+    void fetchSessions()
+    const interval = setInterval(() => void fetchSessions(), SESSIONS_POLL_MS)
+
+    const onFocusOrVisible = () => {
+      if (document.visibilityState === "visible") void fetchSessions()
+    }
+    document.addEventListener("visibilitychange", onFocusOrVisible)
+    window.addEventListener("focus", onFocusOrVisible)
+
+    let debounce: ReturnType<typeof setTimeout> | undefined
+    const onSessionEvent = () => {
+      clearTimeout(debounce)
+      debounce = setTimeout(() => void fetchSessions(), 250)
+    }
+    const events =
+      typeof EventSource === "undefined"
+        ? null
+        : new EventSource("/api/sessions/events")
+    events?.addEventListener("session", onSessionEvent)
 
     return () => {
       cancelled = true

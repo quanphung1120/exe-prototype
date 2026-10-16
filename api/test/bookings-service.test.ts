@@ -12,6 +12,7 @@ import {
 import { Test } from "@nestjs/testing"
 
 import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
+import { SessionEventsService } from "../src/features/sessions/session-events.service.js"
 import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { ConfigService } from "@nestjs/config"
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
@@ -299,6 +300,7 @@ async function makeService(deps: Deps = {}) {
         provide: RoomEventsService,
         useValue: { emit: (id: string) => roomEvents.push(id) },
       },
+      { provide: SessionEventsService, useValue: { emit: () => {} } },
       {
         provide: BookingChatService,
         useValue: {

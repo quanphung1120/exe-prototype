@@ -4,14 +4,19 @@ import {
   Controller,
   Delete,
   Get,
+  Inject,
+  type MessageEvent,
   Param,
   Put,
+  Sse,
 } from "@nestjs/common"
+import type { Observable } from "rxjs"
 
 import type { PlaySession as PlaySessionData } from "../../shared/index.js"
 
 import { UserId } from "../../common/user-id.decorator.js"
 import { IdParamDto } from "./sessions.dto.js"
+import { SessionEventsService } from "./session-events.service.js"
 import { SessionsService } from "./sessions.service.js"
 
 // A user's persisted PlaySessions (the durable mirror of their client-side
@@ -22,11 +27,27 @@ import { SessionsService } from "./sessions.service.js"
 // so the global ValidationPipe leaves it untouched.)
 @Controller("sessions")
 export class SessionsController {
-  constructor(private readonly sessions: SessionsService) {}
+  constructor(
+    private readonly sessions: SessionsService,
+    @Inject(SessionEventsService)
+    private readonly sessionEvents: SessionEventsService
+  ) {}
 
   @Get()
   list(@UserId() userId: string) {
     return this.sessions.listUserSessions(userId)
+  }
+
+  /**
+   * Per-user server-sent events: a `session` event whenever the signed-in
+   * player's booking statuses may have changed (venue approved/declined).
+   * The event carries no data — the client refetches `GET /api/sessions`.
+   * Bridged through the Next.js `GET /api/sessions/events` route (which
+   * attaches the Clerk token the browser can't send directly via EventSource).
+   */
+  @Sse("events")
+  events(@UserId() userId: string): Observable<MessageEvent> {
+    return this.sessionEvents.stream(userId)
   }
 
   @Put(":id")
