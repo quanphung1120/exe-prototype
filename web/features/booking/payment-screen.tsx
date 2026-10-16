@@ -8,6 +8,7 @@ import {
   ImagePlus,
   Loader2,
   MessageCircle,
+  Phone,
   TriangleAlert,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -36,6 +37,8 @@ import {
   type VietQrPayment,
 } from "@/features/play/payment-actions"
 import { PayoutFields } from "@/features/venue/payout-fields"
+import { useData } from "@/features/dashboard/data-provider"
+import { savePlayerPhone } from "@/features/dashboard/profile-actions"
 
 type Screen =
   | { kind: "loading" }
@@ -91,6 +94,69 @@ function CopyRow({
 }
 
 /**
+ * A full-screen gate asking for a phone number on first booking. Saves it via
+ * server action, then tells the caller to proceed.
+ */
+function PhoneGate({ onDone }: { onDone: () => void }) {
+  const t = useTranslations("PaymentVietQr")
+  const [phone, setPhone] = React.useState("")
+  const [saving, setSaving] = React.useState(false)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = phone.trim()
+    if (trimmed.length < 9) {
+      toast.error(t("phoneError"))
+      return
+    }
+    setSaving(true)
+    try {
+      await savePlayerPhone(trimmed)
+      onDone()
+    } catch {
+      toast.error(t("submitFailed"))
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6 px-4 py-16 text-center">
+      <div className="grid size-14 place-items-center rounded-full bg-brand/10 text-brand">
+        <Phone className="size-7" />
+      </div>
+      <div className="flex flex-col gap-2">
+        <h1 className="font-heading text-2xl font-black">{t("phoneTitle")}</h1>
+        <p className="text-sm text-muted-foreground">{t("phoneBody")}</p>
+      </div>
+      <form onSubmit={(e) => void submit(e)} className="flex w-full flex-col gap-3">
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder={t("phonePlaceholder")}
+          autoFocus
+          className="w-full rounded-full border border-input bg-background px-4 py-2.5 text-center text-base outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        />
+        <Button
+          type="submit"
+          className="h-11 rounded-full text-base"
+          disabled={saving || phone.trim().length < 9}
+        >
+          {saving ? (
+            <>
+              <Loader2 className="animate-spin" />
+              {t("phoneSaving")}
+            </>
+          ) : (
+            t("phoneContinue")
+          )}
+        </Button>
+      </form>
+    </div>
+  )
+}
+
+/**
  * Pay a booking by bank transfer: the venue's QR + account + a unique memo, then
  * the player's own refund account and a screenshot of the transfer. The booking
  * is only sent to the venue when the screenshot is submitted.
@@ -104,6 +170,8 @@ export function PaymentScreen({
 }) {
   const t = useTranslations("PaymentVietQr")
   const router = useRouter()
+  const { phone: savedPhone } = useData()
+  const [phoneConfirmed, setPhoneConfirmed] = React.useState(!!savedPhone)
   const [screen, setScreen] = React.useState<Screen>({ kind: "loading" })
   const [refund, setRefund] = React.useState<PayoutDraft>(EMPTY_PAYOUT)
   const [file, setFile] = React.useState<File | null>(null)
@@ -203,6 +271,10 @@ export function PaymentScreen({
         toast.error(t("chatFailed"))
       }
     })
+  }
+
+  if (!phoneConfirmed) {
+    return <PhoneGate onDone={() => setPhoneConfirmed(true)} />
   }
 
   if (screen.kind === "loading") {

@@ -698,7 +698,7 @@ export interface VenueStats {
 
 // ── Venue: schedule grid ─────────────────────────────────────────────────────
 
-export type SlotKind = "free" | "booked" | "blocked" | "walk-in" | "held"
+export type SlotKind = "free" | "booked" | "blocked" | "walk-in" | "held" | "awaiting"
 
 export interface ScheduleSlot {
   courtId: string
@@ -1247,6 +1247,8 @@ export interface Seed {
   assessment: PlayerAssessment | null
   /** Effective account type (stored choice ∪ inferred facts); null until chosen. */
   accountType: AccountType | null
+  /** The signed-in player's saved contact phone number (null until they set one). */
+  phone?: string
 }
 
 // ── App reviews (đánh giá ứng dụng) ──────────────────────────────────────────

@@ -95,6 +95,8 @@ export const slotKindAccent: Record<SlotKind, string> = {
   // An unpaid hold: muted amber so the operator reads it as "occupied, awaiting
   // payment" — visibly held, but not the solid `booked` tint of a paid slot.
   held: "bg-chart-3/12 text-chart-3 ring-chart-3/25",
+  // Payment proof submitted; awaiting venue confirmation.
+  awaiting: "bg-orange-500/12 text-orange-600 ring-orange-500/20 dark:text-orange-400",
   blocked:
     "bg-destructive/10 text-destructive/80 ring-destructive/15 [background-image:repeating-linear-gradient(45deg,transparent,transparent_5px,color-mix(in_oklch,var(--destructive)_12%,transparent)_5px,color-mix(in_oklch,var(--destructive)_12%,transparent)_10px)]",
   free: "bg-muted/40 text-muted-foreground/50 ring-transparent hover:bg-muted",

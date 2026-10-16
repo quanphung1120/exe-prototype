@@ -43,6 +43,8 @@ export class Profile {
   @Prop({ type: String, default: null }) accountType: AccountType | null
   /** Where a venue refunds this player (VietQR); reused across bookings. */
   @Prop({ type: MongooseSchema.Types.Mixed }) refundAccount?: BankAccount
+  /** Player's contact phone number, shown to venue operators on their bookings. */
+  @Prop({ type: String }) phone?: string
 }
 
 // The personal-data payload the profile carries (everything but `userId` and the
@@ -56,6 +58,8 @@ export interface ProfileData {
   activity: ActivityItem[]
   notifications: NotificationItem[]
   accountType: AccountType | null
+  /** Player's contact phone number. */
+  phone?: string
 }
 
 export type ProfileDocument = HydratedDocument<Profile>
@@ -72,5 +76,6 @@ export function toProfileData(doc: Profile): ProfileData {
     activity: doc.activity,
     notifications: doc.notifications,
     accountType: doc.accountType ?? null,
+    phone: doc.phone,
   }
 }

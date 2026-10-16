@@ -93,6 +93,7 @@ import {
 
 const LEGEND_KINDS: Exclude<SlotKind, "free">[] = [
   "booked",
+  "awaiting",
   "walk-in",
   "held",
   "blocked",
@@ -102,6 +103,7 @@ const LEGEND_ICON: Record<
   React.ComponentType<{ className?: string }>
 > = {
   booked: Users,
+  awaiting: CalendarClock,
   "walk-in": Footprints,
   held: Clock,
   blocked: Wrench,
@@ -743,7 +745,9 @@ function EventBlock({
       ? Footprints
       : event.kind === "held"
         ? Clock
-        : Users
+        : event.kind === "awaiting"
+          ? CalendarClock
+          : Users
   const infoCopy =
     locale === "vi"
       ? {

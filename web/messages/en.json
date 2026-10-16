@@ -1350,7 +1350,13 @@
     "sentNudge": "In a hurry? Message the venue directly to nudge them.",
     "toBookings": "View my bookings",
     "messageVenue": "Message the venue",
-    "chatFailed": "Couldn't open the chat with the venue."
+    "chatFailed": "Couldn't open the chat with the venue.",
+    "phoneTitle": "Your phone number",
+    "phoneBody": "The venue needs your phone number to reach you if something comes up. You only need to enter it once.",
+    "phonePlaceholder": "e.g. 0901234567",
+    "phoneContinue": "Continue to payment",
+    "phoneSaving": "Saving…",
+    "phoneError": "Please enter a valid phone number."
   },
   "VenuePayout": {
     "bank": "Bank",
@@ -1638,6 +1644,7 @@
     "legend": {
       "title": "Legend",
       "booked": "Booked",
+      "awaiting": "Awaiting approval",
       "walk-in": "Walk-in",
       "held": "On hold",
       "free": "Free",

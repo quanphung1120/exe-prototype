@@ -15,14 +15,16 @@ export function VenueMessagesView() {
   const { venueId, venue } = useVenueData()
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-3xl font-bold tracking-tight">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+        <h1 className="font-heading text-2xl font-bold tracking-tight">
           {t("title")}
         </h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
-      <ChatView venueInboxId={venueId} venueInboxBrandId={venue.brandId} />
+      <div className="min-h-0 flex-1">
+        <ChatView venueInboxId={venueId} venueInboxBrandId={venue.brandId} />
+      </div>
     </div>
   )
 }

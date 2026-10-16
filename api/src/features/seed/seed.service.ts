@@ -109,6 +109,7 @@ export class SeedService {
       venue,
       assessment,
       accountType,
+      phone: profile.phone,
     }
   }
 }

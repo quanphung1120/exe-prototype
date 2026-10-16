@@ -83,6 +83,8 @@ interface DataContextValue {
   venues: Venue[]
   /** Effective account type (stored choice ∪ inferred facts). */
   accountType: AccountType | null
+  /** The signed-in player's saved contact phone number (absent until set). */
+  phone?: string
   // ── Record-bound helpers ──
   playerByInitials: (initials: string) => RosterEntry
   courtByVenue: (name: string) => Court | undefined
@@ -162,6 +164,7 @@ export function DataProvider({
       brand: seed.brand,
       venues: seed.venues,
       accountType: seed.accountType,
+      phone: seed.phone,
       // Bound helpers (original signatures preserved)
       playerByInitials: (initials) => playerByInitialsFn(roster, initials),
       courtByVenue: (name) => courtByVenueFn(courts, name),

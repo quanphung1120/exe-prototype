@@ -131,4 +131,10 @@ export class ProfileService {
     await this.getProfile(userId)
     await this.profileModel.updateOne({ userId }, { $set: { accountType } })
   }
+
+  /** Save (or update) the player's contact phone number. */
+  async setPhone(userId: string, phone: string): Promise<void> {
+    await this.getProfile(userId)
+    await this.profileModel.updateOne({ userId }, { $set: { phone } })
+  }
 }

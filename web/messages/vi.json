@@ -1350,7 +1350,13 @@
     "sentNudge": "Cần gấp? Bạn có thể nhắn tin trực tiếp cho chủ sân để nhắc họ duyệt.",
     "toBookings": "Xem lịch đặt",
     "messageVenue": "Nhắn tin cho chủ sân",
-    "chatFailed": "Không mở được cuộc trò chuyện với chủ sân."
+    "chatFailed": "Không mở được cuộc trò chuyện với chủ sân.",
+    "phoneTitle": "Số điện thoại của bạn",
+    "phoneBody": "Chủ sân cần số điện thoại để liên hệ nếu có vấn đề phát sinh. Chỉ cần nhập một lần.",
+    "phonePlaceholder": "Ví dụ: 0901234567",
+    "phoneContinue": "Tiếp tục thanh toán",
+    "phoneSaving": "Đang lưu…",
+    "phoneError": "Vui lòng nhập số điện thoại hợp lệ."
   },
   "VenuePayout": {
     "bank": "Ngân hàng",
@@ -1638,6 +1644,7 @@
     "legend": {
       "title": "Chú thích",
       "booked": "Đã đặt",
+      "awaiting": "Chờ duyệt",
       "walk-in": "Khách vãng lai",
       "held": "Đang giữ chỗ",
       "free": "Trống",
