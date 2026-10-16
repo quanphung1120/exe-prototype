@@ -105,6 +105,8 @@ export interface RoomMember {
   initials: string
   host: boolean
   userId?: string
+  /** True once the host has confirmed receipt of this member's share payment. */
+  paid?: boolean
 }
 
 /** An open match lobby other players can join (Match Maker). */
@@ -229,6 +231,8 @@ export interface SessionPlayer {
    * `initials` within the owning user's own session doc.
    */
   userId?: string
+  /** True once the host confirms this member has paid their court share. */
+  paid?: boolean
 }
 
 export type SessionStatus = "forming" | "booked" | "completed" | "cancelled"

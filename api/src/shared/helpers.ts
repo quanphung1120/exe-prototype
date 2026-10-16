@@ -708,6 +708,7 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
       initials: p.initials,
       host: p.rsvp === "host",
       ...(p.userId ? { userId: p.userId } : {}),
+      ...(p.paid ? { paid: true } : {}),
     })),
     pricePerHour: s.pricePerHour,
     durationMin: s.durationMin,

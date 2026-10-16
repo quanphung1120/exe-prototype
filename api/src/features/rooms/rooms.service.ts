@@ -563,6 +563,69 @@ export class RoomsService {
   /** Refund every live share a member has in a room; tell them if one can't be. */
   /** `GET /api/rooms/:id/shares` — who has paid their part (host and members only). */
   /**
+   * The host marks a member as having paid their court share. Idempotent —
+   * calling it again on an already-paid member is a no-op.
+   */
+  async markMemberPaid(
+    hostUserId: string,
+    roomId: string,
+    memberUserId: string
+  ): Promise<void> {
+    const doc = await this.findRoomDoc(roomId)
+    if (doc.userId !== hostUserId) {
+      throw new ForbiddenException("Chỉ chủ phòng mới có quyền xác nhận thanh toán")
+    }
+    const member = doc.data.roster.find(
+      (p) => p.userId === memberUserId && p.rsvp !== "host"
+    )
+    if (!member) throw new NotFoundException("Thành viên không tồn tại trong phòng")
+    await this.sessionModel.updateOne(
+      { _id: doc._id, "data.roster": { $elemMatch: { userId: memberUserId } } },
+      { $set: { "data.roster.$.paid": true } }
+    )
+    this.events.emit(roomId)
+    await this.notifications
+      .create(memberUserId, {
+        id: `room-paid-confirmed-${roomId}-${memberUserId}`,
+        kind: "match",
+        text: `Chủ phòng đã xác nhận bạn đã thanh toán phần sân cho phòng "${doc.data.title}".`,
+        href: "/app/play",
+      })
+      .catch(() => undefined)
+  }
+
+  /**
+   * The host sends a payment reminder notification to a member who hasn't
+   * paid their share yet. Each call sends a fresh notification (UUID suffix).
+   */
+  async remindMember(
+    hostUserId: string,
+    roomId: string,
+    memberUserId: string
+  ): Promise<void> {
+    const doc = await this.findRoomDoc(roomId)
+    if (doc.userId !== hostUserId) {
+      throw new ForbiddenException("Chỉ chủ phòng mới có quyền gửi nhắc nhở")
+    }
+    const member = doc.data.roster.find(
+      (p) => p.userId === memberUserId && p.rsvp !== "host"
+    )
+    if (!member) throw new NotFoundException("Thành viên không tồn tại trong phòng")
+    const court = await this.courtShareOf(doc.data)
+    const amountPart = court ? ` ${court.amount.toLocaleString("vi-VN")}đ` : ""
+    const hostProfile = await this.profiles.getProfile(hostUserId)
+    const phonePart = hostProfile.phone
+      ? ` Liên hệ SĐT ${hostProfile.phone} để chuyển khoản.`
+      : ""
+    await this.notifications.create(memberUserId, {
+      id: `room-remind-${roomId}-${memberUserId}-${randomUUID()}`,
+      kind: "match",
+      text: `Chủ phòng nhắc bạn chuyển${amountPart} tiền chia sẻ sân cho phòng "${doc.data.title}".${phonePart}`,
+      href: "/app/play",
+    })
+  }
+
+  /**
    * The match a group chat is coordinating, readable by any member of the
    * chat (not just the host who owns the session doc). A room chat
    * (`room-<id>`) maps to its room; a community group maps to the latest

@@ -245,7 +245,12 @@
     "cancelRoomTitle": "Cancel this room?",
     "cancelRoomConfirm": "Cancel room",
     "cancelFormingBody": "This room hasn't booked a court yet — cancelling is free and removes it for everyone.",
-    "cancelBookedBody": "Cancelling releases the court and disbands the room. Refunds follow the cancellation policy — full refund up to 24h before the slot, partial within 24h."
+    "cancelBookedBody": "Cancelling releases the court and disbands the room. Refunds follow the cancellation policy — full refund up to 24h before the slot, partial within 24h.",
+    "sharePaid": "Paid",
+    "shareUnpaid": "Unpaid",
+    "remindPay": "Remind",
+    "confirmPaid": "Received",
+    "remindSent": "Payment reminder sent"
   },
   "LocaleSwitcher": {
     "label": "Language",

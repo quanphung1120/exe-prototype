@@ -93,4 +93,24 @@ export class RoomsController {
   leave(@UserId() userId: string, @Param() param: RoomIdParamDto) {
     return this.rooms.leaveRoom(userId, param.id)
   }
+
+  /** Host confirms a member has paid their court share. */
+  @Put(":id/members/:userId/paid")
+  async markPaid(
+    @UserId() hostUserId: string,
+    @Param() param: RoomRequestParamDto
+  ) {
+    await this.rooms.markMemberPaid(hostUserId, param.id, param.userId)
+    return { ok: true }
+  }
+
+  /** Host sends a payment reminder notification to a member. */
+  @Post(":id/members/:userId/remind")
+  async remind(
+    @UserId() hostUserId: string,
+    @Param() param: RoomRequestParamDto
+  ) {
+    await this.rooms.remindMember(hostUserId, param.id, param.userId)
+    return { ok: true }
+  }
 }

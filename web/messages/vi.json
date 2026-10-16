@@ -245,7 +245,12 @@
     "cancelRoomTitle": "Huỷ phòng này?",
     "cancelRoomConfirm": "Huỷ phòng",
     "cancelFormingBody": "Phòng chưa đặt sân — huỷ miễn phí và gỡ phòng cho mọi người.",
-    "cancelBookedBody": "Huỷ sẽ trả sân và giải tán phòng. Hoàn tiền theo chính sách: hoàn 100% nếu huỷ trước 24 giờ, hoàn một phần nếu trong vòng 24 giờ."
+    "cancelBookedBody": "Huỷ sẽ trả sân và giải tán phòng. Hoàn tiền theo chính sách: hoàn 100% nếu huỷ trước 24 giờ, hoàn một phần nếu trong vòng 24 giờ.",
+    "sharePaid": "Đã trả",
+    "shareUnpaid": "Chưa trả",
+    "remindPay": "Nhắc",
+    "confirmPaid": "Đã nhận",
+    "remindSent": "Đã gửi nhắc nhở thanh toán"
   },
   "LocaleSwitcher": {
     "label": "Ngôn ngữ",
