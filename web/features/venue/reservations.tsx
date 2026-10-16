@@ -603,6 +603,12 @@ export function VenueReservationsView({
         reasonPlaceholder={t("declineDialog.reasonPlaceholder")}
         cancelLabel={t("declineDialog.cancel")}
         confirmLabel={t("declineDialog.confirm")}
+        presets={[
+          t("declineDialog.presets.maintenance"),
+          t("declineDialog.presets.alreadyBooked"),
+          t("declineDialog.presets.closed"),
+          t("declineDialog.presets.invalidInfo"),
+        ]}
         reason={declineReason}
         onReasonChange={setDeclineReason}
         onConfirm={confirmDecline}

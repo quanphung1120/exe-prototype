@@ -337,6 +337,7 @@ export function ReasonDialog({
   reason,
   onReasonChange,
   onConfirm,
+  presets,
   // Default preserves prior behavior for the reject/cancel flows (server DTOs
   // there allow up to 300 chars, so 200 was already a safe, stricter cap).
   // Callers whose server DTO enforces a *tighter* limit than 200 (e.g. a
@@ -355,6 +356,8 @@ export function ReasonDialog({
   reason: string
   onReasonChange: (reason: string) => void
   onConfirm: () => void
+  /** Quick-pick chips shown above the textarea; clicking one fills the field. */
+  presets?: string[]
   maxLength?: number
 }) {
   return (
@@ -364,6 +367,25 @@ export function ReasonDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {presets && presets.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {presets.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onReasonChange(p)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs transition-colors",
+                  reason === p
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-muted/50 text-foreground hover:bg-muted"
+                )}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <Field className="my-2">
           <FieldLabel htmlFor="reason-dialog-reason">{reasonLabel}</FieldLabel>
           <Textarea

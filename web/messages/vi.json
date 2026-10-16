@@ -1719,9 +1719,15 @@
       "title": "Từ chối đặt sân",
       "description": "Nhập lý do từ chối yêu cầu của {name}. Sau đó Quý khách chuyển khoản hoàn tiền cho khách và tải ảnh chuyển khoản lên.",
       "reasonLabel": "Lý do từ chối",
-      "reasonPlaceholder": "Ví dụ: sân đang bảo trì trong khung giờ này",
+      "reasonPlaceholder": "Hoặc nhập lý do khác...",
       "cancel": "Huỷ",
-      "confirm": "Xác nhận từ chối"
+      "confirm": "Xác nhận từ chối",
+      "presets": {
+        "maintenance": "Sân đang bảo trì trong khung giờ này",
+        "alreadyBooked": "Khung giờ này đã được đặt",
+        "closed": "Sân đóng cửa trong ngày này",
+        "invalidInfo": "Thông tin đặt sân không hợp lệ"
+      }
     },
     "summary": {
       "pending": "Chờ duyệt",

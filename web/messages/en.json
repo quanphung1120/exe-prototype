@@ -1719,9 +1719,15 @@
       "title": "Decline booking",
       "description": "Enter why you are rejecting {name}'s booking. You then refund them by bank transfer and upload the screenshot.",
       "reasonLabel": "Decline reason",
-      "reasonPlaceholder": "e.g. court under maintenance during this slot",
+      "reasonPlaceholder": "Or type another reason...",
       "cancel": "Cancel",
-      "confirm": "Confirm decline"
+      "confirm": "Confirm decline",
+      "presets": {
+        "maintenance": "Court under maintenance during this slot",
+        "alreadyBooked": "This slot is already taken",
+        "closed": "Venue is closed on this day",
+        "invalidInfo": "Booking information is invalid"
+      }
     },
     "summary": {
       "pending": "Awaiting approval",
