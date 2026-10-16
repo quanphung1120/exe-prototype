@@ -1704,16 +1704,11 @@
     "decline": "Từ chối",
     "declineDialog": {
       "title": "Từ chối đặt sân",
-      "description": "Nhập lý do từ chối yêu cầu của {name}. Khách sẽ được hoàn 100% tiền và nhận thông báo kèm lý do này.",
+      "description": "Nhập lý do từ chối yêu cầu của {name}. Sau đó Quý khách chuyển khoản hoàn tiền cho khách và tải ảnh chuyển khoản lên.",
       "reasonLabel": "Lý do từ chối",
       "reasonPlaceholder": "Ví dụ: sân đang bảo trì trong khung giờ này",
       "cancel": "Huỷ",
       "confirm": "Xác nhận từ chối"
-    },
-    "refundQueue": {
-      "title": "Hàng đợi hoàn tiền thủ công",
-      "hint": "SePay không hỗ trợ hoàn tiền tự động — vui lòng chuyển khoản thủ công cho các lượt dưới đây trong vòng 24–48 giờ làm việc.",
-      "pct": "Hoàn {pct}%"
     },
     "summary": {
       "pending": "Chờ duyệt",
@@ -1724,7 +1719,6 @@
     "filters": {
       "all": "Tất cả",
       "pending": "Chờ duyệt",
-      "cancelRequests": "Yêu cầu huỷ",
       "confirmed": "Đã xác nhận",
       "today": "Hôm nay",
       "history": "Lịch sử"
@@ -1762,19 +1756,8 @@
       "approved": "Đã duyệt lượt đặt của {name}",
       "declined": "Đã từ chối yêu cầu của {name}"
     },
-    "cancelRequest": {
-      "badge": "Yêu cầu huỷ",
-      "decline": "Từ chối huỷ",
-      "approvePct": "Đồng ý · hoàn {pct}%",
-      "hintEarly": "Khách xin huỷ trước ≥ 24 giờ — đồng ý thì hoàn 100%. Hạn trả lời {deadline}; quá hạn tự đồng ý, hoàn {pct}%.",
-      "hintLate": "Khách xin huỷ trong vòng 24 giờ — chọn hoàn 50% hoặc 100%, hoặc từ chối. Hạn trả lời {deadline}; quá hạn tự hoàn {pct}%.",
-      "declineTitle": "Từ chối yêu cầu huỷ",
-      "declineDescription": "Nhập lý do từ chối yêu cầu huỷ của {name}. Lượt đặt vẫn được giữ và khách nhận thông báo kèm lý do này.",
-      "declinePlaceholder": "Ví dụ: khung giờ giải đấu, đã thông báo không hoàn tiền",
-      "declineConfirm": "Xác nhận từ chối",
-      "toastApproved": "Đã huỷ lượt đặt của {name} — hoàn {pct}%",
-      "toastDeclined": "Đã từ chối yêu cầu huỷ của {name}"
-    }
+    "viewProof": "Xem chứng từ",
+    "refundOwed": "Cần hoàn tiền"
   },
   "VenueMessages": {
     "metaTitle": "Tin nhắn",
@@ -2716,5 +2699,32 @@
     "resolve": "Đã xử lý",
     "resolveTitle": "Đánh dấu đã xử lý?",
     "resolveDescription": "Hệ thống không chuyển tiền: hai bên tự hoàn tiền với nhau. Ghi chú sẽ gửi cho người chơi."
+  },
+  "VenuePaymentReview": {
+    "title": "Đối chiếu chuyển khoản",
+    "description": "{name} đã gửi ảnh chuyển khoản. Mở app ngân hàng, kiểm tra tiền đã về đúng số tiền và nội dung rồi mới duyệt.",
+    "amount": "Số tiền cần nhận",
+    "memo": "Nội dung chuyển khoản",
+    "deadline": "Hạn trả lời",
+    "proofAlt": "Ảnh chuyển khoản của khách",
+    "noProof": "Chưa có ảnh chuyển khoản.",
+    "hint": "Quá hạn mà chưa trả lời, đặt sân sẽ tự chuyển sang hoàn tiền (không bao giờ tự xác nhận).",
+    "approve": "Đã nhận tiền — duyệt",
+    "reject": "Từ chối",
+    "refund": {
+      "title": "Hoàn tiền cho khách",
+      "hint": "Chuyển khoản thủ công cho các khách dưới đây (quét QR hoặc nhập số tài khoản), rồi tải ảnh chuyển khoản lên để hoàn tất.",
+      "qrAlt": "QR hoàn tiền",
+      "copyAccount": "Sao chép STK",
+      "copied": "Đã sao chép",
+      "noAccount": "Khách chưa cung cấp tài khoản nhận tiền — hãy nhắn cho khách qua tin nhắn.",
+      "pct": "Hoàn {pct}%",
+      "amountPlaceholder": "Số tiền đã chuyển (nếu khác)",
+      "upload": "Tải ảnh chuyển khoản",
+      "uploading": "Đang tải…",
+      "tooBig": "Ảnh quá lớn (tối đa 5 MB).",
+      "done": "Đã ghi nhận hoàn tiền. Khách sẽ được hỏi xác nhận đã nhận.",
+      "failed": "Không thể hoàn tất hoàn tiền"
+    }
   }
 }

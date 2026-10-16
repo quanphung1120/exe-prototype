@@ -406,6 +406,12 @@ export type BookingLean = Pick<
   | "price"
   | "declineReason"
   | "cancelRequest"
+  | "amountDue"
+  | "transferMemo"
+  | "paymentProofUrl"
+  | "proofSubmittedAt"
+  | "rejectReason"
+  | "refundProofUrl"
 >
 
 /**
@@ -443,6 +449,19 @@ export function reservationFromBooking(
     isRegular: false,
     declineReason: booking.declineReason,
     cancelRequest: booking.cancelRequest,
+    bookingStatus: booking.status,
+    amountDue: booking.amountDue,
+    transferMemo: booking.transferMemo,
+    paymentProofUrl: booking.paymentProofUrl,
+    proofSubmittedAt: booking.proofSubmittedAt,
+    answerDeadlineAt:
+      booking.status === "awaiting_venue_confirmation" &&
+      booking.proofSubmittedAt &&
+      booking.startAt
+        ? venueAnswerDeadlineIso(booking.proofSubmittedAt, booking.startAt)
+        : undefined,
+    rejectReason: booking.rejectReason,
+    refundProofUrl: booking.refundProofUrl,
   }
 }
 

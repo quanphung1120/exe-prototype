@@ -1704,16 +1704,11 @@
     "decline": "Decline",
     "declineDialog": {
       "title": "Decline booking",
-      "description": "Give a reason for declining {name}'s request. The player gets a full refund and a notification with this reason.",
+      "description": "Enter why you are rejecting {name}'s booking. You then refund them by bank transfer and upload the screenshot.",
       "reasonLabel": "Decline reason",
       "reasonPlaceholder": "e.g. court under maintenance during this slot",
       "cancel": "Cancel",
       "confirm": "Confirm decline"
-    },
-    "refundQueue": {
-      "title": "Manual refund queue",
-      "hint": "SePay has no automatic refund — please wire the refund by hand for these within 24–48 business hours.",
-      "pct": "{pct}% refund"
     },
     "summary": {
       "pending": "Awaiting approval",
@@ -1724,7 +1719,6 @@
     "filters": {
       "all": "All",
       "pending": "Pending",
-      "cancelRequests": "Cancel requests",
       "confirmed": "Confirmed",
       "today": "Today",
       "history": "History"
@@ -1762,19 +1756,8 @@
       "approved": "Approved {name}'s booking",
       "declined": "Declined {name}'s request"
     },
-    "cancelRequest": {
-      "badge": "Cancel request",
-      "decline": "Decline",
-      "approvePct": "Approve · refund {pct}%",
-      "hintEarly": "Asked ≥ 24 hours ahead — approving refunds 100%. Answer by {deadline}; after that it's approved automatically at {pct}%.",
-      "hintLate": "Asked within 24 hours — refund 50% or 100%, or decline. Answer by {deadline}; after that {pct}% is refunded automatically.",
-      "declineTitle": "Decline cancellation request",
-      "declineDescription": "Give a reason for declining {name}'s cancellation request. The booking stays and they're notified with this reason.",
-      "declinePlaceholder": "E.g. tournament slot, announced as non-refundable",
-      "declineConfirm": "Decline request",
-      "toastApproved": "Cancelled {name}'s booking — {pct}% refunded",
-      "toastDeclined": "Declined {name}'s cancellation request"
-    }
+    "viewProof": "View proof",
+    "refundOwed": "Refund owed"
   },
   "VenueMessages": {
     "metaTitle": "Messages",
@@ -2716,5 +2699,32 @@
     "resolve": "Mark handled",
     "resolveTitle": "Mark as handled?",
     "resolveDescription": "The platform moves no money: both sides settle the refund themselves. Your note is sent to the player."
+  },
+  "VenuePaymentReview": {
+    "title": "Check the transfer",
+    "description": "{name} sent a transfer screenshot. Open your bank app and confirm the money arrived with the right amount and memo before approving.",
+    "amount": "Amount to receive",
+    "memo": "Transfer memo",
+    "deadline": "Answer by",
+    "proofAlt": "The customer's transfer screenshot",
+    "noProof": "No transfer screenshot yet.",
+    "hint": "If you don't answer in time the booking moves to refund (it is never auto-confirmed).",
+    "approve": "Money received — approve",
+    "reject": "Reject",
+    "refund": {
+      "title": "Refunds you owe",
+      "hint": "Transfer by hand to the players below (scan the QR or type the account), then upload the transfer screenshot to finish.",
+      "qrAlt": "Refund QR",
+      "copyAccount": "Copy account no.",
+      "copied": "Copied",
+      "noAccount": "The player gave no refund account — message them in chat.",
+      "pct": "Refund {pct}%",
+      "amountPlaceholder": "Amount sent (if different)",
+      "upload": "Upload transfer screenshot",
+      "uploading": "Uploading…",
+      "tooBig": "Image too large (max 5 MB).",
+      "done": "Refund recorded. The player will be asked to confirm receipt.",
+      "failed": "Couldn't complete the refund"
+    }
   }
 }

@@ -782,6 +782,22 @@ export interface Reservation {
   declineReason?: string
   /** The player's cancellation request, when there is one. */
   cancelRequest?: BookingCancelRequest
+  /** The underlying booking state (VietQR flow) — finer than `status`. */
+  bookingStatus?: BookingRecordStatus
+  /** VND the player was asked to transfer (after any discount). */
+  amountDue?: number
+  /** Memo the player's transfer carries — match it in the bank app. */
+  transferMemo?: string
+  /** The player's transfer screenshot. */
+  paymentProofUrl?: string
+  /** ISO — when the screenshot was sent. */
+  proofSubmittedAt?: string
+  /** ISO — the venue's answer is due by now; after it the booking is rejected. */
+  answerDeadlineAt?: string
+  /** Why the venue rejected the booking (VietQR flow). */
+  rejectReason?: string
+  /** The venue's refund screenshot. */
+  refundProofUrl?: string
 }
 
 export type RiskTier = "low" | "medium" | "high"
