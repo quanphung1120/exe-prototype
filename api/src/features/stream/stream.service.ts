@@ -68,9 +68,6 @@ export const venueChannelId = (venueId: string, userId: string) =>
  * however many of their branches the player books. Shares the `venue-` prefix
  * (and hash space, keyed `brand:<id>`) so every venue-chat check still applies.
  */
-/** Per-booking chat between the player and the venue owner (VietQR flow). */
-export const bookingChannelId = (bookingId: string) => `booking-${bookingId}`
-
 export const brandChannelId = (brandId: string, userId: string) =>
   venueChannelId(`brand:${brandId}`, userId)
 
@@ -164,40 +161,64 @@ export class StreamService {
   }
 
   /**
-   * Get-or-create the 1-1 chat of one booking (`booking-<id>`): the player and
-   * the venue owner. `channel.create()` is idempotent on an existing id.
+   * Get-or-create THE chat between a player and a venue owner — one thread per
+   * pair, however many bookings or branches there are. Booking milestones post
+   * into it and the "message the venue" buttons open it. `channel.create()` is
+   * idempotent on an existing id.
    */
   async ensureBookingChannel(input: {
-    bookingId: string
     playerId: string
     ownerId: string
     venueId: string
     brandId?: string
     name: string
   }): Promise<string> {
-    const id = bookingChannelId(input.bookingId)
-    await this.client.upsertUsers([{ id: input.playerId }, { id: input.ownerId }])
-    await this.client
-      .channel("messaging", id, {
-        name: input.name,
-        bookingId: input.bookingId,
-        venueId: input.venueId,
-        ...(input.brandId ? { brandId: input.brandId } : {}),
-        created_by_id: input.playerId,
-        members: [input.playerId, input.ownerId],
-      })
-      .create()
+    const { playerId, ownerId, venueId, brandId } = input
+    await this.client.upsertUsers([{ id: playerId }, { id: ownerId }])
+
+    if (!brandId) {
+      const id = venueChannelId(venueId, playerId)
+      await this.client
+        .channel("messaging", id, {
+          name: input.name,
+          venueId,
+          created_by_id: playerId,
+          members: [playerId, ownerId],
+        })
+        .create()
+      return id
+    }
+
+    // A brand's branches all share one owner, so the player gets ONE chat per
+    // brand. Titled by the brand rather than whichever branch came first.
+    const brand = await this.brands
+      .findOne({ brandId })
+      .select("info")
+      .lean<{ info?: { name?: string } }>()
+    const name = brand?.info?.name ?? input.name
+    const { id, existing } = await this.resolveBrandChannel(brandId, playerId)
+    const channel = this.client.channel("messaging", id, {
+      name,
+      venueId,
+      brandId,
+      created_by_id: playerId,
+      members: [playerId, ownerId],
+    })
+    await channel.create()
+    // A reused pre-brand (per-branch) chat: tag it with the brand so the
+    // operator inbox of every branch finds it, and retitle it by the brand.
+    if (existing) await channel.updatePartial({ set: { brandId, name } })
     return id
   }
 
-  /** Post a message (optionally with a picture) from `fromUserId` into a booking chat. */
+  /** Post a message (optionally with a picture) from `fromUserId` into a chat. */
   async sendBookingMessage(
-    bookingId: string,
+    channelId: string,
     fromUserId: string,
     text: string,
     imageUrl?: string
   ): Promise<void> {
-    await this.client.channel("messaging", bookingChannelId(bookingId)).sendMessage({
+    await this.client.channel("messaging", channelId).sendMessage({
       text,
       user_id: fromUserId,
       ...(imageUrl
@@ -535,8 +556,6 @@ export class StreamService {
     input: { venueId?: string; bookingId?: string }
   ): Promise<{ id: string }> {
     let venueId = input.venueId
-    // A booking whose transfer was reported has its own chat (`booking-<id>`).
-    let ownBooking: { bookingId: string; status: string } | null = null
 
     if (input.bookingId) {
       const booking = await this.bookings
@@ -546,7 +565,6 @@ export class StreamService {
         throw new NotFoundException("Không tìm thấy lượt đặt sân")
       }
       venueId = booking.venueId
-      ownBooking = booking
     } else if (!venueId) {
       throw new BadRequestException("Thiếu venueId hoặc bookingId")
     }
@@ -589,52 +607,13 @@ export class StreamService {
       },
     ])
 
-    if (ownBooking && ownBooking.status !== "awaiting_payment") {
-      const id = await this.ensureBookingChannel({
-        bookingId: ownBooking.bookingId,
-        playerId: userId,
-        ownerId: venue.ownerId,
-        venueId,
-        brandId: venue.brandId,
-        name: venue.info.name,
-      })
-      return { id }
-    }
-
-    const brandId = venue.brandId
-    if (!brandId) {
-      const id = venueChannelId(venueId, userId)
-      await this.client
-        .channel("messaging", id, {
-          name: venue.info.name,
-          venueId,
-          created_by_id: userId,
-          members: [userId, venue.ownerId],
-        })
-        .create()
-      return { id }
-    }
-
-    // A brand's branches all share one owner, so the player gets ONE chat per
-    // brand — booking two branches must not open two threads with the same
-    // person. Titled by the brand rather than whichever branch came first.
-    const brand = await this.brands
-      .findOne({ brandId })
-      .select("info")
-      .lean<{ info?: { name?: string } }>()
-    const name = brand?.info?.name ?? venue.info.name
-    const { id, existing } = await this.resolveBrandChannel(brandId, userId)
-    const channel = this.client.channel("messaging", id, {
-      name,
+    const id = await this.ensureBookingChannel({
+      playerId: userId,
+      ownerId: venue.ownerId,
       venueId,
-      brandId,
-      created_by_id: userId,
-      members: [userId, venue.ownerId],
+      brandId: venue.brandId,
+      name: venue.info.name,
     })
-    await channel.create()
-    // A reused pre-brand (per-branch) chat: tag it with the brand so the
-    // operator inbox of every branch finds it, and retitle it by the brand.
-    if (existing) await channel.updatePartial({ set: { brandId, name } })
     return { id }
   }
 

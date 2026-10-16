@@ -100,8 +100,8 @@ export function bookingChatMessage(
 }
 
 /**
- * Posts a booking's milestones into its own 1-1 chat (`booking-<id>`) between
- * the player and the venue owner. Strictly best-effort: a chat outage must
+ * Posts a booking's milestones into the single chat between the player and the
+ * venue owner (the same thread as "message the venue"). Strictly best-effort: a chat outage must
  * never block an approval, rejection or refund, so every failure is logged
  * and swallowed.
  */
@@ -130,25 +130,20 @@ export class BookingChatService {
         }>()
       if (!venue?.ownerId || venue.ownerId === booking.userId) return
 
-      await this.stream.ensureBookingChannel({
-        bookingId: booking.bookingId,
+      const channelId = await this.stream.ensureBookingChannel({
         playerId: booking.userId,
         ownerId: venue.ownerId,
         venueId: booking.venueId,
         brandId: venue.brandId,
-        name: `${venue.info?.name ?? "Sân"} · ${bookingLabel(booking)}`,
+        name: venue.info?.name ?? "Sân",
       })
       const msg = bookingChatMessage(booking, event)
       await this.stream.sendBookingMessage(
-        booking.bookingId,
+        channelId,
         msg.from === "player" ? booking.userId : venue.ownerId,
         msg.text,
         msg.imageUrl
       )
-      // Once the player has confirmed the refund the conversation is over.
-      if (event === "received") {
-        await this.stream.freezeChannelById(`booking-${booking.bookingId}`)
-      }
     } catch (err) {
       this.logger.warn(
         `Booking chat ${event} failed for ${booking.bookingId}: ${String(err)}`

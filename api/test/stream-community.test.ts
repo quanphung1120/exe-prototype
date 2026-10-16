@@ -352,7 +352,7 @@ void test("openVenueChat({ bookingId }) resolves the venue via the booking and r
   assert.ok(calls.channels.some((c) => c.id === result.id))
 })
 
-void test("openVenueChat({ bookingId }) opens the booking's own chat once the transfer was reported", async () => {
+void test("openVenueChat({ bookingId }) opens the same shared chat once the transfer was reported", async () => {
   const { client, calls } = makeFakeClient()
   const directory = makeFakeDirectory([{ id: "owner-1", name: "Chủ sân ABC" }])
   const service = await makeService({
@@ -373,8 +373,8 @@ void test("openVenueChat({ bookingId }) opens the booking's own chat once the tr
   })
 
   const result = await service.openVenueChat("player-1", { bookingId: "bk1" })
-  assert.equal(result.id, "booking-bk1")
-  assert.ok(calls.channels.some((c) => c.id === "booking-bk1"))
+  assert.equal(result.id, venueChannelId("v1", "player-1"))
+  assert.ok(calls.channels.some((c) => c.id === result.id))
 })
 
 void test("openVenueChat({ bookingId }) rejects when the booking belongs to another user", async () => {

@@ -67,10 +67,10 @@ void test("the refund message shows the amount and the refund screenshot", () =>
 async function makeChat(opts: { streamFails?: boolean } = {}) {
   const calls: string[] = []
   const stream = {
-    ensureBookingChannel: (input: { bookingId: string }) => {
-      calls.push(`ensure:${input.bookingId}`)
+    ensureBookingChannel: (input: { playerId: string }) => {
+      calls.push(`ensure:${input.playerId}`)
       if (opts.streamFails) return Promise.reject(new Error("stream down"))
-      return Promise.resolve("booking-b1")
+      return Promise.resolve("venue-shared")
     },
     sendBookingMessage: (_id: string, from: string) => {
       calls.push(`send:${from}`)
@@ -104,9 +104,9 @@ void test("proof opens the channel and the player speaks; approval is the owner'
   await chat.post(booking, "proof")
   await chat.post(booking, "approved")
   assert.deepEqual(calls, [
-    "ensure:b1",
+    "ensure:player-1",
     "send:player-1",
-    "ensure:b1",
+    "ensure:player-1",
     "send:owner-1",
   ])
 })
@@ -116,8 +116,8 @@ void test("a chat outage never throws into the booking flow", async () => {
   await assert.doesNotReject(() => chat.post(booking, "approved"))
 })
 
-void test("the chat freezes once the player confirms the refund arrived", async () => {
+void test("the shared chat stays open after the player confirms the refund", async () => {
   const { chat, calls } = await makeChat()
   await chat.post(booking, "received")
-  assert.equal(calls.at(-1), "freeze:booking-b1")
+  assert.ok(!calls.some((c) => c.startsWith("freeze:")))
 })
