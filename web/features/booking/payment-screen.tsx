@@ -194,10 +194,10 @@ export function PaymentScreen({
   }
 
   const [opening, startOpening] = React.useTransition()
-  const messageVenue = (venueId: string) => {
+  const messageVenue = () => {
     startOpening(async () => {
       try {
-        const { id } = await openVenueChat({ venueId })
+        const { id } = await openVenueChat({ bookingId })
         router.push(`/app/chat?channel=${id}`)
       } catch {
         toast.error(t("chatFailed"))
@@ -253,7 +253,7 @@ export function PaymentScreen({
               variant="outline"
               className="rounded-full"
               disabled={opening}
-              onClick={() => messageVenue(screen.venueId as string)}
+              onClick={() => messageVenue()}
             >
               <MessageCircle className="size-4" />
               {t("messageVenue")}

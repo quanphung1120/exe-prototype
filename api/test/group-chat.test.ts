@@ -21,6 +21,7 @@ import {
 } from "../src/features/rooms/group-match.js"
 import { RoomsService } from "../src/features/rooms/rooms.service.js"
 import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
+import { BookingChatService } from "../src/features/bookings/booking-chat.service.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
@@ -185,6 +186,7 @@ async function makeRooms(
         },
       },
       { provide: getModelToken(RoomComplaint.name), useValue: {} },
+      { provide: BookingChatService, useValue: { post: () => Promise.resolve() } },
       RoomEventsService,
     ],
   }).compile()

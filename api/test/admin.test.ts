@@ -18,6 +18,7 @@ import { ROLES_KEY } from "../src/common/roles.decorator.js"
 import { setRequestRole, setRequestUserId } from "../src/common/request-auth.js"
 import { BrandsService } from "../src/features/brands/brands.service.js"
 import { VenuesService } from "../src/features/venues/venues.service.js"
+import { BookingChatService } from "../src/features/bookings/booking-chat.service.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
@@ -356,6 +357,7 @@ async function makeBookingsService(venueDoc: ReturnType<typeof makeVenueDoc>) {
         useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
       },
       { provide: RoomEventsService, useValue: { emit: () => {} } },
+      { provide: BookingChatService, useValue: { post: () => Promise.resolve() } },
     ],
   }).compile()
 

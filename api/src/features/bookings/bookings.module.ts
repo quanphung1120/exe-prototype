@@ -14,6 +14,7 @@ import {
 import { Venue, VenueSchema } from "../venues/venue.schema.js"
 import { BookingLock, BookingLockSchema } from "./booking-lock.schema.js"
 import { Booking, BookingSchema } from "./booking.schema.js"
+import { BookingChatService } from "./booking-chat.service.js"
 import { BookingsController } from "./bookings.controller.js"
 import { BookingsService } from "./bookings.service.js"
 
@@ -49,7 +50,7 @@ import { BookingsService } from "./bookings.service.js"
     BrandsModule,
   ],
   controllers: [BookingsController],
-  providers: [BookingsService],
+  providers: [BookingsService, BookingChatService],
   exports: [BookingsService],
 })
 export class BookingsModule {}

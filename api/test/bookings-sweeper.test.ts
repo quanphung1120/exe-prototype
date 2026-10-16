@@ -10,6 +10,7 @@ import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { ConfigService } from "@nestjs/config"
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 
+import { BookingChatService } from "../src/features/bookings/booking-chat.service.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
@@ -183,6 +184,7 @@ async function makeService(bookings: FakeBooking[]) {
         useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
       },
       { provide: RoomEventsService, useValue: { emit: () => {} } },
+      { provide: BookingChatService, useValue: { post: () => Promise.resolve() } },
     ],
   }).compile()
 

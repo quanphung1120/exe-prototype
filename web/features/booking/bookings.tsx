@@ -800,7 +800,11 @@ function CalendarEvent({
   const messageVenue = () => {
     startOpening(async () => {
       try {
-        const { id } = await openVenueChat({ venueId: booking.venueId })
+        const { id } = await openVenueChat(
+          booking.bookingStatus && booking.bookingStatus !== "awaiting_payment"
+            ? { bookingId: booking.id }
+            : { venueId: booking.venueId }
+        )
         router.push(`/app/chat?channel=${id}`)
       } catch {
         toast.error(t("messageVenueFailed"))

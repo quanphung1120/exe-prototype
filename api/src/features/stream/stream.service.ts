@@ -25,6 +25,8 @@ declare module "stream-chat" {
     venueId?: string
     /** Owning brand of a player↔venue chat, when the venue belongs to one. */
     brandId?: string
+    /** The booking a `booking-*` chat belongs to. */
+    bookingId?: string
   }
 }
 
@@ -66,6 +68,9 @@ export const venueChannelId = (venueId: string, userId: string) =>
  * however many of their branches the player books. Shares the `venue-` prefix
  * (and hash space, keyed `brand:<id>`) so every venue-chat check still applies.
  */
+/** Per-booking chat between the player and the venue owner (VietQR flow). */
+export const bookingChannelId = (bookingId: string) => `booking-${bookingId}`
+
 export const brandChannelId = (brandId: string, userId: string) =>
   venueChannelId(`brand:${brandId}`, userId)
 
@@ -156,6 +161,49 @@ export class StreamService {
     })
     await channel.create()
     return { id: input.id }
+  }
+
+  /**
+   * Get-or-create the 1-1 chat of one booking (`booking-<id>`): the player and
+   * the venue owner. `channel.create()` is idempotent on an existing id.
+   */
+  async ensureBookingChannel(input: {
+    bookingId: string
+    playerId: string
+    ownerId: string
+    venueId: string
+    brandId?: string
+    name: string
+  }): Promise<string> {
+    const id = bookingChannelId(input.bookingId)
+    await this.client.upsertUsers([{ id: input.playerId }, { id: input.ownerId }])
+    await this.client
+      .channel("messaging", id, {
+        name: input.name,
+        bookingId: input.bookingId,
+        venueId: input.venueId,
+        ...(input.brandId ? { brandId: input.brandId } : {}),
+        created_by_id: input.playerId,
+        members: [input.playerId, input.ownerId],
+      })
+      .create()
+    return id
+  }
+
+  /** Post a message (optionally with a picture) from `fromUserId` into a booking chat. */
+  async sendBookingMessage(
+    bookingId: string,
+    fromUserId: string,
+    text: string,
+    imageUrl?: string
+  ): Promise<void> {
+    await this.client.channel("messaging", bookingChannelId(bookingId)).sendMessage({
+      text,
+      user_id: fromUserId,
+      ...(imageUrl
+        ? { attachments: [{ type: "image", image_url: imageUrl, fallback: "Ảnh chuyển khoản" }] }
+        : {}),
+    })
   }
 
   /** The Stream-recorded creator (host) of a room channel, or null. */
@@ -487,6 +535,8 @@ export class StreamService {
     input: { venueId?: string; bookingId?: string }
   ): Promise<{ id: string }> {
     let venueId = input.venueId
+    // A booking whose transfer was reported has its own chat (`booking-<id>`).
+    let ownBooking: { bookingId: string; status: string } | null = null
 
     if (input.bookingId) {
       const booking = await this.bookings
@@ -496,6 +546,7 @@ export class StreamService {
         throw new NotFoundException("Không tìm thấy lượt đặt sân")
       }
       venueId = booking.venueId
+      ownBooking = booking
     } else if (!venueId) {
       throw new BadRequestException("Thiếu venueId hoặc bookingId")
     }
@@ -512,7 +563,9 @@ export class StreamService {
     const eligible = await this.bookings.exists({
       userId,
       venueId,
-      paymentStatus: { $in: ["paid", "refunded", "partial_refund"] },
+      paymentStatus: {
+        $in: ["awaiting_verification", "paid", "refunded", "partial_refund"],
+      },
     })
     if (!eligible) {
       throw new ForbiddenException(
@@ -535,6 +588,18 @@ export class StreamService {
         ...(owner.image ? { image: owner.image } : {}),
       },
     ])
+
+    if (ownBooking && ownBooking.status !== "awaiting_payment") {
+      const id = await this.ensureBookingChannel({
+        bookingId: ownBooking.bookingId,
+        playerId: userId,
+        ownerId: venue.ownerId,
+        venueId,
+        brandId: venue.brandId,
+        name: venue.info.name,
+      })
+      return { id }
+    }
 
     const brandId = venue.brandId
     if (!brandId) {

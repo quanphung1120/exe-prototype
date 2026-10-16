@@ -16,6 +16,7 @@ import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { ConfigService } from "@nestjs/config"
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 
+import { BookingChatService } from "../src/features/bookings/booking-chat.service.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
@@ -192,6 +193,7 @@ async function makeService(deps: Deps = {}) {
 
   const findOneAndUpdateCalls: unknown[] = []
   const sessionUpdates: { filter: unknown; update: unknown }[] = []
+  const chatPosts: { bookingId: string; event: string }[] = []
   const roomEvents: string[] = []
   const bookingModelMock = {
     findOne: () => makeQuery(bookingDoc),
@@ -297,11 +299,21 @@ async function makeService(deps: Deps = {}) {
         provide: RoomEventsService,
         useValue: { emit: (id: string) => roomEvents.push(id) },
       },
+      {
+        provide: BookingChatService,
+        useValue: {
+          post: (booking: { bookingId: string }, event: string) => {
+            chatPosts.push({ bookingId: booking.bookingId, event })
+            return Promise.resolve()
+          },
+        },
+      },
     ],
   }).compile()
 
   return {
     service: moduleRef.get(BookingsService),
+    chatPosts,
     bookingDoc,
     notifications,
     created,
@@ -823,7 +835,7 @@ void test("createHold caps how many unpaid bookings one player keeps open", asyn
 })
 
 void test("submitPaymentProof queues the booking for the venue with a 12-hour answer deadline", async () => {
-  const { service, bookingDoc, notifications } = await makeService({
+  const { service, bookingDoc, notifications, chatPosts } = await makeService({
     bookingDoc: unpaidDoc(),
   })
 
@@ -843,6 +855,7 @@ void test("submitPaymentProof queues the booking for the venue with a 12-hour an
   assert.ok(Math.abs(hours - 12) < 0.01)
   assert.equal(notifications.length, 1)
   assert.equal(notifications[0]?.userId, "owner-1")
+  assert.deepEqual(chatPosts, [{ bookingId: "b1", event: "proof" }])
 })
 
 void test("the answer deadline never falls after the slot starts", async () => {
@@ -856,7 +869,7 @@ void test("the answer deadline never falls after the slot starts", async () => {
 })
 
 void test("submitPaymentProof is idempotent and tells the venue only once", async () => {
-  const { service, notifications } = await makeService({
+  const { service, notifications, chatPosts } = await makeService({
     bookingDoc: unpaidDoc(),
   })
   const input = { proofUrl: PROOF_URL, refundAccount: REFUND_ACCOUNT }
@@ -864,6 +877,7 @@ void test("submitPaymentProof is idempotent and tells the venue only once", asyn
   const again = await service.submitPaymentProof("user-1", "b1", input)
   assert.equal(again.status, "awaiting_venue_confirmation")
   assert.equal(notifications.length, 1)
+  assert.equal(chatPosts.length, 1)
 })
 
 void test("submitPaymentProof refuses another player's booking, a wrong status and a missing memo", async () => {
@@ -888,7 +902,7 @@ void test("submitPaymentProof refuses another player's booking, a wrong status a
 })
 
 void test("decide approve confirms the booking and marks the money as received", async () => {
-  const { service, notifications } = await makeService({
+  const { service, notifications, chatPosts } = await makeService({
     bookingDoc: waitingDoc(),
   })
 
@@ -897,6 +911,7 @@ void test("decide approve confirms the booking and marks the money as received",
   assert.equal(result.status, "confirmed")
   assert.equal(result.paymentStatus, "paid")
   assert.equal(notifications[0]?.userId, "user-1")
+  assert.deepEqual(chatPosts, [{ bookingId: "b1", event: "approved" }])
 })
 
 void test("decide approve fails when another booking already holds the slot", async () => {
@@ -927,10 +942,11 @@ void test("decide decline needs a reason and queues a full refund", async () => 
     BadRequestException
   )
 
-  const { service, bookingDoc } = await makeService({
+  const { service, bookingDoc, chatPosts } = await makeService({
     bookingDoc: waitingDoc(),
   })
   const result = await service.decide("owner-1", "b1", "decline", "Hết sân")
+  assert.deepEqual(chatPosts, [{ bookingId: "b1", event: "rejected" }])
   assert.equal(result.status, "rejected_refund_pending")
   assert.equal(result.declineReason, "Hết sân")
   assert.equal(result.refund?.pct, 100)

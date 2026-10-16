@@ -47,6 +47,7 @@ import {
   type PlaySessionDocument,
 } from "../sessions/session.schema.js"
 import { ClerkDirectoryService } from "../stream/clerk-directory.service.js"
+import { BookingChatService } from "./booking-chat.service.js"
 import {
   effectiveApproval,
   Venue,
@@ -225,7 +226,9 @@ export class BookingsService {
     private readonly sessionModel: Model<PlaySessionDocument>,
     @Inject(RoomEventsService) private readonly roomEvents: RoomEventsService,
     @InjectModel(RoomComplaint.name)
-    private readonly complaintModel: Model<RoomComplaintDocument>
+    private readonly complaintModel: Model<RoomComplaintDocument>,
+    // Milestones are echoed into the booking's own chat (best-effort).
+    @Inject(BookingChatService) private readonly chat: BookingChatService
   ) {}
 
   /**
@@ -902,7 +905,10 @@ export class BookingsService {
    * unpaid hold cancels/declines clean.
    */
   private applyVenueFaultCancel(doc: BookingDocument, reason?: string): void {
-    if (reason) doc.declineReason = reason
+    if (reason) {
+      doc.declineReason = reason
+      doc.rejectReason = reason
+    }
     this.applyRefund(doc, 100)
   }
 
@@ -1140,7 +1146,10 @@ export class BookingsService {
       fresh = true
       return d
     })
-    if (fresh) await this.notifyVenueOfProof(doc)
+    if (fresh) {
+      await this.notifyVenueOfProof(doc)
+      await this.chat.post(doc, "proof")
+    }
     return bookingSummaryFrom(doc)
   }
 
@@ -1254,6 +1263,7 @@ export class BookingsService {
       }
     )
     await this.notifyDecision(doc, prevStatus, status, reason)
+    if (prevStatus !== null) await this.chatForStatus(doc, status)
     return bookingSummaryFrom(doc)
   }
 
@@ -1321,10 +1331,22 @@ export class BookingsService {
         }
       }
     )
+    if (prevStatus !== null) await this.chatForStatus(doc, target)
     return {
       reservation: reservationFromBooking(doc, isoDateOf(vnNowIso())),
       prevStatus,
       userId: doc.userId,
+    }
+  }
+
+  /** Echo a venue decision into the booking chat: confirmed or sent to refund. */
+  private async chatForStatus(
+    doc: BookingDocument,
+    status: BookingRecordStatus
+  ): Promise<void> {
+    if (status === "confirmed") await this.chat.post(doc, "approved")
+    else if (status === "rejected_refund_pending") {
+      await this.chat.post(doc, "rejected")
     }
   }
 
@@ -1339,7 +1361,7 @@ export class BookingsService {
       .lean<{ venueId: string }>()
     if (!booking) throw new NotFoundException("Booking not found")
     const target = await this.cancelTarget(booking.venueId, bookingId)
-    const { doc } = await this.setStatus(
+    const { doc, prevStatus } = await this.setStatus(
       booking.venueId,
       bookingId,
       target,
@@ -1356,6 +1378,7 @@ export class BookingsService {
         }
       }
     )
+    if (prevStatus !== null) await this.chatForStatus(doc, target)
     return bookingSummaryFrom(doc)
   }
 
@@ -1445,6 +1468,7 @@ export class BookingsService {
           href: "/app/bookings",
         })
         .catch(() => undefined)
+      await this.chat.post(doc, "refunded")
     }
     return bookingSummaryFrom(doc)
   }
@@ -1475,6 +1499,7 @@ export class BookingsService {
       return d
     })
     if (result === "not_received") await this.openRefundComplaint(doc)
+    await this.chat.post(doc, result)
     const ownerId = await this.venueOwnerId(doc.venueId)
     if (ownerId) {
       await this.notifications
@@ -1627,6 +1652,7 @@ export class BookingsService {
       }
     )
     if (prevStatus === null) return
+    await this.chat.post(doc, "rejected")
     if (doc.userId) {
       await this.notifications
         .create(doc.userId, {
