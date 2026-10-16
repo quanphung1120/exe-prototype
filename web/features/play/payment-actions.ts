@@ -1,56 +1,19 @@
 "use server"
 
+import type { BankAccount } from "@/lib/shared"
+
 import { apiFetch } from "@/lib/api"
+import type { BookingSummary } from "@/features/play/booking-actions"
 
-// Server actions for the SePay payment gateway (Phase 4, VienTD-Review
-// decision #3/#9) — thin wrappers over `POST /api/payments/checkout` and
-// `GET /api/payments/by-booking/:id`. Mirrors `booking-actions.ts`'s shape
-// (a result object instead of a thrown error — see the note there for why)
-// so `session.tsx`/`payment-return.tsx` can branch on failure the same way.
-
-export type PaymentRecordStatus = "awaiting" | "paid" | "cancelled"
-
-/** The shape `POST /api/payments/checkout` and `GET /api/payments/by-booking/:id` return. */
-export interface PaymentSummary {
-  bookingId: string
-  invoiceNumber: string
-  /** The actual charged amount — after any discount code is applied. */
-  amount: number
-  currency: string
-  status: PaymentRecordStatus
-  checkoutUrl?: string
-  paidAt?: string
-  /** Pre-discount amount — present only when a discount code was applied. */
-  originalAmount?: number
-  discountCode?: string
-  discountAmount?: number
-}
-
-/** `POST /api/discounts/validate` response on success. */
-export interface DiscountValidation {
-  valid: true
-  code: string
-  type: "percent" | "fixed"
-  value: number
-  /** Vietnamese, server-authored — shown to the player as-is. */
-  description: string
-  discountAmount: number
-  finalAmount: number
-}
-
-/** `POST /api/payments/checkout` response — the summary plus the signed SePay form. */
-export interface CheckoutResult {
-  payment: PaymentSummary
-  /** Hidden form fields to POST to `checkoutUrl` — already HMAC-signed by SePay's SDK. */
-  fields: Record<string, string | number | undefined>
-  checkoutUrl: string
-}
+// Server actions for paying a booking by bank transfer (VietQR, plan 025): the
+// player transfers straight to the venue's account, uploads a screenshot, and
+// the venue checks its own bank app. They return a result object instead of
+// throwing — a thrown Error crossing the Server Action boundary loses its
+// message in production, and callers branch on the HTTP status (409, 402…).
 
 export type PaymentActionResult<T> =
   { ok: true; data: T } | { ok: false; status: number; message: string }
 
-// Same unwrap as `booking-actions.ts#bookingsApi` — see the note there on why
-// a plain result object crosses the Server Action boundary instead of a throw.
 async function paymentsApi<T>(
   path: string,
   init?: Parameters<typeof apiFetch>[1]
@@ -71,27 +34,143 @@ async function paymentsApi<T>(
   }
 }
 
+/** What the payment screen shows: where to transfer, how much, and the memo. */
+export interface VietQrPayment {
+  bookingId: string
+  venueId: string
+  courtName: string
+  startAt: string
+  dateKey: string
+  start: string
+  durationMin: number
+  /** VND to transfer — the price minus any discount code. */
+  amount: number
+  originalAmount: number
+  discountCode?: string
+  discountAmount?: number
+  /** The memo the player must put in the transfer. */
+  transferMemo: string
+  /** A VietQR image that pre-fills bank, account, amount and memo. */
+  qrUrl: string
+  /** The venue's account. */
+  account: BankAccount
+  /** The player's saved refund account, to pre-fill the form. */
+  refundAccount: BankAccount | null
+}
+
+/** Signed params for one direct browser → Cloudinary upload. */
+export interface ProofUploadSignature {
+  cloudName: string
+  apiKey: string
+  timestamp: number
+  folder: string
+  allowedFormats: string
+  signature: string
+}
+
+/** A bank account typed into a form (the bank is identified by its bin). */
+export interface BankAccountInput {
+  bankBin: string
+  accountNo: string
+  accountName: string
+}
+
+/** `POST /api/discounts/validate` response on success. */
+export interface DiscountValidation {
+  valid: true
+  code: string
+  type: "percent" | "fixed"
+  value: number
+  /** Vietnamese, server-authored — shown to the player as-is. */
+  description: string
+  discountAmount: number
+  finalAmount: number
+}
+
+const bookingPath = (bookingId: string) =>
+  `/api/bookings/${encodeURIComponent(bookingId)}`
+
 /**
- * Start (or resume) a SePay checkout for the caller's own `awaiting_payment`
- * booking hold. Re-calling for the same booking before it's paid is
- * idempotent server-side (reuses the same `Payment`/invoice) — `book.tsx`'s
- * pay button relies on that to let a failed checkout be retried.
+ * Start (or resume) paying for the caller's own unpaid booking. The first call
+ * fixes the amount (after any discount code), the memo and the venue account;
+ * calling again returns the same thing.
  */
-export async function startPaymentCheckout(
+export async function startVietQrPayment(
   bookingId: string,
   discountCode?: string
-): Promise<PaymentActionResult<CheckoutResult>> {
-  return paymentsApi<CheckoutResult>("/api/payments/checkout", {
+): Promise<PaymentActionResult<VietQrPayment>> {
+  return paymentsApi<VietQrPayment>(`${bookingPath(bookingId)}/payment/start`, {
     method: "POST",
-    body: discountCode ? { bookingId, discountCode } : { bookingId },
+    body: discountCode ? { discountCode } : {},
   })
+}
+
+/** A signature to upload the transfer screenshot straight to Cloudinary. */
+export async function signPaymentProofUpload(
+  bookingId: string
+): Promise<PaymentActionResult<ProofUploadSignature>> {
+  return paymentsApi<ProofUploadSignature>(
+    `${bookingPath(bookingId)}/payment/proof/signature`,
+    { method: "POST" }
+  )
+}
+
+/** Send the screenshot and the refund account; the booking now waits for the venue. */
+export async function submitPaymentProof(
+  bookingId: string,
+  input: { proofUrl: string; refundAccount: BankAccountInput }
+): Promise<PaymentActionResult<BookingSummary>> {
+  return paymentsApi<BookingSummary>(
+    `${bookingPath(bookingId)}/payment/submit`,
+    {
+      method: "POST",
+      body: input,
+    }
+  )
+}
+
+/** The venue's side: a signature to upload the refund screenshot. */
+export async function signRefundProofUpload(
+  bookingId: string
+): Promise<PaymentActionResult<ProofUploadSignature>> {
+  return paymentsApi<ProofUploadSignature>(
+    `${bookingPath(bookingId)}/refund/signature`,
+    { method: "POST" }
+  )
+}
+
+/** The venue's side: mark the refund done with its screenshot (and amount, if less than full). */
+export async function completeRefund(
+  bookingId: string,
+  input: { proofUrl: string; amount?: number }
+): Promise<PaymentActionResult<BookingSummary>> {
+  return paymentsApi<BookingSummary>(
+    `${bookingPath(bookingId)}/refund/complete`,
+    {
+      method: "POST",
+      body: input,
+    }
+  )
+}
+
+/** The player says whether the refund arrived ("not received" opens a complaint). */
+export async function confirmRefundReceipt(
+  bookingId: string,
+  result: "received" | "not_received"
+): Promise<PaymentActionResult<BookingSummary>> {
+  return paymentsApi<BookingSummary>(
+    `${bookingPath(bookingId)}/refund/confirm`,
+    {
+      method: "POST",
+      body: { result },
+    }
+  )
 }
 
 /**
  * Validate a discount code (mã giảm giá) against the current order amount —
- * called from the pay step as the player types a code, before checkout ever
- * starts. Failure carries the server's Vietnamese message (e.g. "Mã giảm giá
- * đã hết hạn") straight through for inline display.
+ * called from the pay step as the player types a code. Failure carries the
+ * server's Vietnamese message (e.g. "Mã giảm giá đã hết hạn") for inline display.
  */
 export async function validateDiscountCode(
   code: string,
@@ -100,33 +179,5 @@ export async function validateDiscountCode(
   return paymentsApi<DiscountValidation>("/api/discounts/validate", {
     method: "POST",
     body: { code, amount },
-  })
-}
-
-/**
- * Poll the caller's payment status — used by the SePay return screen
- * (`payment-return.tsx`) while waiting for the IPN (or this endpoint's own
- * `order.retrieve()` reconciliation) to confirm the money moved.
- */
-export async function getPaymentStatus(
-  bookingId: string
-): Promise<PaymentActionResult<PaymentSummary>> {
-  return paymentsApi<PaymentSummary>(
-    `/api/payments/by-booking/${encodeURIComponent(bookingId)}`
-  )
-}
-
-/**
- * Pay the caller's own `awaiting_payment` hold from their wallet balance —
- * `POST /api/payments/wallet-pay`. Settles immediately (no redirect): the
- * returned summary is already `paid`. A short balance comes back as status 402.
- */
-export async function payBookingWithWallet(
-  bookingId: string,
-  discountCode?: string
-): Promise<PaymentActionResult<PaymentSummary>> {
-  return paymentsApi<PaymentSummary>("/api/payments/wallet-pay", {
-    method: "POST",
-    body: discountCode ? { bookingId, discountCode } : { bookingId },
   })
 }

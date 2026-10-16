@@ -533,6 +533,38 @@ export interface CourtBand {
   durationMin: number
 }
 
+/** A booked session whose slot the venue has not approved yet (unpaid or proof sent). */
+function isAwaitingVenue(s: PlaySession): boolean {
+  return (
+    s.bookingStatus === "awaiting_payment" ||
+    s.bookingStatus === "awaiting_venue_confirmation" ||
+    s.bookingStatus === "pending"
+  )
+}
+
+/**
+ * The player's own bookings on a court/day still waiting for the venue. They
+ * are shown to the player only and never count as taken for the court.
+ */
+export function courtDayPending(
+  sessions: PlaySession[],
+  courtId: string,
+  dayKey: string,
+  ignoreId?: string,
+  now: number = Date.now()
+): CourtBand[] {
+  if (dayKey < vnDateOf(now)) return []
+  return courtHolds(sessions, ignoreId, now)
+    .filter(
+      (s) =>
+        isAwaitingVenue(s) &&
+        s.courtId === courtId &&
+        s.dayKey === dayKey &&
+        s.slot
+    )
+    .map((s) => ({ start: s.slot!, durationMin: s.durationMin }))
+}
+
 /**
  * Merged, sorted busy intervals on a court for a day: the house's already-taken
  * hours (from {@link courtSlots}) plus any confirmed court holds on that
@@ -557,6 +589,7 @@ export function courtDayBusy(
     }
   }
   for (const s of courtHolds(sessions, ignoreId, now)) {
+    if (isAwaitingVenue(s)) continue
     if (s.courtId === courtId && s.dayKey === dayKey && s.slot) {
       const start = toMinutes(s.slot)
       raw.push({ start, end: start + s.durationMin })
@@ -675,6 +708,7 @@ export function sessionToRoom(s: PlaySession): MatchRoom {
       initials: p.initials,
       host: p.rsvp === "host",
       ...(p.userId ? { userId: p.userId } : {}),
+      ...(p.paid ? { paid: true } : {}),
     })),
     pricePerHour: s.pricePerHour,
     durationMin: s.durationMin,
@@ -726,6 +760,11 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
     declineReason: s.cancelReason,
     refunded: s.refunded,
     cancelRequest: s.cancelRequest,
+    bookingStatus: s.bookingStatus,
+    confirmDeadlineAt: s.confirmDeadlineAt,
+    refund: s.refund,
+    refundConfirmation: s.refundConfirmation,
+    transferMemo: s.transferMemo,
     result: s.result,
     score: s.score,
   }
@@ -1045,12 +1084,28 @@ export const BOOKING_TRANSITIONS: Record<
 > = {
   // "pending" here means paid, awaiting venue approval; a sweeper auto-confirm
   // (silence = consent) also lands on "confirmed" through this same edge.
-  awaiting_payment: ["pending", "expired", "cancelled"],
+  // VietQR flow: no hold, so nothing here expires on a clock. The player can
+  // cancel until they send proof; after that only the venue moves it.
+  awaiting_payment: [
+    "awaiting_venue_confirmation",
+    "pending",
+    "expired",
+    "cancelled",
+  ],
+  awaiting_venue_confirmation: [
+    "confirmed",
+    "rejected_refund_pending",
+    "cancelled",
+  ],
+  // The venue owes a manual refund; once the screenshot is up it is refunded.
+  rejected_refund_pending: ["refunded"],
+  refunded: [],
   pending: ["confirmed", "cancelled"],
   // Venues no longer check players in (they paid up front), so a confirmed
   // booking goes straight to completed once it ends. "checked-in" stays only
   // for bookings checked in before that was removed.
-  confirmed: ["completed", "cancelled", "no-show"],
+  // A confirmed booking the venue cancels owes the player a refund.
+  confirmed: ["completed", "cancelled", "no-show", "rejected_refund_pending"],
   "checked-in": ["completed", "cancelled"],
   completed: [],
   expired: [],

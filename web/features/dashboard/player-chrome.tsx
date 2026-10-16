@@ -2,10 +2,6 @@
 
 import { MatchMakerDialogs } from "@/features/play/match-maker-dialogs"
 import { PlayChooser } from "@/features/play/play-chooser"
-import {
-  DueSharesBanner,
-  RoomShareJoinDialog,
-} from "@/features/play/room-share"
 import { workspaceForPath } from "@/features/dashboard/workspace"
 import { usePathname } from "@/i18n/navigation"
 
@@ -24,8 +20,6 @@ export function PlayerChrome() {
     <>
       <PlayChooser />
       <MatchMakerDialogs />
-      <RoomShareJoinDialog />
-      <DueSharesBanner />
     </>
   )
 }

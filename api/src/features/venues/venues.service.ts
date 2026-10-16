@@ -157,7 +157,19 @@ type StoredVenueRecord = VenueRecord & { ownerId?: string }
 function asReservationStatus(
   status: BookingRecordStatus
 ): Exclude<ReservationStatus, "held"> | null {
-  return status === "awaiting_payment" || status === "expired" ? null : status
+  switch (status) {
+    case "awaiting_payment":
+    case "expired":
+      return null
+    // A booking waiting on the venue reads as `pending`; refund states read as cancelled.
+    case "awaiting_venue_confirmation":
+      return "pending"
+    case "rejected_refund_pending":
+    case "refunded":
+      return "cancelled"
+    default:
+      return status
+  }
 }
 
 /** Merge a doc's resolved approval status onto the VenueInfo served to the web. */

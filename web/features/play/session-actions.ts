@@ -20,3 +20,12 @@ export async function saveSession(session: PlaySession): Promise<void> {
     body: session,
   })
 }
+
+/**
+ * Fetch the signed-in player's current sessions from the server — each
+ * session's booking-derived fields (`bookingStatus`, `hold`, etc.) reflect
+ * the latest venue decision. Used by `SessionProvider` for live polling.
+ */
+export async function listPlayerSessions(): Promise<PlaySession[]> {
+  return apiFetch<PlaySession[]>("/api/sessions")
+}

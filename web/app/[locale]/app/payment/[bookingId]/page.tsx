@@ -1,18 +1,34 @@
-import { redirect } from "@/i18n/navigation"
+import type { Metadata } from "next"
+import { getTranslations, setRequestLocale } from "next-intl/server"
 
-// Legacy SePay return URL — `${SEPAY_RETURN_URL}/<bookingId>` with no outcome
-// segment, which a checkout started before the success/failed split (or by an
-// api still on the old build) bakes into its SePay order. Forward it to the
-// success page: that page verifies the real payment status itself, so an
-// unpaid/cancelled order still lands on the right result.
-export default async function LegacyPaymentReturnPage({
+import { PaymentScreen } from "@/features/booking/payment-screen"
+
+export async function generateMetadata({
   params,
 }: {
+  params: Promise<{ locale: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const t = await getTranslations({ locale, namespace: "PaymentVietQr" })
+  return { title: t("metaTitle"), description: t("metaDescription") }
+}
+
+// Pay a booking by bank transfer (VietQR): the venue's QR and memo, then the
+// player's screenshot. `?discount=<code>` carries a code applied in the wizard.
+export default async function PaymentPage({
+  params,
+  searchParams,
+}: {
   params: Promise<{ locale: string; bookingId: string }>
+  searchParams: Promise<{ discount?: string }>
 }) {
   const { locale, bookingId } = await params
-  redirect({
-    href: `/app/payment/success/${encodeURIComponent(bookingId)}`,
-    locale,
-  })
+  const { discount } = await searchParams
+  setRequestLocale(locale)
+  return (
+    <PaymentScreen
+      bookingId={bookingId}
+      discountCode={discount?.trim() || undefined}
+    />
+  )
 }

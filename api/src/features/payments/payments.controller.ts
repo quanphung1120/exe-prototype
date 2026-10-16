@@ -1,69 +1,83 @@
-import {
-  BadRequestException,
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Req,
-  type RawBodyRequest,
-} from "@nestjs/common"
-import type { Request } from "express"
+import { Body, Controller, Param, Post } from "@nestjs/common"
 
-import { Public } from "../../common/public.decorator.js"
 import { UserId } from "../../common/user-id.decorator.js"
 import { UserThrottle } from "../../common/user-throttler.guard.js"
-import { BookingIdParamDto, CheckoutDto, WalletPayDto } from "./payments.dto.js"
+import { BookingsService } from "../bookings/bookings.service.js"
+import {
+  BookingIdParamDto,
+  CompleteRefundDto,
+  ConfirmRefundDto,
+  StartPaymentDto,
+  SubmitPaymentProofDto,
+} from "./payments.dto.js"
 import { PaymentsService } from "./payments.service.js"
 
-// SePay checkout + IPN (VienTD-Review Phase 4). `checkout`/`byBooking` are
-// player-facing and go through the global ClerkAuthGuard like every other
-// route; `ipn` is SePay's server calling us, so it's `@Public()` and
-// authenticates itself instead via the request's `X-Secret-Key` header
-// (`PaymentsService#handleIpn` → `SepayClient#verifyIpnAuth`).
-@Controller("payments")
+// The payment steps of a booking, under /api/bookings/:id. The player pays the
+// venue directly by bank transfer (VietQR) and sends a screenshot; the venue
+// approves or rejects and refunds by hand — see `BookingsService` for the state
+// machine. Every write that signs an upload or stores an image is throttled.
+@Controller("bookings")
 export class PaymentsController {
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(
+    private readonly payments: PaymentsService,
+    private readonly bookings: BookingsService
+  ) {}
 
-  /**
-   * Start (or resume) a SePay checkout for the caller's own booking hold.
-   * Per-user throttled — each call creates an external SePay checkout.
-   */
+  /** Where and how much to transfer, with the memo to put in the transfer. */
+  @UserThrottle({ limit: 20, ttl: 60_000 })
+  @Post(":id/payment/start")
+  start(
+    @UserId() userId: string,
+    @Param() param: BookingIdParamDto,
+    @Body() body: StartPaymentDto
+  ) {
+    return this.payments.startPayment(userId, param.id, body.discountCode)
+  }
+
+  /** A signature to upload the transfer screenshot straight to Cloudinary. */
+  @UserThrottle({ limit: 20, ttl: 60_000 })
+  @Post(":id/payment/proof/signature")
+  proofSignature(@UserId() userId: string, @Param() param: BookingIdParamDto) {
+    return this.payments.signProofUpload(userId, param.id)
+  }
+
+  /** The player sends the screenshot; the booking now waits for the venue. */
   @UserThrottle({ limit: 10, ttl: 60_000 })
-  @Post("checkout")
-  async checkout(@UserId() userId: string, @Body() body: CheckoutDto) {
-    return this.payments.checkout(userId, body.bookingId, body.discountCode)
+  @Post(":id/payment/submit")
+  submit(
+    @UserId() userId: string,
+    @Param() param: BookingIdParamDto,
+    @Body() body: SubmitPaymentProofDto
+  ) {
+    return this.payments.submitProof(userId, param.id, body)
   }
 
-  /** Pay the caller's own booking hold from their wallet balance. */
+  /** A signature for the venue's refund screenshot. */
+  @UserThrottle({ limit: 20, ttl: 60_000 })
+  @Post(":id/refund/signature")
+  refundSignature(@UserId() userId: string, @Param() param: BookingIdParamDto) {
+    return this.payments.signRefundUpload(userId, param.id)
+  }
+
+  /** The venue sends the refund screenshot; the booking becomes refunded. */
   @UserThrottle({ limit: 10, ttl: 60_000 })
-  @Post("wallet-pay")
-  async walletPay(@UserId() userId: string, @Body() body: WalletPayDto) {
-    return this.payments.payWithWallet(
-      userId,
-      body.bookingId,
-      body.discountCode
-    )
+  @Post(":id/refund/complete")
+  completeRefund(
+    @UserId() userId: string,
+    @Param() param: BookingIdParamDto,
+    @Body() body: CompleteRefundDto
+  ) {
+    return this.payments.completeRefund(userId, param.id, body)
   }
 
-  /**
-   * SePay's server-to-server payment notification. Reads the *raw* request
-   * body (`req.rawBody`, populated by `main.ts`'s `rawBody: true` app option)
-   * and lets `handleIpn` parse it itself — SePay's payload shape is theirs,
-   * not ours, so it skips the DTO/ValidationPipe layer.
-   */
-  @Public()
-  @Post("ipn")
-  async ipn(@Req() req: RawBodyRequest<Request>) {
-    if (!req.rawBody) {
-      throw new BadRequestException("Missing request body")
-    }
-    return this.payments.handleIpn(req.rawBody, req.headers)
-  }
-
-  /** The caller polls this while on the SePay checkout/return screen. */
-  @Get("by-booking/:id")
-  async byBooking(@UserId() userId: string, @Param() param: BookingIdParamDto) {
-    return this.payments.byBooking(userId, param.id)
+  /** The player says whether the refund arrived ("not received" opens a complaint). */
+  @UserThrottle({ limit: 10, ttl: 60_000 })
+  @Post(":id/refund/confirm")
+  confirmRefund(
+    @UserId() userId: string,
+    @Param() param: BookingIdParamDto,
+    @Body() body: ConfirmRefundDto
+  ) {
+    return this.bookings.confirmRefundReceipt(userId, param.id, body.result)
   }
 }

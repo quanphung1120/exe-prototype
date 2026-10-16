@@ -4,1107 +4,404 @@ import { test } from "node:test"
 import "reflect-metadata"
 
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
-  HttpException,
-  Logger,
-  UnauthorizedException,
+  NotFoundException,
 } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
+import { getModelToken } from "@nestjs/mongoose"
 import { Test } from "@nestjs/testing"
 
-import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
-import { PlaySession } from "../src/features/sessions/session.schema.js"
-import { getModelToken } from "@nestjs/mongoose"
-
-import { Payment } from "../src/features/payments/payment.schema.js"
-import { PaymentsService } from "../src/features/payments/payments.service.js"
-import {
-  SEPAY_CLIENT,
-  type SepayClientPort,
-} from "../src/features/payments/sepay.client.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
-import { WalletService } from "../src/features/wallet/wallet.service.js"
-import { TopUpsService } from "../src/features/payments/topups.service.js"
+import { PayoutService } from "../src/features/brands/payout.service.js"
 import { DiscountsService } from "../src/features/discounts/discounts.service.js"
-import { NotificationsService } from "../src/features/notifications/notifications.service.js"
-import { Venue } from "../src/features/venues/venue.schema.js"
+import { PaymentsService } from "../src/features/payments/payments.service.js"
+import { ProofUploadService } from "../src/features/payments/proof-upload.service.js"
+import { ProfileService } from "../src/features/players/profile.service.js"
+import type { BankAccount } from "../src/shared/index.js"
 
 /**
- * Service-level tests for the Phase 4 SePay checkout/IPN feature
- * (`PaymentsController` → `PaymentsService`). `SEPAY_CLIENT` is always a hand-
- * rolled fake bound in `makeService` below — never the real `sepay-pg-node`-
- * backed `SepayClient` — so none of these tests can ever reach the network,
- * sandbox or otherwise.
+ * The player's side of a VietQR payment: show where to transfer (a QR and a
+ * unique memo), sign the screenshot upload, record the proof. The Mongoose
+ * model and the collaborating services are faked; nothing touches a database
+ * or the network.
  */
 
-// ── Chainable query mock (mirrors bookings-service.test.ts's makeQuery) ─────
+const VENUE_ACCOUNT: BankAccount = {
+  bankBin: "970422",
+  bankCode: "MB",
+  bankName: "MBBank",
+  accountNo: "0123456789",
+  accountName: "SAN CAU LONG ABC",
+}
+const REFUND_ACCOUNT: BankAccount = {
+  bankBin: "970415",
+  bankCode: "ICB",
+  bankName: "VietinBank",
+  accountNo: "9988776655",
+  accountName: "NGUYEN VAN A",
+}
+const CLOUD = "demo"
+const proofUrl = (venueId = "v9") =>
+  `https://res.cloudinary.com/${CLOUD}/image/upload/v1/shuttio/payment-proofs/${venueId}/p.png`
+
+interface FakeBooking {
+  venueId: string
+  userId?: string
+  status: string
+  price: number
+  amountDue?: number
+  transferMemo?: string
+  payoutSnapshot?: BankAccount
+  discountCode?: string
+  discountAmount?: number
+  originalAmount?: number
+}
+
+const makeBooking = (over: Partial<FakeBooking> = {}): FakeBooking => ({
+  venueId: "v9",
+  userId: "user-1",
+  status: "awaiting_payment",
+  price: 200_000,
+  ...over,
+})
 
 function makeQuery<T>(result: T) {
   const q = {
     select: () => q,
-    sort: () => q,
-    session: () => q,
     lean: () => Promise.resolve(result),
-    then: (resolve: (v: T) => unknown, reject?: (e: unknown) => unknown) =>
-      Promise.resolve(result).then(resolve, reject),
   }
   return q
 }
 
-// ── Fake `payments` collection ───────────────────────────────────────────────
-
-interface FakePaymentDoc {
-  invoiceNumber: string
-  bookingId: string
-  venueId: string
-  userId?: string
-  amount: number
-  currency: string
-  status: "awaiting" | "paid" | "cancelled"
-  checkoutUrl?: string
-  paidAt?: string
-  originalAmount?: number
-  discountCode?: string
-  discountAmount?: number
-  ipnPayload?: unknown
-  save: () => Promise<void>
-}
-
-/** Match one field against either a scalar or a subset of Mongo operators
- * (`$in`/`$ne`/`$exists`) — enough for the exact-match filters and the
- * redemption-quota `countDocuments` calls `PaymentsService` issues. */
-function matchesValue(actual: unknown, expected: unknown): boolean {
-  if (
-    expected !== null &&
-    typeof expected === "object" &&
-    !Array.isArray(expected)
-  ) {
-    return Object.entries(expected as Record<string, unknown>).every(
-      ([op, v]) => {
-        switch (op) {
-          case "$ne":
-            return actual !== v
-          case "$in":
-            return Array.isArray(v) && v.includes(actual)
-          case "$exists":
-            return (actual !== undefined) === v
-          default:
-            return actual === expected
-        }
-      }
-    )
-  }
-  return actual === expected
-}
-
-function matches(
-  doc: Record<string, unknown>,
-  filter: Record<string, unknown>
-) {
-  return Object.entries(filter).every(([k, v]) => matchesValue(doc[k], v))
-}
-
-/**
- * A minimal stand-in for the `Payment` Mongoose model — a `Map` keyed by
- * `bookingId` playing the collection, with just enough of `findOne`/
- * `findOneAndUpdate`'s real semantics (exact-match filters, `$set`/
- * `$setOnInsert`, `upsert`) for `PaymentsService`'s exact call shapes.
- */
-function makeFakePaymentModel(store: Map<string, FakePaymentDoc>) {
-  function find(filter: Record<string, unknown>): FakePaymentDoc | undefined {
-    for (const doc of store.values()) {
-      if (matches(doc as unknown as Record<string, unknown>, filter)) return doc
-    }
-    return undefined
-  }
-  return {
-    findOne: (filter: Record<string, unknown>) =>
-      makeQuery(find(filter) ?? null),
-    findOneAndUpdate: (
-      filter: Record<string, unknown>,
-      update: {
-        $set?: Record<string, unknown>
-        $setOnInsert?: Record<string, unknown>
-      },
-      options: { upsert?: boolean; new?: boolean } = {}
-    ) => {
-      let doc = find(filter)
-      if (!doc) {
-        if (!options.upsert) return Promise.resolve(null)
-        doc = {
-          ...(update.$setOnInsert as unknown as FakePaymentDoc),
-          save: () => Promise.resolve(),
-        }
-        store.set(doc.bookingId, doc)
-      } else if (update.$set) {
-        Object.assign(doc, update.$set)
-      }
-      return Promise.resolve(doc)
-    },
-    countDocuments: (filter: Record<string, unknown>) => {
-      let n = 0
-      for (const doc of store.values()) {
-        if (matches(doc as unknown as Record<string, unknown>, filter)) n++
-      }
-      return Promise.resolve(n)
-    },
-  }
-}
-
-// ── Fixtures ─────────────────────────────────────────────────────────────────
-
-function makeBookingLean(overrides: Record<string, unknown> = {}) {
-  return {
-    venueId: "v9",
-    userId: "user-1",
-    status: "awaiting_payment",
-    price: 200_000,
-    courtName: "Sân 1",
-    dateKey: "2026-10-12",
-    start: "18:30",
-    ...overrides,
-  }
-}
-
 interface Deps {
-  bookingLean?: ReturnType<typeof makeBookingLean>
-  venueOwnerId?: string | null
-  confirmPaymentResult?: {
-    bookingId: string
-    venueId: string
-    status?: string
-  } | null
-  remoteOrder?: { order_status?: string }
-  validIpnAuth?: boolean
-  seedPayments?: FakePaymentDoc[]
-  /** Stubs `DiscountsService#validate` — throw to simulate an invalid code. */
-  discountValidate?: (
-    code: string,
-    amount: number
-  ) => {
-    valid: true
+  booking?: FakeBooking | null
+  payout?: BankAccount | null
+  discount?: {
     code: string
-    type: "percent" | "fixed"
-    value: number
-    description: string
     discountAmount: number
     finalAmount: number
     usageLimit?: number
     perUserLimit?: number
   }
-  /** The wallet balance `payWithWallet` sees; defaults to 0. */
-  walletBalance?: number
-  /** Stubs what `DiscountsService#applyUsage` resolves to; defaults to `"applied"`. */
-  applyUsageResult?: "applied" | "over_limit" | "missing"
+  /** Redemptions `countDocuments` reports (per-user filter has `userId`). */
+  redeemedByUser?: number
+  redeemedTotal?: number
+  /** Make the first N `findOneAndUpdate` calls fail with a duplicate memo. */
+  duplicateMemos?: number
 }
 
-function makeService(deps: Deps = {}) {
-  const store = new Map<string, FakePaymentDoc>(
-    (deps.seedPayments ?? []).map((p) => [p.bookingId, p])
-  )
-  const bookingLean = deps.bookingLean ?? makeBookingLean()
-  const notifications: { userId: string; item: unknown }[] = []
-  const cancelCalls: string[] = []
-  const confirmPaymentCalls: string[] = []
+async function makeService(deps: Deps = {}) {
+  const booking = deps.booking === undefined ? makeBooking() : deps.booking
+  const updates: {
+    filter: unknown
+    update: { $set: Record<string, unknown> }
+  }[] = []
+  const submitted: unknown[] = []
+  const refunds: unknown[] = []
+  const savedRefundAccounts: BankAccount[] = []
+  const usages: string[] = []
+  let duplicates = deps.duplicateMemos ?? 0
 
-  const paymentModelMock = makeFakePaymentModel(store)
-  const bookingModelMock = { findOne: () => makeQuery(bookingLean) }
-  const venueModelMock = {
-    findOne: () =>
-      makeQuery(
-        deps.venueOwnerId === null
-          ? { ownerId: undefined }
-          : { ownerId: deps.venueOwnerId ?? "owner-1" }
+  const bookingModel = {
+    findOne: () => makeQuery(booking),
+    countDocuments: (filter: { userId?: string }) =>
+      Promise.resolve(
+        filter.userId !== undefined
+          ? (deps.redeemedByUser ?? 0)
+          : (deps.redeemedTotal ?? 0)
       ),
-  }
-  const sepayMock: SepayClientPort = {
-    initCheckout: (input) => ({
-      fields: { order_invoice_number: input.invoiceNumber, signature: "sig" },
-      checkoutUrl: "https://sandbox.pay.sepay.vn/v1/init",
-    }),
-    retrieveOrder: () =>
-      Promise.resolve(deps.remoteOrder ?? { order_status: "PENDING" }),
-    cancelOrder: (invoiceNumber) => {
-      cancelCalls.push(invoiceNumber)
-      return Promise.resolve()
-    },
-    verifyIpnAuth: () => deps.validIpnAuth ?? true,
-  }
-  const bookingsServiceMock = {
-    confirmPayment: (bookingId: string) => {
-      confirmPaymentCalls.push(bookingId)
-      // A real `confirmPayment` returns the booking doc it moved to `pending`;
-      // `markPaid` only notifies the venue when the booking actually reached
-      // that approvable state (a payment landing after expiry is refunded, not
-      // approvable), so the fake returns a `pending` status by default.
-      return Promise.resolve(
-        deps.confirmPaymentResult ?? {
-          bookingId,
-          venueId: "v9",
-          status: "pending",
+    findOneAndUpdate: (
+      filter: unknown,
+      update: { $set: Record<string, unknown> }
+    ) => {
+      if (duplicates > 0) {
+        duplicates--
+        return {
+          lean: () =>
+            Promise.reject(Object.assign(new Error("dup"), { code: 11000 })),
         }
-      )
-    },
-  }
-  const notificationsMock = {
-    create: (userId: string, item: unknown) => {
-      notifications.push({ userId, item })
-      return Promise.resolve()
-    },
-  }
-  const configMock = {
-    getOrThrow: () => "http://localhost:3000/app/bookings",
-  }
-  const applyUsageCalls: string[] = []
-  const walletDebits: { amount: number; txId: string }[] = []
-  const walletCredits: { amount: number; txId: string }[] = []
-  const topUpSettles: string[] = []
-  const discountsMock = {
-    validate: (code: string, amount: number) => {
-      if (deps.discountValidate) {
-        return Promise.resolve(deps.discountValidate(code, amount))
       }
-      return Promise.reject(new Error(`no discountValidate stub for ${code}`))
-    },
-    applyUsage: (code: string) => {
-      applyUsageCalls.push(code)
-      return Promise.resolve(deps.applyUsageResult ?? "applied")
+      updates.push({ filter, update })
+      if (booking) Object.assign(booking, update.$set)
+      return makeQuery(booking)
     },
   }
 
-  return Test.createTestingModule({
+  const moduleRef = await Test.createTestingModule({
     providers: [
       PaymentsService,
-      { provide: getModelToken(Payment.name), useValue: paymentModelMock },
-      { provide: getModelToken(Booking.name), useValue: bookingModelMock },
-      { provide: getModelToken(Venue.name), useValue: venueModelMock },
-      { provide: SEPAY_CLIENT, useValue: sepayMock },
-      { provide: BookingsService, useValue: bookingsServiceMock },
-      { provide: NotificationsService, useValue: notificationsMock },
-      { provide: DiscountsService, useValue: discountsMock },
-      { provide: ConfigService, useValue: configMock },
+      ProofUploadService,
+      { provide: getModelToken(Booking.name), useValue: bookingModel },
       {
-        provide: WalletService,
+        provide: BookingsService,
         useValue: {
-          getBalance: () => Promise.resolve(deps.walletBalance ?? 0),
-          debit: (_u: string, amount: number, m: { txId: string }) => {
-            walletDebits.push({ amount, txId: m.txId })
-            return Promise.resolve({ balance: 0, applied: true })
+          submitPaymentProof: (...args: unknown[]) => {
+            submitted.push(args)
+            return Promise.resolve({ status: "awaiting_venue_confirmation" })
           },
-          credit: (_u: string, amount: number, m: { txId: string }) => {
-            walletCredits.push({ amount, txId: m.txId })
-            return Promise.resolve({ balance: 0, applied: true })
+          assertOwnsBookingVenue: (caller: string) =>
+            caller === "owner-1"
+              ? Promise.resolve("v9")
+              : Promise.reject(new ForbiddenException("not yours")),
+          completeRefund: (...args: unknown[]) => {
+            refunds.push(args)
+            return Promise.resolve({ status: "refunded" })
           },
         },
       },
       {
-        provide: TopUpsService,
+        provide: PayoutService,
         useValue: {
-          settle: (invoice: string) => {
-            topUpSettles.push(invoice)
-            return Promise.resolve(null)
+          payoutForVenue: () =>
+            Promise.resolve(
+              deps.payout === undefined ? VENUE_ACCOUNT : deps.payout
+            ),
+          toAccount: () => Promise.resolve(REFUND_ACCOUNT),
+        },
+      },
+      {
+        provide: DiscountsService,
+        useValue: {
+          validate: () =>
+            deps.discount
+              ? Promise.resolve(deps.discount)
+              : Promise.reject(
+                  new NotFoundException("Mã giảm giá không tồn tại")
+                ),
+          applyUsage: (code: string) => {
+            usages.push(code)
+            return Promise.resolve("applied")
           },
         },
       },
       {
-        provide: getModelToken(PlaySession.name),
-        useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
+        provide: ProfileService,
+        useValue: {
+          getRefundAccount: () => Promise.resolve(null),
+          setRefundAccount: (_u: string, account: BankAccount) => {
+            savedRefundAccounts.push(account)
+            return Promise.resolve()
+          },
+        },
       },
-      { provide: RoomEventsService, useValue: { emit: () => {} } },
+      {
+        provide: ConfigService,
+        useValue: {
+          get: (key: string) =>
+            ({
+              CLOUDINARY_CLOUD_NAME: CLOUD,
+              CLOUDINARY_API_KEY: "key",
+              CLOUDINARY_API_SECRET: "secret",
+            })[key],
+        },
+      },
     ],
-  })
-    .compile()
-    .then((moduleRef) => ({
-      service: moduleRef.get(PaymentsService),
-      store,
-      notifications,
-      cancelCalls,
-      confirmPaymentCalls,
-      applyUsageCalls,
-      walletDebits,
-      walletCredits,
-      topUpSettles,
-    }))
+  }).compile()
+
+  return {
+    service: moduleRef.get(PaymentsService),
+    updates,
+    submitted,
+    refunds,
+    savedRefundAccounts,
+    usages,
+  }
 }
 
-function ipnBody(
-  invoiceNumber: string,
-  notificationType = "ORDER_PAID",
-  orderAmount?: number | string
-) {
-  return JSON.stringify({
-    timestamp: Math.floor(Date.now() / 1000),
-    notification_type: notificationType,
-    order: {
-      order_invoice_number: invoiceNumber,
-      order_status: "PAID",
-      ...(orderAmount === undefined ? {} : { order_amount: orderAmount }),
+// ── startPayment ─────────────────────────────────────────────────────────────
+
+void test("startPayment fixes the amount, a unique memo and the venue's account, and returns a QR", async () => {
+  const { service, updates } = await makeService()
+
+  const start = await service.startPayment("user-1", "b1")
+
+  assert.equal(start.amount, 200_000)
+  assert.match(start.transferMemo, /^SHT[A-Z2-9]{6}$/)
+  assert.deepEqual(start.account, VENUE_ACCOUNT)
+  assert.ok(
+    start.qrUrl.startsWith(
+      "https://img.vietqr.io/image/970422-0123456789-compact2.png?"
+    )
+  )
+  assert.ok(start.qrUrl.includes("amount=200000"))
+  assert.ok(start.qrUrl.includes(`addInfo=${start.transferMemo}`))
+  assert.equal(updates.length, 1)
+  assert.equal(updates[0]?.update.$set.paymentMethod, "vietqr")
+})
+
+void test("startPayment resumes with the same memo, amount and account instead of creating new ones", async () => {
+  const { service, updates } = await makeService({
+    booking: makeBooking({
+      transferMemo: "SHTABC234",
+      amountDue: 150_000,
+      payoutSnapshot: VENUE_ACCOUNT,
+    }),
+    // The venue changed its account since — the snapshot must win.
+    payout: { ...VENUE_ACCOUNT, accountNo: "1111111111" },
+  })
+
+  const start = await service.startPayment("user-1", "b1")
+
+  assert.equal(start.transferMemo, "SHTABC234")
+  assert.equal(start.amount, 150_000)
+  assert.equal(start.account.accountNo, "0123456789")
+  assert.equal(updates.length, 0)
+})
+
+void test("startPayment charges the discounted amount and remembers the code", async () => {
+  const { service, updates } = await makeService({
+    discount: { code: "GIAM10", discountAmount: 20_000, finalAmount: 180_000 },
+  })
+
+  const start = await service.startPayment("user-1", "b1", "giam10")
+
+  assert.equal(start.amount, 180_000)
+  assert.equal(start.originalAmount, 200_000)
+  assert.equal(start.discountCode, "GIAM10")
+  assert.equal(updates[0]?.update.$set.amountDue, 180_000)
+})
+
+void test("startPayment enforces a discount code's per-user and total caps", async () => {
+  const perUser = await makeService({
+    discount: {
+      code: "ONCE",
+      discountAmount: 1,
+      finalAmount: 199_999,
+      perUserLimit: 1,
     },
-  })
-}
-
-// ── checkout ─────────────────────────────────────────────────────────────────
-
-void test("checkout opens a new awaiting payment for the caller's own hold", async () => {
-  const { service, store } = await makeService()
-  const result = await service.checkout("user-1", "b1")
-
-  assert.equal(result.payment.status, "awaiting")
-  assert.equal(result.payment.invoiceNumber, "b1")
-  assert.equal(result.payment.amount, 200_000)
-  assert.equal(result.checkoutUrl, "https://sandbox.pay.sepay.vn/v1/init")
-  assert.equal(result.fields.order_invoice_number, "b1")
-  assert.equal(store.size, 1)
-})
-
-void test("checkout re-POST reuses the same invoice instead of opening a second order", async () => {
-  const { service, store } = await makeService()
-  await service.checkout("user-1", "b1")
-  await service.checkout("user-1", "b1")
-
-  assert.equal(store.size, 1)
-})
-
-void test("checkout rejects a caller who doesn't own the booking", async () => {
-  const { service } = await makeService({
-    bookingLean: makeBookingLean({ userId: "someone-else" }),
+    redeemedByUser: 1,
   })
   await assert.rejects(
-    () => service.checkout("user-1", "b1"),
+    () => perUser.service.startPayment("user-1", "b1", "ONCE"),
+    /tối đa số lần/
+  )
+  const total = await makeService({
+    discount: {
+      code: "FIRST",
+      discountAmount: 1,
+      finalAmount: 199_999,
+      usageLimit: 10,
+    },
+    redeemedTotal: 10,
+  })
+  await assert.rejects(
+    () => total.service.startPayment("user-1", "b1", "FIRST"),
+    /hết lượt/
+  )
+})
+
+void test("startPayment retries when a generated memo is already taken", async () => {
+  const { service, updates } = await makeService({ duplicateMemos: 2 })
+  const start = await service.startPayment("user-1", "b1")
+  assert.match(start.transferMemo, /^SHT/)
+  assert.equal(updates.length, 1)
+})
+
+void test("startPayment refuses a venue with no account, another player's booking and a wrong status", async () => {
+  const noAccount = await makeService({ payout: null })
+  await assert.rejects(
+    () => noAccount.service.startPayment("user-1", "b1"),
+    ConflictException
+  )
+  const stranger = await makeService({ booking: makeBooking({ userId: "x" }) })
+  await assert.rejects(
+    () => stranger.service.startPayment("user-1", "b1"),
     ForbiddenException
   )
-})
-
-void test("checkout rejects a booking that isn't awaiting payment", async () => {
-  const { service } = await makeService({
-    bookingLean: makeBookingLean({ status: "confirmed" }),
+  const confirmed = await makeService({
+    booking: makeBooking({ status: "confirmed" }),
   })
   await assert.rejects(
-    () => service.checkout("user-1", "b1"),
+    () => confirmed.service.startPayment("user-1", "b1"),
+    ConflictException
+  )
+  const missing = await makeService({ booking: null })
+  await assert.rejects(
+    () => missing.service.startPayment("user-1", "b1"),
+    NotFoundException
+  )
+})
+
+// ── proof upload ─────────────────────────────────────────────────────────────
+
+void test("signProofUpload signs into the venue's proof folder, only while unpaid", async () => {
+  const { service } = await makeService()
+  const sig = await service.signProofUpload("user-1", "b1")
+  assert.equal(sig.folder, "shuttio/payment-proofs/v9")
+  assert.equal(sig.cloudName, CLOUD)
+  assert.ok(sig.signature)
+
+  const done = await makeService({
+    booking: makeBooking({ status: "awaiting_venue_confirmation" }),
+  })
+  await assert.rejects(
+    () => done.service.signProofUpload("user-1", "b1"),
     ConflictException
   )
 })
 
-void test("checkout rejects re-checkout once the booking is already paid", async () => {
-  const { service } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "paid",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-  await assert.rejects(
-    () => service.checkout("user-1", "b1"),
-    ConflictException
-  )
-})
-
-void test("checkout with a valid discountCode charges the discounted amount and persists it", async () => {
-  const { service, store } = await makeService({
-    discountValidate: (code, amount) => ({
-      valid: true,
-      code,
-      type: "percent",
-      value: 10,
-      description: "Giảm 10%",
-      discountAmount: 20_000,
-      finalAmount: amount - 20_000,
-    }),
-  })
-  const result = await service.checkout("user-1", "b1", "giam10")
-
-  assert.equal(result.payment.amount, 180_000)
-  assert.equal(result.payment.originalAmount, 200_000)
-  assert.equal(result.payment.discountCode, "giam10")
-  assert.equal(result.payment.discountAmount, 20_000)
-  assert.equal(store.get("b1")?.amount, 180_000)
-})
-
-void test("checkout re-throws when the discountCode fails validation instead of silently ignoring it", async () => {
-  const { service } = await makeService({
-    discountValidate: () => {
-      throw new ConflictException("Mã giảm giá đã hết hạn")
-    },
-  })
-  await assert.rejects(() => service.checkout("user-1", "b1", "hethan"))
-})
-
-/** A GIAM10-style validate stub carrying redemption caps. */
-function cappedDiscount(caps: { usageLimit?: number; perUserLimit?: number }) {
-  return (code: string, amount: number) => ({
-    valid: true as const,
-    code: code.toUpperCase(),
-    type: "percent" as const,
-    value: 10,
-    description: "Giảm 10%",
-    discountAmount: 20_000,
-    finalAmount: amount - 20_000,
-    ...caps,
-  })
-}
-
-void test("checkout rejects a discount the caller has already redeemed up to its perUserLimit", async () => {
-  const { service } = await makeService({
-    discountValidate: cappedDiscount({ perUserLimit: 1 }),
-    // user-1 already holds a settled redemption of GIAM10 on another booking.
-    seedPayments: [
-      {
-        invoiceNumber: "b-prev",
-        bookingId: "b-prev",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 180_000,
-        currency: "VND",
-        status: "paid",
-        discountCode: "GIAM10",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-  await assert.rejects(
-    () => service.checkout("user-1", "b2", "giam10"),
-    ConflictException
-  )
-})
-
-void test("checkout still allows a discount a *different* user has redeemed (perUserLimit is per user)", async () => {
-  const { service, store } = await makeService({
-    bookingLean: makeBookingLean({ userId: "user-2" }),
-    discountValidate: cappedDiscount({ perUserLimit: 1 }),
-    // The prior redemption belongs to user-1; user-2 has none of their own.
-    seedPayments: [
-      {
-        invoiceNumber: "b-prev",
-        bookingId: "b-prev",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 180_000,
-        currency: "VND",
-        status: "paid",
-        discountCode: "GIAM10",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-  const result = await service.checkout("user-2", "b2", "giam10")
-  assert.equal(result.payment.amount, 180_000)
-  assert.equal(store.get("b2")?.discountCode, "GIAM10")
-})
-
-void test("checkout rejects a discount whose usageLimit is already met by in-flight holds (reservation-aware)", async () => {
-  const { service } = await makeService({
-    discountValidate: cappedDiscount({ usageLimit: 1 }),
-    // The single global slot is taken by another user's *awaiting* hold — not
-    // yet settled, but it must still block a second reservation.
-    seedPayments: [
-      {
-        invoiceNumber: "b-held",
-        bookingId: "b-held",
-        venueId: "v9",
-        userId: "someone-else",
-        amount: 180_000,
-        currency: "VND",
-        status: "awaiting",
-        discountCode: "GIAM10",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-  await assert.rejects(
-    () => service.checkout("user-1", "b2", "giam10"),
-    ConflictException
-  )
-})
-
-void test("checkout resume does not count the booking's own hold against the limit", async () => {
-  const { service, store } = await makeService({
-    discountValidate: cappedDiscount({ usageLimit: 1, perUserLimit: 1 }),
-    // b1's own awaiting hold is the only redemption — resuming its checkout
-    // must not read that as "limit reached".
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 180_000,
-        currency: "VND",
-        status: "awaiting",
-        discountCode: "GIAM10",
-        originalAmount: 200_000,
-        discountAmount: 20_000,
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-  const result = await service.checkout("user-1", "b1", "giam10")
-  assert.equal(result.payment.status, "awaiting")
-  assert.equal(store.get("b1")?.amount, 180_000)
-})
-
-// ── IPN ──────────────────────────────────────────────────────────────────────
-
-void test("handleIpn marks the payment paid, confirms the booking, and notifies the venue", async () => {
-  const { service, store, notifications, confirmPaymentCalls } =
-    await makeService({
-      seedPayments: [
-        {
-          invoiceNumber: "b1",
-          bookingId: "b1",
-          venueId: "v9",
-          userId: "user-1",
-          amount: 200_000,
-          currency: "VND",
-          status: "awaiting",
-          save: () => Promise.resolve(),
-        },
-      ],
-    })
-
-  const result = await service.handleIpn(Buffer.from(ipnBody("b1")), {
-    "x-secret-key": "irrelevant-in-this-fake",
-  })
-
-  assert.deepEqual(result, { received: true })
-  assert.equal(store.get("b1")?.status, "paid")
-  assert.ok(store.get("b1")?.paidAt)
-  assert.deepEqual(confirmPaymentCalls, ["b1"])
-  assert.equal(notifications.length, 1)
-  assert.equal(notifications[0]?.userId, "owner-1")
-})
-
-void test("handleIpn increments the discount's usedCount only once the payment settles", async () => {
-  const { service, store, applyUsageCalls } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 180_000,
-        currency: "VND",
-        status: "awaiting",
-        originalAmount: 200_000,
-        discountCode: "GIAM10",
-        discountAmount: 20_000,
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  await service.handleIpn(Buffer.from(ipnBody("b1")), {
-    "x-secret-key": "irrelevant-in-this-fake",
-  })
-
-  assert.equal(store.get("b1")?.status, "paid")
-  assert.deepEqual(applyUsageCalls, ["GIAM10"])
-})
-
-void test("handleIpn still settles the payment when applyUsage reports 'over_limit' (never-throw contract)", async () => {
-  const { service, store, confirmPaymentCalls, applyUsageCalls } =
-    await makeService({
-      applyUsageResult: "over_limit",
-      seedPayments: [
-        {
-          invoiceNumber: "b1",
-          bookingId: "b1",
-          venueId: "v9",
-          userId: "user-1",
-          amount: 180_000,
-          currency: "VND",
-          status: "awaiting",
-          originalAmount: 200_000,
-          discountCode: "GIAM10",
-          discountAmount: 20_000,
-          save: () => Promise.resolve(),
-        },
-      ],
-    })
-
-  const result = await service.handleIpn(Buffer.from(ipnBody("b1")), {
-    "x-secret-key": "irrelevant-in-this-fake",
-  })
-
-  assert.deepEqual(result, { received: true })
-  assert.equal(store.get("b1")?.status, "paid")
-  assert.deepEqual(confirmPaymentCalls, ["b1"])
-  assert.deepEqual(applyUsageCalls, ["GIAM10"])
-})
-
-void test("handleIpn rejects a wrong secret key and touches nothing", async () => {
-  const { service, store, notifications } = await makeService({
-    validIpnAuth: false,
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "awaiting",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  await assert.rejects(
-    () =>
-      service.handleIpn(Buffer.from(ipnBody("b1")), {
-        "x-secret-key": "irrelevant-in-this-fake",
-      }),
-    UnauthorizedException
-  )
-  assert.equal(store.get("b1")?.status, "awaiting")
-  assert.equal(notifications.length, 0)
-})
-
-void test("handleIpn is a no-op replay once the invoice is already paid", async () => {
-  const { service, notifications, confirmPaymentCalls } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "paid",
-        paidAt: "2026-07-20T10:00:00+07:00",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  const result = await service.handleIpn(Buffer.from(ipnBody("b1")), {
-    "x-secret-key": "irrelevant-in-this-fake",
-  })
-
-  assert.deepEqual(result, { received: true })
-  assert.equal(confirmPaymentCalls.length, 0)
-  assert.equal(notifications.length, 0)
-})
-
-void test("handleIpn ignores a non-ORDER_PAID notification", async () => {
-  const { service, store, confirmPaymentCalls } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "awaiting",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  await service.handleIpn(Buffer.from(ipnBody("b1", "TRANSACTION_VOID")), {
-    "x-secret-key": "irrelevant-in-this-fake",
-  })
-
-  assert.equal(store.get("b1")?.status, "awaiting")
-  assert.equal(confirmPaymentCalls.length, 0)
-})
-
-/**
- * `PaymentsService`'s `logger` is a plain `Logger` instance, not injected —
- * spy on the shared prototype method for the duration of `fn` and restore it
- * after, mirroring how one would spy on any un-injectable singleton.
- */
-async function captureLoggerErrors(fn: () => Promise<void>) {
-  const calls: unknown[][] = []
-  // eslint-disable-next-line @typescript-eslint/unbound-method -- restored below, never invoked unbound.
-  const original = Logger.prototype.error
-  Logger.prototype.error = ((...args: unknown[]) => {
-    calls.push(args)
-  }) as typeof Logger.prototype.error
-  try {
-    await fn()
-  } finally {
-    Logger.prototype.error = original
-  }
-  return calls
-}
-
-void test("handleIpn does not settle a payment whose order_amount is short of the recorded amount, but still acks and logs an error", async () => {
-  const { service, store, notifications, confirmPaymentCalls } =
-    await makeService({
-      seedPayments: [
-        {
-          invoiceNumber: "b1",
-          bookingId: "b1",
-          venueId: "v9",
-          userId: "user-1",
-          amount: 200_000,
-          currency: "VND",
-          status: "awaiting",
-          save: () => Promise.resolve(),
-        },
-      ],
-    })
-
-  let result: { received: boolean } | undefined
-  const errorLogs = await captureLoggerErrors(async () => {
-    result = await service.handleIpn(
-      Buffer.from(ipnBody("b1", "ORDER_PAID", 150_000)),
-      {
-        "x-secret-key": "irrelevant-in-this-fake",
-      }
-    )
-  })
-
-  assert.deepEqual(result, { received: true })
-  assert.equal(store.get("b1")?.status, "awaiting")
-  assert.equal(confirmPaymentCalls.length, 0)
-  assert.equal(notifications.length, 0)
-  assert.equal(errorLogs.length, 1)
-  const [message] = errorLogs[0] ?? []
-  assert.match(String(message), /b1/)
-  assert.match(String(message), /200000|200,000|200_000/)
-  assert.match(String(message), /150000|150,000|150_000/)
-})
-
-void test("handleIpn settles the payment when order_amount matches the recorded amount", async () => {
-  const { service, store, confirmPaymentCalls } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "awaiting",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  const errorLogs = await captureLoggerErrors(async () => {
-    const result = await service.handleIpn(
-      Buffer.from(ipnBody("b1", "ORDER_PAID", 200_000)),
-      {
-        "x-secret-key": "irrelevant-in-this-fake",
-      }
-    )
-    assert.deepEqual(result, { received: true })
-  })
-
-  assert.equal(store.get("b1")?.status, "paid")
-  assert.deepEqual(confirmPaymentCalls, ["b1"])
-  assert.equal(errorLogs.length, 0)
-})
-
-void test("handleIpn settles when order_amount arrives as a numeric string", async () => {
-  const { service, store, confirmPaymentCalls } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "awaiting",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  const result = await service.handleIpn(
-    // SePay may deliver order_amount as a string — it must still match 200_000.
-    Buffer.from(ipnBody("b1", "ORDER_PAID", "200000")),
+void test("submitProof accepts the venue's own screenshot, saves the refund account and records the discount use", async () => {
+  const { service, submitted, savedRefundAccounts, usages } = await makeService(
     {
-      "x-secret-key": "irrelevant-in-this-fake",
+      booking: makeBooking({ discountCode: "GIAM10" }),
     }
   )
 
-  assert.deepEqual(result, { received: true })
-  assert.equal(store.get("b1")?.status, "paid")
-  assert.deepEqual(confirmPaymentCalls, ["b1"])
+  await service.submitProof("user-1", "b1", {
+    proofUrl: proofUrl(),
+    refundAccount: { bankBin: "970415", accountNo: "x", accountName: "y" },
+  })
+
+  assert.equal(submitted.length, 1)
+  assert.deepEqual((submitted[0] as unknown[])[2], {
+    proofUrl: proofUrl(),
+    refundAccount: REFUND_ACCOUNT,
+  })
+  assert.deepEqual(savedRefundAccounts, [REFUND_ACCOUNT])
+  assert.deepEqual(usages, ["GIAM10"])
 })
 
-void test("handleIpn fails closed on a non-numeric order_amount (does not settle)", async () => {
-  const { service, store, confirmPaymentCalls, notifications } =
-    await makeService({
-      seedPayments: [
-        {
-          invoiceNumber: "b1",
-          bookingId: "b1",
-          venueId: "v9",
-          userId: "user-1",
-          amount: 200_000,
-          currency: "VND",
-          status: "awaiting",
-          save: () => Promise.resolve(),
-        },
-      ],
-    })
-
-  let result: { received: boolean } | undefined
-  const errorLogs = await captureLoggerErrors(async () => {
-    result = await service.handleIpn(
-      Buffer.from(ipnBody("b1", "ORDER_PAID", "not-a-number")),
-      {
-        "x-secret-key": "irrelevant-in-this-fake",
-      }
+void test("submitProof rejects a URL that isn't this venue's own upload", async () => {
+  const { service, submitted } = await makeService()
+  const refundAccount = { bankBin: "970415", accountNo: "x", accountName: "y" }
+  for (const bad of [
+    "https://evil.example/shuttio/payment-proofs/v9/p.png",
+    proofUrl("another-venue"),
+    `https://res.cloudinary.com/${CLOUD}/image/upload/v1/shuttio/venues/v9/p.png`,
+    `${proofUrl()}?x=1`,
+  ]) {
+    await assert.rejects(
+      () =>
+        service.submitProof("user-1", "b1", { proofUrl: bad, refundAccount }),
+      BadRequestException
     )
-  })
-
-  // Still acks SePay (200), but the amount guard is NOT silently skipped:
-  // the payment stays awaiting and nothing downstream fires.
-  assert.deepEqual(result, { received: true })
-  assert.equal(store.get("b1")?.status, "awaiting")
-  assert.equal(confirmPaymentCalls.length, 0)
-  assert.equal(notifications.length, 0)
-  assert.equal(errorLogs.length, 1)
+  }
+  assert.equal(submitted.length, 0)
 })
 
-// ── byBooking ────────────────────────────────────────────────────────────────
+// ── venue refund proof ───────────────────────────────────────────────────────
 
-void test("byBooking reconciles an awaiting payment SePay already marked paid", async () => {
-  const { service, store, confirmPaymentCalls } = await makeService({
-    remoteOrder: { order_status: "PAID" },
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "awaiting",
-        save: () => Promise.resolve(),
-      },
-    ],
+void test("the venue signs and completes a refund with its own screenshot only", async () => {
+  const { service, refunds } = await makeService()
+
+  const sig = await service.signRefundUpload("owner-1", "b1")
+  assert.equal(sig.folder, "shuttio/payment-proofs/v9")
+
+  await service.completeRefund("owner-1", "b1", {
+    proofUrl: proofUrl(),
+    amount: 90_000,
   })
+  assert.equal(refunds.length, 1)
 
-  const result = await service.byBooking("user-1", "b1")
-
-  assert.equal(result.status, "paid")
-  assert.equal(store.get("b1")?.status, "paid")
-  assert.deepEqual(confirmPaymentCalls, ["b1"])
-})
-
-void test("byBooking reconciles SePay's CAPTURED success status", async () => {
-  const { service, store, confirmPaymentCalls } = await makeService({
-    remoteOrder: { order_status: "CAPTURED" },
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "awaiting",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  const result = await service.byBooking("user-1", "b1")
-
-  assert.equal(result.status, "paid")
-  assert.equal(store.get("b1")?.status, "paid")
-  assert.deepEqual(confirmPaymentCalls, ["b1"])
-})
-
-void test("byBooking leaves an awaiting payment alone when SePay still shows it pending", async () => {
-  const { service, store } = await makeService({
-    remoteOrder: { order_status: "PENDING" },
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "awaiting",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  const result = await service.byBooking("user-1", "b1")
-  assert.equal(result.status, "awaiting")
-  assert.equal(store.get("b1")?.status, "awaiting")
-})
-
-void test("byBooking repairs booking confirmation and owner notification for an already-paid payment", async () => {
-  const { service, notifications, confirmPaymentCalls } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "paid",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  const result = await service.byBooking("user-1", "b1")
-
-  assert.equal(result.status, "paid")
-  assert.deepEqual(confirmPaymentCalls, ["b1"])
-  assert.equal(notifications.length, 1)
-  assert.deepEqual(notifications[0], {
-    userId: "owner-1",
-    item: {
-      id: "payment-paid-b1",
-      kind: "booking",
-      text: "Có lượt đặt sân mới đã thanh toán — vui lòng duyệt trong vòng 30 phút (im lặng sẽ tự động duyệt).",
-      href: "/app/venue/v9/schedule?tab=reservations",
-    },
-  })
-})
-
-void test("byBooking rejects a caller who doesn't own the payment", async () => {
-  const { service } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "paid",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
   await assert.rejects(
-    () => service.byBooking("someone-else", "b1"),
+    () => service.completeRefund("owner-1", "b1", { proofUrl: proofUrl("x") }),
+    BadRequestException
+  )
+  await assert.rejects(
+    () => service.completeRefund("stranger", "b1", { proofUrl: proofUrl() }),
     ForbiddenException
   )
-})
-
-// ── Phase 5 seam ─────────────────────────────────────────────────────────────
-
-void test("cancelOrderForBooking cancels an open order and marks the payment cancelled", async () => {
-  const { service, store, cancelCalls } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "awaiting",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  await service.cancelOrderForBooking("b1")
-
-  assert.deepEqual(cancelCalls, ["b1"])
-  assert.equal(store.get("b1")?.status, "cancelled")
-})
-
-void test("cancelOrderForBooking no-ops when the payment is already settled", async () => {
-  const { service, cancelCalls } = await makeService({
-    seedPayments: [
-      {
-        invoiceNumber: "b1",
-        bookingId: "b1",
-        venueId: "v9",
-        userId: "user-1",
-        amount: 200_000,
-        currency: "VND",
-        status: "paid",
-        save: () => Promise.resolve(),
-      },
-    ],
-  })
-
-  await service.cancelOrderForBooking("b1")
-  assert.equal(cancelCalls.length, 0)
-})
-
-void test("cancelOrderForBooking no-ops when checkout was never started", async () => {
-  const { service, cancelCalls } = await makeService()
-  await service.cancelOrderForBooking("never-checked-out")
-  assert.equal(cancelCalls.length, 0)
-})
-
-// ── Pay with the wallet ──────────────────────────────────────────────────────
-
-void test("payWithWallet debits the wallet, settles the payment and confirms the booking", async () => {
-  const { service, store, walletDebits, confirmPaymentCalls, cancelCalls } =
-    await makeService({ walletBalance: 500_000 })
-
-  const result = await service.payWithWallet("user-1", "b1")
-
-  assert.equal(result.status, "paid")
-  assert.equal(result.amount, 200_000)
-  assert.deepEqual(walletDebits, [{ amount: 200_000, txId: "pay-b1" }])
-  assert.deepEqual(confirmPaymentCalls, ["b1"])
-  assert.equal(store.get("b1")?.status, "paid")
-  // No SePay checkout was opened, so there is nothing to cancel there.
-  assert.deepEqual(cancelCalls, [])
-})
-
-void test("payWithWallet with too little balance throws 402 and charges nothing", async () => {
-  const { service, walletDebits, confirmPaymentCalls } = await makeService({
-    walletBalance: 100_000,
-  })
-
-  await assert.rejects(
-    () => service.payWithWallet("user-1", "b1"),
-    (err: unknown) => err instanceof HttpException && err.getStatus() === 402
-  )
-  assert.deepEqual(walletDebits, [])
-  assert.deepEqual(confirmPaymentCalls, [])
-})
-
-void test("payWithWallet rejects a caller who doesn't own the booking", async () => {
-  const { service, walletDebits } = await makeService({
-    walletBalance: 500_000,
-  })
-
-  await assert.rejects(
-    () => service.payWithWallet("someone-else", "b1"),
-    ForbiddenException
-  )
-  assert.deepEqual(walletDebits, [])
-})
-
-void test("payWithWallet cancels an already-opened SePay order so it can't be paid twice", async () => {
-  const { service, cancelCalls } = await makeService({ walletBalance: 500_000 })
-  await service.checkout("user-1", "b1")
-
-  await service.payWithWallet("user-1", "b1")
-
-  assert.deepEqual(cancelCalls, ["b1"])
-})
-
-// ── IPN routing ──────────────────────────────────────────────────────────────
-
-void test("an IPN for a TU- invoice settles a wallet top-up, not a booking payment", async () => {
-  const { service, topUpSettles, confirmPaymentCalls } = await makeService()
-
-  await service.handleIpn(Buffer.from(ipnBody("TU-abc")), {})
-
-  assert.deepEqual(topUpSettles, ["TU-abc"])
-  assert.deepEqual(confirmPaymentCalls, [])
 })

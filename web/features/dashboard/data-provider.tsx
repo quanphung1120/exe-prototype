@@ -10,6 +10,7 @@ import {
   conflictFor as conflictForFn,
   courtByVenue as courtByVenueFn,
   courtDayBusy as courtDayBusyFn,
+  courtDayPending as courtDayPendingFn,
   courtDayGaps as courtDayGapsFn,
   courtNumberFor as courtNumberForFn,
   courtSlots as courtSlotsFn,
@@ -83,6 +84,8 @@ interface DataContextValue {
   venues: Venue[]
   /** Effective account type (stored choice ∪ inferred facts). */
   accountType: AccountType | null
+  /** The signed-in player's saved contact phone number (absent until set). */
+  phone?: string
   // ── Record-bound helpers ──
   playerByInitials: (initials: string) => RosterEntry
   courtByVenue: (name: string) => Court | undefined
@@ -93,6 +96,12 @@ interface DataContextValue {
   ) => { time: string; taken: boolean }[]
   conflictFor: (sessions: PlaySession[], q: ConflictQuery) => Conflict
   courtDayBusy: (
+    sessions: PlaySession[],
+    courtId: string,
+    dayKey: string,
+    ignoreId?: string
+  ) => CourtBand[]
+  courtDayPending: (
     sessions: PlaySession[],
     courtId: string,
     dayKey: string,
@@ -162,6 +171,7 @@ export function DataProvider({
       brand: seed.brand,
       venues: seed.venues,
       accountType: seed.accountType,
+      phone: seed.phone,
       // Bound helpers (original signatures preserved)
       playerByInitials: (initials) => playerByInitialsFn(roster, initials),
       courtByVenue: (name) => courtByVenueFn(courts, name),
@@ -171,6 +181,8 @@ export function DataProvider({
         conflictForFn(courts, seed.user, sessions, q),
       courtDayBusy: (sessions, courtId, dayKey, ignoreId) =>
         courtDayBusyFn(courts, sessions, courtId, dayKey, ignoreId),
+      courtDayPending: (sessions, courtId, dayKey, ignoreId) =>
+        courtDayPendingFn(sessions, courtId, dayKey, ignoreId),
       courtDayGaps: (sessions, courtId, dayKey, ignoreId) =>
         courtDayGapsFn(courts, sessions, courtId, dayKey, ignoreId),
       sessionToBooking: (s) => sessionToBookingFn(courts, s),

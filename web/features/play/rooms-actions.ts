@@ -98,3 +98,25 @@ export async function leaveRoomMembership(
     }
   )
 }
+
+/** Host confirms a member has paid their court share. */
+export async function markSharePaid(
+  roomId: string,
+  memberUserId: string
+): Promise<RoomActionResult<void>> {
+  return roomsApi<void>(
+    `/api/rooms/${encodeURIComponent(roomId)}/members/${encodeURIComponent(memberUserId)}/paid`,
+    { method: "PUT" }
+  )
+}
+
+/** Host sends a payment reminder notification to a member. */
+export async function remindSharePayment(
+  roomId: string,
+  memberUserId: string
+): Promise<RoomActionResult<void>> {
+  return roomsApi<void>(
+    `/api/rooms/${encodeURIComponent(roomId)}/members/${encodeURIComponent(memberUserId)}/remind`,
+    { method: "POST" }
+  )
+}

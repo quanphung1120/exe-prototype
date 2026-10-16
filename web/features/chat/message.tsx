@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useLocale } from "next-intl"
-import { Check, CheckCheck, SmilePlus, Trash2 } from "lucide-react"
+import { Check, CheckCheck, SmilePlus, Trash2, X } from "lucide-react"
 import {
   MessageText,
   MessageTimestamp,
@@ -403,40 +403,72 @@ function QuotedBlock({
   )
 }
 
-/** Minimal attachment rendering: inline images, everything else a file link. */
+/** Minimal attachment rendering: inline images (click to enlarge), everything else a file link. */
 function Attachments({ attachments }: { attachments: StreamAttachment[] }) {
+  const [lightbox, setLightbox] = React.useState<string | null>(null)
   return (
-    <div className="mb-1.5 flex flex-col gap-1.5">
-      {attachments.map((attachment, i) => {
-        const imageUrl =
-          attachment.type === "image"
-            ? (attachment.image_url ?? attachment.thumb_url)
-            : undefined
-        if (imageUrl) {
+    <>
+      <div className="mb-1.5 flex flex-col gap-1.5">
+        {attachments.map((attachment, i) => {
+          const imageUrl =
+            attachment.type === "image"
+              ? (attachment.image_url ?? attachment.thumb_url)
+              : undefined
+          if (imageUrl) {
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setLightbox(imageUrl)}
+                className="cursor-zoom-in rounded-lg focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring"
+                aria-label="Xem ảnh"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- remote Stream CDN uploads, dimensions unknown */}
+                <img
+                  src={imageUrl}
+                  alt={attachment.fallback ?? ""}
+                  className="max-h-60 w-full rounded-lg object-cover"
+                />
+              </button>
+            )
+          }
+          const fileUrl = attachment.asset_url ?? attachment.og_scrape_url
+          if (!fileUrl) return null
           return (
-            // eslint-disable-next-line @next/next/no-img-element -- remote Stream CDN uploads, dimensions unknown
-            <img
+            <a
               key={i}
-              src={imageUrl}
-              alt={attachment.fallback ?? ""}
-              className="max-h-60 rounded-lg object-cover"
-            />
+              href={fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="truncate text-xs underline"
+            >
+              {attachment.title ?? fileUrl}
+            </a>
           )
-        }
-        const fileUrl = attachment.asset_url ?? attachment.og_scrape_url
-        if (!fileUrl) return null
-        return (
-          <a
-            key={i}
-            href={fileUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="truncate text-xs underline"
+        })}
+      </div>
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            type="button"
+            aria-label="Đóng"
+            className="absolute top-4 right-4 grid size-10 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            onClick={() => setLightbox(null)}
           >
-            {attachment.title ?? fileUrl}
-          </a>
-        )
-      })}
-    </div>
+            <X className="size-5" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element -- lightbox, unknown dimensions */}
+          <img
+            src={lightbox}
+            alt=""
+            className="max-h-[90vh] max-w-full rounded-lg object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
   )
 }

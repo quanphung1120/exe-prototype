@@ -5,6 +5,8 @@ import { CourtDistance } from "@/features/dashboard/court-distance"
 import * as React from "react"
 import { useTranslations } from "next-intl"
 import {
+  BadgeDollarSign,
+  Bell,
   CalendarCheck,
   CalendarPlus,
   Check,
@@ -25,7 +27,12 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 import { createRoomChat } from "@/features/chat/stream-actions"
+import {
+  markSharePaid,
+  remindSharePayment,
+} from "@/features/play/rooms-actions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -275,6 +282,11 @@ function RoomDetail({
     null
   )
   const [profileOpen, setProfileOpen] = React.useState(false)
+  // Optimistic paid-status overrides keyed by userId — persisted until the
+  // room list refreshes from the server on the next poll.
+  const [paidOverrides, setPaidOverrides] = React.useState<
+    Record<string, boolean>
+  >({})
 
   const openProfile = (initials: string) => {
     setProfileInitials(initials)
@@ -396,7 +408,7 @@ function RoomDetail({
                   {t("viewInBookings")}
                 </Button>
               </div>
-              <RoomSharePanel roomId={room.id} isHost={isHost} />
+              <RoomSharePanel sharePrice={room.sharePrice} />
             </>
           ) : isHost ? (
             <Button
@@ -445,17 +457,58 @@ function RoomDetail({
             {t("participants", { count: room.players.length })}
           </SectionLabel>
           <div className="flex flex-col gap-3">
-            {room.players.map((initials, i) => (
-              <ParticipantRow
-                key={`${initials}-${i}`}
-                sport={room.sport}
-                initials={initials}
-                member={room.members?.[i]}
-                canKick={isHost && initials !== USER.initials}
-                onKick={() => kickPlayer(room.id, initials)}
-                onViewProfile={openProfile}
-              />
-            ))}
+            {room.players.map((initials, i) => {
+              const member = room.members?.[i]
+              const memberId = member?.userId
+              const isPaid =
+                paidOverrides[memberId ?? ""] ?? member?.paid ?? false
+              return (
+                <ParticipantRow
+                  key={`${initials}-${i}`}
+                  sport={room.sport}
+                  initials={initials}
+                  member={member ? { ...member, paid: isPaid } : undefined}
+                  canKick={isHost && initials !== USER.initials}
+                  onKick={() => kickPlayer(room.id, initials)}
+                  onViewProfile={openProfile}
+                  sharePrice={booked ? room.sharePrice : undefined}
+                  onRemind={
+                    isHost && memberId && !isPaid
+                      ? () => {
+                          void remindSharePayment(room.id, memberId).then(
+                            (res) => {
+                              if (res.ok) {
+                                toast.success(t("remindSent"))
+                              } else {
+                                toast.error(res.message)
+                              }
+                            }
+                          )
+                        }
+                      : undefined
+                  }
+                  onMarkPaid={
+                    isHost && memberId && !isPaid
+                      ? () => {
+                          setPaidOverrides((prev) => ({
+                            ...prev,
+                            [memberId]: true,
+                          }))
+                          void markSharePaid(room.id, memberId).then((res) => {
+                            if (!res.ok) {
+                              setPaidOverrides((prev) => ({
+                                ...prev,
+                                [memberId]: false,
+                              }))
+                              toast.error(res.message)
+                            }
+                          })
+                        }
+                      : undefined
+                  }
+                />
+              )
+            })}
           </div>
         </section>
 
@@ -656,6 +709,9 @@ function ParticipantRow({
   canKick,
   onKick,
   onViewProfile,
+  sharePrice,
+  onRemind,
+  onMarkPaid,
 }: {
   sport: MatchRoom["sport"]
   initials: string
@@ -663,6 +719,12 @@ function ParticipantRow({
   canKick?: boolean
   onKick?: () => void
   onViewProfile?: (initials: string) => void
+  /** Non-zero when the room is booked and cost-sharing is enabled. */
+  sharePrice?: number
+  /** Host-only: send a payment reminder to this member. */
+  onRemind?: () => void
+  /** Host-only: mark this member as having paid. */
+  onMarkPaid?: () => void
 }) {
   const t = useTranslations("ActiveRoom")
   const tm = useTranslations("MatchMaker")
@@ -724,29 +786,74 @@ function ParticipantRow({
     </>
   )
 
+  const showShare = sharePrice && sharePrice > 0 && !member?.host
+  const isPaid = member?.paid
+
   return (
-    <div className="flex items-center gap-3">
-      {!isYou && onViewProfile ? (
-        <button
-          type="button"
-          className="-m-1 flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/40"
-          onClick={() => onViewProfile(initials)}
-        >
-          {info}
-        </button>
-      ) : (
-        <div className="flex min-w-0 flex-1 items-center gap-3">{info}</div>
-      )}
-      {canKick ? (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="shrink-0 rounded-full text-muted-foreground"
-          aria-label={t("remove")}
-          onClick={onKick}
-        >
-          <X />
-        </Button>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-3">
+        {!isYou && onViewProfile ? (
+          <button
+            type="button"
+            className="-m-1 flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1 text-left transition-colors hover:bg-muted/40"
+            onClick={() => onViewProfile(initials)}
+          >
+            {info}
+          </button>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-3">{info}</div>
+        )}
+        {canKick && !showShare ? (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 rounded-full text-muted-foreground"
+            aria-label={t("remove")}
+            onClick={onKick}
+          >
+            <X />
+          </Button>
+        ) : null}
+      </div>
+
+      {showShare ? (
+        <div className="ml-9 flex items-center gap-1.5">
+          {isPaid ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand">
+              <Check className="size-3" />
+              {t("sharePaid")}
+            </span>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                <BadgeDollarSign className="size-3" />
+                {t("shareUnpaid")}
+              </span>
+              {onRemind ? (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="h-5 rounded-full px-2 text-[11px]"
+                  onClick={onRemind}
+                >
+                  <Bell className="size-3" />
+                  {t("remindPay")}
+                </Button>
+              ) : null}
+              {onMarkPaid ? (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="h-5 rounded-full px-2 text-[11px]"
+                  onClick={onMarkPaid}
+                >
+                  <Check className="size-3" />
+                  {t("confirmPaid")}
+                </Button>
+              ) : null}
+            </>
+          )}
+        </div>
       ) : null}
     </div>
   )

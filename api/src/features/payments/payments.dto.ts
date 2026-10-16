@@ -1,58 +1,64 @@
+import { Type } from "class-transformer"
 import {
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   Max,
+  MaxLength,
   Min,
+  ValidateNested,
 } from "class-validator"
 
-import { TOPUP_MAX, TOPUP_MIN } from "../../shared/index.js"
+import { PayoutDto } from "../brands/payout.dto.js"
 
-/** `POST /api/payments/checkout` — the app booking to start a SePay checkout for. */
-export class CheckoutDto {
-  @IsString()
-  @IsNotEmpty()
-  bookingId: string
-
-  /** Optional mã giảm giá — re-validated server-side against the booking's price. */
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  discountCode?: string
-}
-
-/** `GET /api/payments/by-booking/:id` path param. */
+/** `:id` path param of every booking payment route. */
 export class BookingIdParamDto {
   @IsString()
   @IsNotEmpty()
   id: string
 }
 
-/** `POST /api/payments/wallet-pay` — pay an app booking hold from the wallet. */
-export class WalletPayDto {
-  @IsString()
-  @IsNotEmpty()
-  bookingId: string
-
+/** `POST /api/bookings/:id/payment/start` — optionally with a discount code. */
+export class StartPaymentDto {
   /** Optional mã giảm giá — re-validated server-side against the booking's price. */
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MaxLength(40)
   discountCode?: string
 }
 
-/** `POST /api/wallet/topups` — how much to add to the wallet. */
-export class TopUpDto {
-  @IsInt()
-  @Min(TOPUP_MIN)
-  @Max(TOPUP_MAX)
-  amount: number
+/** `POST /api/bookings/:id/payment/submit` — the transfer screenshot + where to refund. */
+export class SubmitPaymentProofDto {
+  @IsUrl({ protocols: ["https"], require_protocol: true })
+  @MaxLength(500)
+  proofUrl: string
+
+  /** The player's account a refund goes to; also saved to their profile. */
+  @ValidateNested()
+  @Type(() => PayoutDto)
+  refundAccount: PayoutDto
 }
 
-/** `GET /api/wallet/topups/:id` path param. */
-export class TopUpIdParamDto {
-  @IsString()
-  @IsNotEmpty()
-  id: string
+/** `POST /api/bookings/:id/refund/complete` — the venue's refund screenshot. */
+export class CompleteRefundDto {
+  @IsUrl({ protocols: ["https"], require_protocol: true })
+  @MaxLength(500)
+  proofUrl: string
+
+  /** Less than the full amount when the venue and player agreed so. */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100_000_000)
+  amount?: number
+}
+
+/** `POST /api/bookings/:id/refund/confirm` — did the refund arrive? */
+export class ConfirmRefundDto {
+  @IsIn(["received", "not_received"])
+  result: "received" | "not_received"
 }

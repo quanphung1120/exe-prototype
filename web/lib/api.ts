@@ -8,10 +8,10 @@ import type {
   AccountType,
   AdminAppReviewRow,
   AppReviewsPublic,
+  BankAccount,
   BranchSummary,
   PlayerAssessment,
   RoomComplaintRow,
-  WithdrawalRow,
   Seed,
   VenueSeed,
 } from "@/lib/shared"
@@ -201,6 +201,14 @@ export async function fetchMyVenue(): Promise<VenueSeed | null> {
  * Manage screen's cross-branch overview table (plan 021). Empty when the
  * account has provisioned no branches yet.
  */
+/** The owner's saved payout account (for the manage screen's editor). */
+export async function fetchPayout(): Promise<BankAccount | null> {
+  const res = await apiFetch<{ payout: BankAccount | null }>(
+    "/api/brands/me/payout"
+  )
+  return res.payout
+}
+
 export async function fetchBranchesSummary(): Promise<BranchSummary[]> {
   try {
     return await apiFetch<BranchSummary[]>("/api/venue/branches/summary")
@@ -259,10 +267,6 @@ export async function fetchAdminRefunds(): Promise<AdminRefundRow[]> {
 
 export async function fetchAdminComplaints(): Promise<RoomComplaintRow[]> {
   return apiFetch<RoomComplaintRow[]>("/api/admin/complaints")
-}
-
-export async function fetchAdminWithdrawals(): Promise<WithdrawalRow[]> {
-  return apiFetch<WithdrawalRow[]>("/api/admin/withdrawals")
 }
 
 export async function fetchAdminApprovals(): Promise<AdminApprovalRow[]> {

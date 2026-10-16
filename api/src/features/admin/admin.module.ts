@@ -5,7 +5,6 @@ import { BrandsModule } from "../brands/brands.module.js"
 import { DiscountsModule } from "../discounts/discounts.module.js"
 import { PlayersModule } from "../players/players.module.js"
 import { RoomsModule } from "../rooms/rooms.module.js"
-import { WalletModule } from "../wallet/wallet.module.js"
 import { SessionsModule } from "../sessions/sessions.module.js"
 import { StreamModule } from "../stream/stream.module.js"
 import { VenuesModule } from "../venues/venues.module.js"
@@ -24,7 +23,6 @@ import { OwnerRemovalService } from "./owner-removal.service.js"
     SessionsModule,
     DiscountsModule,
     RoomsModule,
-    WalletModule,
     StreamModule,
   ],
   controllers: [AdminController],

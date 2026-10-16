@@ -1,5 +1,7 @@
 # Đề xuất: Ví trả trước (Top-up) để chia tiền sân
 
+> **Đã thay thế (2026-10):** ví, nạp tiền và giữ tiền sân đã được bỏ. Tiền đặt sân đi thẳng từ người chơi sang chủ sân qua VietQR — xem `chinh-sach.md` mục 2.3 và `plans/025-replace-sepay-with-vietqr.md`. Tài liệu này chỉ còn giá trị lịch sử.
+
 ## Vấn đề
 
 Chủ phòng đặt sân và **trả toàn bộ tiền sân**. Nếu sát giờ chơi có thành viên **rời phòng hoặc không đến**, chủ phòng phải **gánh hết** (huỷ dưới 24h chỉ được hoàn 50%, sau giờ chơi không được hoàn). Vì vậy chủ phòng ngại mở phòng, và việc ghép người chơi mất tác dụng.

@@ -105,6 +105,8 @@ export interface RoomMember {
   initials: string
   host: boolean
   userId?: string
+  /** True once the host has confirmed receipt of this member's share payment. */
+  paid?: boolean
 }
 
 /** An open match lobby other players can join (Match Maker). */
@@ -183,8 +185,18 @@ export interface Booking {
   declineReason?: string
   /** Simulated pre-paid refund marker (projected from the session). */
   refunded?: boolean
-  /** The player's cancellation request on the linked booking, if any. */
+  /** The player's cancellation request on the linked booking, if any (legacy). */
   cancelRequest?: BookingCancelRequest
+  /** Exact status of the linked booking — tells "waiting for the venue" from "confirmed". */
+  bookingStatus?: BookingRecordStatus
+  /** ISO deadline for the venue to answer a sent transfer proof. */
+  confirmDeadlineAt?: string
+  /** The refund the venue owes or has paid, once the booking was rejected or cancelled. */
+  refund?: { amount: number; status: "manual" | "settled"; proofUrl?: string }
+  /** What the player said about receiving the refund. */
+  refundConfirmation?: "received" | "not_received"
+  /** The payment memo, so the player can find their transfer. */
+  transferMemo?: string
   result?: "W" | "L"
   score?: string
 }
@@ -213,6 +225,8 @@ export interface SessionPlayer {
    * `initials` within the owning user's own session doc.
    */
   userId?: string
+  /** True once the host confirms this member has paid their court share. */
+  paid?: boolean
 }
 
 export type SessionStatus = "forming" | "booked" | "completed" | "cancelled"
@@ -271,8 +285,18 @@ export interface PlaySession {
   cancelReason?: string
   /** Simulated pre-paid refund marker, set when an app booking is declined. */
   refunded?: boolean
-  /** The player's cancellation request on the linked booking, if any. */
+  /** The player's cancellation request on the linked booking, if any (legacy). */
   cancelRequest?: BookingCancelRequest
+  /** Exact status of the linked booking — tells "waiting for the venue" from "confirmed". */
+  bookingStatus?: BookingRecordStatus
+  /** ISO deadline for the venue to answer a sent transfer proof. */
+  confirmDeadlineAt?: string
+  /** The refund the venue owes or has paid, once the booking was rejected or cancelled. */
+  refund?: { amount: number; status: "manual" | "settled"; proofUrl?: string }
+  /** What the player said about receiving the refund. */
+  refundConfirmation?: "received" | "not_received"
+  /** The payment memo, so the player can find their transfer. */
+  transferMemo?: string
   /** Visible as an open lobby ("room") in Match Maker. */
   listed: boolean
   fillIntent: "court" | "invite" | "find"
@@ -672,7 +696,7 @@ export interface VenueStats {
 
 // ── Venue: schedule grid ─────────────────────────────────────────────────────
 
-export type SlotKind = "free" | "booked" | "blocked" | "walk-in" | "held"
+export type SlotKind = "free" | "booked" | "blocked" | "walk-in" | "held" | "awaiting"
 
 export interface ScheduleSlot {
   courtId: string
@@ -756,6 +780,22 @@ export interface Reservation {
   declineReason?: string
   /** The player's cancellation request, when there is one. */
   cancelRequest?: BookingCancelRequest
+  /** The underlying booking state (VietQR flow) — finer than `status`. */
+  bookingStatus?: BookingRecordStatus
+  /** VND the player was asked to transfer (after any discount). */
+  amountDue?: number
+  /** Memo the player's transfer carries — match it in the bank app. */
+  transferMemo?: string
+  /** The player's transfer screenshot. */
+  paymentProofUrl?: string
+  /** ISO — when the screenshot was sent. */
+  proofSubmittedAt?: string
+  /** ISO — the venue's answer is due by now; after it the booking is rejected. */
+  answerDeadlineAt?: string
+  /** Why the venue rejected the booking (VietQR flow). */
+  rejectReason?: string
+  /** The venue's refund screenshot. */
+  refundProofUrl?: string
 }
 
 export type RiskTier = "low" | "medium" | "high"
@@ -770,7 +810,18 @@ export type RiskTier = "low" | "medium" | "high"
  * transition table don't need to change shape when that phase lands.
  */
 export type BookingRecordStatus =
+  // The player picked a slot and has not yet sent proof of the transfer. Never
+  // expires and never blocks the slot (VietQR flow, plan 025).
   | "awaiting_payment"
+  // The player uploaded the transfer screenshot; the venue checks its bank app.
+  // Several players may be waiting on the same slot — the venue picks one.
+  | "awaiting_venue_confirmation"
+  // The venue rejected (or cancelled a confirmed booking): it owes the player a
+  // manual bank transfer, proven by a screenshot.
+  | "rejected_refund_pending"
+  // The venue uploaded the refund screenshot.
+  | "refunded"
+  // Legacy (SePay era): paid and awaiting the venue's decision.
   | "pending"
   | "confirmed"
   | "checked-in"
@@ -785,7 +836,38 @@ export type BookingRecordStatus =
  * SePay checkout lifecycle (a future phase).
  */
 export type PaymentStatus =
-  "awaiting" | "paid" | "refunded" | "partial_refund" | "none"
+  | "awaiting"
+  // The player sent a transfer screenshot; the venue has not confirmed it yet.
+  | "awaiting_verification"
+  | "paid"
+  | "refunded"
+  | "partial_refund"
+  | "none"
+
+/** How a booking's money moved: SePay (legacy), a direct VietQR transfer, or cash at the venue. */
+export type PaymentMethod = "sepay" | "vietqr" | "walk-in"
+
+/** One bank a VietQR transfer can target (from VietQR's public bank list). */
+export interface BankInfo {
+  /** NAPAS bank identification number (6 digits). */
+  bin: string
+  code: string
+  shortName: string
+  name: string
+  logo: string
+}
+
+/** A bank account that can receive a VietQR transfer. */
+export interface BankAccount {
+  /** NAPAS bank identification number (6 digits), e.g. "970422". */
+  bankBin: string
+  /** Short bank code, e.g. "MB". */
+  bankCode: string
+  bankName: string
+  accountNo: string
+  /** Account holder, upper-case without diacritics (what the banking app shows). */
+  accountName: string
+}
 
 export interface BookingCustomer {
   name: string
@@ -814,6 +896,8 @@ export interface BookingRefund {
   status: "manual" | "settled"
   /** Manual transfer reference, once an operator/admin completes it. */
   ref?: string
+  /** The venue's refund screenshot, once it has paid the refund back. */
+  proofUrl?: string
   /**
    * Set when a later booking took the same court time and the refund was
    * raised to 100% (a late cancel's venue shouldn't be paid twice).
@@ -893,10 +977,41 @@ export interface BookingRecord {
   price: number
   status: BookingRecordStatus
   paymentStatus: PaymentStatus
-  /** Epoch-free ISO deadline for an unpaid court hold (awaiting_payment → expired). */
+  /** Legacy SePay hold deadline (awaiting_payment → expired); the VietQR flow has no hold. */
   holdExpiresAt?: string
-  /** ISO deadline for the venue's 30-minute approval SLA (pending → auto-confirmed). */
+  /**
+   * ISO deadline for the venue to answer (awaiting_venue_confirmation →
+   * rejected_refund_pending when it lapses). Legacy SePay bookings used it as
+   * the 30-minute auto-confirm SLA.
+   */
   confirmDeadlineAt?: string
+  /** How the money moved; absent on bookings made before the VietQR flow. */
+  paymentMethod?: PaymentMethod
+  /** What the player owes the venue: `price` minus any discount code. */
+  amountDue?: number
+  /** The discount code applied when the player started paying. */
+  discountCode?: string
+  discountAmount?: number
+  /** `price` before the discount. */
+  originalAmount?: number
+  /** Unique transfer memo ("SHT" + 6 chars) the player puts in the bank transfer. */
+  transferMemo?: string
+  /** The venue's account at the time the player started paying. */
+  payoutSnapshot?: BankAccount
+  /** The player's transfer screenshot (Cloudinary). */
+  paymentProofUrl?: string
+  /** ISO datetime the player sent the proof. */
+  proofSubmittedAt?: string
+  /** ISO datetime the venue was reminded to answer. */
+  confirmReminderAt?: string
+  /** Why the venue rejected / cancelled (also on `declineReason`). */
+  rejectReason?: string
+  /** The player's account the venue refunds to, copied when the proof is sent. */
+  refundAccount?: BankAccount
+  /** The venue's refund screenshot (Cloudinary). */
+  refundProofUrl?: string
+  /** What the player said about receiving the refund. */
+  refundConfirmation?: { result: "received" | "not_received"; at: string }
   /** ISO datetime the venue checked the customer in. */
   checkedInAt?: string
   /** Operator's reason when declined (status "cancelled" from "pending"). */
@@ -923,6 +1038,12 @@ export interface RefundQueueItem {
   day: Localized
   time: string
   refund: BookingRefund
+  /** The player's account the refund goes to (VietQR bookings). */
+  refundAccount?: BankAccount
+  /** The booking's transfer memo, echoed in the refund's memo. */
+  transferMemo?: string
+  /** A VietQR image that pre-fills the refund transfer. */
+  qrUrl?: string
 }
 
 // ── Venue: customers (CRM) ───────────────────────────────────────────────────
@@ -1124,6 +1245,8 @@ export interface Seed {
   assessment: PlayerAssessment | null
   /** Effective account type (stored choice ∪ inferred facts); null until chosen. */
   accountType: AccountType | null
+  /** The signed-in player's saved contact phone number (null until they set one). */
+  phone?: string
 }
 
 // ── App reviews (đánh giá ứng dụng) ──────────────────────────────────────────
@@ -1254,10 +1377,14 @@ export interface RoomSharesInfo {
 export type RoomLeaveStatus = "pending" | "rejected"
 
 /** A member's complaint to the platform about a refused leave request. */
-export type ComplaintStatus = "open" | "refunded" | "dismissed"
+export type ComplaintStatus = "open" | "refunded" | "resolved" | "dismissed"
 
 /** What a complaint is about. */
-export type ComplaintKind = "room_leave" | "cancel_decline"
+export type ComplaintKind =
+  | "room_leave"
+  | "cancel_decline"
+  // The venue marked a refund done, but the player says the money never arrived.
+  | "refund_not_received"
 
 /** `DELETE /api/rooms/:id/members/me` — left at once, or waiting on the host. */
 export interface LeaveRoomResult {

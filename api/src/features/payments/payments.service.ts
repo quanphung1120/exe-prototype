@@ -1,253 +1,268 @@
-import { bookingDescription } from "./descriptions.js"
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
   Injectable,
   Logger,
   NotFoundException,
-  UnauthorizedException,
-  HttpException,
-  HttpStatus,
 } from "@nestjs/common"
-import { ConfigService } from "@nestjs/config"
 import { InjectModel } from "@nestjs/mongoose"
 import type { Model } from "mongoose"
 
-import { vnNowIso } from "../../shared/index.js"
-
+import { isDuplicateKeyError } from "../../common/mongo-util.js"
+import type {
+  BankAccount,
+  BookingRecord,
+  BookingRecordStatus,
+} from "../../shared/index.js"
+import type { BookingSummary } from "../bookings/booking.helpers.js"
 import { Booking, type BookingDocument } from "../bookings/booking.schema.js"
 import { BookingsService } from "../bookings/bookings.service.js"
+import { PayoutService } from "../brands/payout.service.js"
+import type { PayoutDto } from "../brands/payout.dto.js"
 import { DiscountsService } from "../discounts/discounts.service.js"
-import { NotificationsService } from "../notifications/notifications.service.js"
-import { Venue, type VenueDocument } from "../venues/venue.schema.js"
-import { WalletService } from "../wallet/wallet.service.js"
-import { TOPUP_INVOICE_PREFIX } from "./topup.schema.js"
-import { TopUpsService } from "./topups.service.js"
-import {
-  Payment,
-  type PaymentDocument,
-  type PaymentRecordStatus,
-} from "./payment.schema.js"
-import {
-  SEPAY_CLIENT,
-  type SepayClientPort,
-  type SepayIpnHeaders,
-  type SepayIpnPayload,
-} from "./sepay.client.js"
-import { paymentReturnUrls } from "./return-urls.js"
+import { ProfileService } from "../players/profile.service.js"
+import type { VenuePhotoUploadSignature } from "../venues/venue-photos.service.js"
+import { ProofUploadService } from "./proof-upload.service.js"
+import { buildVietQrImageUrl, generateTransferMemo } from "./vietqr.js"
 
-/** The shape `PaymentsController` returns from checkout/by-booking. */
-export interface PaymentSummary {
+/** What the payment screen shows: where to transfer, how much, and the memo. */
+export interface PaymentStart {
   bookingId: string
-  invoiceNumber: string
+  venueId: string
+  courtName: string
+  startAt: string
+  dateKey: string
+  start: string
+  durationMin: number
+  /** VND to transfer (the booking price minus any discount). */
   amount: number
-  currency: string
-  status: PaymentRecordStatus
-  checkoutUrl?: string
-  paidAt?: string
-  /** The booking's undiscounted price — only present when a code was applied. */
-  originalAmount?: number
-  /** The mã giảm giá applied at checkout, if any. */
+  originalAmount: number
   discountCode?: string
-  /** VND amount the code knocked off `originalAmount` to reach `amount`. */
   discountAmount?: number
+  /** The memo the player must put in the transfer. */
+  transferMemo: string
+  /** A VietQR image that pre-fills bank, account, amount and memo. */
+  qrUrl: string
+  /** The venue's account, copied when the player started paying. */
+  account: BankAccount
+  /** The player's saved refund account, to pre-fill the form. */
+  refundAccount: BankAccount | null
 }
 
-/** `POST /api/payments/checkout` response — the summary plus the signed form to submit. */
-export interface CheckoutResult {
-  payment: PaymentSummary
-  fields: Record<string, string | number | undefined>
-  checkoutUrl: string
-}
+type StartableBooking = Pick<
+  BookingRecord,
+  | "venueId"
+  | "userId"
+  | "courtName"
+  | "startAt"
+  | "dateKey"
+  | "start"
+  | "durationMin"
+  | "status"
+  | "price"
+  | "amountDue"
+  | "transferMemo"
+  | "payoutSnapshot"
+  | "discountCode"
+  | "discountAmount"
+  | "originalAmount"
+>
 
-function toPaymentSummary(doc: Payment): PaymentSummary {
-  return {
-    bookingId: doc.bookingId,
-    invoiceNumber: doc.invoiceNumber,
-    amount: doc.amount,
-    currency: doc.currency,
-    status: doc.status,
-    checkoutUrl: doc.checkoutUrl,
-    paidAt: doc.paidAt,
-    originalAmount: doc.originalAmount,
-    discountCode: doc.discountCode,
-    discountAmount: doc.discountAmount,
-  }
-}
-
-/** A remote SePay order's status field, as read back from `order.retrieve()`.
- * No amount field: `order.retrieve()`'s response shape isn't documented to
- * carry the settled amount the way the IPN's `order.order_amount` does, so
- * `byBooking`'s reconciliation settle intentionally skips the amount check
- * (passes `undefined`) rather than guess a field name. */
-interface RemoteOrder {
-  order_status?: string
-}
-
-// SePay's Order API uses `CAPTURED` for a successfully settled order. Keep
-// the legacy values too because sandbox/API versions have returned `PAID`
-// and `COMPLETED` in the past.
-const PAID_REMOTE_STATUSES = new Set(["CAPTURED", "PAID", "COMPLETED"])
-
-function isPaidRemoteStatus(status: unknown): boolean {
-  return (
-    typeof status === "string" &&
-    PAID_REMOTE_STATUSES.has(status.trim().toUpperCase())
-  )
-}
+/** Bookings that still count against a discount code's limits. */
+const REDEEMING_STATUSES: BookingRecordStatus[] = [
+  "awaiting_venue_confirmation",
+  "pending",
+  "confirmed",
+  "checked-in",
+  "completed",
+]
 
 /**
- * SePay checkout + IPN (VienTD-Review Phase 4). Owns the `payments`
- * collection — one `Payment` doc per booking (`invoiceNumber` == `bookingId`,
- * unique, doubling as the idempotency key both the checkout upsert and the
- * IPN's guarded `findOneAndUpdate` rely on) — and delegates the booking-side
- * transition (`awaiting_payment` → `pending`, `confirmDeadlineAt` set) to
- * `BookingsService#confirmPayment` rather than writing `Booking` docs
- * directly, so that state machine stays owned by one feature.
+ * The player's side of a VietQR payment: show where to transfer, sign the
+ * screenshot upload, record the proof. The venue — not this service — decides
+ * whether the money arrived (`BookingsService#decide`), and no money passes
+ * through the platform. The booking's state machine stays in `BookingsService`.
  */
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name)
-  private readonly returnUrl: string
 
   constructor(
-    @InjectModel(Payment.name)
-    private readonly paymentModel: Model<PaymentDocument>,
     @InjectModel(Booking.name)
     private readonly bookingModel: Model<BookingDocument>,
-    @InjectModel(Venue.name)
-    private readonly venueModel: Model<VenueDocument>,
-    @Inject(SEPAY_CLIENT) private readonly sepay: SepayClientPort,
     @Inject(BookingsService) private readonly bookings: BookingsService,
-    @Inject(NotificationsService)
-    private readonly notifications: NotificationsService,
+    @Inject(PayoutService) private readonly payouts: PayoutService,
+    @Inject(ProofUploadService) private readonly proofs: ProofUploadService,
     @Inject(DiscountsService) private readonly discounts: DiscountsService,
-    @Inject(WalletService) private readonly wallet: WalletService,
-    @Inject(TopUpsService) private readonly topUps: TopUpsService,
-    // Explicit token (not just the TS type) since esbuild-based runners like
-    // tsx don't emit the design:paramtypes metadata implicit constructor
-    // injection would otherwise rely on — see the same note on
-    // NotificationsService above and throughout bookings.service.ts.
-    @Inject(ConfigService) config: ConfigService
-  ) {
-    this.returnUrl = config.getOrThrow<string>("SEPAY_RETURN_URL")
-  }
+    @Inject(ProfileService) private readonly profiles: ProfileService
+  ) {}
 
-  // ── Checkout ─────────────────────────────────────────────────────────────
-
-  /**
-   * Start (or resume) a SePay checkout for the caller's own `awaiting_payment`
-   * hold — `POST /api/payments/checkout`. Charges 100% of the booking price
-   * (decision #3, no deposit model), minus any `discountCode` — re-validated
-   * here against `booking.price` with the exact same rules
-   * `DiscountsService#validate` enforces (an invalid/expired/exhausted code
-   * throws rather than being silently ignored). Re-POSTing for the same
-   * booking before it's paid reuses the same `Payment` doc/invoice (the
-   * upsert below is keyed on `bookingId`) instead of opening a second order —
-   * that resume path deliberately keeps the amounts/discount stored on the
-   * first call: the upsert's `$setOnInsert` only takes effect on the initial
-   * insert, so a different `discountCode` sent on a resume is ignored rather
-   * than re-priced (simplest correct behavior — the hold's price was already
-   * quoted to the player once).
-   */
-  async checkout(
+  private async ownBooking(
     userId: string,
-    bookingId: string,
-    discountCode?: string
-  ): Promise<CheckoutResult> {
+    bookingId: string
+  ): Promise<StartableBooking> {
     const booking = await this.bookingModel
       .findOne({ bookingId })
-      .select("venueId userId status price courtName dateKey start")
-      .lean<{
-        venueId: string
-        userId?: string
-        status: string
-        price: number
-        courtName: string
-        dateKey: string
-        start: string
-      }>()
+      .select(
+        "venueId userId courtName startAt dateKey start durationMin status price amountDue transferMemo payoutSnapshot discountCode discountAmount originalAmount"
+      )
+      .lean<StartableBooking>()
     if (!booking) throw new NotFoundException("Booking not found")
     if (booking.userId !== userId) {
       throw new ForbiddenException("This booking belongs to another account")
     }
+    return booking
+  }
+
+  /**
+   * Start (or resume) paying for the caller's own `awaiting_payment` booking —
+   * `POST /api/bookings/:id/payment/start`. The first call fixes the amount
+   * (100% of the price, minus a valid discount code), a unique transfer memo
+   * and a snapshot of the venue's account; calling again returns the same
+   * thing, so a venue changing its account mid-payment cannot misdirect it.
+   */
+  async startPayment(
+    userId: string,
+    bookingId: string,
+    discountCode?: string
+  ): Promise<PaymentStart> {
+    const booking = await this.ownBooking(userId, bookingId)
     if (booking.status !== "awaiting_payment") {
       throw new ConflictException(
-        `Cannot start checkout for a booking in status "${booking.status}"`
+        `Không thể thanh toán lượt đặt ở trạng thái "${booking.status}"`
+      )
+    }
+    const refundAccount = await this.profiles.getRefundAccount(userId)
+
+    if (booking.transferMemo && booking.payoutSnapshot) {
+      return this.toStart(
+        bookingId,
+        booking,
+        booking.payoutSnapshot,
+        refundAccount
       )
     }
 
+    const account = await this.payouts.payoutForVenue(booking.venueId)
+    if (!account) {
+      throw new ConflictException(
+        "Sân này chưa khai báo tài khoản nhận tiền nên chưa nhận đặt trực tuyến"
+      )
+    }
     const discount = discountCode
       ? await this.discounts.validate(discountCode, booking.price)
       : null
     if (discount) await this.assertRedemptionQuota(discount, userId, bookingId)
+    const amountDue = discount ? discount.finalAmount : booking.price
 
-    const payment = await this.paymentModel.findOneAndUpdate(
-      { bookingId },
-      {
-        $setOnInsert: {
-          invoiceNumber: bookingId,
-          bookingId,
-          venueId: booking.venueId,
-          userId,
-          amount: discount ? discount.finalAmount : booking.price,
-          currency: "VND",
-          status: "awaiting",
-          ...(discount
-            ? {
-                originalAmount: booking.price,
-                discountCode: discount.code,
-                discountAmount: discount.discountAmount,
-              }
-            : {}),
-        },
-      },
-      { upsert: true, new: true }
-    )
-    if (payment.status !== "awaiting") {
-      throw new ConflictException("Payment already settled for this booking")
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const memo = generateTransferMemo()
+      try {
+        const updated = await this.bookingModel
+          .findOneAndUpdate(
+            {
+              bookingId,
+              status: "awaiting_payment",
+              transferMemo: { $exists: false },
+            },
+            {
+              $set: {
+                transferMemo: memo,
+                amountDue,
+                payoutSnapshot: account,
+                paymentMethod: "vietqr",
+                ...(discount
+                  ? {
+                      originalAmount: booking.price,
+                      discountCode: discount.code,
+                      discountAmount: discount.discountAmount,
+                    }
+                  : {}),
+              },
+            },
+            { new: true }
+          )
+          .lean<StartableBooking>()
+        if (updated?.transferMemo && updated.payoutSnapshot) {
+          return this.toStart(
+            bookingId,
+            updated,
+            updated.payoutSnapshot,
+            refundAccount
+          )
+        }
+        // A concurrent call won: serve what it stored.
+        const current = await this.ownBooking(userId, bookingId)
+        if (current.transferMemo && current.payoutSnapshot) {
+          return this.toStart(
+            bookingId,
+            current,
+            current.payoutSnapshot,
+            refundAccount
+          )
+        }
+        throw new ConflictException("Lượt đặt này không còn chờ thanh toán")
+      } catch (err) {
+        if (isDuplicateKeyError(err)) continue
+        throw err
+      }
     }
+    throw new ConflictException(
+      "Không tạo được mã chuyển khoản — vui lòng thử lại"
+    )
+  }
 
-    const { fields, checkoutUrl } = this.sepay.initCheckout({
-      invoiceNumber: payment.invoiceNumber,
-      amountVnd: payment.amount,
-      description: bookingDescription({ ...booking, bookingId }),
-      ...paymentReturnUrls(this.returnUrl, bookingId),
-    })
-    payment.checkoutUrl = checkoutUrl
-    await payment.save()
-
-    return { payment: toPaymentSummary(payment), fields, checkoutUrl }
+  private toStart(
+    bookingId: string,
+    booking: StartableBooking,
+    account: BankAccount,
+    refundAccount: BankAccount | null
+  ): PaymentStart {
+    const amount = booking.amountDue ?? booking.price
+    const memo = booking.transferMemo ?? ""
+    return {
+      bookingId,
+      venueId: booking.venueId,
+      courtName: booking.courtName,
+      startAt: booking.startAt,
+      dateKey: booking.dateKey,
+      start: booking.start,
+      durationMin: booking.durationMin,
+      amount,
+      originalAmount: booking.originalAmount ?? booking.price,
+      ...(booking.discountCode
+        ? {
+            discountCode: booking.discountCode,
+            discountAmount: booking.discountAmount,
+          }
+        : {}),
+      transferMemo: memo,
+      qrUrl: buildVietQrImageUrl({ account, amount, memo }),
+      account,
+      refundAccount,
+    }
   }
 
   /**
-   * Enforce a discount code's redemption caps *before* the charge is quoted —
-   * `DiscountsService#applyUsage`'s atomic guard only bumps the global
-   * `usedCount` at settle time, which protects the counter but not the money:
-   * by then the discounted amount is already locked onto the SePay order. This
-   * closes that gap using the `payments` collection itself as the redemption
-   * ledger — a `Payment` with this `discountCode` in an `awaiting`/`paid`
-   * status is one held-or-settled redemption (an expired/cancelled hold flips
-   * to `cancelled` and frees its slot). Counting in-flight `awaiting` holds
-   * (not just settled `paid` ones) makes concurrent checkouts see each other,
-   * so a near-exhausted code can't over-issue the discount, and per-user reuse
-   * across separate bookings is capped. The current booking is excluded so a
-   * resumed checkout doesn't count its own hold against the limit.
+   * A discount code's caps, checked before the amount is quoted. Redemptions
+   * are counted from bookings (those whose transfer was reported), so a hold
+   * that never went anywhere doesn't burn one. The current booking is excluded.
    */
   private async assertRedemptionQuota(
     discount: { code: string; usageLimit?: number; perUserLimit?: number },
     userId: string,
     bookingId: string
   ): Promise<void> {
-    const held = { $in: ["awaiting", "paid"] as PaymentRecordStatus[] }
+    const redeemed = {
+      discountCode: discount.code,
+      status: { $in: REDEEMING_STATUSES },
+      bookingId: { $ne: bookingId },
+    }
     if (typeof discount.perUserLimit === "number") {
-      const mine = await this.paymentModel.countDocuments({
-        discountCode: discount.code,
+      const mine = await this.bookingModel.countDocuments({
+        ...redeemed,
         userId,
-        status: held,
-        bookingId: { $ne: bookingId },
       })
       if (mine >= discount.perUserLimit) {
         throw new ConflictException(
@@ -256,360 +271,81 @@ export class PaymentsService {
       }
     }
     if (typeof discount.usageLimit === "number") {
-      const total = await this.paymentModel.countDocuments({
-        discountCode: discount.code,
-        status: held,
-        bookingId: { $ne: bookingId },
-      })
+      const total = await this.bookingModel.countDocuments(redeemed)
       if (total >= discount.usageLimit) {
         throw new ConflictException("Mã giảm giá đã hết lượt sử dụng")
       }
     }
   }
 
-  // ── Pay with the wallet ──────────────────────────────────────────────────
+  /** A signature for uploading the transfer screenshot (`POST …/payment/proof/signature`). */
+  async signProofUpload(
+    userId: string,
+    bookingId: string
+  ): Promise<VenuePhotoUploadSignature> {
+    const booking = await this.ownBooking(userId, bookingId)
+    if (booking.status !== "awaiting_payment") {
+      throw new ConflictException("Lượt đặt này không còn chờ thanh toán")
+    }
+    return this.proofs.sign(booking.venueId)
+  }
 
   /**
-   * Pay the caller's own `awaiting_payment` hold from their wallet balance —
-   * `POST /api/payments/wallet-pay`. Prices exactly like {@link checkout}
-   * (same ownership/status guards, same discount re-validation, same
-   * `Payment` doc), then debits the wallet and settles through the same
-   * {@link markPaid} a SePay IPN uses — so the booking moves to `pending` and
-   * the venue is notified identically.
-   *
-   * The debit is keyed `pay-<bookingId>`, so a retry after a crash between
-   * debit and settle debits nothing a second time and just finishes settling.
+   * The player sends the screenshot (`POST …/payment/submit`): the booking
+   * waits for the venue, and the player's refund account is remembered.
    */
-  async payWithWallet(
+  async submitProof(
     userId: string,
     bookingId: string,
-    discountCode?: string
-  ): Promise<PaymentSummary> {
-    const booking = await this.bookingModel
-      .findOne({ bookingId })
-      .select("venueId userId status price courtName")
-      .lean<{
-        venueId: string
-        userId?: string
-        status: string
-        price: number
-        courtName: string
-      }>()
-    if (!booking) throw new NotFoundException("Booking not found")
-    if (booking.userId !== userId) {
-      throw new ForbiddenException("This booking belongs to another account")
-    }
-    if (booking.status !== "awaiting_payment") {
-      throw new ConflictException(
-        `Cannot start checkout for a booking in status "${booking.status}"`
-      )
-    }
-
-    const discount = discountCode
-      ? await this.discounts.validate(discountCode, booking.price)
-      : null
-    if (discount) await this.assertRedemptionQuota(discount, userId, bookingId)
-
-    const payment = await this.paymentModel.findOneAndUpdate(
-      { bookingId },
-      {
-        $setOnInsert: {
-          invoiceNumber: bookingId,
-          bookingId,
-          venueId: booking.venueId,
-          userId,
-          amount: discount ? discount.finalAmount : booking.price,
-          currency: "VND",
-          status: "awaiting",
-          ...(discount
-            ? {
-                originalAmount: booking.price,
-                discountCode: discount.code,
-                discountAmount: discount.discountAmount,
-              }
-            : {}),
-        },
-      },
-      { upsert: true, new: true }
-    )
-    if (payment.status !== "awaiting") {
-      throw new ConflictException("Payment already settled for this booking")
-    }
-
-    const insufficient = () =>
-      new HttpException(
-        "Số dư ví không đủ — vui lòng nạp thêm tiền",
-        HttpStatus.PAYMENT_REQUIRED
-      )
-    // Checked before touching SePay so a short wallet leaves the card/QR
-    // checkout fully usable.
-    if ((await this.wallet.getBalance(userId)) < payment.amount) {
-      throw insufficient()
-    }
-    // The wallet is paying — an already-opened SePay order must not also be payable.
-    if (payment.checkoutUrl) await this.sepay.cancelOrder(payment.invoiceNumber)
-
-    await this.wallet.debit(userId, payment.amount, {
-      txId: `pay-${bookingId}`,
-      kind: "payment",
-      note: `Thanh toán đặt sân ${booking.courtName}`,
-      bookingId,
+    input: { proofUrl: string; refundAccount: PayoutDto }
+  ): Promise<BookingSummary> {
+    const booking = await this.ownBooking(userId, bookingId)
+    this.proofs.assertProofUrl(input.proofUrl, booking.venueId)
+    const refundAccount = await this.payouts.toAccount(input.refundAccount)
+    const summary = await this.bookings.submitPaymentProof(userId, bookingId, {
+      proofUrl: input.proofUrl,
+      refundAccount,
     })
-
-    const paid = await this.markPaid(
-      payment.invoiceNumber,
-      { method: "wallet" },
-      payment.amount
-    )
-    if (!paid) {
-      // The payment stopped being payable between the check and the debit
-      // (e.g. the hold just expired) — give the money straight back.
-      await this.wallet.credit(userId, payment.amount, {
-        txId: `refund-pay-${bookingId}`,
-        kind: "refund",
-        note: `Hoàn tiền thanh toán đặt sân ${booking.courtName}`,
-        bookingId,
+    await this.profiles
+      .setRefundAccount(userId, refundAccount)
+      .catch((err: unknown) => {
+        this.logger.warn(`Failed to save refund account: ${String(err)}`)
       })
-      throw new ConflictException(
-        "Lượt giữ sân đã hết hạn — đã hoàn tiền vào ví"
-      )
-    }
-    return toPaymentSummary(paid)
-  }
-
-  // ── Status polling ───────────────────────────────────────────────────────
-
-  /**
-   * `GET /api/payments/by-booking/:id` — the player polls this while on the
-   * SePay checkout page/return screen. When still `awaiting`, reconciles
-   * against `client.order.retrieve()` first: a paid order whose IPN hasn't
-   * landed yet (tunnel hiccup in dev, delivery delay in prod) would otherwise
-   * strand the player on a "waiting for payment" screen the IPN alone can't
-   * unstick. Best-effort — a reconciliation failure just defers to the next
-   * poll or the IPN, it never fails the read.
-   */
-  async byBooking(userId: string, bookingId: string): Promise<PaymentSummary> {
-    const payment = await this.paymentModel.findOne({ bookingId })
-    if (!payment) throw new NotFoundException("Payment not found")
-    if (payment.userId && payment.userId !== userId) {
-      throw new ForbiddenException("This payment belongs to another account")
-    }
-    if (payment.status !== "awaiting") {
-      // The payment write and its booking/notification follow-through cannot
-      // be one Mongo transaction across these services. Repair a previously
-      // interrupted paid settlement on every authenticated status read.
-      if (payment.status === "paid") await this.finishPaidBooking(payment)
-      return toPaymentSummary(payment)
-    }
-
-    try {
-      const remote = (await this.sepay.retrieveOrder(payment.invoiceNumber)) as
-        RemoteOrder | undefined
-      if (remote && isPaidRemoteStatus(remote.order_status)) {
-        const paid = await this.markPaid(payment.invoiceNumber, remote)
-        if (paid) return toPaymentSummary(paid)
-      }
-    } catch (err) {
-      this.logger.warn(
-        `SePay order.retrieve(${payment.invoiceNumber}) failed — deferring to the IPN/next poll: ${String(err)}`
-      )
-    }
-    return toPaymentSummary(payment)
-  }
-
-  // ── IPN ──────────────────────────────────────────────────────────────────
-
-  /**
-   * `POST /api/payments/ipn` (`@Public()`) — SePay's server-to-server payment
-   * notification. Verifies the `X-Secret-Key` header before touching anything,
-   * idempotently marks the `Payment` paid (`findOneAndUpdate` filtered on
-   * `status: "awaiting"` — a replayed IPN for an already-paid invoice matches
-   * nothing and is a silent no-op), then confirms the booking and notifies
-   * the venue. Always resolves (returns `{received:true}`, never throws for a
-   * business-logic mismatch) except for a bad secret key — SePay expects a 200
-   * to stop retrying, and only an unauthenticated call should get anything else.
-   */
-  async handleIpn(
-    rawBody: Buffer,
-    headers: SepayIpnHeaders
-  ): Promise<{ received: boolean }> {
-    if (!this.sepay.verifyIpnAuth(headers)) {
-      throw new UnauthorizedException("Invalid IPN secret key")
-    }
-
-    let payload: SepayIpnPayload
-    try {
-      payload = JSON.parse(rawBody.toString("utf8")) as SepayIpnPayload
-    } catch {
-      throw new BadRequestException("Malformed IPN payload")
-    }
-
-    const invoiceNumber = payload.order?.order_invoice_number
-    if (payload.notification_type !== "ORDER_PAID" || !invoiceNumber) {
-      // Not a paid-order notification we act on (e.g. TRANSACTION_VOID) —
-      // acknowledge without a side effect.
-      return { received: true }
-    }
-
-    // A wallet top-up shares the same IPN endpoint; its invoice number says so.
-    if (invoiceNumber.startsWith(TOPUP_INVOICE_PREFIX)) {
-      await this.topUps.settle(
-        invoiceNumber,
-        payload,
-        payload.order?.order_amount
-      )
-      return { received: true }
-    }
-
-    await this.markPaid(invoiceNumber, payload, payload.order?.order_amount)
-    return { received: true }
-  }
-
-  /**
-   * The one place a `Payment` actually flips to `paid` — shared by the IPN
-   * handler and the `byBooking` reconciliation fallback so both go through the
-   * same idempotency guard and the same booking-confirm + venue-notify
-   * follow-through. Returns the updated doc, or `null` on a replay/unknown
-   * invoice/amount mismatch (nothing left to do).
-   *
-   * `expectedAmount` (VND, from the caller's payload) is folded into the
-   * guarded filter itself rather than compared after the fact — a mismatched
-   * amount then simply fails to match the awaiting payment, settling nothing,
-   * with no separate check-then-write race to worry about. Pass `undefined`
-   * when the caller has no amount to compare (see `byBooking`) to skip the
-   * check entirely. A value that is *present but not coercible to a finite
-   * number* (SePay may deliver `order_amount` as a string; a malformed one
-   * must not slip through) fails closed — the payment is left unsettled rather
-   * than the amount guard being silently skipped.
-   */
-  private async markPaid(
-    invoiceNumber: string,
-    rawPayload: unknown,
-    expectedAmount?: number | string
-  ): Promise<PaymentDocument | null> {
-    let expectedNumeric: number | undefined
-    if (expectedAmount !== undefined) {
-      expectedNumeric =
-        typeof expectedAmount === "number"
-          ? expectedAmount
-          : Number(String(expectedAmount).trim())
-      if (!Number.isFinite(expectedNumeric)) {
-        this.logger.error(
-          `IPN for invoice ${invoiceNumber}: non-numeric order_amount ${JSON.stringify(expectedAmount)} — payment not settled`
-        )
-        return null
-      }
-    }
-
-    const updated = await this.paymentModel.findOneAndUpdate(
-      {
-        invoiceNumber,
-        status: "awaiting",
-        ...(expectedNumeric !== undefined ? { amount: expectedNumeric } : {}),
-      },
-      { $set: { status: "paid", paidAt: vnNowIso(), ipnPayload: rawPayload } },
-      { new: true }
-    )
-    if (!updated) {
-      // The miss is either "already settled / unknown invoice" (existing
-      // silent no-op — a replayed or stale notification) or "amount
-      // mismatch" (a short-settled order that must NOT confirm the
-      // booking). Only pay for the extra read to tell them apart when an
-      // amount was actually supplied to check against.
-      if (expectedNumeric !== undefined) {
-        const existing = await this.paymentModel
-          .findOne({ invoiceNumber })
-          .select("amount status bookingId")
-          .lean<{ amount: number; status: string; bookingId: string }>()
-        if (existing && existing.status === "awaiting") {
-          this.logger.error(
-            `IPN amount mismatch for invoice ${invoiceNumber} (booking ${existing.bookingId}): expected ${existing.amount} VND, got ${expectedNumeric} VND — payment not settled`
-          )
-        }
-      }
-      return null
-    }
-
-    // Only bump usedCount once the payment actually settles — not at
-    // checkout — so an abandoned/expired checkout never burns a redemption.
-    if (updated.discountCode) {
+    if (booking.status === "awaiting_payment" && booking.discountCode) {
       await this.discounts
-        .applyUsage(updated.discountCode)
-        .then((outcome) => {
-          if (outcome === "applied") return
-          const reason =
-            outcome === "over_limit"
-              ? "already at its usageLimit"
-              : "no longer exists"
-          this.logger.warn(
-            `Discount ${updated.discountCode} ${reason} when booking ${updated.bookingId} settled — usedCount not incremented`
-          )
-        })
+        .applyUsage(booking.discountCode)
         .catch((err: unknown) => {
           this.logger.warn(
-            `Failed to record discount usage for ${updated.discountCode} (booking ${updated.bookingId}): ${String(err)}`
+            `Failed to record discount usage for booking ${bookingId}: ${String(err)}`
           )
         })
     }
-
-    await this.finishPaidBooking(updated)
-    return updated
+    return summary
   }
 
-  /**
-   * Complete the booking-side effects of a paid Payment. Both operations are
-   * idempotent: `confirmPayment` no-ops once the booking has left
-   * `awaiting_payment`, and notification delivery dedupes on its stable id.
-   * Keeping this retryable closes the gap where the payment write succeeded
-   * but the request stopped before the owner notification was stored.
-   */
-  private async finishPaidBooking(payment: PaymentDocument): Promise<void> {
-    const bookingDoc = await this.bookings.confirmPayment(payment.bookingId)
-    // Only ping the venue when the payment actually produced a booking awaiting
-    // their decision. A payment that landed after the hold expired confirms to
-    // nobody — `confirmPayment` refunds it instead of moving it to `pending` —
-    // so notifying the venue of an "approvable" booking would be misleading.
-    if (bookingDoc?.status === "pending") {
-      await this.notifyVenue(bookingDoc.venueId, payment.bookingId).catch(
-        (err: unknown) => {
-          // A notification failure must never undo a real payment — log and move on.
-          this.logger.warn(
-            `Failed to notify venue ${bookingDoc.venueId} of paid booking ${payment.bookingId}: ${String(err)}`
-          )
-        }
-      )
-    }
+  /** A signature for the venue's refund screenshot (`POST …/refund/signature`). */
+  async signRefundUpload(
+    callerId: string,
+    bookingId: string
+  ): Promise<VenuePhotoUploadSignature> {
+    const venueId = await this.bookings.assertOwnsBookingVenue(
+      callerId,
+      bookingId
+    )
+    return this.proofs.sign(venueId)
   }
 
-  /** Notify the venue owner a booking just paid and is awaiting their decision. */
-  private async notifyVenue(venueId: string, bookingId: string): Promise<void> {
-    const venue = await this.venueModel
-      .findOne({ venueId })
-      .select("ownerId")
-      .lean<{ ownerId?: string }>()
-    if (!venue?.ownerId) return
-    await this.notifications.create(venue.ownerId, {
-      id: `payment-paid-${bookingId}`,
-      kind: "booking",
-      text: "Có lượt đặt sân mới đã thanh toán — vui lòng duyệt trong vòng 30 phút (im lặng sẽ tự động duyệt).",
-      href: `/app/venue/${venueId}/schedule?tab=reservations`,
-    })
-  }
-
-  // ── Phase 5 seam ─────────────────────────────────────────────────────────
-
-  /**
-   * Cancel a booking's still-open SePay order — the `+ client.order.cancel()
-   * bên SePay` half of Phase 5's sweeper rule (`awaiting_payment &&
-   * holdExpiresAt ≤ now → expired`). A no-op when checkout was never started
-   * or the payment already settled one way or another, so the sweeper can
-   * call this unconditionally for every hold it expires.
-   */
-  async cancelOrderForBooking(bookingId: string): Promise<void> {
-    const payment = await this.paymentModel.findOne({ bookingId })
-    if (!payment || payment.status !== "awaiting") return
-    await this.sepay.cancelOrder(payment.invoiceNumber)
-    payment.status = "cancelled"
-    await payment.save()
+  /** The venue sends the refund screenshot (`POST …/refund/complete`). */
+  async completeRefund(
+    callerId: string,
+    bookingId: string,
+    input: { proofUrl: string; amount?: number }
+  ): Promise<BookingSummary> {
+    const venueId = await this.bookings.assertOwnsBookingVenue(
+      callerId,
+      bookingId
+    )
+    this.proofs.assertProofUrl(input.proofUrl, venueId)
+    return this.bookings.completeRefund(callerId, bookingId, input)
   }
 }

@@ -15,10 +15,8 @@ import type { Observable } from "rxjs"
 import { RoomEventsService } from "./room-events.service.js"
 
 import { UserId } from "../../common/user-id.decorator.js"
-import { UserThrottle } from "../../common/user-throttler.guard.js"
 import {
   ChannelIdParamDto,
-  RoomComplaintBodyDto,
   RoomIdParamDto,
   RoomRequestDecisionBodyDto,
   RoomRequestParamDto,
@@ -60,26 +58,6 @@ export class RoomsController {
     return this.rooms.groupMatch(userId, param.channelId)
   }
 
-  /** The caller's unpaid court shares in rooms whose court the host has paid for. */
-  @Get("shares/due")
-  dueShares(@UserId() userId: string) {
-    return this.rooms.dueShares(userId)
-  }
-
-  /** Who in a room has paid their part of the court — host and members only. */
-  @Get(":id/shares")
-  roomShares(@UserId() userId: string, @Param() param: RoomIdParamDto) {
-    return this.rooms.roomShares(userId, param.id)
-  }
-
-  /** Pay the caller's seat share of the court into the host's wallet. */
-  @UserThrottle({ limit: 10, ttl: 60_000 })
-  @Post(":id/share")
-  async payShare(@UserId() userId: string, @Param() param: RoomIdParamDto) {
-    await this.rooms.payShare(userId, param.id)
-    return { ok: true }
-  }
-
   /** Ask to join a room — takes a `requested` seat pending the host's decision. */
   @Post(":id/requests")
   async request(@UserId() userId: string, @Param() param: RoomIdParamDto) {
@@ -116,31 +94,23 @@ export class RoomsController {
     return this.rooms.leaveRoom(userId, param.id)
   }
 
-  /** The host answers a paid member's request to leave (approve = refund). */
-  @Put(":id/leave-requests/:userId")
-  async decideLeave(
+  /** Host confirms a member has paid their court share. */
+  @Put(":id/members/:userId/paid")
+  async markPaid(
     @UserId() hostUserId: string,
-    @Param() param: RoomRequestParamDto,
-    @Body() body: RoomRequestDecisionBodyDto
+    @Param() param: RoomRequestParamDto
   ) {
-    await this.rooms.decideLeave(
-      hostUserId,
-      param.id,
-      param.userId,
-      body.decision
-    )
+    await this.rooms.markMemberPaid(hostUserId, param.id, param.userId)
     return { ok: true }
   }
 
-  /** A member complains to the platform about a refused/ignored leave request. */
-  @UserThrottle({ limit: 5, ttl: 60_000 })
-  @Post(":id/complaints")
-  async complain(
-    @UserId() userId: string,
-    @Param() param: RoomIdParamDto,
-    @Body() body: RoomComplaintBodyDto
+  /** Host sends a payment reminder notification to a member. */
+  @Post(":id/members/:userId/remind")
+  async remind(
+    @UserId() hostUserId: string,
+    @Param() param: RoomRequestParamDto
   ) {
-    await this.rooms.fileComplaint(userId, param.id, body.reason)
+    await this.rooms.remindMember(hostUserId, param.id, param.userId)
     return { ok: true }
   }
 }

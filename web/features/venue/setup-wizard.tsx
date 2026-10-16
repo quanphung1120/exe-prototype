@@ -33,6 +33,14 @@ import {
 } from "@/components/ui/combobox"
 import { normalizeVnPhone, type SportKey } from "@/features/dashboard/data"
 import { provisionVenue } from "@/features/venue/venue-actions"
+import { PayoutFields } from "@/features/venue/payout-fields"
+import {
+  EMPTY_PAYOUT,
+  isPayoutValid,
+  normalizeAccountNo,
+  toBankAccountName,
+  type PayoutDraft,
+} from "@/lib/bank-account"
 import { useRouter } from "@/i18n/navigation"
 import { PROVINCE_OPTIONS, provinceCodeByName, wardsOf } from "@/lib/vn-admin"
 
@@ -115,6 +123,8 @@ interface BrandDraft {
   managerName: string
   /** Owner contact phone — lets an admin reach the owner when needed. */
   contactPhone: string
+  /** Where players transfer booking money. */
+  payout: PayoutDraft
 }
 
 const EMPTY_DRAFT: VenueDraft = {
@@ -153,6 +163,7 @@ export function SetupWizard({
     brandName: "",
     managerName: "",
     contactPhone: "",
+    payout: EMPTY_PAYOUT,
   })
   const [branches, setBranches] = React.useState<VenueDraft[]>([])
   const [draft, setDraft] = React.useState<VenueDraft>(EMPTY_DRAFT)
@@ -166,7 +177,8 @@ export function SetupWizard({
   const brandValid =
     brand.brandName.trim().length >= 2 &&
     brand.managerName.trim().length >= 2 &&
-    contactPhone !== null
+    contactPhone !== null &&
+    isPayoutValid(brand.payout)
 
   // A branch must have a map pin — both coordinates present and in valid WGS84
   // range (set via current-location or manual entry).
@@ -203,6 +215,11 @@ export function SetupWizard({
             brandName: brand.brandName,
             managerName: brand.managerName,
             contactPhone: contactPhone ?? undefined,
+            payout: {
+              bankBin: brand.payout.bankBin,
+              accountNo: normalizeAccountNo(brand.payout.accountNo),
+              accountName: toBankAccountName(brand.payout.accountName),
+            },
             branches,
           }
       const venueId = await provisionVenue(payload)
@@ -391,6 +408,17 @@ function BrandStep({
           <FieldDescription>{t("form.contactPhoneHint")}</FieldDescription>
         )}
       </Field>
+      <div className="flex flex-col gap-1.5 border-t pt-5">
+        <h3 className="font-heading font-semibold">{t("form.payoutTitle")}</h3>
+        <p className="mb-2 text-sm text-muted-foreground">
+          {t("form.payoutHint")}
+        </p>
+        <PayoutFields
+          value={brand.payout}
+          onChange={(payout) => setBrand((b) => ({ ...b, payout }))}
+          idPrefix="setup-payout"
+        />
+      </div>
     </div>
   )
 }

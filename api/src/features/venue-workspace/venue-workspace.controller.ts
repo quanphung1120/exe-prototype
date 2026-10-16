@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post } from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
 import { VenueIdParamDto, VenueSetupDto } from "../venues/venues.dto.js"
+import { PayoutService } from "../brands/payout.service.js"
 import { VenuesService } from "../venues/venues.service.js"
 
 // Venue-workspace (operator) read endpoints, mounted at /api/venue. An account's
@@ -12,12 +13,20 @@ import { VenuesService } from "../venues/venues.service.js"
 // rides along in the aggregate `/api/seed` payload, so it needs no route here.)
 @Controller("venue")
 export class VenueWorkspaceController {
-  constructor(private readonly venues: VenuesService) {}
+  constructor(
+    private readonly venues: VenuesService,
+    private readonly payouts: PayoutService
+  ) {}
 
   /** Provision a venue branch (guided setup wizard); the first also mints the brand. */
   @Post("setup")
-  setup(@UserId() userId: string, @Body() body: VenueSetupDto) {
-    return this.venues.provisionVenue(userId, body)
+  async setup(@UserId() userId: string, @Body() body: VenueSetupDto) {
+    const bundle = await this.venues.provisionVenue(userId, body)
+    // The brand exists now; save where its players pay. A bad account number
+    // surfaces here, after the branch was created — the wizard then sends the
+    // owner to fix it on the manage screen.
+    if (body.payout) await this.payouts.setPayout(userId, body.payout)
+    return bundle
   }
 
   /** The account's default (first) branch bundle — the setup/redirect gate. */

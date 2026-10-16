@@ -4,6 +4,7 @@ import { MongooseModule } from "@nestjs/mongoose"
 import { BookingsModule } from "../bookings/bookings.module.js"
 import { RoomEventsModule } from "../rooms/room-events.module.js"
 import { PlaySession, PlaySessionSchema } from "./session.schema.js"
+import { SessionEventsModule } from "./session-events.module.js"
 import { SessionsController } from "./sessions.controller.js"
 import { SessionsService } from "./sessions.service.js"
 
@@ -16,6 +17,7 @@ import { SessionsService } from "./sessions.service.js"
     // BookingsService (the canonical `bookings` collection).
     BookingsModule,
     RoomEventsModule,
+    SessionEventsModule,
   ],
   controllers: [SessionsController],
   providers: [SessionsService],

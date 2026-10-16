@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import type {
+  BankAccount,
+  BankInfo,
   CourtBlock,
   CourtBlockReason,
   Reservation,
@@ -58,7 +60,16 @@ export interface VenueSetupInput {
   managerName?: string
   /** Owner contact phone for admins — required on first-time setup. */
   contactPhone?: string
+  /** Where players transfer booking money (VietQR) — sent on first-time setup. */
+  payout?: PayoutInput
   branches: BranchInput[]
+}
+
+/** The bank account players pay into (the bank is identified by its bin). */
+export interface PayoutInput {
+  bankBin: string
+  accountNo: string
+  accountName: string
 }
 
 export interface WalkInReservationInput {
@@ -95,6 +106,40 @@ export async function provisionVenue(input: VenueSetupInput): Promise<string> {
   })
   revalidatePath("/app", "layout")
   return seed.info.id
+}
+
+/** The banks a VietQR transfer can target (cached server-side for a day). */
+export async function listBanks(): Promise<BankInfo[]> {
+  return api<BankInfo[]>("/api/banks")
+}
+
+/** The signed-in owner's saved payout account, or null while none is set. */
+export async function getPayout(): Promise<BankAccount | null> {
+  const res = await api<{ payout: BankAccount | null }>("/api/brands/me/payout")
+  return res.payout
+}
+
+/**
+ * Save the owner's payout account. Returns a result object (not a throw) so
+ * the API's message — e.g. a bad account number — reaches the form in
+ * production, where Next redacts errors thrown out of server actions.
+ */
+export async function savePayout(
+  input: PayoutInput
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    await api("/api/brands/me/payout", {
+      method: "PUT",
+      body: JSON.stringify(input),
+    })
+    revalidatePath("/app", "layout")
+    return { ok: true }
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "Request failed",
+    }
+  }
 }
 
 /** Signed params for one direct browser → Cloudinary upload (api: venue-photos). */
@@ -258,30 +303,6 @@ export async function decideReservation(
     decision === "approved" ? "confirmed" : "cancelled",
     decision === "declined" ? reason : undefined
   )
-}
-
-/**
- * Answer a player's cancellation request (docs/chinh-sach.md §2.4): approve
- * with a refund (`pct` only matters for a late request — an early one is
- * always 100%), or decline with a reason (the booking stays live). Returns
- * what the reservation row needs to reflect the answer.
- */
-export async function answerCancelRequest(
-  venueId: string,
-  reservationId: string,
-  answer:
-    | { decision: "approve"; refundPct?: 50 | 100 }
-    | {
-        decision: "decline"
-        reason: string
-      }
-): Promise<Pick<Reservation, "status" | "cancelRequest">> {
-  const booking = await api<Pick<Reservation, "status" | "cancelRequest">>(
-    `/api/bookings/${encodeURIComponent(reservationId)}/cancel-request/decision`,
-    { method: "POST", body: JSON.stringify(answer) }
-  )
-  revalidatePath(`/app/venue/${venueId}`, "layout")
-  return { status: booking.status, cancelRequest: booking.cancelRequest }
 }
 
 /**

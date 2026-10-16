@@ -245,7 +245,12 @@
     "cancelRoomTitle": "Cancel this room?",
     "cancelRoomConfirm": "Cancel room",
     "cancelFormingBody": "This room hasn't booked a court yet — cancelling is free and removes it for everyone.",
-    "cancelBookedBody": "Cancelling releases the court and disbands the room. Refunds follow the cancellation policy — full refund up to 24h before the slot, partial within 24h."
+    "cancelBookedBody": "Cancelling releases the court and disbands the room. Refunds follow the cancellation policy — full refund up to 24h before the slot, partial within 24h.",
+    "sharePaid": "Paid",
+    "shareUnpaid": "Unpaid",
+    "remindPay": "Remind",
+    "confirmPaid": "Received",
+    "remindSent": "Payment reminder sent"
   },
   "LocaleSwitcher": {
     "label": "Language",
@@ -431,13 +436,13 @@
         "zalopay": "ZaloPay"
       },
       "collectHint": "You'll collect {amount}/player from your team afterward",
-      "payNow": "Pay {amount}",
-      "processing": "Redirecting to checkout…",
-      "redirectNotice": "You'll be redirected to SePay's checkout (VietQR or card) to complete payment.",
+      "payNow": "Get the transfer QR · {amount}",
+      "processing": "Creating your booking…",
+      "redirectNotice": "On the next screen you transfer straight to the venue's bank account with a QR code. Shuttio never holds your money.",
       "approvalReply": "If you pay now, the venue will reply by {time} {day, select, today {today} other {tomorrow}}.",
-      "approvalNote": "After you pay, the venue has 30 minutes (counted within its opening hours) to confirm. If you pay while the venue is closed, the clock starts when it reopens — e.g. paying at 03:00 means a reply by 06:30. Bookings the venue could not confirm before play time are not accepted.",
-      "refundPolicy": "If a booking is cancelled or declined, any refund is added to your wallet right away. Bookings not tied to an account are refunded by manual bank transfer within 24–48 business hours.",
-      "checkoutFailed": "Couldn't open checkout — please try again.",
+      "approvalNote": "After transferring, send a screenshot so the venue can check and confirm within 12 hours. The slot is only held once the venue confirms; if several players book the same time, the venue picks one.",
+      "refundPolicy": "If the venue rejects or cancels the booking, it transfers your money back and sends a confirmation screenshot.",
+      "checkoutFailed": "Couldn't create the booking — please try again.",
       "paymentExpired": "The court hold expired. Please book this time slot again.",
       "secure": "Payment is secured by SePay.",
       "payWallet": "Pay with wallet ({amount})",
@@ -500,6 +505,7 @@
       "free": "Available",
       "mine": "Your selection",
       "busy": "Booked",
+      "pending": "Yours, awaiting venue approval",
       "cell": "{court}, {time}",
       "confirm": "Confirm",
       "none": "--:--",
@@ -636,6 +642,22 @@
     ]
   },
   "Bookings": {
+    "unpaidNote": "No transfer screenshot yet, so this booking isn't holding the slot. Transfer the money and send the screenshot for the venue to confirm.",
+    "waitingVenueNote": "Screenshot sent. The venue will check and confirm by {deadline}. You can message the venue to nudge them.",
+    "waitingVenueNoteNoTime": "Screenshot sent. The venue will check and confirm. You can message the venue to nudge them.",
+    "refundPendingNote": "The venue rejected or cancelled this booking: {reason}. They will transfer {amount} back to you — message the venue if you don't see it.",
+    "refundedNote2": "The venue sent a refund of {amount}.",
+    "viewRefundProof": "View the refund screenshot",
+    "refundReceived": "I got my money back",
+    "refundNotReceived": "Not received",
+    "refundConfirmedReceived": "You confirmed you got the refund.",
+    "refundConfirmedNotReceived": "You reported the refund as not received — an admin will look into it.",
+    "refundReceivedThanks": "Thanks for confirming",
+    "refundComplaintSent": "Your complaint was sent to an admin",
+    "cancelViaChat": "You've sent a transfer screenshot. To cancel and get your money back, message the venue.",
+    "waitingVenueBadge": "Awaiting venue",
+    "refundPendingBadge": "Refund pending",
+    "refundedBadge": "Refunded",
     "metaTitle": "Bookings",
     "metaDescription": "Your upcoming and past court bookings.",
     "pendingNote": "Waiting for the operator to approve.",
@@ -1300,6 +1322,63 @@
       "caption": "Add, edit and switch your venues"
     }
   },
+  "PaymentVietQr": {
+    "metaTitle": "Pay by bank transfer",
+    "metaDescription": "Transfer straight to the venue and send a screenshot.",
+    "title": "Pay by bank transfer",
+    "step1": "1. Transfer to the venue",
+    "step2": "2. Send the transfer screenshot",
+    "qrAlt": "QR code to transfer to the venue",
+    "bank": "Bank",
+    "accountNo": "Account number",
+    "accountName": "Account holder",
+    "amount": "Amount",
+    "memo": "Transfer memo",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Couldn't copy",
+    "discountApplied": "Code {code} applied: {amount} off.",
+    "memoWarning": "Use the exact memo (or scan the QR) so the venue can recognise your transfer. Shuttio never holds your money — it goes straight to the venue's account.",
+    "proofHint": "Screenshot the successful transfer in your banking app and upload it.",
+    "pickImage": "Choose a screenshot",
+    "changeImage": "Change image",
+    "proofAlt": "Transfer screenshot",
+    "fileType": "Only JPG, PNG or WebP images.",
+    "fileSize": "Images up to {mb}MB.",
+    "refundTitle": "Account to get refunds",
+    "refundHint": "If the venue rejects or cancels the booking, they'll transfer your money back to this account.",
+    "submit": "I've transferred — send to the venue",
+    "submitting": "Sending…",
+    "submitFailed": "Couldn't send, please try again.",
+    "venueChecks": "The venue will check its banking app and confirm within 12 hours.",
+    "sentTitle": "Sent to the venue",
+    "sentBody": "The venue will check your transfer and confirm the booking within 12 hours. You'll be notified of the result.",
+    "sentNudge": "In a hurry? Message the venue directly to nudge them.",
+    "toBookings": "View my bookings",
+    "messageVenue": "Message the venue",
+    "chatFailed": "Couldn't open the chat with the venue.",
+    "phoneTitle": "Your phone number",
+    "phoneBody": "The venue needs your phone number to reach you if something comes up. You only need to enter it once.",
+    "phonePlaceholder": "e.g. 0901234567",
+    "phoneContinue": "Continue to payment",
+    "phoneSaving": "Saving…",
+    "phoneError": "Please enter a valid phone number."
+  },
+  "VenuePayout": {
+    "bank": "Bank",
+    "bankPlaceholder": "Choose a bank",
+    "banksError": "Couldn't load the bank list — please reload the page.",
+    "accountNo": "Account number",
+    "accountNoPlaceholder": "e.g. 0123456789",
+    "accountNoInvalid": "An account number has 6–20 digits.",
+    "accountName": "Account holder",
+    "accountNamePlaceholder": "e.g. NGUYEN VAN A",
+    "accountNameHint": "Exactly as your banking app shows it, without accents. Upper-cased automatically.",
+    "accountNameInvalid": "Letters and spaces only (2–60 characters).",
+    "notice": "A venue without a payout account can't take online bookings yet. Players pay you directly; you check the transfer, then approve or refund.",
+    "save": "Save account",
+    "saved": "Payout account saved"
+  },
   "VenueSetup": {
     "metaTitle": "Set up your venue · Shuttio",
     "metaDescription": "Create your venue's branches to start taking bookings from players.",
@@ -1311,6 +1390,8 @@
       "review": "Review"
     },
     "form": {
+      "payoutTitle": "Account for booking payments",
+      "payoutHint": "Players transfer straight into this account via a QR code. Shuttio never holds your money.",
       "brandName": "Brand name",
       "brandNamePlaceholder": "e.g. ABC Badminton System",
       "name": "Branch name",
@@ -1363,6 +1444,9 @@
     }
   },
   "VenueManage": {
+    "payout": {
+      "title": "Payout account"
+    },
     "metaTitle": "Venues · Shuttio",
     "metaDescription": "Manage the venues you operate — add, edit and remove venues and their courts, and switch which one the dashboard is scoped to.",
     "title": "Venues",
@@ -1566,6 +1650,7 @@
     "legend": {
       "title": "Legend",
       "booked": "Booked",
+      "awaiting": "Awaiting approval",
       "walk-in": "Walk-in",
       "held": "On hold",
       "free": "Free",
@@ -1632,16 +1717,17 @@
     "decline": "Decline",
     "declineDialog": {
       "title": "Decline booking",
-      "description": "Give a reason for declining {name}'s request. The player gets a full refund and a notification with this reason.",
+      "description": "Enter why you are rejecting {name}'s booking. You then refund them by bank transfer and upload the screenshot.",
       "reasonLabel": "Decline reason",
-      "reasonPlaceholder": "e.g. court under maintenance during this slot",
+      "reasonPlaceholder": "Or type another reason...",
       "cancel": "Cancel",
-      "confirm": "Confirm decline"
-    },
-    "refundQueue": {
-      "title": "Manual refund queue",
-      "hint": "SePay has no automatic refund — please wire the refund by hand for these within 24–48 business hours.",
-      "pct": "{pct}% refund"
+      "confirm": "Confirm decline",
+      "presets": {
+        "maintenance": "Court under maintenance during this slot",
+        "alreadyBooked": "This slot is already taken",
+        "closed": "Venue is closed on this day",
+        "invalidInfo": "Booking information is invalid"
+      }
     },
     "summary": {
       "pending": "Awaiting approval",
@@ -1652,7 +1738,6 @@
     "filters": {
       "all": "All",
       "pending": "Pending",
-      "cancelRequests": "Cancel requests",
       "confirmed": "Confirmed",
       "today": "Today",
       "history": "History"
@@ -1690,19 +1775,8 @@
       "approved": "Approved {name}'s booking",
       "declined": "Declined {name}'s request"
     },
-    "cancelRequest": {
-      "badge": "Cancel request",
-      "decline": "Decline",
-      "approvePct": "Approve · refund {pct}%",
-      "hintEarly": "Asked ≥ 24 hours ahead — approving refunds 100%. Answer by {deadline}; after that it's approved automatically at {pct}%.",
-      "hintLate": "Asked within 24 hours — refund 50% or 100%, or decline. Answer by {deadline}; after that {pct}% is refunded automatically.",
-      "declineTitle": "Decline cancellation request",
-      "declineDescription": "Give a reason for declining {name}'s cancellation request. The booking stays and they're notified with this reason.",
-      "declinePlaceholder": "E.g. tournament slot, announced as non-refundable",
-      "declineConfirm": "Decline request",
-      "toastApproved": "Cancelled {name}'s booking — {pct}% refunded",
-      "toastDeclined": "Declined {name}'s cancellation request"
-    }
+    "viewProof": "View proof",
+    "refundOwed": "Refund owed"
   },
   "VenueMessages": {
     "metaTitle": "Messages",
@@ -2612,151 +2686,64 @@
     "previous": "Previous photo",
     "next": "Next photo"
   },
-  "Wallet": {
-    "metaTitle": "Wallet",
-    "metaDescription": "Top up, check your balance and transaction history",
-    "title": "My wallet",
-    "subtitle": "Top up to pay for courts faster. Refunds from cancelled bookings land here too.",
-    "balance": "Current balance",
-    "topUpTitle": "Top up",
-    "customAmount": "Or enter another amount",
-    "customPlaceholder": "e.g. 300,000",
-    "limits": "Minimum {min}, maximum {max} per top-up.",
-    "topUpButton": "Top up {amount}",
-    "redirecting": "Redirecting to SePay…",
-    "note": "You'll be redirected to SePay's checkout (VietQR or card). Your balance updates as soon as the payment succeeds.",
-    "topUpFailed": "Couldn't start the top-up — please try again.",
-    "history": "Transaction history",
-    "empty": "No transactions yet.",
-    "return": {
-      "checking": "Confirming your top-up with SePay…",
-      "paid": "Top-up successful. Your balance has been updated.",
-      "failed": "The top-up didn't go through. You haven't been charged.",
-      "cancelled": "You cancelled the top-up.",
-      "timeout": "No confirmation from SePay yet. If you've paid, your balance will update in a few minutes — please reload."
-    },
-    "withdraw": {
-      "title": "Withdraw to a bank account",
-      "note": "The amount leaves your wallet right away. We send the bank transfer by hand; if it can't be sent, the money goes back to your wallet.",
-      "amount": "Amount",
-      "amountPlaceholder": "e.g. 200,000",
-      "available": "Available: {balance}",
-      "bank": "Bank",
-      "bankPlaceholder": "e.g. Vietcombank",
-      "accountNumber": "Account number",
-      "accountHolder": "Account holder",
-      "holderPlaceholder": "Name on the card",
-      "submit": "Request withdrawal",
-      "sent": "Withdrawal requested. We'll transfer it as soon as we can.",
-      "ref": "Transfer ref: {ref}",
-      "status": {
-        "pending": "Awaiting transfer",
-        "completed": "Sent",
-        "rejected": "Rejected — refunded to wallet"
-      }
-    }
-  },
   "RoomShare": {
-    "joinTitle": "This room already has a court",
-    "joinBody": "The host has paid for the court. To join you pay your share: the court price split evenly across the room's max of {capacity} players.",
-    "yourShare": "Your share",
-    "walletBalance": "Wallet balance",
-    "short": "Not enough balance — you need {missing} more.",
-    "refundNote": "The amount is held with your request. If the host declines it goes straight back to your wallet; if they approve, it moves to the host.",
-    "cancel": "Not now",
-    "topUp": "Top up",
-    "confirmJoin": "Pay {amount} & request",
-    "dueTitle": "Time to pay your share of the court",
-    "dueBody": "{host} booked the court for “{room}”. Your share: {amount}.",
-    "payShare": "Pay {amount}",
-    "paidToast": "Paid {amount} to the host.",
     "perSeat": "Court cost per player",
-    "status": {
-      "paid": "Paid",
-      "held": "Awaiting host",
-      "due": "Not paid"
-    },
-    "leaveNeedsApproval": "You've paid your share: leaving needs the host's OK, and only then is it refunded to your wallet. If you stay, it isn't refunded.",
-    "leavePendingHost": "{name} asked to leave and wants a refund.",
-    "leavePendingMine": "You asked to leave — waiting for the host.",
-    "leavePendingOther": "Waiting for the host to answer a leave request.",
-    "approveLeave": "Refund {amount}",
-    "declineLeave": "Decline",
-    "leaveApproved": "Approved — refunded to the member's wallet.",
-    "leaveDeclined": "Leave request declined.",
-    "leaveRejected": "The host refused to let {name} leave.",
-    "leaveRejectedMine": "The host didn't agree to let you leave, so what you paid isn't refunded yet. You can send the leave request again, or complain to the platform if that seems unfair.",
-    "complain": "Complain to the platform",
-    "complaintTitle": "File a complaint",
-    "complaintBody": "The platform will review refunding {amount} of court cost to you. Explain why — for a pending request you can file after 24 hours.",
-    "complaintPlaceholder": "Describe the reason (at least 10 characters)",
-    "sendComplaint": "Send complaint",
-    "complaintSent": "Complaint sent. We'll reply through notifications.",
-    "complaintStatus": {
-      "open": "Your complaint is being reviewed.",
-      "refunded": "Complaint upheld — refunded.",
-      "dismissed": "Complaint dismissed."
-    }
+    "note": "Shown for reference only — players settle with each other directly; the app holds no money."
   },
   "AdminComplaints": {
     "metaTitle": "Complaints",
-    "metaDescription": "Member complaints about leaving a room after paying court cost",
+    "metaDescription": "Player complaints about refunds not received",
     "title": "Complaints",
-    "subtitle": "Members who paid court cost but the host won't let them leave (or doesn't answer). Uphold to refund the member's wallet.",
+    "subtitle": "A player reports a venue refund never arrived. The platform holds no money — contact both sides, then mark it handled or dismiss it.",
     "empty": "No complaints yet.",
     "open": "Open",
     "refunded": "Refunded",
     "dismissed": "Dismissed",
-    "platformFunded": "Platform-funded (host wallet too low)",
     "from": "{member} → host {host}",
     "room": "Room “{room}”",
-    "refund": "Refund",
     "dismiss": "Dismiss",
     "noteLabel": "Note to the member (optional)",
     "notePlaceholder": "e.g. verified with the host",
-    "refundTitle": "Refund the member?",
-    "refundDescription": "The court share is taken from the host's wallet and refunded to the member, who leaves the room. If the host's wallet can't cover it, the platform pays.",
     "dismissTitle": "Dismiss the complaint?",
     "dismissDescription": "The member stays in the room and isn't refunded.",
     "back": "Back",
     "confirm": "Confirm",
     "kind": {
       "room_leave": "Leave a room",
-      "cancel_decline": "Venue refused cancel"
+      "cancel_decline": "Venue refused cancel",
+      "refund_not_received": "Refund not received"
     },
-    "violations": "Venue has {count} wrongful decline(s)"
+    "violations": "Venue has {count} wrongful decline(s)",
+    "resolved": "Handled",
+    "resolve": "Mark handled",
+    "resolveTitle": "Mark as handled?",
+    "resolveDescription": "The platform moves no money: both sides settle the refund themselves. Your note is sent to the player."
   },
-  "CancelComplaint": {
-    "button": "Complain to the platform",
-    "title": "Complain about the refused cancellation",
-    "body": "You asked to cancel at least 24 hours before play but the venue refused. If you think there was no good reason, the platform will review it and may refund 100%.",
-    "placeholder": "Describe the reason (at least 10 characters)",
-    "cancel": "Not now",
-    "send": "Send complaint",
-    "sent": "Complaint sent. We'll reply through notifications.",
-    "sentNote": "Your complaint is being reviewed."
-  },
-  "AdminWithdrawals": {
-    "metaTitle": "Withdrawals",
-    "metaDescription": "Players' wallet withdrawal requests",
-    "title": "Withdrawals",
-    "subtitle": "Send the bank transfer by hand to the details the player gave, then record its reference. If it can't be sent, reject it to refund the wallet.",
-    "empty": "No withdrawal requests yet.",
-    "pending": "Awaiting transfer",
-    "completed": "Sent",
-    "rejected": "Rejected",
-    "ref": "Transfer ref: {ref}",
-    "complete": "Mark transferred",
+  "VenuePaymentReview": {
+    "title": "Check the transfer",
+    "description": "{name} sent a transfer screenshot. Open your bank app and confirm the money arrived with the right amount and memo before approving.",
+    "amount": "Amount to receive",
+    "memo": "Transfer memo",
+    "deadline": "Answer by",
+    "proofAlt": "The customer's transfer screenshot",
+    "noProof": "No transfer screenshot yet.",
+    "hint": "If you don't answer in time the booking moves to refund (it is never auto-confirmed).",
+    "approve": "Money received — approve",
     "reject": "Reject",
-    "completeTitle": "Confirm the transfer was sent?",
-    "completeDescription": "Record the bank's transaction reference once you've paid the player.",
-    "refLabel": "Bank transfer reference",
-    "refPlaceholder": "e.g. bank transaction id",
-    "rejectTitle": "Reject this withdrawal?",
-    "rejectDescription": "The money goes back into the player's wallet and they see the reason below.",
-    "noteLabel": "Reason",
-    "notePlaceholder": "e.g. wrong account number",
-    "back": "Back",
-    "confirm": "Confirm"
+    "refund": {
+      "title": "Refunds you owe",
+      "hint": "Transfer by hand to the players below (scan the QR or type the account), then upload the transfer screenshot to finish.",
+      "qrAlt": "Refund QR",
+      "copyAccount": "Copy account no.",
+      "copied": "Copied",
+      "noAccount": "The player gave no refund account — message them in chat.",
+      "pct": "Refund {pct}%",
+      "amountPlaceholder": "Amount sent (if different)",
+      "upload": "Upload transfer screenshot",
+      "uploading": "Uploading…",
+      "tooBig": "Image too large (max 5 MB).",
+      "done": "Refund recorded. The player will be asked to confirm receipt.",
+      "failed": "Couldn't complete the refund"
+    }
   }
 }

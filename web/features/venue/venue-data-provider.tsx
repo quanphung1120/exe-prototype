@@ -308,9 +308,11 @@ export function VenueDataProvider({
             kind:
               reservation.status === "held"
                 ? "held"
-                : reservation.source === "walk-in"
-                  ? "walk-in"
-                  : "booked",
+                : reservation.bookingStatus === "awaiting_venue_confirmation"
+                  ? "awaiting"
+                  : reservation.source === "walk-in"
+                    ? "walk-in"
+                    : "booked",
             customer: reservation.customer.name,
             customerPhone: reservation.customer.phone,
             sport: reservation.sport,

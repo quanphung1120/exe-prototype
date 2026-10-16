@@ -1,20 +1,21 @@
 import { Module } from "@nestjs/common"
 import { MongooseModule } from "@nestjs/mongoose"
 
+import { BrandsModule } from "../brands/brands.module.js"
 import { NotificationsModule } from "../notifications/notifications.module.js"
 import { PlayersModule } from "../players/players.module.js"
 import { RoomEventsModule } from "../rooms/room-events.module.js"
+import { SessionEventsModule } from "../sessions/session-events.module.js"
 import { PlaySession, PlaySessionSchema } from "../sessions/session.schema.js"
 import { StreamModule } from "../stream/stream.module.js"
 import {
   RoomComplaint,
   RoomComplaintSchema,
 } from "../rooms/room-complaint.schema.js"
-import { RoomShare, RoomShareSchema } from "../rooms/room-share.schema.js"
-import { WalletModule } from "../wallet/wallet.module.js"
 import { Venue, VenueSchema } from "../venues/venue.schema.js"
 import { BookingLock, BookingLockSchema } from "./booking-lock.schema.js"
 import { Booking, BookingSchema } from "./booking.schema.js"
+import { BookingChatService } from "./booking-chat.service.js"
 import { BookingsController } from "./bookings.controller.js"
 import { BookingsService } from "./bookings.service.js"
 
@@ -39,20 +40,19 @@ import { BookingsService } from "./bookings.service.js"
       // A room's session doc — a cancelled court drops the room back to
       // "no court booked" (`BookingsService#releaseRoomCourt`).
       { name: PlaySession.name, schema: PlaySessionSchema },
-      // A cancelled booking refunds its room's paid shares too, and a venue's
-      // wrongful decline becomes a complaint.
-      { name: RoomShare.name, schema: RoomShareSchema },
+      // A refund the player says never arrived becomes a complaint.
       { name: RoomComplaint.name, schema: RoomComplaintSchema },
     ]),
     PlayersModule,
     NotificationsModule,
     StreamModule,
     RoomEventsModule,
-    // Refunds are paid into the player's wallet.
-    WalletModule,
+    SessionEventsModule,
+    // Creating a booking needs the venue to have a payout account.
+    BrandsModule,
   ],
   controllers: [BookingsController],
-  providers: [BookingsService],
+  providers: [BookingsService, BookingChatService],
   exports: [BookingsService],
 })
 export class BookingsModule {}

@@ -15,6 +15,7 @@ import { AdminModule } from "./features/admin/admin.module.js"
 import { AiModule } from "./features/ai/ai.module.js"
 import { AppReviewsModule } from "./features/app-reviews/app-reviews.module.js"
 import { AssessmentModule } from "./features/assessment/assessment.module.js"
+import { BanksModule } from "./features/banks/banks.module.js"
 import { BookingsModule } from "./features/bookings/bookings.module.js"
 import { CourtsModule } from "./features/courts/courts.module.js"
 import { DiscountsModule } from "./features/discounts/discounts.module.js"
@@ -29,7 +30,6 @@ import { SessionsModule } from "./features/sessions/sessions.module.js"
 import { StreamModule } from "./features/stream/stream.module.js"
 import { VenueWorkspaceModule } from "./features/venue-workspace/venue-workspace.module.js"
 import { VenuesModule } from "./features/venues/venues.module.js"
-import { WalletModule } from "./features/wallet/wallet.module.js"
 
 @Module({
   imports: [
@@ -75,7 +75,7 @@ import { WalletModule } from "./features/wallet/wallet.module.js"
     NotificationsModule,
     DiscountsModule,
     PaymentsModule,
-    WalletModule,
+    BanksModule,
     SeedModule,
     AdminModule,
     AppReviewsModule,

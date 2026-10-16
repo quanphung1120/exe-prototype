@@ -9,13 +9,11 @@ import {
   Clock,
   CreditCard,
   LayoutGrid,
-  Loader2,
   MapPin,
   MessageSquare,
   Plus,
   RotateCcw,
   Trophy,
-  Undo2,
   UserPlus,
   Users,
 } from "lucide-react"
@@ -36,7 +34,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarGroup } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { CancelComplaintButton } from "@/features/booking/cancel-complaint"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -46,7 +43,7 @@ import {
 import {
   addMinutes,
   durationOf,
-  hasOpenCancelRequest,
+  formatVndFull,
   locStr,
   sportAccent,
   sportLabel,
@@ -79,6 +76,7 @@ import {
 } from "@/features/booking/calendar-ui"
 import { useBooking } from "@/features/booking/booking"
 import { openVenueChat } from "@/features/chat/stream-actions"
+import { confirmRefundReceipt } from "@/features/play/payment-actions"
 import { SportTag } from "@/features/dashboard/shared"
 import { NewBookingAction } from "@/features/dashboard/section-actions"
 import { useRouter } from "@/i18n/navigation"
@@ -89,35 +87,6 @@ const UPCOMING: BookingStatus[] = ["confirmed", "pending"]
 
 const isAwaitingPayment = (booking: Booking) =>
   booking.paymentStatus === "awaiting"
-
-function usePaymentCountdown(
-  expiresAt: string | undefined,
-  active: boolean
-): number | null {
-  const [remaining, setRemaining] = React.useState<number | null>(null)
-
-  React.useEffect(() => {
-    if (!active || !expiresAt) return
-    const update = () => {
-      const seconds = Math.ceil((Date.parse(expiresAt) - Date.now()) / 1000)
-      setRemaining(Math.max(0, seconds))
-    }
-    const first = setTimeout(update, 0)
-    const interval = setInterval(update, 1000)
-    return () => {
-      clearTimeout(first)
-      clearInterval(interval)
-    }
-  }, [active, expiresAt])
-
-  return remaining
-}
-
-function formatCountdown(seconds: number): string {
-  const minutes = Math.floor(seconds / 60)
-  const remainder = seconds % 60
-  return `${minutes}:${String(remainder).padStart(2, "0")}`
-}
 
 /** Tint + ring per booking status, used for the calendar event blocks. */
 const bookingAccent: Record<BookingStatus, string> = {
@@ -823,21 +792,19 @@ function CalendarEvent({
 }) {
   const t = useTranslations("Bookings")
   const tc = useTranslations("Common")
-  const {
-    cancelBooking,
-    withdrawCancel,
-    rebookFrom,
-    addTeamToSession,
-    resumePayment,
-    resumingPaymentId,
-  } = useBooking()
+  const { cancelBooking, rebookFrom, addTeamToSession, resumePayment } =
+    useBooking()
   const router = useRouter()
   const [opening, startOpening] = React.useTransition()
 
   const messageVenue = () => {
     startOpening(async () => {
       try {
-        const { id } = await openVenueChat({ venueId: booking.venueId })
+        const { id } = await openVenueChat(
+          booking.bookingStatus && booking.bookingStatus !== "awaiting_payment"
+            ? { bookingId: booking.id }
+            : { venueId: booking.venueId }
+        )
         router.push(`/app/chat?channel=${id}`)
       } catch {
         toast.error(t("messageVenueFailed"))
@@ -860,16 +827,33 @@ function CalendarEvent({
   ).length
   const courtNo = booking.court.match(/^Court (\d+)$/)?.[1]
   const courtLabel = courtNo ? t("courtLabel", { n: courtNo }) : booking.court
-  const paymentRemaining = usePaymentCountdown(
-    booking.paymentExpiresAt,
-    isAwaitingPayment(booking)
-  )
-  // Cancelling a paid booking is a request the venue answers
-  // (docs/chinh-sach.md §2.4); an unpaid hold still cancels outright.
-  const request = booking.cancelRequest
-  const requestOpen = hasOpenCancelRequest(booking)
-  const requestDeclined = Boolean(request?.declinedAt) && !cancelled
-  const paid = booking.paymentStatus === "paid"
+  // Where the booking is in the bank-transfer flow (plan 025). A booking made
+  // before it existed has no `bookingStatus` and keeps the old behaviour.
+  const bs = booking.bookingStatus
+  const unpaid =
+    bs === "awaiting_payment" ||
+    (bs === undefined && isAwaitingPayment(booking))
+  const waitingVenue = bs === "awaiting_venue_confirmation"
+  const refundPending = bs === "rejected_refund_pending"
+  const refunded = bs === "refunded"
+  const refundAmount = booking.refund?.amount ?? 0
+  const bookingKey = booking.reservationId ?? booking.id
+  const [answering, startAnswering] = React.useTransition()
+  const answerRefund = (result: "received" | "not_received") => {
+    startAnswering(async () => {
+      const res = await confirmRefundReceipt(bookingKey, result)
+      if (!res.ok) {
+        toast.error(res.message)
+        return
+      }
+      toast.success(
+        result === "received"
+          ? t("refundReceivedThanks")
+          : t("refundComplaintSent")
+      )
+      router.refresh()
+    })
+  }
 
   return (
     <div className="absolute inset-x-1 z-10" style={{ top: top + 1, height }}>
@@ -926,6 +910,7 @@ function CalendarEvent({
               <StatusBadge
                 status={booking.status}
                 paymentStatus={booking.paymentStatus}
+                bookingStatus={booking.bookingStatus}
               />
             </div>
 
@@ -946,15 +931,17 @@ function CalendarEvent({
               </span>
             </div>
 
-            {isAwaitingPayment(booking) ? (
+            {unpaid ? (
               <p className="rounded-2xl bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
-                {paymentRemaining === 0
-                  ? t("paymentExpiredNote")
-                  : paymentRemaining != null
-                    ? t("paymentCountdown", {
-                        time: formatCountdown(paymentRemaining),
-                      })
-                    : t("paymentPendingNote")}
+                {t("unpaidNote")}
+              </p>
+            ) : waitingVenue ? (
+              <p className="rounded-2xl bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
+                {booking.confirmDeadlineAt
+                  ? t("waitingVenueNote", {
+                      deadline: shortVnDateTime(booking.confirmDeadlineAt),
+                    })
+                  : t("waitingVenueNoteNoTime")}
               </p>
             ) : booking.status === "pending" ? (
               <p className="rounded-2xl bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
@@ -962,43 +949,72 @@ function CalendarEvent({
               </p>
             ) : null}
 
-            {requestOpen && request ? (
-              <p className="rounded-2xl bg-amber-500/10 px-3 py-2 text-xs text-amber-600">
-                {t("cancelPendingNote", {
-                  deadline: shortVnDateTime(request.deadlineAt),
-                  pct: request.defaultPct,
-                })}
-              </p>
-            ) : requestDeclined ? (
-              <p className="rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
-                {t("cancelDeclinedNote", {
-                  reason: request?.declineReason ?? "",
-                })}
-              </p>
-            ) : cancelled && request?.resolvedAt ? (
-              <p className="rounded-2xl bg-muted px-3 py-2 text-xs text-muted-foreground">
-                {request.auto
-                  ? t("cancelAutoNote", { pct: request.refundPct ?? 0 })
-                  : t("cancelApprovedNote", { pct: request.refundPct ?? 0 })}
-              </p>
+            {refundPending ? (
+              <div className="flex flex-col gap-1 rounded-2xl bg-destructive/8 px-3 py-2 text-xs text-destructive/80">
+                <span>
+                  {t("refundPendingNote", {
+                    reason: booking.declineReason ?? "",
+                    amount: formatVndFull(refundAmount),
+                  })}
+                </span>
+              </div>
             ) : null}
 
-            {requestDeclined && request?.window === "early" ? (
-              <CancelComplaintButton
-                bookingId={booking.reservationId ?? booking.id}
-              />
+            {refunded ? (
+              <div className="flex flex-col gap-2 rounded-2xl bg-muted/60 px-3 py-2 text-xs">
+                <span>
+                  {t("refundedNote2", { amount: formatVndFull(refundAmount) })}
+                </span>
+                {booking.refund?.proofUrl ? (
+                  <a
+                    href={booking.refund.proofUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-brand underline"
+                  >
+                    {t("viewRefundProof")}
+                  </a>
+                ) : null}
+                {booking.refundConfirmation === "received" ? (
+                  <span className="text-muted-foreground">
+                    {t("refundConfirmedReceived")}
+                  </span>
+                ) : booking.refundConfirmation === "not_received" ? (
+                  <span className="text-destructive">
+                    {t("refundConfirmedNotReceived")}
+                  </span>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="rounded-full"
+                      disabled={answering}
+                      onClick={() => answerRefund("received")}
+                    >
+                      {t("refundReceived")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full"
+                      disabled={answering}
+                      onClick={() => answerRefund("not_received")}
+                    >
+                      {t("refundNotReceived")}
+                    </Button>
+                  </div>
+                )}
+              </div>
             ) : null}
 
-            {cancelled && booking.declineReason ? (
+            {cancelled &&
+            !refundPending &&
+            !refunded &&
+            booking.declineReason ? (
               <div className="flex flex-col gap-1 rounded-2xl bg-destructive/8 px-3 py-2 text-xs text-destructive/80">
                 <span>
                   {t("declinedNote", { reason: booking.declineReason })}
                 </span>
-                {booking.refunded ? (
-                  <span className="text-muted-foreground">
-                    {t("refundedNote")}
-                  </span>
-                ) : null}
               </div>
             ) : null}
 
@@ -1068,27 +1084,14 @@ function CalendarEvent({
               </div>
             ) : (
               <div className="flex flex-col gap-1.5">
-                {isAwaitingPayment(booking) ? (
+                {unpaid ? (
                   <Button
                     size="sm"
                     className="w-full justify-start rounded-full"
-                    disabled={
-                      resumingPaymentId ===
-                      (booking.reservationId ?? booking.id)
-                    }
-                    onClick={() =>
-                      resumePayment(booking.reservationId ?? booking.id)
-                    }
+                    onClick={() => resumePayment(bookingKey)}
                   >
-                    {resumingPaymentId ===
-                    (booking.reservationId ?? booking.id) ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <CreditCard />
-                    )}
-                    {resumingPaymentId === (booking.reservationId ?? booking.id)
-                      ? t("openingPayment")
-                      : t("continuePayment")}
+                    <CreditCard />
+                    {t("continuePayment")}
                   </Button>
                 ) : null}
                 {booking.venueId ? (
@@ -1114,17 +1117,7 @@ function CalendarEvent({
                     {t("addTeam")}
                   </Button>
                 ) : null}
-                {requestOpen ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="w-full justify-start rounded-full text-destructive"
-                    onClick={() => withdrawCancel(booking.id)}
-                  >
-                    <Undo2 />
-                    {t("withdrawCancel")}
-                  </Button>
-                ) : requestDeclined ? null : (
+                {unpaid || !booking.reservationId ? (
                   <AlertDialog>
                     <AlertDialogTrigger
                       render={
@@ -1135,19 +1128,13 @@ function CalendarEvent({
                         />
                       }
                     >
-                      {paid ? t("requestCancel") : t("cancel")}
+                      {t("cancel")}
                     </AlertDialogTrigger>
                     <AlertDialogContent className="player-bookings-overlay">
                       <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          {paid ? t("requestCancelTitle") : t("cancelTitle")}
-                        </AlertDialogTitle>
+                        <AlertDialogTitle>{t("cancelTitle")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          {paid
-                            ? t("requestCancelBody")
-                            : hasTeam
-                              ? t("cancelTeamBody")
-                              : t("cancelSoloBody")}
+                          {hasTeam ? t("cancelTeamBody") : t("cancelSoloBody")}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -1156,13 +1143,15 @@ function CalendarEvent({
                           variant="destructive"
                           onClick={() => cancelBooking(booking.id)}
                         >
-                          {paid
-                            ? t("requestCancelConfirm")
-                            : t("cancelConfirm")}
+                          {t("cancelConfirm")}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                ) : (
+                  <p className="px-1 text-xs text-muted-foreground">
+                    {t("cancelViaChat")}
+                  </p>
                 )}
               </div>
             )}
@@ -1287,7 +1276,11 @@ function PastRow({ booking }: { booking: Booking }) {
               </span>
             </>
           ) : (
-            <StatusBadge status={booking.status} />
+            <StatusBadge
+              status={booking.status}
+              paymentStatus={booking.paymentStatus}
+              bookingStatus={booking.bookingStatus}
+            />
           )}
           {booking.withPlayers.length ? (
             <AvatarGroup>
@@ -1317,12 +1310,32 @@ function PastRow({ booking }: { booking: Booking }) {
 function StatusBadge({
   status,
   paymentStatus,
+  bookingStatus,
 }: {
   status: BookingStatus
   paymentStatus?: Booking["paymentStatus"]
+  bookingStatus?: Booking["bookingStatus"]
 }) {
   const tc = useTranslations("Common")
   const t = useTranslations("Bookings")
+  if (bookingStatus === "awaiting_venue_confirmation")
+    return (
+      <Badge className="bg-[#fff4d6] text-[#8a5a00]">
+        {t("waitingVenueBadge")}
+      </Badge>
+    )
+  if (bookingStatus === "rejected_refund_pending")
+    return (
+      <Badge className="bg-[#fdecec] text-[#b42318]">
+        {t("refundPendingBadge")}
+      </Badge>
+    )
+  if (bookingStatus === "refunded")
+    return (
+      <Badge className="bg-[#eef1f6] text-[#596783]">
+        {t("refundedBadge")}
+      </Badge>
+    )
   if (paymentStatus === "awaiting")
     return <Badge className="bg-[#fff4d6] text-[#8a5a00]">{t("unpaid")}</Badge>
   const label = tc(`status.${status}`)

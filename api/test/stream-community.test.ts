@@ -334,7 +334,12 @@ void test("openVenueChat({ bookingId }) resolves the venue via the booking and r
     venues: { findOne: () => ({ lean: () => VENUE_WITH_OWNER }) },
     bookings: {
       findOne: () => ({
-        lean: () => ({ bookingId: "bk1", userId: "player-1", venueId: "v1" }),
+        lean: () => ({
+          bookingId: "bk1",
+          userId: "player-1",
+          venueId: "v1",
+          status: "awaiting_payment",
+        }),
       }),
       exists: () => Promise.resolve({ _id: "b1" }),
     },
@@ -343,6 +348,31 @@ void test("openVenueChat({ bookingId }) resolves the venue via the booking and r
   const result = await service.openVenueChat("player-1", {
     bookingId: "bk1",
   })
+  assert.equal(result.id, venueChannelId("v1", "player-1"))
+  assert.ok(calls.channels.some((c) => c.id === result.id))
+})
+
+void test("openVenueChat({ bookingId }) opens the same shared chat once the transfer was reported", async () => {
+  const { client, calls } = makeFakeClient()
+  const directory = makeFakeDirectory([{ id: "owner-1", name: "Chủ sân ABC" }])
+  const service = await makeService({
+    client,
+    directory,
+    venues: { findOne: () => ({ lean: () => VENUE_WITH_OWNER }) },
+    bookings: {
+      findOne: () => ({
+        lean: () => ({
+          bookingId: "bk1",
+          userId: "player-1",
+          venueId: "v1",
+          status: "awaiting_venue_confirmation",
+        }),
+      }),
+      exists: () => Promise.resolve({ _id: "b1" }),
+    },
+  })
+
+  const result = await service.openVenueChat("player-1", { bookingId: "bk1" })
   assert.equal(result.id, venueChannelId("v1", "player-1"))
   assert.ok(calls.channels.some((c) => c.id === result.id))
 })

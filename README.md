@@ -50,8 +50,7 @@ pnpm typecheck   # tsc --noEmit
 ## Release checklist
 
 See `RELEASE.md` for the pre-release checklist: environment variables
-(including planned `SEPAY_*` for the SePay gateway), IPN tunnel + sandbox
-test procedure, the reseed procedure, the full build/lint/typecheck/test
+(Cloudinary for payment proofs), the VietQR payment test procedure, the reseed procedure, the full build/lint/typecheck/test
 matrix, and Clerk test-mode E2E notes.
 
 ## Adding shadcn/ui components

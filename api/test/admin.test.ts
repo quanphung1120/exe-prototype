@@ -7,6 +7,7 @@ import { ForbiddenException, BadRequestException } from "@nestjs/common"
 import { Test } from "@nestjs/testing"
 
 import { RoomEventsService } from "../src/features/rooms/room-events.service.js"
+import { SessionEventsService } from "../src/features/sessions/session-events.service.js"
 import { PlaySession } from "../src/features/sessions/session.schema.js"
 import { ConfigService } from "@nestjs/config"
 import { Reflector } from "@nestjs/core"
@@ -18,10 +19,9 @@ import { ROLES_KEY } from "../src/common/roles.decorator.js"
 import { setRequestRole, setRequestUserId } from "../src/common/request-auth.js"
 import { BrandsService } from "../src/features/brands/brands.service.js"
 import { VenuesService } from "../src/features/venues/venues.service.js"
+import { BookingChatService } from "../src/features/bookings/booking-chat.service.js"
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
-import { RoomShare } from "../src/features/rooms/room-share.schema.js"
-import { WalletService } from "../src/features/wallet/wallet.service.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
@@ -318,6 +318,7 @@ async function makeBookingsService(venueDoc: ReturnType<typeof makeVenueDoc>) {
   const bookingModelMock = {
     findOne: () => makeQuery(null),
     find: () => makeQuery([]),
+    countDocuments: () => Promise.resolve(0),
     create: (records: unknown[]) =>
       Promise.resolve(
         records.map((r) => ({
@@ -351,22 +352,14 @@ async function makeBookingsService(venueDoc: ReturnType<typeof makeVenueDoc>) {
         useValue: { getOne: () => Promise.resolve(null) },
       },
       { provide: ConfigService, useValue: configMock },
-      {
-        provide: getModelToken(RoomShare.name),
-        useValue: { find: () => Promise.resolve([]) },
-      },
       { provide: getModelToken(RoomComplaint.name), useValue: {} },
-      {
-        provide: WalletService,
-        useValue: {
-          credit: () => Promise.resolve({ balance: 0, applied: true }),
-        },
-      },
       {
         provide: getModelToken(PlaySession.name),
         useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
       },
       { provide: RoomEventsService, useValue: { emit: () => {} } },
+      { provide: SessionEventsService, useValue: { emit: () => {} } },
+      { provide: BookingChatService, useValue: { post: () => Promise.resolve() } },
     ],
   }).compile()
 

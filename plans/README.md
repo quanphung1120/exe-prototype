@@ -41,6 +41,7 @@ REJECTED (with one-line rationale)
 | Plan | Title | Status |
 |------|-------|--------|
 | [023](023-restyle-player-bookings.md) | Restyle lịch đặt sân theo `/app` và `/app/chat`: header xanh chung, nội dung trắng, calendar và overlay đồng bộ | TODO |
+| [025](025-replace-sepay-with-vietqr.md) | Thay SePay bằng VietQR: người chơi chuyển khoản thẳng cho chủ sân, tải ảnh xác nhận, chủ sân duyệt / hoàn tiền thủ công; bỏ ví | Đã triển khai trên nhánh `feat/vietqr-payments` |
 | [024](024-restyle-player-play.md) | Remake style `/app/play` theo `/app`: header xanh, nền trắng, map/card và dialogs đồng bộ, giữ đầy đủ chức năng | TODO |
 
 ## Dependency notes

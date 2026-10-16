@@ -5,6 +5,7 @@ import type { Model } from "mongoose"
 import {
   initialsOf,
   type AccountType,
+  type BankAccount,
   type Streak,
 } from "../../shared/index.js"
 import { ClerkDirectoryService } from "../stream/clerk-directory.service.js"
@@ -104,6 +105,24 @@ export class ProfileService {
     return emptyProfileData("")
   }
 
+  /** The account a venue refunds this player to, or null until they saved one. */
+  async getRefundAccount(userId: string): Promise<BankAccount | null> {
+    const doc = await this.profileModel
+      .findOne({ userId })
+      .select("refundAccount")
+      .lean<{ refundAccount?: BankAccount }>()
+    return doc?.refundAccount ?? null
+  }
+
+  /** Remember the player's refund account (creating the profile first if needed). */
+  async setRefundAccount(userId: string, account: BankAccount): Promise<void> {
+    await this.getProfile(userId)
+    await this.profileModel.updateOne(
+      { userId },
+      { $set: { refundAccount: account } }
+    )
+  }
+
   /** Set the user's self-declared account type, creating their profile first if needed. */
   async setAccountType(
     userId: string,
@@ -111,5 +130,11 @@ export class ProfileService {
   ): Promise<void> {
     await this.getProfile(userId)
     await this.profileModel.updateOne({ userId }, { $set: { accountType } })
+  }
+
+  /** Save (or update) the player's contact phone number. */
+  async setPhone(userId: string, phone: string): Promise<void> {
+    await this.getProfile(userId)
+    await this.profileModel.updateOne({ userId }, { $set: { phone } })
   }
 }
