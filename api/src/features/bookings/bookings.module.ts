@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common"
 import { MongooseModule } from "@nestjs/mongoose"
 
+import { BrandsModule } from "../brands/brands.module.js"
 import { NotificationsModule } from "../notifications/notifications.module.js"
 import { PlayersModule } from "../players/players.module.js"
 import { RoomEventsModule } from "../rooms/room-events.module.js"
@@ -10,8 +11,6 @@ import {
   RoomComplaint,
   RoomComplaintSchema,
 } from "../rooms/room-complaint.schema.js"
-import { RoomShare, RoomShareSchema } from "../rooms/room-share.schema.js"
-import { WalletModule } from "../wallet/wallet.module.js"
 import { Venue, VenueSchema } from "../venues/venue.schema.js"
 import { BookingLock, BookingLockSchema } from "./booking-lock.schema.js"
 import { Booking, BookingSchema } from "./booking.schema.js"
@@ -39,17 +38,15 @@ import { BookingsService } from "./bookings.service.js"
       // A room's session doc — a cancelled court drops the room back to
       // "no court booked" (`BookingsService#releaseRoomCourt`).
       { name: PlaySession.name, schema: PlaySessionSchema },
-      // A cancelled booking refunds its room's paid shares too, and a venue's
-      // wrongful decline becomes a complaint.
-      { name: RoomShare.name, schema: RoomShareSchema },
+      // A refund the player says never arrived becomes a complaint.
       { name: RoomComplaint.name, schema: RoomComplaintSchema },
     ]),
     PlayersModule,
     NotificationsModule,
     StreamModule,
     RoomEventsModule,
-    // Refunds are paid into the player's wallet.
-    WalletModule,
+    // Creating a booking needs the venue to have a payout account.
+    BrandsModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

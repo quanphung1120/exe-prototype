@@ -128,7 +128,7 @@ function makePayouts(doc: Record<string, unknown> | null) {
     },
   }
   const banks = makeBanks().service
-  return { service: new PayoutService(model as never, banks), saved }
+  return { service: new PayoutService(model as never, {} as never, banks), saved }
 }
 
 void test("setPayout fills bank name and code from the VietQR list", async () => {

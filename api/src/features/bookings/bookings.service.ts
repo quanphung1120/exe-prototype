@@ -6,7 +6,6 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  UnprocessableEntityException,
 } from "@nestjs/common"
 import { ConfigService } from "@nestjs/config"
 import { InjectConnection, InjectModel } from "@nestjs/mongoose"
@@ -19,21 +18,11 @@ import {
   type RoomComplaintDocument,
 } from "../rooms/room-complaint.schema.js"
 import {
-  RoomShare,
-  type RoomShareDocument,
-} from "../rooms/room-share.schema.js"
-import { WalletService } from "../wallet/wallet.service.js"
-import {
-  addMinutesToIso,
-  approvalDeadlineIso,
-  combineDateTime,
-  hasOpenCancelRequest,
-  rangesOverlap,
   initialsOf,
   isoDateOf,
-  isoToHHMM,
   vnNowIso,
   canTransitionBooking,
+  type BankAccount,
   type BookingCancelRequest,
   type BookingRecord,
   type BookingRecordStatus,
@@ -73,13 +62,14 @@ import {
   bookingSummaryFrom,
   bookingsOverlap,
   buildBookingRecord,
-  buildCancelRequest,
+  VENUE_ANSWER_HOURS,
   decisionNotification,
   formatVnTime,
   liveBookingOverlap,
   refundQueueItemFromBooking,
   reservationFromBooking,
   userBookingsOverlap,
+  venueAnswerDeadlineIso,
   type BookingSlot,
   type BookingSummary,
   type UserBookingSlot,
@@ -95,28 +85,19 @@ export interface CreateBookingInput {
   sessionId?: string
 }
 
-/** Minutes an unpaid `awaiting_payment` hold keeps its slot before it lapses. */
-const HOLD_MIN = 20
-
 /**
- * Fallback minutes a venue has to approve/decline a paid booking before it
- * auto-confirms (decision #5), when `BOOKING_CONFIRM_SLA_MINUTES` is unset —
- * see `confirmSlaMinutes` below, which reads the configurable value.
+ * Unpaid (`awaiting_payment`) bookings never expire — there is no hold — so cap
+ * how many one player may keep open at once.
  */
-const DEFAULT_CONFIRM_SLA_MIN = 30
-
-/** Paid bookings a player may ask to cancel per calendar month (anti hold-abuse). */
-export const MAX_CANCELS_PER_MONTH = 3
+export const MAX_UNPAID_BOOKINGS = 5
 
 /** One sweep run's tally of guarded transitions actually applied — for logging/tests. */
 export interface SweepResult {
-  expired: number
-  autoConfirmed: number
   completed: number
-  /** Cancellation requests the venue left unanswered past their deadline. */
-  cancelsAutoApproved: number
-  /** bookingIds the sweeper expired — the caller cancels their gateway order. */
-  expiredBookingIds: string[]
+  /** Transfers the venue never answered, rejected so the refund can start. */
+  overdueRejected: number
+  /** Venues reminded halfway through their answer window. */
+  reminded: number
 }
 
 // ── Inputs ─────────────────────────────────────────────────────────────────
@@ -239,10 +220,6 @@ export class BookingsService {
     @InjectModel(PlaySession.name)
     private readonly sessionModel: Model<PlaySessionDocument>,
     @Inject(RoomEventsService) private readonly roomEvents: RoomEventsService,
-    // Refunds land in the player's wallet (`refundToWallet`).
-    @Inject(WalletService) private readonly wallet: WalletService,
-    @InjectModel(RoomShare.name)
-    private readonly shareModel: Model<RoomShareDocument>,
     @InjectModel(RoomComplaint.name)
     private readonly complaintModel: Model<RoomComplaintDocument>
   ) {}
@@ -259,14 +236,6 @@ export class BookingsService {
     const directoryUser = await this.clerkDirectory.getOne(userId)
     const name = directoryUser?.name.trim()
     return name ? { name, initials: initialsOf(name) } : fallback
-  }
-
-  /** Decision #5's SLA window, minutes — overridable via `BOOKING_CONFIRM_SLA_MINUTES`. */
-  private confirmSlaMinutes(): number {
-    return this.config.get<number>(
-      "BOOKING_CONFIRM_SLA_MINUTES",
-      DEFAULT_CONFIRM_SLA_MIN
-    )
   }
 
   // ── Venue doc helpers ──────────────────────────────────────────────────────
@@ -354,15 +323,11 @@ export class BookingsService {
 
   /** Every booking for a venue, projected to the operator's Reservation shape. */
   async listForVenue(venueId: string): Promise<Reservation[]> {
-    // Exclude only a lapsed `expired` hold (never became a booking — the slot
-    // is simply free again). An active, unpaid `awaiting_payment` hold *does*
-    // still block its slot via the overlap guard, so it stays in this list —
-    // `reservationFromBooking` projects it to the distinct, non-actionable
-    // "held" status rather than hiding it, so the operator schedule doesn't
-    // render an already-held slot as free (which used to make a walk-in write
-    // 409 with no visible reason on-screen).
+    // Leave out lapsed `expired` legacy holds and bookings whose player has not
+    // yet sent a transfer proof (`awaiting_payment`): they hold no slot and
+    // there is nothing for the venue to check yet.
     const docs = await this.bookingModel
-      .find({ venueId, status: { $ne: "expired" } })
+      .find({ venueId, status: { $nin: ["expired", "awaiting_payment"] } })
       .sort({ createdAt: 1 })
       .lean<BookingRecord[]>()
     await this.repairSeededCustomerNames(docs)
@@ -467,7 +432,7 @@ export class BookingsService {
   ): Promise<boolean> {
     const filter: Record<string, unknown> = {
       venueId,
-      status: { $in: ["pending", "confirmed"] },
+      status: { $in: ["awaiting_venue_confirmation", "pending", "confirmed"] },
       startAt: { $gt: vnNowIso() },
     }
     if (courtId) filter.courtId = courtId
@@ -594,8 +559,6 @@ export class BookingsService {
       input.customerPhone,
       court.sport
     )
-    await this.upgradeLateRefunds(created)
-
     return reservationFromBooking(created, isoDateOf(vnNowIso()))
   }
 
@@ -701,396 +664,14 @@ export class BookingsService {
       await doc.save()
       return { doc, prevStatus }
     })
-    // A cancel/decline just queued a refund — pay it into the wallet now.
-    if (result.prevStatus !== null) await this.refundToWallet(result.doc)
     return result
-  }
-
-  /**
-   * Pay a freshly queued refund (`refund.status: "manual"`) into the player's
-   * wallet and mark it settled, so it drops off the operators' manual-refund
-   * worklist. Best-effort and idempotent: the credit is keyed
-   * `refund-<bookingId>`, and a failure just leaves the refund queued for an
-   * operator to settle by hand (the pre-wallet behaviour) — it never fails the
-   * cancel that triggered it. Walk-in/venue-made bookings (no `userId`) have
-   * no wallet, so they stay on the manual queue.
-   */
-  private async refundToWallet(doc: BookingDocument): Promise<void> {
-    const refund = doc.refund
-    if (!doc.userId || !refund || refund.status !== "manual") return
-    if (!(refund.amount > 0)) return
-    try {
-      // Room members who had already paid the host get their share back at the
-      // same refund % — out of this refund, never out of the host's wallet.
-      const toMembers = await this.refundRoomShares(doc, refund.pct)
-      const hostAmount = Math.max(0, refund.amount - toMembers)
-      if (hostAmount > 0) {
-        await this.wallet.credit(doc.userId, hostAmount, {
-          txId: `refund-${doc.bookingId}`,
-          kind: "refund",
-          note: `Hoàn ${refund.pct}% tiền đặt sân ${doc.courtName}`,
-          bookingId: doc.bookingId,
-        })
-      }
-      await this.bookingModel.updateOne(
-        { bookingId: doc.bookingId, "refund.status": "manual" },
-        { $set: { "refund.status": "settled", "refund.ref": "wallet" } }
-      )
-      doc.set("refund.status", "settled")
-      doc.set("refund.ref", "wallet")
-    } catch (err) {
-      this.logger.warn(
-        `Refund to wallet failed for booking ${doc.bookingId} — left on the manual queue: ${err instanceof Error ? err.message : String(err)}`
-      )
-    }
-  }
-
-  /**
-   * Pay a cancelled booking's room members their share of the refund and return
-   * the VND that came out of the host's refund for it. A member the host was
-   * already paid by gets `pct`% of their share (the booking's own refund %); a
-   * share still held in escrow (a pending join request) goes back in full — the
-   * host never got it. Idempotent: ledger keys are per share, and shares paid
-   * on an earlier attempt still count toward the total via `bookingRefund`.
-   */
-  private async refundRoomShares(
-    doc: BookingDocument,
-    pct: number
-  ): Promise<number> {
-    if (!doc.sessionId) return 0
-    const done = await this.shareModel.find({
-      roomId: doc.sessionId,
-      bookingId: doc.bookingId,
-      bookingRefund: { $exists: true },
-    })
-    let fromHostRefund = done.reduce(
-      (sum, s) => sum + (s.bookingRefund ?? 0),
-      0
-    )
-    const live = await this.shareModel.find({
-      roomId: doc.sessionId,
-      bookingId: doc.bookingId,
-      status: { $in: ["held", "paid"] },
-    })
-    for (const share of live) {
-      const wasPaid = share.status === "paid"
-      const payout = wasPaid
-        ? Math.round((share.amount * pct) / 100)
-        : share.amount
-      if (payout > 0) {
-        await this.wallet.credit(share.memberUserId, payout, {
-          txId: `share-refund-${share.shareId}`,
-          kind: "refund",
-          note: wasPaid
-            ? `Hoàn ${pct}% phần tiền sân ${doc.courtName}`
-            : `Hoàn phần tiền sân ${doc.courtName}`,
-          bookingId: doc.bookingId,
-        })
-      }
-      share.status = "refunded"
-      if (wasPaid) {
-        share.bookingRefund = payout
-        fromHostRefund += payout
-      }
-      await share.save()
-    }
-    return fromHostRefund
-  }
-
-  /** Paid-booking cancel requests the player has made this calendar month. */
-  private async cancelsThisMonth(userId: string): Promise<number> {
-    const month = vnNowIso().slice(0, 7)
-    return this.bookingModel.countDocuments({
-      userId,
-      "cancelRequest.requestedAt": { $regex: `^${month}` },
-    })
-  }
-
-  /**
-   * A late-cancelled booking (refunded less than 100%) whose court time is then
-   * taken by someone else — a new paid booking or a walk-in — means the venue
-   * is being paid twice for it. Raise that cancel's refund to 100% and pay the
-   * difference: to the player, and to any room members for the rest of their
-   * shares. Best-effort and idempotent (ledger keys per booking/share).
-   */
-  private async upgradeLateRefunds(fresh: {
-    bookingId: string
-    venueId: string
-    courtId: string
-    dateKey: string
-    start: string
-    durationMin: number
-  }): Promise<void> {
-    try {
-      const now = vnNowIso()
-      const candidates = await this.bookingModel.find({
-        venueId: fresh.venueId,
-        courtId: fresh.courtId,
-        dateKey: fresh.dateKey,
-        status: "cancelled",
-        "cancelRequest.window": "late",
-        "refund.pct": { $lt: 100 },
-      })
-      for (const old of candidates) {
-        if (
-          old.bookingId === fresh.bookingId ||
-          !old.refund ||
-          old.startAt <= now ||
-          !rangesOverlap(
-            old.start,
-            old.durationMin,
-            fresh.start,
-            fresh.durationMin
-          )
-        ) {
-          continue
-        }
-        const shares = old.sessionId
-          ? await this.shareModel.find({
-              roomId: old.sessionId,
-              bookingId: old.bookingId,
-              bookingRefund: { $exists: true },
-            })
-          : []
-        let owedToMembers = 0
-        for (const share of shares) {
-          const extra = share.amount - (share.bookingRefund ?? 0)
-          if (extra <= 0) continue
-          owedToMembers += extra
-          await this.wallet.credit(share.memberUserId, extra, {
-            txId: `share-refund-topup-${share.shareId}`,
-            kind: "refund",
-            note: `Bù thêm tiền sân ${old.courtName} — khung giờ đã có người đặt`,
-            bookingId: old.bookingId,
-          })
-        }
-        const hostDiff = old.price - old.refund.amount - owedToMembers
-        if (old.userId && hostDiff > 0) {
-          await this.wallet.credit(old.userId, hostDiff, {
-            txId: `refund-topup-${old.bookingId}`,
-            kind: "refund",
-            note: `Bù thêm tiền sân ${old.courtName} — khung giờ đã có người đặt`,
-            bookingId: old.bookingId,
-          })
-        }
-        old.refund = {
-          ...old.refund,
-          pct: 100,
-          amount: old.price,
-          upgradedAt: now,
-          upgradedBy: fresh.bookingId,
-        }
-        old.markModified("refund")
-        await old.save()
-        for (const share of shares) {
-          share.bookingRefund = share.amount
-          await share.save()
-        }
-        if (old.userId) {
-          await this.notifications
-            .create(old.userId, {
-              id: `booking-refund-upgraded-${old.bookingId}`,
-              kind: "booking",
-              text: `Khung giờ ${bookingLabel(old)} đã có người đặt lại nên khoản hoàn của bạn được nâng lên 100%.`,
-              href: "/app/wallet",
-            })
-            .catch(() => undefined)
-        }
-      }
-    } catch (err) {
-      this.logger.warn(
-        `Late-refund upgrade failed after booking ${fresh.bookingId}: ${err instanceof Error ? err.message : String(err)}`
-      )
-    }
-  }
-
-  /**
-   * `POST /api/bookings/:id/complaints` — the player complains to the platform
-   * that the venue refused a cancel request made ≥ 24h before the start (the
-   * policy only lets it decline those for a good reason). One open complaint
-   * per booking; an admin decides it in the shared complaints queue.
-   */
-  async fileCancelComplaint(
-    userId: string,
-    bookingId: string,
-    reason: string
-  ): Promise<void> {
-    const booking = await this.bookingModel
-      .findOne({ bookingId })
-      .lean<BookingRecord>()
-    if (!booking) throw new NotFoundException("Booking not found")
-    if (booking.userId !== userId) {
-      throw new ForbiddenException("This booking belongs to another account")
-    }
-    const request = booking.cancelRequest
-    if (
-      !request?.declinedAt ||
-      request.window !== "early" ||
-      request.resolvedAt
-    ) {
-      throw new ConflictException(
-        "Chỉ khiếu nại được khi chủ sân từ chối yêu cầu huỷ gửi trước giờ chơi từ 24 giờ trở lên"
-      )
-    }
-    if (booking.status !== "pending" && booking.status !== "confirmed") {
-      throw new ConflictException("Lượt đặt này không còn hiệu lực")
-    }
-    const open = await this.complaintModel.exists({
-      bookingId,
-      kind: "cancel_decline",
-      status: "open",
-    })
-    if (open)
-      throw new ConflictException("Bạn đã gửi khiếu nại cho lượt đặt này")
-
-    const venue = await this.venueModel
-      .findOne({ venueId: booking.venueId })
-      .select("ownerId info")
-      .lean<{ ownerId?: string; info: { name: string } }>()
-    const complaintId = randomUUID()
-    await this.complaintModel.create({
-      complaintId,
-      kind: "cancel_decline",
-      roomId: "",
-      roomTitle: bookingLabel(booking),
-      shareId: "",
-      bookingId,
-      memberUserId: userId,
-      memberName: booking.customer.name,
-      hostUserId: venue?.ownerId ?? booking.venueId,
-      hostName: venue?.info.name ?? booking.venueId,
-      amount: booking.price,
-      reason: reason.trim(),
-      status: "open",
-      filedAt: vnNowIso(),
-    })
-    if (venue?.ownerId) {
-      await this.notifications
-        .create(venue.ownerId, {
-          id: `booking-cancel-complaint-${complaintId}`,
-          kind: "booking",
-          text: `${booking.customer.name} đã khiếu nại việc bạn từ chối huỷ lượt đặt ${bookingLabel(booking)}. Hệ thống sẽ xem xét.`,
-          href: `/app/venue/${booking.venueId}/schedule?tab=reservations`,
-        })
-        .catch(() => undefined)
-    }
-  }
-
-  /**
-   * An admin upholds a `cancel_decline` complaint: the venue's refusal stands
-   * overturned — the booking cancels with a 100% refund, and the venue is
-   * credited one more wrongful decline (the warning/sanction count). Returns
-   * that count.
-   */
-  async refundDeclinedCancel(bookingId: string): Promise<number> {
-    const booking = await this.bookingModel
-      .findOne({ bookingId })
-      .select("venueId")
-      .lean<{ venueId: string }>()
-    if (!booking) throw new NotFoundException("Booking not found")
-    const { doc } = await this.setStatus(
-      booking.venueId,
-      bookingId,
-      "cancelled",
-      undefined,
-      (d) => {
-        const request = d.cancelRequest
-        if (!request?.declinedAt || request.resolvedAt) {
-          throw new ConflictException(
-            "Lượt đặt này không còn yêu cầu huỷ nào bị từ chối"
-          )
-        }
-        d.cancelReason = request.reason ?? "Người chơi huỷ lượt đặt"
-        this.applyRefund(d, 100)
-        d.cancelRequest = {
-          ...request,
-          resolvedAt: vnNowIso(),
-          refundPct: 100,
-          byAdmin: true,
-        }
-        d.markModified("cancelRequest")
-      }
-    )
-    await this.releaseRoomCourt(doc)
-    if (doc.userId) {
-      await this.notifications
-        .create(doc.userId, {
-          id: `booking-cancel-overturned-${bookingId}`,
-          kind: "booking",
-          text: `Hệ thống đã chấp nhận khiếu nại của bạn: lượt đặt ${bookingLabel(doc)} được huỷ và hoàn 100%.`,
-          href: "/app/wallet",
-        })
-        .catch(() => undefined)
-    }
-    const venue = await this.venueModel.findOneAndUpdate(
-      { venueId: booking.venueId },
-      { $inc: { cancelViolations: 1 } },
-      { new: true }
-    )
-    const violations = venue?.cancelViolations ?? 1
-    const ownerId = venue?.ownerId
-    if (ownerId) {
-      await this.notifications
-        .create(ownerId, {
-          id: `venue-cancel-violation-${bookingId}`,
-          kind: "booking",
-          text:
-            violations >= 3
-              ? `Hệ thống ghi nhận lần thứ ${violations} sân từ chối huỷ sai quy định (lượt ${bookingLabel(doc)}). Sân có thể bị giảm thứ hạng hiển thị.`
-              : `Cảnh cáo: sân từ chối huỷ sai quy định lượt ${bookingLabel(doc)} (lần ${violations}). Khoản tiền đã được hoàn cho người chơi.`,
-          href: `/app/venue/${booking.venueId}/schedule?tab=reservations`,
-        })
-        .catch(() => undefined)
-    }
-    return violations
-  }
-
-  /**
-   * Set a booking's status (approve/decline, check-in, cancel, no-show) from
-   * the venue-scoped reservation route (`VenuesService#updateReservationStatus`).
-   * `prevStatus` comes back null on a same-status PUT (idempotent no-op) so the
-   * caller can skip notifying the player twice for one decision.
-   */
-  async updateStatus(
-    venueId: string,
-    bookingId: string,
-    status: BookingRecordStatus,
-    reason?: string
-  ): Promise<{
-    reservation: Reservation
-    prevStatus: BookingRecordStatus | null
-    userId?: string
-  }> {
-    const { doc, prevStatus } = await this.setStatus(
-      venueId,
-      bookingId,
-      status,
-      reason,
-      (d, prev) => {
-        if (status !== "cancelled") return
-        // A venue-initiated cancel from "pending"/"confirmed" is the venue's
-        // fault, not the player's — a flat 100% refund (decision #6), same as
-        // `decide`'s decline path. A booking the player already checked into
-        // is mostly consumed, so it's excluded here — no auto-refund; the
-        // operator compensates by hand if warranted.
-        if (prev === "pending" || prev === "confirmed") {
-          this.applyVenueFaultCancel(d, reason)
-        } else if (reason) {
-          d.declineReason = reason
-        }
-      }
-    )
-    return {
-      reservation: reservationFromBooking(doc, isoDateOf(vnNowIso())),
-      prevStatus,
-      userId: doc.userId,
-    }
   }
 
   /** Booking statuses a reservation may still be rescheduled from — terminal
    * statuses (cancelled/expired/no-show/completed) can't be moved to a new
    * slot; there's nothing left to reschedule. */
   private static readonly RESCHEDULABLE_STATUSES: BookingRecordStatus[] = [
+    "awaiting_venue_confirmation",
     "pending",
     "confirmed",
     "checked-in",
@@ -1153,7 +734,10 @@ export class BookingsService {
         // refund computes off `doc.price` (`applyRefund`), so rewriting it
         // here would silently mis-size a later refund.
         const $set =
-          existing.paymentStatus === "paid" ? fields : { ...fields, price }
+          existing.paymentStatus === "paid" ||
+          existing.paymentStatus === "awaiting_verification"
+            ? fields
+            : { ...fields, price }
         const query = this.bookingModel.findOneAndUpdate(
           {
             bookingId,
@@ -1180,247 +764,7 @@ export class BookingsService {
     return reservationFromBooking(updated, isoDateOf(vnNowIso()))
   }
 
-  // ── Payment gateway seam (`PaymentsService`, Phase 4) ───────────────────────
-
-  /**
-   * Confirm a booking's SePay payment — `awaiting_payment` → `pending` with a
-   * fresh `confirmDeadlineAt` (decision #5: venue approval SLA — overridable
-   * via `BOOKING_CONFIRM_SLA_MINUTES`, default 30 minutes — silence =
-   * approve). Called by `PaymentsService` once its own IPN idempotency
-   * (`Payment.invoiceNumber` unique + guarded `findOneAndUpdate`) has
-   * confirmed this is the *first* time the order was marked paid — but this
-   * method is itself idempotent too (a booking already past
-   * `awaiting_payment` is a no-op), so a defensive double-call from a
-   * retried/replayed IPN never re-applies the transition or clobbers a
-   * status the venue has already moved on from.
-   */
-  async confirmPayment(bookingId: string): Promise<BookingDocument | null> {
-    // The retry closure returns *both* the resolved doc and — when this call is
-    // the one that actually applied the late-payment refund — the userId/status
-    // the notification needs (read off the doc before it goes out of scope). We
-    // fire the notification *after* `withVersionRetry` resolves rather than
-    // inside it, so a transient notification failure can never turn a persisted
-    // refund into a 5xx that makes SePay retry the IPN (see
-    // `PaymentsService#markPaid`'s `notifyVenue` for the same best-effort
-    // pattern). Returning the flag beats a captured `let` — TS can't narrow a
-    // closure-mutated outer `let` past `null` at the read site.
-    const { doc, lateRefund } = await withVersionRetry<{
-      doc: BookingDocument | null
-      lateRefund: { userId: string; status: BookingRecordStatus } | null
-    }>(async () => {
-      const doc = await this.bookingModel.findOne({ bookingId })
-      if (!doc) return { doc: null, lateRefund: null }
-      let customerChanged = false
-      if (doc.source === "app" && doc.userId) {
-        const customer = await this.resolveCustomer(doc.userId, doc.customer)
-        customerChanged =
-          customer.name !== doc.customer.name ||
-          customer.initials !== doc.customer.initials
-        if (customerChanged) doc.customer = customer
-      }
-      if (doc.status === "awaiting_payment") {
-        doc.status = "pending"
-        doc.paymentStatus = "paid"
-        const venue = await this.venueModel.findOne({ venueId: doc.venueId })
-        doc.confirmDeadlineAt = venue
-          ? approvalDeadlineIso(
-              vnNowIso(),
-              venue.info.openFrom,
-              venue.info.openTo,
-              this.confirmSlaMinutes()
-            )
-          : addMinutesToIso(vnNowIso(), this.confirmSlaMinutes())
-        doc.statusHistory = [
-          ...(doc.statusHistory ?? []),
-          { status: "pending", at: vnNowIso() },
-        ]
-        await doc.save()
-        return { doc, lateRefund: null }
-      }
-      // Payment landed *after* the hold had already lapsed (the sweeper moved it
-      // to `expired`) or the booking was cancelled — the slot is gone, so the
-      // money the player just paid is owed straight back rather than silently
-      // kept with no booking to show for it. Record the payment and queue a full
-      // refund, guarded on the absence of an existing refund so a replayed IPN
-      // can't re-queue it.
-      if (
-        (doc.status === "expired" || doc.status === "cancelled") &&
-        doc.paymentStatus !== "paid" &&
-        !doc.refund
-      ) {
-        doc.paymentStatus = "paid"
-        this.applyRefund(doc, 100)
-        await doc.save()
-        return {
-          doc,
-          lateRefund: doc.userId
-            ? { userId: doc.userId, status: doc.status }
-            : null,
-        }
-      }
-      // Already pending/confirmed/checked-in/completed — an idempotent no-op for
-      // a defensive double-call from a retried/replayed IPN. The save remains
-      // useful for legacy bookings carrying the shared seeded demo name.
-      if (customerChanged) await doc.save()
-      return { doc, lateRefund: null }
-    })
-
-    if (lateRefund) {
-      if (doc) await this.refundToWallet(doc)
-      const where =
-        doc?.refund?.ref === "wallet"
-          ? "đã được hoàn vào ví"
-          : "sẽ được hoàn lại"
-      const text =
-        lateRefund.status === "cancelled"
-          ? `Thanh toán đã nhận nhưng lượt đặt sân đã bị hủy — khoản tiền ${where}.`
-          : `Thanh toán đã nhận nhưng lượt giữ chỗ đã hết hạn — khoản tiền ${where}.`
-      await this.notifications
-        .create(lateRefund.userId, {
-          id: `booking-late-refund-${bookingId}`,
-          kind: "booking",
-          text,
-          href: "/app/bookings",
-        })
-        .catch((err: unknown) => {
-          this.logger.warn(
-            `Failed to notify ${lateRefund?.userId} of late-payment refund on booking ${bookingId}: ${String(err)}`
-          )
-        })
-    }
-
-    if (doc?.status === "pending") await this.upgradeLateRefunds(doc)
-    return doc
-  }
-
   // ── Scheduler sweep (Phase 5) ───────────────────────────────────────────────
-
-  /**
-   * Run every guarded, idempotent booking transition that's driven by the
-   * clock rather than a person (`payments/bookings-sweeper.service.ts` calls
-   * this every minute): an unpaid hold past `holdExpiresAt` expires; a
-   * `pending` (paid) booking whose venue hasn't decided within the confirm
-   * SLA silently auto-confirms (decision #5, "silence = consent"), notifying
-   * the player; a confirmed booking past its `endAt` completes. No-show
-   * stays a manual venue action — an empty court isn't a fact the clock alone
-   * can establish.
-   *
-   * Each rule's query filters on the *current* status, so re-running the
-   * sweep (the whole point of a cron) only ever touches bookings still due a
-   * transition. Each individual transition goes through `setStatus`, which
-   * re-reads the doc under `withVersionRetry` and no-ops on a same-status
-   * write — so a booking a concurrent operator decision already moved past
-   * this rule's expected `from` status is silently skipped rather than
-   * clobbered (`canTransitionBooking` would reject the stale transition, and
-   * that per-booking failure is swallowed so the rest of the batch proceeds).
-   * `expiredBookingIds` comes back for the caller (the sweeper trigger,
-   * `bookings-sweeper.service.ts`) to cancel each one's SePay order via
-   * `PaymentsService` — a payments-side concern this service doesn't depend
-   * on, to avoid a module cycle with `PaymentsModule`.
-   */
-  async sweep(now: string = vnNowIso()): Promise<SweepResult> {
-    const result: SweepResult = {
-      expired: 0,
-      autoConfirmed: 0,
-      completed: 0,
-      cancelsAutoApproved: 0,
-      expiredBookingIds: [],
-    }
-
-    const expiring = await this.bookingModel
-      .find({ status: "awaiting_payment", holdExpiresAt: { $lte: now } })
-      .select("bookingId venueId")
-      .lean<{ bookingId: string; venueId: string }[]>()
-    for (const b of expiring) {
-      const applied = await this.trySetStatus(b.venueId, b.bookingId, "expired")
-      if (applied) {
-        result.expired++
-        result.expiredBookingIds.push(b.bookingId)
-      }
-    }
-
-    const confirming = await this.bookingModel
-      .find({
-        status: "pending",
-        paymentStatus: "paid",
-        confirmDeadlineAt: { $lte: now },
-      })
-      .select("bookingId venueId userId")
-      .lean<{ bookingId: string; venueId: string; userId?: string }[]>()
-    for (const b of confirming) {
-      const applied = await this.trySetStatus(
-        b.venueId,
-        b.bookingId,
-        "confirmed"
-      )
-      if (applied) {
-        result.autoConfirmed++
-        if (b.userId) {
-          const notify = decisionNotification(
-            b.bookingId,
-            "pending",
-            "confirmed",
-            undefined,
-            true // auto — every sweeper confirm is silent consent
-          )
-          if (notify) await this.notifications.create(b.userId, notify)
-        }
-      }
-    }
-
-    const completing = await this.bookingModel
-      // Confirmed bookings complete on their own at the end time; "checked-in"
-      // is only left over from before venue check-in was removed.
-      .find({
-        status: { $in: ["confirmed", "checked-in"] },
-        endAt: { $lte: now },
-      })
-      .select("bookingId venueId")
-      .lean<{ bookingId: string; venueId: string }[]>()
-    for (const b of completing) {
-      const applied = await this.trySetStatus(
-        b.venueId,
-        b.bookingId,
-        "completed"
-      )
-      if (applied) result.completed++
-    }
-
-    // A cancellation request the venue didn't answer in time goes through
-    // with its default refund (100% early, 50% late — docs/chinh-sach.md §2.4).
-    const lapsedRequests = await this.bookingModel
-      .find({
-        status: { $in: ["pending", "confirmed"] },
-        "cancelRequest.deadlineAt": { $lte: now },
-        "cancelRequest.declinedAt": { $exists: false },
-        "cancelRequest.resolvedAt": { $exists: false },
-      })
-      .select("bookingId venueId cancelRequest")
-      .lean<
-        {
-          bookingId: string
-          venueId: string
-          cancelRequest: BookingCancelRequest
-        }[]
-      >()
-    for (const b of lapsedRequests) {
-      try {
-        await this.completeCancelRequest(
-          b.venueId,
-          b.bookingId,
-          b.cancelRequest.defaultPct,
-          true
-        )
-        result.cancelsAutoApproved++
-      } catch (err) {
-        this.logger.warn(
-          `Sweep: failed to auto-approve the cancellation of booking ${b.bookingId}: ${err instanceof Error ? err.message : String(err)}`
-        )
-      }
-    }
-
-    return result
-  }
 
   /**
    * `setStatus`, but for the sweeper: swallows any failure (a stale
@@ -1449,102 +793,6 @@ export class BookingsService {
 
   // ── Player-facing bookings API (`BookingsController`, Phase 3) ─────────────
 
-  /**
-   * Create a fresh unpaid hold (`awaiting_payment`) for a signed-in player —
-   * `POST /api/bookings`. Validates opening hours, the per-court/day overlap
-   * guard (shared with walk-ins/app-sync), and the caller's own cross-venue
-   * self-overlap (hard block — a player can't hold two courts at the same
-   * time, VienTD-Review decision #8). `holdExpiresAt` is computed here,
-   * server-side, replacing the web's client-only `HOLD_MS` countdown.
-   */
-  async createHold(
-    userId: string,
-    input: CreateBookingInput
-  ): Promise<BookingSummary> {
-    const venueId = await this.findVenueByCourtId(input.courtId)
-    if (!venueId) throw new NotFoundException("Court not found")
-    const venueDoc = await this.loadVenueDoc(venueId)
-    this.assertVenueApproved(venueDoc)
-    const court = this.assertSlotBookable(
-      venueDoc,
-      input.courtId,
-      input.dateKey,
-      input.start,
-      input.durationMin
-    )
-
-    // The venue's approval clock only runs while it's open, and silence means
-    // approval — so a slot the venue couldn't answer before it starts (e.g. a
-    // 06:00 slot paid at 03:00) is refused up front instead of auto-confirming
-    // after play time.
-    const answerBy = approvalDeadlineIso(
-      vnNowIso(),
-      venueDoc.info.openFrom,
-      venueDoc.info.openTo,
-      this.confirmSlaMinutes()
-    )
-    if (answerBy > combineDateTime(input.dateKey, input.start)) {
-      throw new UnprocessableEntityException(
-        `Chủ sân chưa kịp xác nhận trước giờ chơi (sân mở cửa lúc ${venueDoc.info.openFrom}, sẽ phản hồi trước ${isoToHHMM(answerBy)}). Vui lòng chọn khung giờ muộn hơn hoặc đặt trong giờ mở cửa của sân.`
-      )
-    }
-
-    // Self-overlap hard block. Best-effort (outside the per-court transaction
-    // below, which only serializes one court+day — a user racing two holds on
-    // *different* courts at once is an accepted edge case here).
-    const own = await this.bookingModel
-      .find({ userId, dateKey: input.dateKey })
-      .select("bookingId dateKey start durationMin status")
-      .lean<UserBookingSlot[]>()
-    if (
-      userBookingsOverlap(own, input.dateKey, input.start, input.durationMin)
-    ) {
-      throw new ConflictException(
-        "Bạn đã có một lượt đặt sân khác trong khung giờ này"
-      )
-    }
-
-    const profile = await this.profiles.getProfile(userId)
-    const customer = await this.resolveCustomer(userId, {
-      name: profile.user.name,
-      initials: profile.user.initials,
-    })
-
-    const created = await this.writeWithOverlapGuard(
-      venueId,
-      input.courtId,
-      input.dateKey,
-      input.start,
-      input.durationMin,
-      undefined,
-      async (session) => {
-        const record = buildBookingRecord({
-          venueId,
-          court,
-          dateKey: input.dateKey,
-          start: input.start,
-          durationMin: input.durationMin,
-          source: "app",
-          status: "awaiting_payment",
-          paymentStatus: "awaiting",
-          userId,
-          sessionId: input.sessionId,
-          customer,
-          holdExpiresAt: addMinutesToIso(vnNowIso(), HOLD_MIN),
-        })
-        const [doc] = await this.bookingModel.create([record], { session })
-        return doc
-      }
-    )
-
-    // Same CRM sync the pre-Phase-3 cross-write used to do inline — an app
-    // booker becomes a venue customer (visits/ltv/tier derive from completed
-    // bookings, not from this write) the first time they book that venue.
-    await this.upsertAppCustomer(venueId, userId, customer.name, court.sport)
-
-    return bookingSummaryFrom(created)
-  }
-
   /** Every booking the signed-in player owns, soonest start first. */
   async listMine(userId: string): Promise<BookingSummary[]> {
     const docs = await this.bookingModel
@@ -1552,239 +800,6 @@ export class BookingsService {
       .sort({ startAt: 1 })
       .lean()
     return docs.map(bookingSummaryFrom)
-  }
-
-  /**
-   * The player cancels their own booking (`POST /api/bookings/:id/cancel`).
-   * An unpaid hold has nothing to refund and cancels outright. A paid booking
-   * is not cancelled here: it gets a cancellation request the venue must
-   * answer (docs/chinh-sach.md §2.4) while the slot stays held — see
-   * {@link decideCancelRequest}, and the sweeper's auto-approval when the
-   * venue doesn't answer in time.
-   */
-  async cancel(
-    userId: string,
-    bookingId: string,
-    reason?: string
-  ): Promise<BookingSummary> {
-    const booking = await this.bookingModel
-      .findOne({ bookingId })
-      .select("venueId userId status paymentStatus startAt cancelRequest")
-      .lean<
-        Pick<
-          BookingRecord,
-          | "venueId"
-          | "userId"
-          | "status"
-          | "paymentStatus"
-          | "startAt"
-          | "cancelRequest"
-        >
-      >()
-    if (!booking) throw new NotFoundException("Booking not found")
-    if (booking.userId !== userId) {
-      throw new ForbiddenException("This booking belongs to another account")
-    }
-
-    if (booking.paymentStatus !== "paid") {
-      const { doc } = await this.setStatus(
-        booking.venueId,
-        bookingId,
-        "cancelled",
-        reason,
-        (d) => {
-          d.cancelReason = reason
-        }
-      )
-      return bookingSummaryFrom(doc)
-    }
-
-    if (booking.status !== "pending" && booking.status !== "confirmed") {
-      throw new ConflictException("Lượt đặt này không thể huỷ nữa")
-    }
-    if (booking.cancelRequest?.declinedAt) {
-      throw new ConflictException("Chủ sân đã từ chối yêu cầu huỷ lượt đặt này")
-    }
-    if (hasOpenCancelRequest(booking)) {
-      throw new ConflictException(
-        "Bạn đã gửi yêu cầu huỷ — đang chờ chủ sân duyệt"
-      )
-    }
-    if ((await this.cancelsThisMonth(userId)) >= MAX_CANCELS_PER_MONTH) {
-      throw new ConflictException(
-        `Bạn đã dùng hết ${MAX_CANCELS_PER_MONTH} lượt huỷ đặt sân trong tháng này — vui lòng thử lại vào tháng sau`
-      )
-    }
-    const request = buildCancelRequest(vnNowIso(), booking.startAt, reason)
-    if (!request) {
-      throw new BadRequestException(
-        "Đã qua giờ bắt đầu — không thể huỷ lượt đặt này"
-      )
-    }
-
-    const doc = await withVersionRetry(async () => {
-      const d = await this.bookingModel.findOne({ bookingId })
-      if (!d) throw new NotFoundException("Booking not found")
-      if (d.status !== "pending" && d.status !== "confirmed") {
-        throw new ConflictException("Lượt đặt này không thể huỷ nữa")
-      }
-      if (hasOpenCancelRequest(d)) return d
-      d.cancelRequest = request
-      d.markModified("cancelRequest")
-      await d.save()
-      return d
-    })
-
-    const ownerId = await this.venueOwnerId(doc.venueId)
-    if (ownerId) {
-      const deadline = formatVnTime(request.deadlineAt)
-      await this.notifications.create(ownerId, {
-        id: `booking-cancel-request-${bookingId}-${randomUUID()}`,
-        kind: "booking",
-        text:
-          request.window === "early"
-            ? `${doc.customer.name} xin huỷ lượt đặt ${bookingLabel(doc)} (trước ≥ 24 giờ). Hãy duyệt trước ${deadline} — quá hạn sẽ tự động đồng ý và hoàn 100%.`
-            : `${doc.customer.name} xin huỷ lượt đặt ${bookingLabel(doc)} (trong vòng 24 giờ). Hãy chọn hoàn 50%, 100% hoặc từ chối trước ${deadline} — quá hạn sẽ tự động hoàn 50%.`,
-        href: `/app/venue/${doc.venueId}/schedule?tab=reservations`,
-      })
-    }
-    return bookingSummaryFrom(doc)
-  }
-
-  /** The player takes back a cancellation request the venue hasn't answered yet. */
-  async withdrawCancelRequest(
-    userId: string,
-    bookingId: string
-  ): Promise<BookingSummary> {
-    const doc = await withVersionRetry(async () => {
-      const d = await this.bookingModel.findOne({ bookingId })
-      if (!d) throw new NotFoundException("Booking not found")
-      if (d.userId !== userId) {
-        throw new ForbiddenException("This booking belongs to another account")
-      }
-      if (!hasOpenCancelRequest(d)) {
-        throw new ConflictException("Không có yêu cầu huỷ nào đang chờ duyệt")
-      }
-      d.set("cancelRequest", undefined)
-      await d.save()
-      return d
-    })
-    return bookingSummaryFrom(doc)
-  }
-
-  /**
-   * The venue answers a player's cancellation request
-   * (`POST /api/bookings/:id/cancel-request/decision`). Approving cancels the
-   * booking and refunds 100% for an early request, or the venue's choice of
-   * 50%/100% for a late one. Declining (reason required) keeps the booking
-   * live — the player can still come and play.
-   */
-  async decideCancelRequest(
-    callerId: string,
-    bookingId: string,
-    decision: "approve" | "decline",
-    refundPct?: number,
-    reason?: string
-  ): Promise<BookingSummary> {
-    const venueId = await this.assertOwnsBookingVenue(callerId, bookingId)
-
-    if (decision === "decline") {
-      const doc = await withVersionRetry(async () => {
-        const d = await this.bookingModel.findOne({ bookingId, venueId })
-        if (!d) throw new NotFoundException("Booking not found")
-        if (!hasOpenCancelRequest(d)) {
-          throw new ConflictException("Yêu cầu huỷ này đã được xử lý")
-        }
-        d.cancelRequest = {
-          ...d.cancelRequest!,
-          declinedAt: vnNowIso(),
-          declineReason: reason,
-        }
-        d.markModified("cancelRequest")
-        await d.save()
-        return d
-      })
-      if (doc.userId) {
-        await this.notifications.create(doc.userId, {
-          id: `booking-cancel-declined-${bookingId}-${randomUUID()}`,
-          kind: "booking",
-          text: `Chủ sân đã từ chối yêu cầu huỷ lượt đặt ${bookingLabel(doc)}: ${reason ?? ""}. Lượt đặt vẫn được giữ — bạn vẫn có thể đến chơi.`,
-          href: "/app/bookings",
-        })
-      }
-      return bookingSummaryFrom(doc)
-    }
-
-    const current = await this.bookingModel
-      .findOne({ bookingId, venueId })
-      .select("status cancelRequest")
-      .lean<Pick<BookingRecord, "status" | "cancelRequest">>()
-    if (!current || !hasOpenCancelRequest(current)) {
-      throw new ConflictException("Yêu cầu huỷ này đã được xử lý")
-    }
-    // Early requests always refund in full; a late one is the venue's call.
-    const pct =
-      current.cancelRequest!.window === "early" || refundPct === 100 ? 100 : 50
-    const doc = await this.completeCancelRequest(venueId, bookingId, pct, false)
-    return bookingSummaryFrom(doc)
-  }
-
-  /**
-   * Put an open cancellation request through: cancel the booking, refund
-   * `pct`%, free the court of a still-open room back to "no court booked",
-   * and tell the player (and, when it was automatic, the venue).
-   */
-  private async completeCancelRequest(
-    venueId: string,
-    bookingId: string,
-    pct: number,
-    auto: boolean
-  ): Promise<BookingDocument> {
-    const { doc } = await this.setStatus(
-      venueId,
-      bookingId,
-      "cancelled",
-      undefined,
-      (d) => {
-        if (!hasOpenCancelRequest(d)) {
-          throw new ConflictException("Yêu cầu huỷ này đã được xử lý")
-        }
-        const request = d.cancelRequest!
-        d.cancelReason = request.reason ?? "Người chơi huỷ lượt đặt"
-        this.applyRefund(d, pct)
-        d.cancelRequest = {
-          ...request,
-          resolvedAt: vnNowIso(),
-          refundPct: pct,
-          ...(auto ? { auto: true } : {}),
-        }
-        d.markModified("cancelRequest")
-      }
-    )
-
-    await this.releaseRoomCourt(doc)
-    if (doc.userId) {
-      await this.notifications.create(doc.userId, {
-        id: `booking-cancel-approved-${bookingId}-${randomUUID()}`,
-        kind: "booking",
-        text: auto
-          ? `Chủ sân không phản hồi đúng hạn nên yêu cầu huỷ lượt đặt ${bookingLabel(doc)} đã được tự động chấp nhận. Bạn được hoàn ${pct}% tiền sân.`
-          : `Chủ sân đã đồng ý huỷ lượt đặt ${bookingLabel(doc)}. Bạn được hoàn ${pct}% tiền sân.`,
-        href: "/app/bookings",
-      })
-    }
-    if (auto) {
-      const ownerId = await this.venueOwnerId(venueId)
-      if (ownerId) {
-        await this.notifications.create(ownerId, {
-          id: `booking-cancel-auto-${bookingId}-${randomUUID()}`,
-          kind: "booking",
-          text: `Yêu cầu huỷ lượt đặt ${bookingLabel(doc)} của ${doc.customer.name} đã được tự động chấp nhận (hoàn ${pct}%) do quá hạn phản hồi.`,
-          href: `/app/venue/${venueId}/schedule?tab=reservations`,
-        })
-      }
-    }
-    return doc
   }
 
   /**
@@ -1823,52 +838,6 @@ export class BookingsService {
       .select("ownerId")
       .lean<{ ownerId?: string }>()
     return venue?.ownerId ?? null
-  }
-
-  /**
-   * Approve or decline a pending app booking (`POST /api/bookings/:id/decision`)
-   * — the venue that owns the booking's venue must be the caller. A decline
-   * is always a flat 100% refund (the venue's fault, not the player's —
-   * decision #6), applied whenever the booking was actually paid.
-   */
-  async decide(
-    callerId: string,
-    bookingId: string,
-    decision: "approve" | "decline",
-    reason?: string
-  ): Promise<BookingSummary> {
-    const venueId = await this.assertOwnsBookingVenue(callerId, bookingId)
-    const status: BookingRecordStatus =
-      decision === "approve" ? "confirmed" : "cancelled"
-    const { doc, prevStatus } = await this.setStatus(
-      venueId,
-      bookingId,
-      status,
-      reason,
-      (d) => {
-        if (decision === "decline") {
-          this.applyVenueFaultCancel(d, reason)
-        }
-      }
-    )
-    // `decisionNotification` speaks the six-value `ReservationStatus`; the two
-    // payment-gate states (`awaiting_payment`/`expired`) that `prevStatus` could
-    // also be here don't map onto it, so those stay silent (same convention as
-    // `VenuesService#asReservationStatus`).
-    const prevReservationStatus =
-      prevStatus === "awaiting_payment" || prevStatus === "expired"
-        ? null
-        : prevStatus
-    if (prevReservationStatus && doc.userId) {
-      const notify = decisionNotification(
-        bookingId,
-        prevReservationStatus,
-        status,
-        reason
-      )
-      if (notify) await this.notifications.create(doc.userId, notify)
-    }
-    return bookingSummaryFrom(doc)
   }
 
   /**
@@ -1913,21 +882,6 @@ export class BookingsService {
       if (notify) await this.notifications.create(result.userId, notify)
     }
     return bookingSummaryFrom(result)
-  }
-
-  /** Apply a refund of `pct`% of `doc.price`, only when it was actually paid. */
-  private applyRefund(doc: BookingDocument, pct: number): void {
-    if (doc.paymentStatus !== "paid" || pct <= 0) return
-    doc.refund = {
-      pct,
-      amount: Math.round((doc.price * pct) / 100),
-      at: vnNowIso(),
-      // SePay has no refund API (only voidTransaction/cancel for a
-      // not-yet-settled transaction/order) — every refund here is queued for
-      // an operator to send by hand, never issued automatically.
-      status: "manual",
-    }
-    doc.paymentStatus = pct >= 100 ? "refunded" : "partial_refund"
   }
 
   /**
@@ -2031,11 +985,342 @@ export class BookingsService {
     })
   }
 
+  // ── VietQR payment flow (plan 025) ───────────────────────────────────────────
+  // The player transfers straight to the venue and uploads a screenshot; the
+  // venue checks its own bank app, then approves, or rejects and refunds by
+  // hand. Nothing here moves money and nothing confirms on silence.
+
+  /** The venue a booking belongs to — lets a caller authorize a proof upload. */
+  async venueIdOf(bookingId: string): Promise<string> {
+    const booking = await this.bookingModel
+      .findOne({ bookingId })
+      .select("venueId")
+      .lean<{ venueId: string }>()
+    if (!booking) throw new NotFoundException("Booking not found")
+    return booking.venueId
+  }
+
   /**
-   * Force-cancel any booking regardless of venue ownership (an admin action) —
-   * always a flat 100% refund when paid, same convention as a venue-fault
-   * cancel/decline (`applyVenueFaultCancel`).
+   * Create a booking the player is about to pay for (`POST /api/bookings`).
+   * There is no hold: it never expires and does not block the slot, so several
+   * players may queue for the same court/time and the venue picks one. Only a
+   * confirmed booking (or a walk-in / court block) blocks a slot.
    */
+  async createHold(
+    userId: string,
+    input: CreateBookingInput
+  ): Promise<BookingSummary> {
+    const venueId = await this.findVenueByCourtId(input.courtId)
+    if (!venueId) throw new NotFoundException("Court not found")
+    const venueDoc = await this.loadVenueDoc(venueId)
+    this.assertVenueApproved(venueDoc)
+    const court = this.assertSlotBookable(
+      venueDoc,
+      input.courtId,
+      input.dateKey,
+      input.start,
+      input.durationMin
+    )
+
+    const unpaid = await this.bookingModel.countDocuments({
+      userId,
+      status: "awaiting_payment",
+    })
+    if (unpaid >= MAX_UNPAID_BOOKINGS) {
+      throw new ConflictException(
+        `Bạn đang có ${MAX_UNPAID_BOOKINGS} lượt đặt chưa gửi ảnh chuyển khoản — hãy hoàn tất hoặc huỷ bớt trước khi đặt thêm`
+      )
+    }
+
+    // Self-overlap hard block against bookings that really hold a slot.
+    // Best-effort (outside the per-court transaction below).
+    const own = await this.bookingModel
+      .find({ userId, dateKey: input.dateKey })
+      .select("bookingId dateKey start durationMin status")
+      .lean<UserBookingSlot[]>()
+    if (
+      userBookingsOverlap(own, input.dateKey, input.start, input.durationMin)
+    ) {
+      throw new ConflictException(
+        "Bạn đã có một lượt đặt sân khác trong khung giờ này"
+      )
+    }
+
+    const profile = await this.profiles.getProfile(userId)
+    const customer = await this.resolveCustomer(userId, {
+      name: profile.user.name,
+      initials: profile.user.initials,
+    })
+
+    const created = await this.writeWithOverlapGuard(
+      venueId,
+      input.courtId,
+      input.dateKey,
+      input.start,
+      input.durationMin,
+      undefined,
+      async (session) => {
+        const record = buildBookingRecord({
+          venueId,
+          court,
+          dateKey: input.dateKey,
+          start: input.start,
+          durationMin: input.durationMin,
+          source: "app",
+          status: "awaiting_payment",
+          paymentStatus: "awaiting",
+          userId,
+          sessionId: input.sessionId,
+          customer,
+        })
+        const [doc] = await this.bookingModel.create(
+          [{ ...record, paymentMethod: "vietqr" as const }],
+          { session }
+        )
+        return doc
+      }
+    )
+
+    // An app booker becomes a venue customer the first time they book it.
+    await this.upsertAppCustomer(venueId, userId, customer.name, court.sport)
+
+    return bookingSummaryFrom(created)
+  }
+
+  /**
+   * The player sent the transfer screenshot (`POST /api/bookings/:id/payment/submit`):
+   * the booking now waits for the venue to check its bank app. Idempotent — a
+   * second submit changes nothing. The caller has already checked `proofUrl`
+   * belongs to this booking's venue.
+   */
+  async submitPaymentProof(
+    userId: string,
+    bookingId: string,
+    input: { proofUrl: string; refundAccount: BankAccount }
+  ): Promise<BookingSummary> {
+    let fresh = false
+    const doc = await withVersionRetry(async () => {
+      fresh = false
+      const d = await this.bookingModel.findOne({ bookingId })
+      if (!d) throw new NotFoundException("Booking not found")
+      if (d.userId !== userId) {
+        throw new ForbiddenException("This booking belongs to another account")
+      }
+      if (d.status === "awaiting_venue_confirmation") return d
+      if (d.status !== "awaiting_payment") {
+        throw new ConflictException(
+          `Không thể gửi ảnh chuyển khoản cho lượt đặt ở trạng thái "${d.status}"`
+        )
+      }
+      if (!d.transferMemo) {
+        throw new ConflictException(
+          "Hãy mở màn thanh toán để lấy mã chuyển khoản trước"
+        )
+      }
+      const now = vnNowIso()
+      d.status = "awaiting_venue_confirmation"
+      d.paymentStatus = "awaiting_verification"
+      d.paymentProofUrl = input.proofUrl
+      d.proofSubmittedAt = now
+      d.refundAccount = input.refundAccount
+      d.confirmDeadlineAt = venueAnswerDeadlineIso(now, d.startAt)
+      d.statusHistory = [
+        ...(d.statusHistory ?? []),
+        { status: "awaiting_venue_confirmation", at: now },
+      ]
+      await d.save()
+      fresh = true
+      return d
+    })
+    if (fresh) await this.notifyVenueOfProof(doc)
+    return bookingSummaryFrom(doc)
+  }
+
+  private async notifyVenueOfProof(doc: BookingDocument): Promise<void> {
+    const ownerId = await this.venueOwnerId(doc.venueId)
+    if (!ownerId) return
+    const amount = (doc.amountDue ?? doc.price).toLocaleString("vi-VN")
+    const by = doc.confirmDeadlineAt ? formatVnTime(doc.confirmDeadlineAt) : ""
+    await this.notifications
+      .create(ownerId, {
+        id: `booking-proof-${doc.bookingId}`,
+        kind: "booking",
+        text: `${doc.customer.name} đã chuyển khoản ${amount}₫ cho lượt đặt ${bookingLabel(doc)} (mã ${doc.transferMemo ?? ""}). Hãy kiểm tra app ngân hàng rồi duyệt hoặc từ chối${by ? ` trước ${by}` : ""}.`,
+        href: `/app/venue/${doc.venueId}/schedule?tab=reservations`,
+      })
+      .catch((err: unknown) => {
+        this.logger.warn(
+          `Failed to notify the venue of proof on booking ${doc.bookingId}: ${String(err)}`
+        )
+      })
+  }
+
+  /**
+   * A confirmed booking already holds the slot, so a booking waiting on the
+   * venue can only be approved if no other booking holds it. Several players
+   * may queue for the same time; approving one means rejecting the rest.
+   */
+  private async assertNoConfirmedOverlap(
+    venueId: string,
+    bookingId: string
+  ): Promise<void> {
+    const target = await this.bookingModel
+      .findOne({ bookingId, venueId })
+      .select("courtId dateKey start durationMin")
+      .lean<
+        Pick<BookingRecord, "courtId" | "dateKey" | "start" | "durationMin">
+      >()
+    if (!target) return
+    const sameDay = await this.bookingModel
+      .find({ venueId, courtId: target.courtId, dateKey: target.dateKey })
+      .select("bookingId courtId dateKey start durationMin status")
+      .lean<BookingSlot[]>()
+    if (
+      bookingsOverlap(
+        sameDay,
+        target.courtId,
+        target.dateKey,
+        target.start,
+        target.durationMin,
+        bookingId
+      )
+    ) {
+      throw new ConflictException(
+        "Khung giờ này đã có lượt đặt được duyệt — hãy từ chối lượt này và hoàn tiền cho người chơi"
+      )
+    }
+  }
+
+  /**
+   * Where a venue-side cancel/reject lands. When the player's transfer was
+   * reported the venue owes the money back, so the booking waits for the
+   * refund screenshot (`rejected_refund_pending`); otherwise it just cancels.
+   */
+  private async cancelTarget(
+    venueId: string,
+    bookingId: string
+  ): Promise<BookingRecordStatus> {
+    const d = await this.bookingModel
+      .findOne({ bookingId, venueId })
+      .select("paymentMethod paymentStatus")
+      .lean<Pick<BookingRecord, "paymentMethod" | "paymentStatus">>()
+    return d?.paymentMethod === "vietqr" &&
+      (d.paymentStatus === "awaiting_verification" ||
+        d.paymentStatus === "paid")
+      ? "rejected_refund_pending"
+      : "cancelled"
+  }
+
+  /**
+   * The venue checked its bank app (`POST /api/bookings/:id/decision`): approve
+   * confirms the booking (the money arrived); decline needs a reason and puts
+   * the booking in the refund queue.
+   */
+  async decide(
+    callerId: string,
+    bookingId: string,
+    decision: "approve" | "decline",
+    reason?: string
+  ): Promise<BookingSummary> {
+    const venueId = await this.assertOwnsBookingVenue(callerId, bookingId)
+    if (decision === "decline" && !reason?.trim()) {
+      throw new BadRequestException("Vui lòng nêu lý do từ chối")
+    }
+    let status: BookingRecordStatus = "confirmed"
+    if (decision === "approve") {
+      await this.assertNoConfirmedOverlap(venueId, bookingId)
+    } else {
+      status = await this.cancelTarget(venueId, bookingId)
+    }
+    const { doc, prevStatus } = await this.setStatus(
+      venueId,
+      bookingId,
+      status,
+      reason,
+      (d, prev) => {
+        if (decision === "approve") {
+          if (prev === "awaiting_venue_confirmation") d.paymentStatus = "paid"
+        } else {
+          this.applyVenueFaultCancel(d, reason)
+        }
+      }
+    )
+    await this.notifyDecision(doc, prevStatus, status, reason)
+    return bookingSummaryFrom(doc)
+  }
+
+  /** Tell the player about a venue decision, mapping the new statuses onto the old copy. */
+  private async notifyDecision(
+    doc: BookingDocument,
+    prevStatus: BookingRecordStatus | null,
+    status: BookingRecordStatus,
+    reason?: string
+  ): Promise<void> {
+    if (!prevStatus || !doc.userId) return
+    if (prevStatus === "awaiting_payment" || prevStatus === "expired") return
+    const prev: BookingRecordStatus =
+      prevStatus === "awaiting_venue_confirmation" ? "pending" : prevStatus
+    const next: BookingRecordStatus =
+      status === "rejected_refund_pending" ? "cancelled" : status
+    const notify = decisionNotification(doc.bookingId, prev, next, reason)
+    if (notify) await this.notifications.create(doc.userId, notify)
+  }
+
+  /**
+   * Set a booking's status from the venue-scoped reservation route
+   * (`VenuesService#updateReservationStatus`): approve, cancel, no-show.
+   * `prevStatus` comes back null on a same-status PUT so the caller can skip
+   * notifying the player twice.
+   */
+  async updateStatus(
+    venueId: string,
+    bookingId: string,
+    status: BookingRecordStatus,
+    reason?: string
+  ): Promise<{
+    reservation: Reservation
+    prevStatus: BookingRecordStatus | null
+    userId?: string
+  }> {
+    let target = status
+    if (status === "confirmed") {
+      await this.assertNoConfirmedOverlap(venueId, bookingId)
+    } else if (status === "cancelled") {
+      target = await this.cancelTarget(venueId, bookingId)
+    }
+    const { doc, prevStatus } = await this.setStatus(
+      venueId,
+      bookingId,
+      target,
+      reason,
+      (d, prev) => {
+        if (status === "confirmed") {
+          if (prev === "awaiting_venue_confirmation") d.paymentStatus = "paid"
+          return
+        }
+        if (status !== "cancelled") return
+        // A venue-initiated cancel from a live status is the venue's fault: the
+        // player is owed everything back. A booking the player already checked
+        // into is mostly consumed, so it is excluded.
+        if (
+          prev === "awaiting_venue_confirmation" ||
+          prev === "pending" ||
+          prev === "confirmed"
+        ) {
+          this.applyVenueFaultCancel(d, reason)
+        } else if (reason) {
+          d.declineReason = reason
+        }
+      }
+    )
+    return {
+      reservation: reservationFromBooking(doc, isoDateOf(vnNowIso())),
+      prevStatus,
+      userId: doc.userId,
+    }
+  }
+
+  /** Admin force-cancel across venues — the player is owed a full refund when money moved. */
   async adminForceCancel(
     bookingId: string,
     reason?: string
@@ -2045,17 +1330,18 @@ export class BookingsService {
       .select("venueId")
       .lean<{ venueId: string }>()
     if (!booking) throw new NotFoundException("Booking not found")
+    const target = await this.cancelTarget(booking.venueId, bookingId)
     const { doc } = await this.setStatus(
       booking.venueId,
       bookingId,
-      "cancelled",
+      target,
       reason,
       (d, prev) => {
-        // Same carve-out as a venue-initiated cancel (`updateStatus`): a
-        // booking already checked into is mostly consumed, so it doesn't
-        // auto-refund — an admin settles that by hand via the refund queue
-        // if warranted.
-        if (prev === "pending" || prev === "confirmed") {
+        if (
+          prev === "awaiting_venue_confirmation" ||
+          prev === "pending" ||
+          prev === "confirmed"
+        ) {
           this.applyVenueFaultCancel(d, reason)
         } else if (reason) {
           d.declineReason = reason
@@ -2065,8 +1351,349 @@ export class BookingsService {
     return bookingSummaryFrom(doc)
   }
 
+  /**
+   * The player cancels their own booking (`POST /api/bookings/:id/cancel`) —
+   * only before sending a transfer proof. After that the money may have moved,
+   * so cancelling and refunding is for the player and venue to settle in chat;
+   * the venue is the one who cancels.
+   */
+  async cancel(
+    userId: string,
+    bookingId: string,
+    reason?: string
+  ): Promise<BookingSummary> {
+    const booking = await this.bookingModel
+      .findOne({ bookingId })
+      .select("venueId userId status")
+      .lean<Pick<BookingRecord, "venueId" | "userId" | "status">>()
+    if (!booking) throw new NotFoundException("Booking not found")
+    if (booking.userId !== userId) {
+      throw new ForbiddenException("This booking belongs to another account")
+    }
+    if (booking.status !== "awaiting_payment") {
+      throw new ConflictException(
+        "Bạn đã gửi ảnh chuyển khoản — hãy nhắn tin cho chủ sân để huỷ và nhận lại tiền"
+      )
+    }
+    const { doc } = await this.setStatus(
+      booking.venueId,
+      bookingId,
+      "cancelled",
+      reason,
+      (d) => {
+        d.cancelReason = reason
+      }
+    )
+    return bookingSummaryFrom(doc)
+  }
+
+  /**
+   * The venue transferred the refund and uploaded the screenshot
+   * (`POST /api/bookings/:id/refund/complete`). `amount` lets the venue refund
+   * less than the full amount when it and the player agreed so. The caller has
+   * already checked `proofUrl` belongs to this venue.
+   */
+  async completeRefund(
+    callerId: string,
+    bookingId: string,
+    input: { proofUrl: string; amount?: number }
+  ): Promise<BookingSummary> {
+    const venueId = await this.assertOwnsBookingVenue(callerId, bookingId)
+    const { doc, prevStatus } = await this.setStatus(
+      venueId,
+      bookingId,
+      "refunded",
+      undefined,
+      (d) => {
+        if (d.status !== "rejected_refund_pending" || !d.refund) {
+          throw new ConflictException(
+            "Lượt đặt này không có khoản hoàn tiền nào đang chờ"
+          )
+        }
+        const base = d.amountDue ?? d.price
+        const amount = input.amount ?? d.refund.amount
+        if (!Number.isInteger(amount) || amount <= 0 || amount > base) {
+          throw new BadRequestException("Số tiền hoàn không hợp lệ")
+        }
+        d.refund = {
+          ...d.refund,
+          amount,
+          pct: Math.round((amount * 100) / base),
+          status: "settled",
+          ref: "vietqr",
+          proofUrl: input.proofUrl,
+        }
+        d.refundProofUrl = input.proofUrl
+        d.paymentStatus = amount >= base ? "refunded" : "partial_refund"
+        d.markModified("refund")
+      }
+    )
+    if (prevStatus !== null && doc.userId) {
+      await this.notifications
+        .create(doc.userId, {
+          id: `booking-refunded-${bookingId}`,
+          kind: "booking",
+          text: `Chủ sân đã chuyển hoàn ${(doc.refund?.amount ?? 0).toLocaleString("vi-VN")}₫ cho lượt đặt ${bookingLabel(doc)}. Hãy kiểm tra tài khoản ngân hàng rồi xác nhận đã nhận.`,
+          href: "/app/bookings",
+        })
+        .catch(() => undefined)
+    }
+    return bookingSummaryFrom(doc)
+  }
+
+  /**
+   * The player says whether the refund arrived
+   * (`POST /api/bookings/:id/refund/confirm`). "Not received" opens a complaint
+   * an admin looks into; the venue is told either way.
+   */
+  async confirmRefundReceipt(
+    userId: string,
+    bookingId: string,
+    result: "received" | "not_received"
+  ): Promise<BookingSummary> {
+    const doc = await withVersionRetry(async () => {
+      const d = await this.bookingModel.findOne({ bookingId })
+      if (!d) throw new NotFoundException("Booking not found")
+      if (d.userId !== userId) {
+        throw new ForbiddenException("This booking belongs to another account")
+      }
+      if (d.status !== "refunded") {
+        throw new ConflictException("Chủ sân chưa xác nhận đã hoàn tiền")
+      }
+      if (d.refundConfirmation?.result === result) return d
+      d.refundConfirmation = { result, at: vnNowIso() }
+      d.markModified("refundConfirmation")
+      await d.save()
+      return d
+    })
+    if (result === "not_received") await this.openRefundComplaint(doc)
+    const ownerId = await this.venueOwnerId(doc.venueId)
+    if (ownerId) {
+      await this.notifications
+        .create(ownerId, {
+          id: `booking-refund-${result}-${bookingId}`,
+          kind: "booking",
+          text:
+            result === "received"
+              ? `${doc.customer.name} xác nhận đã nhận lại tiền cho lượt đặt ${bookingLabel(doc)}.`
+              : `${doc.customer.name} báo chưa nhận được tiền hoàn cho lượt đặt ${bookingLabel(doc)}. Hãy kiểm tra lại giao dịch — khiếu nại đã được gửi tới quản trị viên.`,
+          href: `/app/venue/${doc.venueId}/schedule?tab=reservations`,
+        })
+        .catch(() => undefined)
+    }
+    return bookingSummaryFrom(doc)
+  }
+
+  private async openRefundComplaint(doc: BookingDocument): Promise<void> {
+    const open = await this.complaintModel.exists({
+      bookingId: doc.bookingId,
+      kind: "refund_not_received",
+      status: "open",
+    })
+    if (open) return
+    const venue = await this.venueModel
+      .findOne({ venueId: doc.venueId })
+      .select("ownerId info")
+      .lean<{ ownerId?: string; info: { name: string } }>()
+    await this.complaintModel.create({
+      complaintId: randomUUID(),
+      kind: "refund_not_received",
+      roomId: "",
+      roomTitle: bookingLabel(doc),
+      shareId: "",
+      bookingId: doc.bookingId,
+      memberUserId: doc.userId ?? "",
+      memberName: doc.customer.name,
+      hostUserId: venue?.ownerId ?? doc.venueId,
+      hostName: venue?.info.name ?? doc.venueId,
+      amount: doc.refund?.amount ?? doc.amountDue ?? doc.price,
+      reason: "Người chơi báo chưa nhận được tiền hoàn",
+      status: "open",
+      filedAt: vnNowIso(),
+    })
+  }
+
+  // ── Scheduler sweep ──────────────────────────────────────────────────────────
+
+  /**
+   * Run the clock-driven transitions (`payments/bookings-sweeper.service.ts`
+   * calls this every minute): a confirmed booking past its `endAt` completes;
+   * a transfer the venue never answered (`confirmDeadlineAt` passed) is
+   * rejected so the refund can start; a venue is reminded halfway through its
+   * answer window. Nothing is ever confirmed on silence — only a person who has
+   * seen the money can approve. Each rule filters on the *current* status, so
+   * re-running only touches bookings still due a transition.
+   */
+  async sweep(now: string = vnNowIso()): Promise<SweepResult> {
+    const result: SweepResult = {
+      completed: 0,
+      overdueRejected: 0,
+      reminded: 0,
+    }
+
+    const completing = await this.bookingModel
+      // Confirmed bookings complete on their own at the end time; "checked-in"
+      // is only left over from before venue check-in was removed.
+      .find({
+        status: { $in: ["confirmed", "checked-in"] },
+        endAt: { $lte: now },
+      })
+      .select("bookingId venueId")
+      .lean<{ bookingId: string; venueId: string }[]>()
+    for (const b of completing) {
+      const applied = await this.trySetStatus(
+        b.venueId,
+        b.bookingId,
+        "completed"
+      )
+      if (applied) result.completed++
+    }
+
+    const overdue = await this.bookingModel
+      .find({
+        status: "awaiting_venue_confirmation",
+        confirmDeadlineAt: { $lte: now },
+      })
+      .select("bookingId venueId")
+      .lean<{ bookingId: string; venueId: string }[]>()
+    for (const b of overdue) {
+      try {
+        await this.rejectOverdue(b.venueId, b.bookingId)
+        result.overdueRejected++
+      } catch (err) {
+        this.logger.warn(
+          `Sweep: failed to reject overdue booking ${b.bookingId}: ${err instanceof Error ? err.message : String(err)}`
+        )
+      }
+    }
+
+    const waiting = await this.bookingModel
+      .find({
+        status: "awaiting_venue_confirmation",
+        confirmDeadlineAt: { $gt: now },
+        confirmReminderAt: { $exists: false },
+      })
+      .select("bookingId venueId proofSubmittedAt confirmDeadlineAt")
+      .lean<
+        Pick<
+          BookingRecord,
+          "bookingId" | "venueId" | "proofSubmittedAt" | "confirmDeadlineAt"
+        >[]
+      >()
+    for (const b of waiting) {
+      if (!b.proofSubmittedAt || !b.confirmDeadlineAt) continue
+      const from = new Date(b.proofSubmittedAt).getTime()
+      const to = new Date(b.confirmDeadlineAt).getTime()
+      if (new Date(now).getTime() < from + (to - from) / 2) continue
+      try {
+        await this.remindVenue(b.venueId, b.bookingId, now)
+        result.reminded++
+      } catch (err) {
+        this.logger.warn(
+          `Sweep: failed to remind the venue of booking ${b.bookingId}: ${err instanceof Error ? err.message : String(err)}`
+        )
+      }
+    }
+
+    return result
+  }
+
+  /** The venue never answered in time — reject so the refund can start. */
+  private async rejectOverdue(
+    venueId: string,
+    bookingId: string
+  ): Promise<void> {
+    const reason = `Chủ sân không phản hồi trong ${VENUE_ANSWER_HOURS} giờ`
+    const { doc, prevStatus } = await this.setStatus(
+      venueId,
+      bookingId,
+      "rejected_refund_pending",
+      reason,
+      (d, prev) => {
+        // A venue that answered meanwhile (confirmed) must not be overridden.
+        if (prev !== "awaiting_venue_confirmation") {
+          throw new ConflictException("Lượt đặt đã được xử lý")
+        }
+        d.rejectReason = reason
+        this.applyVenueFaultCancel(d, reason)
+      }
+    )
+    if (prevStatus === null) return
+    if (doc.userId) {
+      await this.notifications
+        .create(doc.userId, {
+          id: `booking-overdue-${bookingId}`,
+          kind: "booking",
+          text: `Chủ sân không phản hồi lượt đặt ${bookingLabel(doc)} trong ${VENUE_ANSWER_HOURS} giờ. Lượt đặt bị huỷ và chủ sân cần chuyển lại tiền cho bạn — bạn có thể nhắn tin cho chủ sân để nhắc.`,
+          href: "/app/bookings",
+        })
+        .catch(() => undefined)
+    }
+    const ownerId = await this.venueOwnerId(venueId)
+    if (ownerId) {
+      await this.notifications
+        .create(ownerId, {
+          id: `booking-overdue-venue-${bookingId}`,
+          kind: "booking",
+          text: `Lượt đặt ${bookingLabel(doc)} của ${doc.customer.name} đã bị huỷ vì quá ${VENUE_ANSWER_HOURS} giờ chưa phản hồi. Hãy chuyển lại tiền và tải ảnh hoàn tiền lên.`,
+          href: `/app/venue/${venueId}/schedule?tab=reservations`,
+        })
+        .catch(() => undefined)
+    }
+  }
+
+  private async remindVenue(
+    venueId: string,
+    bookingId: string,
+    now: string
+  ): Promise<void> {
+    const updated = await this.bookingModel.findOneAndUpdate(
+      {
+        bookingId,
+        status: "awaiting_venue_confirmation",
+        confirmReminderAt: { $exists: false },
+      },
+      { $set: { confirmReminderAt: now } },
+      { new: true }
+    )
+    if (!updated) return
+    const ownerId = await this.venueOwnerId(venueId)
+    if (!ownerId) return
+    await this.notifications
+      .create(ownerId, {
+        id: `booking-remind-${bookingId}`,
+        kind: "booking",
+        text: `Nhắc: ${updated.customer.name} đã chuyển khoản cho lượt đặt ${bookingLabel(updated)} và đang chờ bạn duyệt${updated.confirmDeadlineAt ? ` (hạn ${formatVnTime(updated.confirmDeadlineAt)})` : ""}.`,
+        href: `/app/venue/${venueId}/schedule?tab=reservations`,
+      })
+      .catch(() => undefined)
+  }
+
+  /**
+   * Record a refund the venue owes — only when money actually moved. For a
+   * VietQR booking the payment status changes later, when the venue uploads
+   * the refund screenshot; a legacy (SePay) booking keeps its old behaviour.
+   */
+  private applyRefund(doc: BookingDocument, pct: number): void {
+    const moved =
+      doc.paymentStatus === "paid" ||
+      doc.paymentStatus === "awaiting_verification"
+    if (!moved || pct <= 0) return
+    const base = doc.amountDue ?? doc.price
+    doc.refund = {
+      pct,
+      amount: Math.round((base * pct) / 100),
+      at: vnNowIso(),
+      // Every refund is a manual bank transfer by the venue.
+      status: "manual",
+    }
+    if (doc.paymentMethod !== "vietqr") {
+      doc.paymentStatus = pct >= 100 ? "refunded" : "partial_refund"
+    }
+  }
+
   /** The venueId a booking belongs to, after confirming the caller owns it. */
-  private async assertOwnsBookingVenue(
+  async assertOwnsBookingVenue(
     userId: string,
     bookingId: string
   ): Promise<string> {

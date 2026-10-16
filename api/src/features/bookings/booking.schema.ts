@@ -2,12 +2,14 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose"
 import { Schema as MongooseSchema, type HydratedDocument } from "mongoose"
 
 import type {
+  BankAccount,
   BookingCancelRequest,
   BookingCustomer,
   BookingRecordStatus,
   BookingRefund,
   BookingSource,
   BookingStatusEvent,
+  PaymentMethod,
   PaymentStatus,
   SportKey,
 } from "../../shared/index.js"
@@ -46,6 +48,21 @@ export class Booking {
   @Prop({ type: Number, required: true }) price: number
   @Prop({ type: String, required: true }) status: BookingRecordStatus
   @Prop({ type: String, required: true }) paymentStatus: PaymentStatus
+  @Prop({ type: String }) paymentMethod?: PaymentMethod
+  @Prop({ type: Number }) amountDue?: number
+  @Prop({ type: String }) discountCode?: string
+  @Prop({ type: Number }) discountAmount?: number
+  @Prop({ type: Number }) originalAmount?: number
+  @Prop({ type: String }) transferMemo?: string
+  @Prop({ type: MongooseSchema.Types.Mixed }) payoutSnapshot?: BankAccount
+  @Prop({ type: String }) paymentProofUrl?: string
+  @Prop({ type: String }) proofSubmittedAt?: string
+  @Prop({ type: String }) confirmReminderAt?: string
+  @Prop({ type: String }) rejectReason?: string
+  @Prop({ type: MongooseSchema.Types.Mixed }) refundAccount?: BankAccount
+  @Prop({ type: String }) refundProofUrl?: string
+  @Prop({ type: MongooseSchema.Types.Mixed })
+  refundConfirmation?: { result: "received" | "not_received"; at: string }
   @Prop({ type: String }) holdExpiresAt?: string
   @Prop({ type: String }) confirmDeadlineAt?: string
   @Prop({ type: String }) checkedInAt?: string
@@ -72,6 +89,9 @@ BookingSchema.index({ sessionId: 1 })
 // Scheduler queries (a future phase): unpaid holds past their deadline, and
 // pending bookings past the 30-minute approval SLA.
 BookingSchema.index({ status: 1, holdExpiresAt: 1 })
+// The transfer memo identifies a payment in the venue's bank statement; sparse
+// because walk-ins and legacy bookings have none.
+BookingSchema.index({ transferMemo: 1 }, { unique: true, sparse: true })
 BookingSchema.index({ status: 1, confirmDeadlineAt: 1 })
 // Sweeper: open cancellation requests past the venue's answer deadline.
 BookingSchema.index({ status: 1, "cancelRequest.deadlineAt": 1 })

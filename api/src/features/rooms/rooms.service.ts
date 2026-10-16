@@ -642,11 +642,15 @@ export class RoomsService {
       throw new ConflictException("Khiếu nại này đã được xử lý")
     }
 
-    if (decision === "refund" && complaint.kind === "cancel_decline") {
-      // The venue wrongly refused an early cancel: overturn it (100% refund)
-      // and count the violation against the venue.
-      complaint.venueViolations = await this.bookings.refundDeclinedCancel(
-        complaint.bookingId
+    if (
+      decision === "refund" &&
+      (complaint.kind === "cancel_decline" ||
+        complaint.kind === "refund_not_received")
+    ) {
+      // Booking cancellations are settled between player and venue (plan 025);
+      // there is no money for an admin to move for these complaints.
+      throw new ConflictException(
+        "Khiếu nại này không thể hoàn tiền qua hệ thống — hãy đóng khiếu nại và ghi chú"
       )
     } else if (decision === "refund") {
       const share = await this.shareModel.findOne({

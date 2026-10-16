@@ -4,6 +4,8 @@
 import { BadRequestException, ConflictException } from "@nestjs/common"
 import { Types } from "mongoose"
 
+import { buildVietQrImageUrl, refundMemo } from "../payments/vietqr.js"
+
 import {
   addMinutes,
   addMinutesToIso,
@@ -454,6 +456,8 @@ export type RefundQueueLean = Pick<
   | "start"
   | "durationMin"
   | "refund"
+  | "refundAccount"
+  | "transferMemo"
 >
 
 /**
@@ -474,7 +478,34 @@ export function refundQueueItemFromBooking(
     day: dayLabelFor(booking.dateKey, todayIso),
     time: slotRange(booking.start, booking.durationMin),
     refund: booking.refund!,
+    ...(booking.refundAccount
+      ? {
+          refundAccount: booking.refundAccount,
+          transferMemo: booking.transferMemo,
+          qrUrl: buildVietQrImageUrl({
+            account: booking.refundAccount,
+            amount: booking.refund!.amount,
+            memo: refundMemo(booking.transferMemo),
+          }),
+        }
+      : {}),
   }
+}
+
+/** Hours the venue has to answer a transfer it was told about (VietQR flow). */
+export const VENUE_ANSWER_HOURS = 12
+
+/**
+ * When the venue must answer a payment proof sent at `nowIso`: 12 hours later,
+ * but never after the slot starts. Past it the booking is rejected and the
+ * venue owes a refund — it is never confirmed on silence.
+ */
+export function venueAnswerDeadlineIso(
+  nowIso: string,
+  startAt: string
+): string {
+  const limit = addMinutesToIso(nowIso, VENUE_ANSWER_HOURS * 60)
+  return limit < startAt ? limit : startAt
 }
 
 // ── Projection: BookingRecord → the player-facing bookings API shape ──────────
@@ -511,6 +542,19 @@ export type BookingSummary = Pick<
   | "cancelReason"
   | "refund"
   | "cancelRequest"
+  | "paymentMethod"
+  | "amountDue"
+  | "discountCode"
+  | "discountAmount"
+  | "originalAmount"
+  | "transferMemo"
+  | "payoutSnapshot"
+  | "paymentProofUrl"
+  | "proofSubmittedAt"
+  | "rejectReason"
+  | "refundAccount"
+  | "refundProofUrl"
+  | "refundConfirmation"
 >
 
 /** Project a full `BookingRecord` (a lean/hydrated doc) to `BookingSummary`. */
@@ -539,6 +583,19 @@ export function bookingSummaryFrom(booking: BookingRecord): BookingSummary {
     cancelReason: booking.cancelReason,
     refund: booking.refund,
     cancelRequest: booking.cancelRequest,
+    paymentMethod: booking.paymentMethod,
+    amountDue: booking.amountDue,
+    discountCode: booking.discountCode,
+    discountAmount: booking.discountAmount,
+    originalAmount: booking.originalAmount,
+    transferMemo: booking.transferMemo,
+    payoutSnapshot: booking.payoutSnapshot,
+    paymentProofUrl: booking.paymentProofUrl,
+    proofSubmittedAt: booking.proofSubmittedAt,
+    rejectReason: booking.rejectReason,
+    refundAccount: booking.refundAccount,
+    refundProofUrl: booking.refundProofUrl,
+    refundConfirmation: booking.refundConfirmation,
   }
 }
 
@@ -574,7 +631,7 @@ export function decisionNotification(
     return {
       id: `booking-declined-${reservationId}`,
       kind: "booking",
-      text: `Chủ sân đã từ chối đặt sân: ${reason}. Đã hoàn tiền (mô phỏng).`,
+      text: `Chủ sân đã từ chối đặt sân: ${reason}. Chủ sân sẽ chuyển lại tiền cho bạn — hãy kiểm tra tài khoản ngân hàng.`,
       ...base,
     }
   }
@@ -582,7 +639,7 @@ export function decisionNotification(
     return {
       id: `booking-cancelled-${reservationId}`,
       kind: "booking",
-      text: `Chủ sân đã huỷ đặt sân đã duyệt của bạn: ${reason}. Đã hoàn tiền (mô phỏng).`,
+      text: `Chủ sân đã huỷ đặt sân đã duyệt của bạn: ${reason}. Chủ sân sẽ chuyển lại tiền cho bạn — hãy kiểm tra tài khoản ngân hàng.`,
       ...base,
     }
   }

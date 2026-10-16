@@ -1,12 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common"
+import { Body, Controller, Get, Param, Post } from "@nestjs/common"
 
 import { UserId } from "../../common/user-id.decorator.js"
-import { UserThrottle } from "../../common/user-throttler.guard.js"
-import { RoomComplaintBodyDto } from "../rooms/rooms.dto.js"
+import { PayoutService } from "../brands/payout.service.js"
 import {
   BookingDecisionDto,
   BookingIdParamDto,
-  CancelRequestDecisionDto,
   CancelBookingDto,
   CreateBookingDto,
 } from "./bookings.dto.js"
@@ -22,11 +20,20 @@ import { BookingsService } from "./bookings.service.js"
 // payment state, refund — fields the operator projection doesn't carry).
 @Controller("bookings")
 export class BookingsController {
-  constructor(private readonly bookings: BookingsService) {}
+  constructor(
+    private readonly bookings: BookingsService,
+    private readonly payouts: PayoutService
+  ) {}
 
-  /** Create an unpaid `awaiting_payment` hold with a server-side 20-minute expiry. */
+  /**
+   * Create a booking the player is about to pay for (`awaiting_payment`). No
+   * hold: it never expires and doesn't block the slot. The venue must have
+   * declared a bank account, or there is nowhere to pay.
+   */
   @Post()
   async create(@UserId() userId: string, @Body() body: CreateBookingDto) {
+    const venueId = await this.bookings.findVenueByCourtId(body.courtId)
+    if (venueId) await this.payouts.assertAcceptsOnline(venueId)
     return this.bookings.createHold(userId, body)
   }
 
@@ -37,8 +44,8 @@ export class BookingsController {
   }
 
   /**
-   * Player cancel: an unpaid hold cancels outright; a paid booking gets a
-   * cancellation request the venue must answer (docs/chinh-sach.md §2.4).
+   * Player cancel — only before a transfer proof was sent. After that the
+   * player and venue settle it in chat and the venue cancels + refunds.
    */
   @Post(":id/cancel")
   async cancel(
@@ -49,32 +56,7 @@ export class BookingsController {
     return this.bookings.cancel(userId, param.id, body.reason)
   }
 
-  /** Player takes back a cancellation request the venue hasn't answered. */
-  @Delete(":id/cancel-request")
-  async withdrawCancelRequest(
-    @UserId() userId: string,
-    @Param() param: BookingIdParamDto
-  ) {
-    return this.bookings.withdrawCancelRequest(userId, param.id)
-  }
-
-  /** Venue approves (with its refund % for a late request) or declines a cancellation request. */
-  @Post(":id/cancel-request/decision")
-  async decideCancelRequest(
-    @UserId() userId: string,
-    @Param() param: BookingIdParamDto,
-    @Body() body: CancelRequestDecisionDto
-  ) {
-    return this.bookings.decideCancelRequest(
-      userId,
-      param.id,
-      body.decision,
-      body.refundPct,
-      body.reason
-    )
-  }
-
-  /** Venue approve/decline of a pending app booking (decline always refunds 100%). */
+  /** Venue approves (the money arrived) or declines with a reason (refund follows). */
   @Post(":id/decision")
   async decision(
     @UserId() userId: string,
@@ -82,18 +64,6 @@ export class BookingsController {
     @Body() body: BookingDecisionDto
   ) {
     return this.bookings.decide(userId, param.id, body.decision, body.reason)
-  }
-
-  /** The player complains about a venue refusing an early cancel request. */
-  @UserThrottle({ limit: 5, ttl: 60_000 })
-  @Post(":id/complaints")
-  async complain(
-    @UserId() userId: string,
-    @Param() param: BookingIdParamDto,
-    @Body() body: RoomComplaintBodyDto
-  ) {
-    await this.bookings.fileCancelComplaint(userId, param.id, body.reason)
-    return { ok: true }
   }
 
   /** Venue no-show, gated to ≥30 minutes past the booking's start time. */

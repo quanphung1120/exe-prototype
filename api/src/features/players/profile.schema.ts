@@ -3,6 +3,7 @@ import { Schema as MongooseSchema, type HydratedDocument } from "mongoose"
 
 import type {
   AccountType,
+  BankAccount,
   ActivityItem,
   Booking,
   MatchRoom,
@@ -40,6 +41,8 @@ export class Profile {
   notifications: NotificationItem[]
   /** Self-declared account type, chosen once on the onboarding page. */
   @Prop({ type: String, default: null }) accountType: AccountType | null
+  /** Where a venue refunds this player (VietQR); reused across bookings. */
+  @Prop({ type: MongooseSchema.Types.Mixed }) refundAccount?: BankAccount
 }
 
 // The personal-data payload the profile carries (everything but `userId` and the

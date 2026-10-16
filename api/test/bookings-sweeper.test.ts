@@ -12,53 +12,45 @@ import { getConnectionToken, getModelToken } from "@nestjs/mongoose"
 
 import { BookingsService } from "../src/features/bookings/bookings.service.js"
 import { RoomComplaint } from "../src/features/rooms/room-complaint.schema.js"
-import { RoomShare } from "../src/features/rooms/room-share.schema.js"
-import { WalletService } from "../src/features/wallet/wallet.service.js"
 import { Booking } from "../src/features/bookings/booking.schema.js"
 import { BookingLock } from "../src/features/bookings/booking-lock.schema.js"
 import { NotificationsService } from "../src/features/notifications/notifications.service.js"
 import { ProfileService } from "../src/features/players/profile.service.js"
 import { ClerkDirectoryService } from "../src/features/stream/clerk-directory.service.js"
 import { Venue } from "../src/features/venues/venue.schema.js"
-import { addMinutesToIso, vnNowIso } from "../src/shared/index.js"
-import type {
-  BookingCancelRequest,
-  BookingRecordStatus,
-  PaymentStatus,
-} from "../src/shared/index.js"
+import type { BookingRecordStatus, PaymentStatus } from "../src/shared/index.js"
 
 /**
- * Phase 5 scheduler: `BookingsService.sweep` is the whole state machine
+ * `BookingsService.sweep` is the whole clock-driven state machine
  * `payments/bookings-sweeper.service.ts` (the cron trigger) calls every
- * minute — the cron wrapper itself is thin enough it doesn't need its own
- * tests beyond "it calls the service" (same convention as every other
- * `*.sweeper`-shaped trigger in this codebase). These tests exercise
- * `sweep` directly against a mocked Mongoose model — same approach as
- * `bookings-service.test.ts` — so every rule's guard, idempotency and
- * cross-surface side effect (player notification, the `expiredBookingIds`
- * the sweeper trigger cancels each SePay order for) is pinned without a
- * real DB or a real gateway.
+ * minute. These tests run it against a mocked Mongoose model — same approach
+ * as `bookings-service.test.ts` — so each rule's guard, idempotency and
+ * notification is pinned without a real DB. The one thing the sweeper must
+ * NEVER do is confirm a booking: only a person who has seen the money can.
  */
 
 interface FakeBooking {
   bookingId: string
   venueId: string
   userId?: string
-  sessionId?: string
   status: BookingRecordStatus
   paymentStatus?: PaymentStatus
+  paymentMethod?: string
   holdExpiresAt?: string
   confirmDeadlineAt?: string
+  confirmReminderAt?: string
+  proofSubmittedAt?: string
   endAt?: string
-  checkedInAt?: string
-  courtName?: string
-  start?: string
-  dateKey?: string
-  customer?: { name: string; initials: string }
-  price?: number
-  cancelReason?: string
+  startAt?: string
+  courtName: string
+  start: string
+  dateKey: string
+  customer: { name: string; initials: string }
+  price: number
+  amountDue?: number
+  declineReason?: string
+  rejectReason?: string
   refund?: unknown
-  cancelRequest?: BookingCancelRequest
   markModified?: (path: string) => void
   statusHistory: { status: BookingRecordStatus; at: string }[]
   save: () => Promise<void>
@@ -68,8 +60,18 @@ function makeBooking(overrides: Partial<FakeBooking> = {}): FakeBooking {
   return {
     bookingId: "b1",
     venueId: "v1",
-    status: "awaiting_payment",
+    userId: "user-1",
+    status: "awaiting_venue_confirmation",
+    paymentStatus: "awaiting_verification",
+    paymentMethod: "vietqr",
+    courtName: "Sân 1",
+    start: "18:00",
+    dateKey: "2026-07-21",
+    customer: { name: "Khách Test", initials: "KT" },
+    price: 200_000,
+    amountDue: 200_000,
     statusHistory: [],
+    markModified: () => {},
     save: () => Promise.resolve(),
     ...overrides,
   }
@@ -86,59 +88,44 @@ function makeQuery<T>(result: T) {
   return q
 }
 
+type Cmp = { $lte?: string; $gt?: string; $exists?: boolean }
+
 /**
  * One in-memory set of "live" booking docs (mutated in place by `setStatus`,
  * so assertions after `sweep` read straight off the input array) — `find`
- * answers `sweep`'s three targeted queries by filtering on the same fields
- * the real Mongoose query does; `findOne` (used inside `setStatus`) resolves
- * the one doc a bookingId+venueId identifies.
+ * answers `sweep`'s queries by filtering on the same fields the real Mongoose
+ * query does.
  */
 async function makeService(bookings: FakeBooking[]) {
-  const notifications: { userId: string; item: unknown }[] = []
+  const notifications: { userId: string; item: { id: string } }[] = []
+
+  const matches = (b: FakeBooking, filter: Record<string, unknown>) => {
+    const status = filter.status as
+      BookingRecordStatus | { $in: BookingRecordStatus[] } | undefined
+    if (typeof status === "object") {
+      if (!status.$in.includes(b.status)) return false
+    } else if (status !== undefined && b.status !== status) return false
+    const deadline = filter.confirmDeadlineAt as Cmp | undefined
+    if (
+      deadline?.$lte &&
+      !(b.confirmDeadlineAt && b.confirmDeadlineAt <= deadline.$lte)
+    )
+      return false
+    if (
+      deadline?.$gt &&
+      !(b.confirmDeadlineAt && b.confirmDeadlineAt > deadline.$gt)
+    )
+      return false
+    const reminder = filter.confirmReminderAt as Cmp | undefined
+    if (reminder?.$exists === false && b.confirmReminderAt) return false
+    const endAt = filter.endAt as Cmp | undefined
+    if (endAt?.$lte && !(b.endAt && b.endAt <= endAt.$lte)) return false
+    return true
+  }
 
   const bookingModelMock = {
-    find: (filter: {
-      status?: BookingRecordStatus | { $in: BookingRecordStatus[] }
-      "cancelRequest.deadlineAt"?: { $lte: string }
-      paymentStatus?: PaymentStatus
-      holdExpiresAt?: { $lte: string }
-      confirmDeadlineAt?: { $lte: string }
-      endAt?: { $lte: string }
-    }) =>
-      makeQuery(
-        bookings.filter((b) => {
-          if (typeof filter.status === "object") {
-            if (!filter.status.$in.includes(b.status)) return false
-          } else if (filter.status !== undefined && b.status !== filter.status)
-            return false
-          const deadline = filter["cancelRequest.deadlineAt"]
-          if (deadline) {
-            const r = b.cancelRequest
-            return (
-              !!r &&
-              !r.declinedAt &&
-              !r.resolvedAt &&
-              r.deadlineAt <= deadline.$lte
-            )
-          }
-          if (
-            filter.paymentStatus !== undefined &&
-            b.paymentStatus !== filter.paymentStatus
-          )
-            return false
-          if (filter.holdExpiresAt)
-            return (
-              !!b.holdExpiresAt && b.holdExpiresAt <= filter.holdExpiresAt.$lte
-            )
-          if (filter.confirmDeadlineAt)
-            return (
-              !!b.confirmDeadlineAt &&
-              b.confirmDeadlineAt <= filter.confirmDeadlineAt.$lte
-            )
-          if (filter.endAt) return !!b.endAt && b.endAt <= filter.endAt.$lte
-          return true
-        })
-      ),
+    find: (filter: Record<string, unknown>) =>
+      makeQuery(bookings.filter((b) => matches(b, filter))),
     findOne: (filter: { bookingId: string; venueId?: string }) =>
       makeQuery(
         bookings.find(
@@ -147,15 +134,23 @@ async function makeService(bookings: FakeBooking[]) {
             (filter.venueId === undefined || b.venueId === filter.venueId)
         ) ?? null
       ),
+    findOneAndUpdate: (
+      filter: Record<string, unknown> & { bookingId: string },
+      update: { $set: Record<string, unknown> }
+    ) => {
+      const doc = bookings.find(
+        (b) => b.bookingId === filter.bookingId && matches(b, filter)
+      )
+      if (doc) Object.assign(doc, update.$set)
+      return makeQuery(doc ?? null)
+    },
   }
-  const profilesMock = {}
   const notificationsMock = {
-    create: (userId: string, item: unknown) => {
+    create: (userId: string, item: { id: string }) => {
       notifications.push({ userId, item })
       return Promise.resolve()
     },
   }
-  const configMock = { get: (_key: string, fallback?: unknown) => fallback }
 
   const moduleRef = await Test.createTestingModule({
     providers: [
@@ -172,24 +167,17 @@ async function makeService(bookings: FakeBooking[]) {
           transaction: (fn: (s?: unknown) => Promise<unknown>) => fn(undefined),
         },
       },
-      { provide: ProfileService, useValue: profilesMock },
+      { provide: ProfileService, useValue: {} },
       { provide: NotificationsService, useValue: notificationsMock },
       {
         provide: ClerkDirectoryService,
         useValue: { getOne: () => Promise.resolve(null) },
       },
-      { provide: ConfigService, useValue: configMock },
       {
-        provide: getModelToken(RoomShare.name),
-        useValue: { find: () => Promise.resolve([]) },
+        provide: ConfigService,
+        useValue: { get: (_key: string, fallback?: unknown) => fallback },
       },
       { provide: getModelToken(RoomComplaint.name), useValue: {} },
-      {
-        provide: WalletService,
-        useValue: {
-          credit: () => Promise.resolve({ balance: 0, applied: true }),
-        },
-      },
       {
         provide: getModelToken(PlaySession.name),
         useValue: { updateOne: () => Promise.resolve({ modifiedCount: 0 }) },
@@ -201,302 +189,120 @@ async function makeService(bookings: FakeBooking[]) {
   return { service: moduleRef.get(BookingsService), notifications }
 }
 
-// ── Rule 1: awaiting_payment → expired ──────────────────────────────────────
+// ── completing ──────────────────────────────────────────────────────────────
 
-void test("sweep expires an unpaid hold past holdExpiresAt and returns its bookingId to cancel", async () => {
+void test("sweep completes a confirmed booking once it has ended, and not before", async () => {
   const booking = makeBooking({
-    status: "awaiting_payment",
-    holdExpiresAt: "2026-07-20T10:00:00+07:00",
+    status: "confirmed",
+    paymentStatus: "paid",
+    endAt: "2026-07-21T19:00:00+07:00",
   })
   const { service } = await makeService([booking])
 
-  const result = await service.sweep("2026-07-20T10:00:01+07:00")
+  const early = await service.sweep("2026-07-21T18:59:59+07:00")
+  assert.equal(early.completed, 0)
+  assert.equal(booking.status, "confirmed")
 
-  assert.deepEqual(result, {
-    expired: 1,
-    autoConfirmed: 0,
-    completed: 0,
-    cancelsAutoApproved: 0,
-    expiredBookingIds: ["b1"],
-  })
-  assert.equal(booking.status, "expired")
+  const done = await service.sweep("2026-07-21T19:00:01+07:00")
+  assert.equal(done.completed, 1)
+  assert.equal(booking.status, "completed")
 })
 
-void test("sweep leaves an unpaid hold alone before it expires", async () => {
+// ── unanswered transfers ────────────────────────────────────────────────────
+
+void test("sweep rejects a transfer the venue never answered and queues the refund", async () => {
   const booking = makeBooking({
-    status: "awaiting_payment",
-    holdExpiresAt: "2026-07-20T10:00:00+07:00",
+    confirmDeadlineAt: "2026-07-20T10:00:00+07:00",
+  })
+  const { service, notifications } = await makeService([booking])
+
+  const result = await service.sweep("2026-07-20T10:00:01+07:00")
+
+  assert.equal(result.overdueRejected, 1)
+  assert.equal(booking.status, "rejected_refund_pending")
+  assert.match(booking.rejectReason ?? "", /không phản hồi/)
+  const refund = booking.refund as {
+    pct: number
+    amount: number
+    status: string
+  }
+  assert.equal(refund.pct, 100)
+  assert.equal(refund.amount, 200_000)
+  assert.equal(refund.status, "manual")
+  // Both sides hear about it: the player (to chase) and the venue (to refund).
+  assert.deepEqual(notifications.map((n) => n.userId).sort(), [
+    "owner-1",
+    "user-1",
+  ])
+})
+
+void test("sweep leaves a transfer alone until its deadline, and never confirms it", async () => {
+  const booking = makeBooking({
+    confirmDeadlineAt: "2026-07-20T10:00:00+07:00",
   })
   const { service } = await makeService([booking])
 
   const result = await service.sweep("2026-07-20T09:59:59+07:00")
 
-  assert.equal(result.expired, 0)
-  assert.equal(booking.status, "awaiting_payment")
+  assert.equal(result.overdueRejected, 0)
+  assert.equal(booking.status, "awaiting_venue_confirmation")
 })
 
-// ── Rule 2: pending + paid → confirmed (silence = consent) ─────────────────
-
-void test("sweep auto-confirms a paid pending booking past the confirm SLA and notifies the player", async () => {
+void test("sweep is idempotent: a rejected transfer is not rejected again", async () => {
   const booking = makeBooking({
-    status: "pending",
-    paymentStatus: "paid",
     confirmDeadlineAt: "2026-07-20T10:00:00+07:00",
-    userId: "u1",
   })
   const { service, notifications } = await makeService([booking])
 
-  const result = await service.sweep("2026-07-20T10:00:00+07:00")
+  await service.sweep("2026-07-20T10:05:00+07:00")
+  const again = await service.sweep("2026-07-20T10:06:00+07:00")
 
-  assert.deepEqual(result, {
-    expired: 0,
-    autoConfirmed: 1,
-    completed: 0,
-    cancelsAutoApproved: 0,
-    expiredBookingIds: [],
-  })
-  assert.equal(booking.status, "confirmed")
-  assert.equal(notifications.length, 1)
-  const item = notifications[0]?.item as { id: string; text: string }
-  assert.match(item.id, /^booking-auto-confirmed-/)
-  assert.match(item.text, /tự động xác nhận/)
+  assert.equal(again.overdueRejected, 0)
+  assert.equal(notifications.length, 2)
 })
 
-void test("sweep does not auto-confirm a pending booking that isn't marked paid", async () => {
-  const booking = makeBooking({
-    status: "pending",
-    paymentStatus: "awaiting",
-    confirmDeadlineAt: "2026-07-20T09:00:00+07:00",
-  })
-  const { service } = await makeService([booking])
-
-  const result = await service.sweep("2026-07-20T10:00:00+07:00")
-
-  assert.equal(result.autoConfirmed, 0)
-  assert.equal(booking.status, "pending")
-})
-
-void test("sweep does not auto-confirm before the SLA deadline", async () => {
-  const booking = makeBooking({
+void test("silence never confirms: legacy pending bookings and unpaid ones stay as they are", async () => {
+  const legacy = makeBooking({
+    bookingId: "legacy",
     status: "pending",
     paymentStatus: "paid",
-    confirmDeadlineAt: "2026-07-20T10:30:00+07:00",
-  })
-  const { service } = await makeService([booking])
-
-  const result = await service.sweep("2026-07-20T10:00:00+07:00")
-
-  assert.equal(result.autoConfirmed, 0)
-  assert.equal(booking.status, "pending")
-})
-
-void test("sweep skips the auto-confirm notification for a walk-in with no linked user", async () => {
-  const booking = makeBooking({
-    status: "pending",
-    paymentStatus: "paid",
+    paymentMethod: "sepay",
     confirmDeadlineAt: "2026-07-20T10:00:00+07:00",
-    userId: undefined,
   })
-  const { service, notifications } = await makeService([booking])
-
-  const result = await service.sweep("2026-07-20T10:00:00+07:00")
-
-  assert.equal(result.autoConfirmed, 1)
-  assert.equal(notifications.length, 0)
-})
-
-// ── Rule 3: confirmed (or legacy checked-in) → completed ──────────────────────────────────────────
-
-void test("sweep completes a checked-in booking past its endAt", async () => {
-  const booking = makeBooking({
-    status: "checked-in",
-    endAt: "2026-07-20T19:00:00+07:00",
-  })
-  const { service } = await makeService([booking])
-
-  const result = await service.sweep("2026-07-20T19:00:01+07:00")
-
-  assert.deepEqual(result, {
-    expired: 0,
-    autoConfirmed: 0,
-    completed: 1,
-    cancelsAutoApproved: 0,
-    expiredBookingIds: [],
-  })
-  assert.equal(booking.status, "completed")
-})
-
-void test("sweep completes a confirmed booking past its endAt (venues don't check players in)", async () => {
-  const booking = makeBooking({
-    status: "confirmed",
-    endAt: "2026-07-20T19:00:00+07:00",
-  })
-  const { service } = await makeService([booking])
-
-  const result = await service.sweep("2026-07-20T19:00:01+07:00")
-
-  assert.deepEqual(result, {
-    expired: 0,
-    autoConfirmed: 0,
-    completed: 1,
-    cancelsAutoApproved: 0,
-    expiredBookingIds: [],
-  })
-  assert.equal(booking.status, "completed")
-})
-
-void test("sweep leaves a confirmed booking alone until it ends, and never marks no-show", async () => {
-  const booking = makeBooking({
-    status: "confirmed",
-    endAt: "2026-07-20T19:00:00+07:00",
-  })
-  const { service } = await makeService([booking])
-
-  const result = await service.sweep("2026-07-20T18:59:59+07:00")
-
-  assert.equal(result.completed, 0)
-  assert.equal(booking.status, "confirmed")
-})
-
-// ── Cancellation requests the venue didn't answer ───────────────────────────
-
-function bookingWithRequest(request: Partial<BookingCancelRequest>) {
-  return makeBooking({
-    status: "confirmed",
-    paymentStatus: "paid",
-    userId: "player-1",
-    price: 200_000,
-    courtName: "Sân 2",
-    start: "18:00",
-    dateKey: "2026-07-21",
-    customer: { name: "Lan", initials: "LA" },
-    markModified: () => {},
-    cancelRequest: {
-      requestedAt: "2026-07-20T08:00:00+07:00",
-      window: "late",
-      deadlineAt: "2026-07-20T10:00:00+07:00",
-      defaultPct: 50,
-      ...request,
-    },
-  })
-}
-
-void test("sweep auto-approves a late cancellation request past its deadline at 50% and tells both sides", async () => {
-  const booking = bookingWithRequest({})
-  const { service, notifications } = await makeService([booking])
-
-  const result = await service.sweep("2026-07-20T10:01:00+07:00")
-
-  assert.equal(result.cancelsAutoApproved, 1)
-  assert.equal(booking.status, "cancelled")
-  assert.equal(booking.cancelRequest?.refundPct, 50)
-  assert.equal(booking.cancelRequest?.auto, true)
-  assert.deepEqual(
-    booking.refund && (booking.refund as { pct: number }).pct,
-    50
-  )
-  assert.deepEqual(notifications.map((n) => n.userId).sort(), [
-    "owner-1",
-    "player-1",
-  ])
-})
-
-void test("sweep auto-approves an early request at 100%", async () => {
-  const booking = bookingWithRequest({ window: "early", defaultPct: 100 })
-  const { service } = await makeService([booking])
-
-  await service.sweep("2026-07-20T10:01:00+07:00")
-
-  assert.equal(booking.status, "cancelled")
-  assert.equal(booking.cancelRequest?.refundPct, 100)
-})
-
-void test("sweep leaves a request alone before its deadline, and a declined one forever", async () => {
-  const open = bookingWithRequest({})
-  const declined = bookingWithRequest({
-    deadlineAt: "2026-07-20T09:00:00+07:00",
-    declinedAt: "2026-07-20T08:30:00+07:00",
-  })
-  declined.bookingId = "b2"
-  const { service } = await makeService([open, declined])
-
-  const result = await service.sweep("2026-07-20T09:59:00+07:00")
-
-  assert.equal(result.cancelsAutoApproved, 0)
-  assert.equal(open.status, "confirmed")
-  assert.equal(declined.status, "confirmed")
-})
-
-// ── Idempotency ──────────────────────────────────────────────────────────────
-
-void test("sweep is idempotent — re-running over already-transitioned rows is a no-op", async () => {
-  const booking = makeBooking({
+  const unpaid = makeBooking({
+    bookingId: "unpaid",
     status: "awaiting_payment",
+    paymentStatus: "awaiting",
     holdExpiresAt: "2026-07-20T10:00:00+07:00",
   })
-  const { service } = await makeService([booking])
-  const now = "2026-07-20T10:05:00+07:00"
+  const { service } = await makeService([legacy, unpaid])
 
-  const first = await service.sweep(now)
-  const second = await service.sweep(now)
+  const result = await service.sweep("2026-07-25T10:00:00+07:00")
 
-  assert.equal(first.expired, 1)
-  assert.equal(second.expired, 0)
-  assert.equal(booking.status, "expired")
+  assert.deepEqual(result, { completed: 0, overdueRejected: 0, reminded: 0 })
+  assert.equal(legacy.status, "pending")
+  assert.equal(unpaid.status, "awaiting_payment")
 })
 
-void test("sweep mixes independent rules across bookings in one pass", async () => {
-  const expiring = makeBooking({
-    bookingId: "b1",
-    status: "awaiting_payment",
-    holdExpiresAt: "2026-07-20T09:00:00+07:00",
-  })
-  const confirming = makeBooking({
-    bookingId: "b2",
-    status: "pending",
-    paymentStatus: "paid",
-    confirmDeadlineAt: "2026-07-20T09:00:00+07:00",
-  })
-  const completing = makeBooking({
-    bookingId: "b3",
-    status: "checked-in",
-    endAt: "2026-07-20T09:00:00+07:00",
-  })
-  const untouched = makeBooking({ bookingId: "b4", status: "confirmed" })
-  const { service } = await makeService([
-    expiring,
-    confirming,
-    completing,
-    untouched,
-  ])
+// ── reminders ───────────────────────────────────────────────────────────────
 
-  const result = await service.sweep("2026-07-20T10:00:00+07:00")
-
-  assert.equal(result.expired, 1)
-  assert.equal(result.autoConfirmed, 1)
-  assert.equal(result.completed, 1)
-  assert.equal(expiring.status, "expired")
-  assert.equal(confirming.status, "confirmed")
-  assert.equal(completing.status, "completed")
-  assert.equal(untouched.status, "confirmed")
-})
-
-// ── Config: BOOKING_CONFIRM_SLA_MINUTES (createHold → sweep, end to end) ────
-
-void test("sweep respects a confirmDeadlineAt derived from a configured confirm SLA", async () => {
-  // confirmPayment (bookings-service.test.ts) is what actually stamps
-  // confirmDeadlineAt from BOOKING_CONFIRM_SLA_MINUTES; this pins that
-  // whatever deadline lands on the doc, sweep only ever compares it to `now`.
+void test("sweep reminds the venue once, halfway through its answer window", async () => {
   const booking = makeBooking({
-    status: "pending",
-    paymentStatus: "paid",
-    confirmDeadlineAt: addMinutesToIso(vnNowIso(), 1),
+    proofSubmittedAt: "2026-07-20T08:00:00+07:00",
+    confirmDeadlineAt: "2026-07-20T20:00:00+07:00",
   })
-  const { service } = await makeService([booking])
+  const { service, notifications } = await makeService([booking])
 
-  const notYet = await service.sweep(vnNowIso())
-  assert.equal(notYet.autoConfirmed, 0)
+  const early = await service.sweep("2026-07-20T13:59:00+07:00")
+  assert.equal(early.reminded, 0)
 
-  const after = await service.sweep(addMinutesToIso(vnNowIso(), 2))
-  assert.equal(after.autoConfirmed, 1)
+  const halfway = await service.sweep("2026-07-20T14:00:00+07:00")
+  assert.equal(halfway.reminded, 1)
+  assert.equal(notifications.length, 1)
+  assert.equal(notifications[0]?.userId, "owner-1")
+  assert.ok(booking.confirmReminderAt)
+
+  const later = await service.sweep("2026-07-20T15:00:00+07:00")
+  assert.equal(later.reminded, 0)
+  assert.equal(notifications.length, 1)
 })

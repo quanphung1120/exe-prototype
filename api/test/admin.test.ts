@@ -318,6 +318,7 @@ async function makeBookingsService(venueDoc: ReturnType<typeof makeVenueDoc>) {
   const bookingModelMock = {
     findOne: () => makeQuery(null),
     find: () => makeQuery([]),
+    countDocuments: () => Promise.resolve(0),
     create: (records: unknown[]) =>
       Promise.resolve(
         records.map((r) => ({

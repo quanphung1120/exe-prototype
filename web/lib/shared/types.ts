@@ -953,6 +953,13 @@ export interface BookingRecord {
   confirmDeadlineAt?: string
   /** How the money moved; absent on bookings made before the VietQR flow. */
   paymentMethod?: PaymentMethod
+  /** What the player owes the venue: `price` minus any discount code. */
+  amountDue?: number
+  /** The discount code applied when the player started paying. */
+  discountCode?: string
+  discountAmount?: number
+  /** `price` before the discount. */
+  originalAmount?: number
   /** Unique transfer memo ("SHT" + 6 chars) the player puts in the bank transfer. */
   transferMemo?: string
   /** The venue's account at the time the player started paying. */
@@ -997,6 +1004,12 @@ export interface RefundQueueItem {
   day: Localized
   time: string
   refund: BookingRefund
+  /** The player's account the refund goes to (VietQR bookings). */
+  refundAccount?: BankAccount
+  /** The booking's transfer memo, echoed in the refund's memo. */
+  transferMemo?: string
+  /** A VietQR image that pre-fills the refund transfer. */
+  qrUrl?: string
 }
 
 // ── Venue: customers (CRM) ───────────────────────────────────────────────────
@@ -1331,7 +1344,11 @@ export type RoomLeaveStatus = "pending" | "rejected"
 export type ComplaintStatus = "open" | "refunded" | "dismissed"
 
 /** What a complaint is about. */
-export type ComplaintKind = "room_leave" | "cancel_decline"
+export type ComplaintKind =
+  | "room_leave"
+  | "cancel_decline"
+  // The venue marked a refund done, but the player says the money never arrived.
+  | "refund_not_received"
 
 /** `DELETE /api/rooms/:id/members/me` — left at once, or waiting on the host. */
 export interface LeaveRoomResult {
