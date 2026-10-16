@@ -10,6 +10,7 @@ import {
   conflictFor as conflictForFn,
   courtByVenue as courtByVenueFn,
   courtDayBusy as courtDayBusyFn,
+  courtDayPending as courtDayPendingFn,
   courtDayGaps as courtDayGapsFn,
   courtNumberFor as courtNumberForFn,
   courtSlots as courtSlotsFn,
@@ -100,6 +101,12 @@ interface DataContextValue {
     dayKey: string,
     ignoreId?: string
   ) => CourtBand[]
+  courtDayPending: (
+    sessions: PlaySession[],
+    courtId: string,
+    dayKey: string,
+    ignoreId?: string
+  ) => CourtBand[]
   courtDayGaps: (
     sessions: PlaySession[],
     courtId: string,
@@ -174,6 +181,8 @@ export function DataProvider({
         conflictForFn(courts, seed.user, sessions, q),
       courtDayBusy: (sessions, courtId, dayKey, ignoreId) =>
         courtDayBusyFn(courts, sessions, courtId, dayKey, ignoreId),
+      courtDayPending: (sessions, courtId, dayKey, ignoreId) =>
+        courtDayPendingFn(sessions, courtId, dayKey, ignoreId),
       courtDayGaps: (sessions, courtId, dayKey, ignoreId) =>
         courtDayGapsFn(courts, sessions, courtId, dayKey, ignoreId),
       sessionToBooking: (s) => sessionToBookingFn(courts, s),

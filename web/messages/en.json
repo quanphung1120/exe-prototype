@@ -500,6 +500,7 @@
       "free": "Available",
       "mine": "Your selection",
       "busy": "Booked",
+      "pending": "Yours, awaiting venue approval",
       "cell": "{court}, {time}",
       "confirm": "Confirm",
       "none": "--:--",

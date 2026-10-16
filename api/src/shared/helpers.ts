@@ -533,6 +533,38 @@ export interface CourtBand {
   durationMin: number
 }
 
+/** A booked session whose slot the venue has not approved yet (unpaid or proof sent). */
+function isAwaitingVenue(s: PlaySession): boolean {
+  return (
+    s.bookingStatus === "awaiting_payment" ||
+    s.bookingStatus === "awaiting_venue_confirmation" ||
+    s.bookingStatus === "pending"
+  )
+}
+
+/**
+ * The player's own bookings on a court/day still waiting for the venue. They
+ * are shown to the player only and never count as taken for the court.
+ */
+export function courtDayPending(
+  sessions: PlaySession[],
+  courtId: string,
+  dayKey: string,
+  ignoreId?: string,
+  now: number = Date.now()
+): CourtBand[] {
+  if (dayKey < vnDateOf(now)) return []
+  return courtHolds(sessions, ignoreId, now)
+    .filter(
+      (s) =>
+        isAwaitingVenue(s) &&
+        s.courtId === courtId &&
+        s.dayKey === dayKey &&
+        s.slot
+    )
+    .map((s) => ({ start: s.slot!, durationMin: s.durationMin }))
+}
+
 /**
  * Merged, sorted busy intervals on a court for a day: the house's already-taken
  * hours (from {@link courtSlots}) plus any confirmed court holds on that
@@ -557,6 +589,7 @@ export function courtDayBusy(
     }
   }
   for (const s of courtHolds(sessions, ignoreId, now)) {
+    if (isAwaitingVenue(s)) continue
     if (s.courtId === courtId && s.dayKey === dayKey && s.slot) {
       const start = toMinutes(s.slot)
       raw.push({ start, end: start + s.durationMin })

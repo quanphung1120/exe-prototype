@@ -500,6 +500,7 @@
       "free": "Sân trống",
       "mine": "Sân bạn chọn",
       "busy": "Sân đã có lịch",
+      "pending": "Bạn đã đặt, chờ chủ sân duyệt",
       "cell": "{court}, {time}",
       "confirm": "Xác nhận",
       "none": "--:--",

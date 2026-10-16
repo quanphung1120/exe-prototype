@@ -713,11 +713,12 @@ function venueKeyOf(court: Court): string {
     : court.name
 }
 
-type CellState = "free" | "mine" | "busy" | "closed"
+type CellState = "free" | "mine" | "pending" | "busy" | "closed"
 
 const CELL_CLASS: Record<CellState, string> = {
   free: "border-brand bg-white hover:bg-brand/10 cursor-pointer",
   mine: "border-brand bg-brand cursor-pointer",
+  pending: "border-brand bg-lime/60 cursor-not-allowed",
   busy: "border-brand bg-[#ff6fcf] cursor-not-allowed",
   closed: "border-[#d5dbe8] bg-[#f1f3f5] cursor-not-allowed",
 }
@@ -746,7 +747,8 @@ function CourtSlotGrid({
   onPick: (courtId: string, start: string, durationMin: number) => void
 }) {
   const t = useTranslations("Booking")
-  const { courtDayBusy, courtDayGaps, todayIso, bookingDays } = useData()
+  const { courtDayBusy, courtDayGaps, courtDayPending, todayIso, bookingDays } =
+    useData()
   const { sessions, roomId } = useBooking()
 
   const current = courts.find((c) => c.id === courtId)
@@ -780,6 +782,7 @@ function CourtSlotGrid({
       c.id,
       {
         busy: courtDayBusy(sessions, c.id, dayKey, ignore),
+        pending: courtDayPending(sessions, c.id, dayKey, ignore),
         gaps: courtDayGaps(sessions, c.id, dayKey, ignore),
       },
     ])
@@ -806,6 +809,10 @@ function CourtSlotGrid({
       h + 60 > selStart
     )
       return "mine"
+    const awaiting = (bands.get(cid)?.pending ?? []).some(
+      (b) => toMin(b.start) < h + 60 && toMin(b.start) + b.durationMin > h
+    )
+    if (awaiting) return "pending"
     if (isFree(cid, h)) return "free"
     const busy = (bands.get(cid)?.busy ?? []).some(
       (b) => toMin(b.start) < h + 60 && toMin(b.start) + b.durationMin > h
@@ -815,6 +822,7 @@ function CourtSlotGrid({
 
   const tap = (cid: string, h: number) => {
     const at = (m: number) => addMinutes("00:00", m)
+    if (stateOf(cid, h) === "pending") return
     if (cid === courtId && selStart != null && selEnd != null) {
       // Extend forward / backward across a fully free run.
       if (h >= selEnd && allFree(cid, selEnd, h + 60))
@@ -837,7 +845,7 @@ function CourtSlotGrid({
 
   const legend = (
     <div className="flex items-start gap-4 text-[10px] font-semibold text-[#0b1224] sm:gap-6">
-      {(["free", "mine", "busy"] as const).map((k) => (
+      {(["free", "mine", "pending", "busy"] as const).map((k) => (
         <span key={k} className="flex flex-col items-center gap-1.5">
           <span className={cn("h-5 w-9 rounded-sm border-2", CELL_CLASS[k])} />
           {t(`grid.${k}`)}
