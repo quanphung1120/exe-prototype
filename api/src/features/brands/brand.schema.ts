@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose"
 import { Schema as MongooseSchema, type HydratedDocument } from "mongoose"
 
 import type {
+  BankAccount,
   Brand as BrandInfo,
   VenueApprovalStatus,
 } from "../../shared/index.js"
@@ -27,6 +28,9 @@ export class Brand {
   // `effectiveBrandApproval`) rather than backfilled.
   @Prop({ type: String, index: true }) approval?: VenueApprovalStatus
   @Prop({ type: String }) approvalReason?: string
+  // Where the players' VietQR transfers go (see PayoutService). Kept off `info`
+  // so it never rides along in the brand lists the web renders.
+  @Prop({ type: MongooseSchema.Types.Mixed }) payout?: BankAccount
   @Prop({ type: String }) approvedAt?: string
 }
 

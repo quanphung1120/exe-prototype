@@ -30,6 +30,8 @@ import {
   type CourtState,
 } from "@/features/venue/data"
 import { VenuePanel } from "@/features/venue/shared"
+import { PayoutEditor } from "@/features/venue/payout-fields"
+import type { PayoutDraft } from "@/lib/bank-account"
 import { useVenueData } from "@/features/venue/venue-data-provider"
 import { venueBase } from "@/features/venue/nav"
 import { archiveVenue, restoreVenue } from "@/features/venue/venue-actions"
@@ -59,7 +61,13 @@ const COURT_STATES: CourtState[] = [
  * every branch's court count/status at once, since every other screen is
  * scoped to one branch via the `[venueId]` URL segment.
  */
-export function VenueManageView({ branches }: { branches: BranchSummary[] }) {
+export function VenueManageView({
+  branches,
+  payout,
+}: {
+  branches: BranchSummary[]
+  payout: PayoutDraft | null
+}) {
   const t = useTranslations("VenueManage")
   const router = useRouter()
   const { venueId, venue: VENUE } = useVenueData()
@@ -119,6 +127,10 @@ export function VenueManageView({ branches }: { branches: BranchSummary[] }) {
           {t("manageSubtitle")}
         </p>
       </div>
+
+      <VenuePanel title={t("payout.title")}>
+        <PayoutEditor initial={payout} />
+      </VenuePanel>
 
       <VenuePanel title={t("overview.title")}>
         <p className="mb-3 text-sm text-muted-foreground">

@@ -1300,6 +1300,21 @@
       "caption": "Thêm, sửa và chuyển đổi địa điểm"
     }
   },
+  "VenuePayout": {
+    "bank": "Ngân hàng",
+    "bankPlaceholder": "Chọn ngân hàng",
+    "banksError": "Chưa tải được danh sách ngân hàng — vui lòng tải lại trang.",
+    "accountNo": "Số tài khoản",
+    "accountNoPlaceholder": "VD: 0123456789",
+    "accountNoInvalid": "Số tài khoản gồm 6–20 chữ số.",
+    "accountName": "Tên chủ tài khoản",
+    "accountNamePlaceholder": "VD: NGUYEN VAN A",
+    "accountNameHint": "Đúng như tên hiển thị trong app ngân hàng, không dấu. Hệ thống tự viết hoa.",
+    "accountNameInvalid": "Tên chỉ gồm chữ cái và khoảng trắng (2–60 ký tự).",
+    "notice": "Sân chưa khai báo tài khoản nhận tiền sẽ chưa nhận được đặt sân trực tuyến. Người chơi chuyển khoản thẳng cho Quý khách, và chính Quý khách đối chiếu rồi duyệt hoặc hoàn tiền.",
+    "save": "Lưu tài khoản",
+    "saved": "Đã lưu tài khoản nhận tiền"
+  },
   "VenueSetup": {
     "metaTitle": "Thiết lập sân · Shuttio",
     "metaDescription": "Tạo các chi nhánh của địa điểm để bắt đầu nhận đặt sân từ người chơi.",
@@ -1311,6 +1326,8 @@
       "review": "Xác nhận"
     },
     "form": {
+      "payoutTitle": "Tài khoản nhận tiền đặt sân",
+      "payoutHint": "Người chơi sẽ chuyển khoản trực tiếp vào tài khoản này qua mã QR. Shuttio không giữ tiền của Quý khách.",
       "brandName": "Tên thương hiệu",
       "brandNamePlaceholder": "VD: Hệ thống sân Cầu Lông ABC",
       "name": "Tên chi nhánh",
@@ -1363,6 +1380,9 @@
     }
   },
   "VenueManage": {
+    "payout": {
+      "title": "Tài khoản nhận tiền"
+    },
     "metaTitle": "Địa điểm · Shuttio",
     "metaDescription": "Quản lý các địa điểm bạn vận hành — thêm, sửa, xóa địa điểm và sân, và chọn địa điểm đang hiển thị trên bảng điều khiển.",
     "title": "Địa điểm",

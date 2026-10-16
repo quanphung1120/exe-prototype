@@ -807,6 +807,16 @@ export type PaymentStatus =
 /** How a booking's money moved: SePay (legacy), a direct VietQR transfer, or cash at the venue. */
 export type PaymentMethod = "sepay" | "vietqr" | "walk-in"
 
+/** One bank a VietQR transfer can target (from VietQR's public bank list). */
+export interface BankInfo {
+  /** NAPAS bank identification number (6 digits). */
+  bin: string
+  code: string
+  shortName: string
+  name: string
+  logo: string
+}
+
 /** A bank account that can receive a VietQR transfer. */
 export interface BankAccount {
   /** NAPAS bank identification number (6 digits), e.g. "970422". */

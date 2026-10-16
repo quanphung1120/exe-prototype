@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 
-import { fetchBranchesSummary } from "@/lib/api"
+import { fetchBranchesSummary, fetchPayout } from "@/lib/api"
 import { VenueManageView } from "@/features/venue/manage"
 
 export async function generateMetadata({
@@ -24,6 +24,22 @@ export default async function VenueManagePage({
 }) {
   const { locale } = await params
   setRequestLocale(locale)
-  const branches = await fetchBranchesSummary()
-  return <VenueManageView branches={branches} />
+  const [branches, payout] = await Promise.all([
+    fetchBranchesSummary(),
+    fetchPayout(),
+  ])
+  return (
+    <VenueManageView
+      branches={branches}
+      payout={
+        payout
+          ? {
+              bankBin: payout.bankBin,
+              accountNo: payout.accountNo,
+              accountName: payout.accountName,
+            }
+          : null
+      }
+    />
+  )
 }

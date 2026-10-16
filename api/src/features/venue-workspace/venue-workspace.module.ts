@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common"
 
+import { BrandsModule } from "../brands/brands.module.js"
 import { VenuesModule } from "../venues/venues.module.js"
 import { VenueWorkspaceController } from "./venue-workspace.controller.js"
 
@@ -7,7 +8,7 @@ import { VenueWorkspaceController } from "./venue-workspace.controller.js"
 // (which owns the CRUD routes + Venue schema). Both depend on the same
 // VenuesService, imported here rather than duplicated.
 @Module({
-  imports: [VenuesModule],
+  imports: [VenuesModule, BrandsModule],
   controllers: [VenueWorkspaceController],
 })
 export class VenueWorkspaceModule {}

@@ -1300,6 +1300,21 @@
       "caption": "Add, edit and switch your venues"
     }
   },
+  "VenuePayout": {
+    "bank": "Bank",
+    "bankPlaceholder": "Choose a bank",
+    "banksError": "Couldn't load the bank list — please reload the page.",
+    "accountNo": "Account number",
+    "accountNoPlaceholder": "e.g. 0123456789",
+    "accountNoInvalid": "An account number has 6–20 digits.",
+    "accountName": "Account holder",
+    "accountNamePlaceholder": "e.g. NGUYEN VAN A",
+    "accountNameHint": "Exactly as your banking app shows it, without accents. Upper-cased automatically.",
+    "accountNameInvalid": "Letters and spaces only (2–60 characters).",
+    "notice": "A venue without a payout account can't take online bookings yet. Players pay you directly; you check the transfer, then approve or refund.",
+    "save": "Save account",
+    "saved": "Payout account saved"
+  },
   "VenueSetup": {
     "metaTitle": "Set up your venue · Shuttio",
     "metaDescription": "Create your venue's branches to start taking bookings from players.",
@@ -1311,6 +1326,8 @@
       "review": "Review"
     },
     "form": {
+      "payoutTitle": "Account for booking payments",
+      "payoutHint": "Players transfer straight into this account via a QR code. Shuttio never holds your money.",
       "brandName": "Brand name",
       "brandNamePlaceholder": "e.g. ABC Badminton System",
       "name": "Branch name",
@@ -1363,6 +1380,9 @@
     }
   },
   "VenueManage": {
+    "payout": {
+      "title": "Payout account"
+    },
     "metaTitle": "Venues · Shuttio",
     "metaDescription": "Manage the venues you operate — add, edit and remove venues and their courts, and switch which one the dashboard is scoped to.",
     "title": "Venues",

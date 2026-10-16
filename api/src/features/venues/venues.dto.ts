@@ -22,6 +22,7 @@ import {
 
 import { COURT_BLOCK_REASONS, normalizeVnPhone } from "../../shared/index.js"
 import type { CourtBlockReason, SportKey } from "../../shared/index.js"
+import { PayoutDto } from "../brands/payout.dto.js"
 import { MAX_VENUE_PHOTOS } from "./venue-photos.service.js"
 
 /** A venue's full photo gallery, in display order (first = cover). */
@@ -210,6 +211,14 @@ export class VenueSetupDto {
     message: "Số điện thoại liên hệ không hợp lệ",
   })
   contactPhone?: string
+
+  /** The account players pay into. Optional here (a brand without one just
+   *  cannot take online bookings yet) but the wizard always sends it on
+   *  first-time setup. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PayoutDto)
+  payout?: PayoutDto
 
   @IsArray()
   @ArrayMinSize(1)
