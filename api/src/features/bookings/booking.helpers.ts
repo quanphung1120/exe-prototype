@@ -104,6 +104,12 @@ const NON_BLOCKING_STATUSES = new Set<BookingRecordStatus>([
   "cancelled",
   "no-show",
   "expired",
+  // VietQR flow: an unpaid or unverified booking never holds the slot — several
+  // players can be waiting on it and the venue confirms exactly one.
+  "awaiting_payment",
+  "awaiting_venue_confirmation",
+  "rejected_refund_pending",
+  "refunded",
 ])
 
 /** The minimal shape the overlap check reads off a booking. */
@@ -148,6 +154,7 @@ export function bookingsOverlap(
  * whose old completed/expired booking has since wrapped up.
  */
 const LIVE_BOOKING_STATUSES = new Set<BookingRecordStatus>([
+  "awaiting_venue_confirmation",
   "pending",
   "confirmed",
   "checked-in",
@@ -358,6 +365,13 @@ function reservationStatusFromBooking(
   switch (status) {
     case "awaiting_payment":
       return "held"
+    // The venue sees a checked-for-payment booking as one to approve/decline,
+    // exactly like a legacy paid `pending` one.
+    case "awaiting_venue_confirmation":
+      return "pending"
+    case "rejected_refund_pending":
+    case "refunded":
+      return "cancelled"
     case "expired":
       return "cancelled"
     case "pending":

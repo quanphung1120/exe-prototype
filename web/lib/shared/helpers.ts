@@ -1045,12 +1045,28 @@ export const BOOKING_TRANSITIONS: Record<
 > = {
   // "pending" here means paid, awaiting venue approval; a sweeper auto-confirm
   // (silence = consent) also lands on "confirmed" through this same edge.
-  awaiting_payment: ["pending", "expired", "cancelled"],
+  // VietQR flow: no hold, so nothing here expires on a clock. The player can
+  // cancel until they send proof; after that only the venue moves it.
+  awaiting_payment: [
+    "awaiting_venue_confirmation",
+    "pending",
+    "expired",
+    "cancelled",
+  ],
+  awaiting_venue_confirmation: [
+    "confirmed",
+    "rejected_refund_pending",
+    "cancelled",
+  ],
+  // The venue owes a manual refund; once the screenshot is up it is refunded.
+  rejected_refund_pending: ["refunded"],
+  refunded: [],
   pending: ["confirmed", "cancelled"],
   // Venues no longer check players in (they paid up front), so a confirmed
   // booking goes straight to completed once it ends. "checked-in" stays only
   // for bookings checked in before that was removed.
-  confirmed: ["completed", "cancelled", "no-show"],
+  // A confirmed booking the venue cancels owes the player a refund.
+  confirmed: ["completed", "cancelled", "no-show", "rejected_refund_pending"],
   "checked-in": ["completed", "cancelled"],
   completed: [],
   expired: [],

@@ -39,6 +39,7 @@ function mapBookingStatus(status: BookingRecordStatus): {
 } {
   switch (status) {
     case "awaiting_payment":
+    case "awaiting_venue_confirmation":
     case "pending":
       return { status: "booked", hold: "pending" }
     case "confirmed":
@@ -51,6 +52,8 @@ function mapBookingStatus(status: BookingRecordStatus): {
     case "cancelled":
     case "no-show":
     case "expired":
+    case "rejected_refund_pending":
+    case "refunded":
       return { status: "cancelled" }
   }
 }
