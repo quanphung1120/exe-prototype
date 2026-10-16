@@ -1,18 +1,15 @@
 # Release Checklist
 
 This is the pre-release checklist for SportMatch AI. It covers environment
-setup, the SePay payment-gateway sandbox flow, reseeding the database, the
+setup, the VietQR payment flow, reseeding the database, the
 full build/lint/typecheck/test matrix, and Clerk test-mode E2E notes.
 Cross-reference `FIX_REVIEW_VIENTD.md` for the underlying business decisions
 and phase roadmap this checklist assumes.
 
-> **Status note (2026-07-20, updated after Phase 6 merge):** `SEPAY_*` env
-> vars and the `payments` feature described in section 2 are **implemented**
-> — roadmap **Phase 4** (`FIX_REVIEW_VIENTD.md`) landed (real checkout +
-> signed IPN, no more decorative QR/5% deposit/client-side timer). Sandbox
-> merchant credentials already live in `api/.env` for local dev/testing; the
-> IPN tunnel procedure in section 2 is the real, current setup path for
-> exercising it end-to-end, not a future plan.
+> **Status note (2026-10):** payments are **VietQR bank transfers** straight
+> from the player to the venue owner (plan `plans/025-replace-sepay-with-vietqr.md`).
+> The SePay gateway, its `SEPAY_*` env vars, the IPN webhook, the wallet and
+> top-ups are gone — nothing here needs a tunnel or a payment sandbox.
 
 ## 1. Environment variables
 
@@ -44,85 +41,44 @@ list. Never commit `.env`/`.env.local` — both are gitignored.
 | `OPENROUTER_MODEL` | no | Defaults to a small reasoning-capable model; override to any OpenRouter model returning a `reasoning` field. |
 | `NEXT_PUBLIC_BOXMAP_TOKEN` | yes (for Find Courts map) | Mapbox token, used by `react-map-gl`. |
 
-### api/.env — `SEPAY_*` (Phase 4, implemented)
+### api/.env — payments
 
-Per `FIX_REVIEW_VIENTD.md` Phase 4, the SePay integration (`sepay-pg-node`)
-requires (already required by `src/env.validation.ts`'s zod schema and
-present in `api/.env.example`; sandbox values are already filled in in
-`api/.env` for local dev):
-
-| Var | Notes |
-| --- | --- |
-| `SEPAY_ENV` | `sandbox` \| `production`. Use `sandbox` for all dev/test — it hits `pgapi-sandbox.sepay.vn` and never touches real money. |
-| `SEPAY_MERCHANT_ID` | From the SePay merchant dashboard (sandbox merchant for `sandbox`). |
-| `SEPAY_SECRET_KEY` | Signs checkout form fields (HMAC SHA256) and verifies IPN callback signatures — server-only, never exposed to the client. |
-| `SEPAY_RETURN_URL` | Where SePay redirects the browser after checkout (web route, e.g. `${WEB_URL}/dashboard/bookings/return`). |
+There are no payment-gateway secrets. Transfer screenshots (player proof and
+the venue's refund proof) are uploaded straight from the browser to Cloudinary
+with a signature the api issues, so the same `CLOUDINARY_CLOUD_NAME` /
+`CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` used for venue photos must be
+set. Proofs live under `shuttio/payment-proofs/<venueId>`. The bank list comes
+from the public `https://api.vietqr.io/v2/banks` (cached 24 h).
 
 Read via `ConfigService`, never raw `process.env`, per repo convention.
 
-## 2. SePay IPN tunnel setup + sandbox test procedure
+## 2. VietQR payment test procedure
 
-SePay's IPN (Instant Payment Notification) webhook needs a publicly reachable
-HTTPS URL — `localhost:6969` isn't reachable from SePay's servers, so local
-dev needs a tunnel.
+1. Run `api` and `web` (`docker compose up --build` or separately).
+2. As a **venue owner**: in setup (or the venue manage page) fill in the
+   brand's bank account (bank, account number, account name). A venue
+   without one cannot take online bookings.
+3. As a **player**: book a court → the payment screen shows the venue's QR,
+   account, amount and a unique memo (`SHT` + 6 chars). Upload a transfer
+   screenshot (required) → the booking becomes `awaiting_venue_confirmation`
+   and a `booking-<id>` chat opens with system messages and the image.
+4. As the **venue owner**: open the reservation, view the proof, then
+   - **approve** → `confirmed`; or
+   - **reject** with a reason → `rejected_refund_pending`. The refund queue
+     shows the player's account and a refund QR; transfer by hand and upload
+     the refund screenshot → `refunded`.
+5. As the **player**: press "Đã nhận lại tiền", or "Chưa nhận được" to open a
+   complaint (admin → Khiếu nại → mark handled / dismiss — no money moves).
+6. Leave a transfer unanswered past 12 h (or shorten `VENUE_ANSWER_HOURS` in
+   dev): the sweeper moves it to `rejected_refund_pending` — it never
+   auto-confirms. Halfway through, the venue gets a reminder.
+7. Two players waiting on the same slot: approving one while the other is still
+   waiting is allowed; approving a second booking for an already-confirmed slot
+   is refused.
 
-### 2.1 Tunnel setup (ngrok or cloudflared — either works)
-
-**ngrok:**
-
-```bash
-ngrok http 6969
-# copy the https://<random>.ngrok-free.app forwarding URL
-```
-
-**cloudflared** (no account needed for a quick tunnel):
-
-```bash
-cloudflared tunnel --url http://localhost:6969
-# copy the https://<random>.trycloudflare.com URL printed to stderr
-```
-
-Either way, the API must be running locally first (`cd api && pnpm dev`).
-
-### 2.2 Point SePay at the tunnel
-
-1. Log into the SePay **sandbox** merchant dashboard.
-2. Set the IPN callback URL to `https://<tunnel-host>/api/payments/ipn`
-   (the `payments` feature's `@Public()` IPN route).
-3. Keep `SEPAY_ENV=sandbox` in `api/.env` for the whole session — sandbox
-   transactions never move real money and don't require production
-   merchant approval.
-
-### 2.3 Test procedure (golden path — Phase 4 + 5 have landed)
-
-1. `docker compose up --build` (or run `api`/`web` separately) with the
-   tunnel pointed at the local API as above.
-2. As a **player** account: book a court → redirected to SePay sandbox
-   checkout (QR/card) → complete the sandbox payment.
-3. Confirm the IPN hits `/api/payments/ipn` (check API logs) and the
-   booking transitions `awaiting_payment → pending`.
-4. As the **venue owner** account (same or a second Clerk test user):
-   see the booking in `pending`, approve it → booking → `confirmed`.
-   Separately, test the 30-minute SLA auto-confirm by shortening the
-   sweeper interval in dev (`bookings.sweeper.ts`, `@Cron`) rather than
-   waiting 30 real minutes.
-5. Check-in the booking as venue → `checked-in`; let `endAt` pass (or
-   fast-forward the sweeper interval) → auto-`completed`.
-6. Cancel a booking made **≥24h** in advance → verify refund record shows
-   100%; cancel one made **<24h** in advance → verify 50%; let a booking
-   pass its start time uncancelled → verify no-show / 0% refund path.
-7. Decline a **pending** reservation as venue **without** a reason →
-   expect `400` (reason is mandatory, `@ValidateIf` on `status==="cancelled"`);
-   decline **with** a reason → expect 100% refund + a notification reaching
-   the player via poll (not just on reload).
-8. Because SePay has **no refund API** (verified 2026-07-13, see
-   `FIX_REVIEW_VIENTD.md` §3 Phase 4 / §4 risk 3): confirm the refund only
-   lands in the **manual refund queue** (`refund.status:"manual"`) and the
-   player-facing copy says "hoàn tiền trong vòng 24–48h làm việc" — never
-   promise instant refund anywhere in the UI.
-
-Automated tests should fake `sepay.client` (injectable) rather than hit the
-sandbox network — see `api/test/*.test.ts` conventions.
+Automated tests cover the state machine, proof validation, the sweeper and the
+chat (`api/test/bookings-service.test.ts`, `payments-service.test.ts`,
+`bookings-sweeper.test.ts`, `booking-chat.test.ts`).
 
 ## 3. Reseed procedure
 
@@ -185,7 +141,7 @@ Notes:
   Extend `api/test/*.test.ts` per each phase's Verification section in
   `FIX_REVIEW_VIENTD.md` §5 as those phases land — e.g. transition-table
   tests, cancel-policy math, sweeper idempotency, IPN signature/idempotency
-  against a faked `sepay.client`.
+  against faked collaborators.
 - `web` has no test runner configured — typecheck + lint + build is the gate;
   rely on manual/E2E verification (§5 below) for behavior.
 - Run a single api test file during iteration:
@@ -207,17 +163,17 @@ flow, `cc3a033`) — most of the golden-path checks below need both sides.
 
 ## 6. Golden-path E2E checklist (post Phase 2–5)
 
-Once the booking-unification, endpoint-validation, SePay, and scheduler
+Once the booking-unification, endpoint-validation, VietQR, and scheduler
 phases (2–5) have landed, run this against `docker compose up --build`:
 
-- [ ] Book → pay on SePay sandbox → IPN confirms → venue sees `pending`.
-- [ ] Venue approves → booking `confirmed`; separately, let the 30-minute
-      SLA elapse (shortened interval in dev) → silent auto-confirm.
+- [ ] Book → transfer by VietQR + upload the screenshot → venue sees it waiting.
+- [ ] Venue approves → booking `confirmed`; separately, let the 12-hour
+      answer window elapse (shortened in dev) → moves to refund, never
+      auto-confirms.
 - [ ] Venue checks in → `checked-in` → `endAt` passes → auto-`completed`.
-- [ ] Cancel at ≥24h → 100% refund record; cancel at <24h → 50%; verify
-      no-show / 0% path.
-- [ ] Decline requires a reason (400 without one) → 100% refund + player
-      notification delivered via poll.
+- [ ] Decline requires a reason (400 without one) → refund queue with QR →
+      refund screenshot → player confirms receipt (or "not received" opens a
+      complaint).
 - [ ] Venue ops: create a court block without a reason → rejected; create
       one with a reason → both booking attempts and walk-in on that slot
       get `409`.

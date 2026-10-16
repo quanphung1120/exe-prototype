@@ -1,6 +1,6 @@
 # Plan 025: Thay SePay bằng VietQR Quick Link — người chơi chuyển thẳng cho chủ sân
 
-- **Trạng thái:** TODO — chỉ lập kế hoạch, **chưa sửa code**. Chờ chủ dự án trả lời mục 9 rồi mới triển khai.
+- **Trạng thái:** DONE trên nhánh `feat/vietqr-payments` (api + web + chat + docs); chưa merge. Chi tiết quyết định ở mục 0.
 - **Mục tiêu:** Shuttio không giữ tiền booking. Người chơi chuyển khoản trực tiếp vào tài khoản chủ sân qua QR (VietQR Quick Link); chủ sân tự đối chiếu app ngân hàng, tự duyệt và tự hoàn tiền. Không webhook, không API chuyển tiền: mọi bước xác nhận/hoàn tiền do con người làm.
 - **Phụ thuộc:** các plan 014 (chat chủ sân), 019–021 (setup sân) — đã có trong repo. Không phụ thuộc plan nào đang TODO.
 - **Nguồn:** đọc code tại commit `5709c34`+ (master). Số dòng ở dưới là của commit đó.

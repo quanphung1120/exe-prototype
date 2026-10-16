@@ -55,38 +55,24 @@ Cross-cutting pieces live in `src/common/`:
 DATABASE_URL            # MongoDB Atlas SRV URI (Mongoose)
 CLERK_SECRET_KEY        # same Clerk keys as the web app
 CLERK_PUBLISHABLE_KEY
-SEPAY_ENV                # "sandbox" | "production" — sepay-pg-node checkout/IPN
-SEPAY_MERCHANT_ID
-SEPAY_SECRET_KEY
-SEPAY_RETURN_URL         # web origin the player is redirected back to after checkout
+CLOUDINARY_CLOUD_NAME   # venue photos + payment/refund proof screenshots
+CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET
 WEB_URL                 # web origin for CORS (default http://localhost:3000)
 PORT                    # default 6969
 ```
 
 See `.env.example` for the full list with comments.
 
-## Testing SePay payments locally
+## Payments (VietQR)
 
-Checkout (`POST /api/payments/checkout`) works against `pgapi-sandbox.sepay.vn`
-with just `SEPAY_ENV=sandbox` and sandbox credentials from
-[my.sepay.vn](https://my.sepay.vn) (Payment Gateway → Configuration) — no
-tunnel needed to _start_ a payment.
-
-The **IPN** (`POST /api/payments/ipn`), SePay's server-to-server payment
-notification, is the one leg that needs a publicly reachable URL. To exercise
-it against a local dev server:
-
-1. Run `pnpm --filter api dev` (api on `:6969`).
-2. Tunnel it: `ngrok http 6969` or `cloudflared tunnel --url http://localhost:6969`.
-3. In the SePay sandbox dashboard, register
-   `https://<tunnel-host>/api/payments/ipn` as the IPN callback URL.
-4. Run the golden path (`POST /api/payments/checkout` → complete the sandbox
-   VietQR/card checkout) and confirm the IPN lands: the booking flips
-   `awaiting_payment → pending` and the venue owner gets a notification.
-
-`api/test/sepay-client.test.ts` and `api/test/payments-service.test.ts` cover
-the HMAC verification and checkout/IPN/reconciliation logic against a fake
-`SEPAY_CLIENT` — they never need the tunnel or a real sandbox call.
+Players pay the venue owner directly by bank transfer (a VietQR image built
+from the brand's payout account); Shuttio never holds the money. There is no
+gateway, webhook or tunnel to set up. Flow: `POST /api/bookings/:id/payment/start`
+(QR + memo) → `.../payment/proof/signature` + `.../payment/submit` (screenshot)
+→ the venue decides (`.../decision`) → on rejection `.../refund/signature` +
+`.../refund/complete` → the player answers `.../refund/confirm`. See
+`plans/025-replace-sepay-with-vietqr.md` and `docs/chinh-sach.md`.
 
 ## Routes
 
@@ -102,5 +88,6 @@ the HMAC verification and checkout/IPN/reconciliation logic against a fake
 | GET              | `/api/venue/{bundle,courts,reservations,customers,analytics,insights}`                          |
 | POST             | `/api/bookings`, `/api/bookings/:id/{cancel,decision,check-in,no-show}`                         |
 | GET              | `/api/bookings/mine`                                                                            |
-| POST             | `/api/payments/checkout`, `/api/payments/ipn` (open — HMAC-verified)                            |
-| GET              | `/api/payments/by-booking/:id`                                                                  |
+| POST             | `/api/bookings/:id/payment/{start,submit}`, `.../payment/proof/signature`                       |
+| POST             | `/api/bookings/:id/refund/{signature,complete,confirm}`                                         |
+| GET, PUT         | `/api/brands/me/payout`, `/api/banks`                                                           |
