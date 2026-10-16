@@ -189,8 +189,18 @@ export interface Booking {
   declineReason?: string
   /** Simulated pre-paid refund marker (projected from the session). */
   refunded?: boolean
-  /** The player's cancellation request on the linked booking, if any. */
+  /** The player's cancellation request on the linked booking, if any (legacy). */
   cancelRequest?: BookingCancelRequest
+  /** Exact status of the linked booking — tells "waiting for the venue" from "confirmed". */
+  bookingStatus?: BookingRecordStatus
+  /** ISO deadline for the venue to answer a sent transfer proof. */
+  confirmDeadlineAt?: string
+  /** The refund the venue owes or has paid, once the booking was rejected or cancelled. */
+  refund?: { amount: number; status: "manual" | "settled"; proofUrl?: string }
+  /** What the player said about receiving the refund. */
+  refundConfirmation?: "received" | "not_received"
+  /** The payment memo, so the player can find their transfer. */
+  transferMemo?: string
   result?: "W" | "L"
   score?: string
 }
@@ -277,8 +287,18 @@ export interface PlaySession {
   cancelReason?: string
   /** Simulated pre-paid refund marker, set when an app booking is declined. */
   refunded?: boolean
-  /** The player's cancellation request on the linked booking, if any. */
+  /** The player's cancellation request on the linked booking, if any (legacy). */
   cancelRequest?: BookingCancelRequest
+  /** Exact status of the linked booking — tells "waiting for the venue" from "confirmed". */
+  bookingStatus?: BookingRecordStatus
+  /** ISO deadline for the venue to answer a sent transfer proof. */
+  confirmDeadlineAt?: string
+  /** The refund the venue owes or has paid, once the booking was rejected or cancelled. */
+  refund?: { amount: number; status: "manual" | "settled"; proofUrl?: string }
+  /** What the player said about receiving the refund. */
+  refundConfirmation?: "received" | "not_received"
+  /** The payment memo, so the player can find their transfer. */
+  transferMemo?: string
   /** Visible as an open lobby ("room") in Match Maker. */
   listed: boolean
   fillIntent: "court" | "invite" | "find"
@@ -1341,7 +1361,7 @@ export interface RoomSharesInfo {
 export type RoomLeaveStatus = "pending" | "rejected"
 
 /** A member's complaint to the platform about a refused leave request. */
-export type ComplaintStatus = "open" | "refunded" | "dismissed"
+export type ComplaintStatus = "open" | "refunded" | "resolved" | "dismissed"
 
 /** What a complaint is about. */
 export type ComplaintKind =

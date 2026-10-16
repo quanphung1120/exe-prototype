@@ -396,7 +396,7 @@ function RoomDetail({
                   {t("viewInBookings")}
                 </Button>
               </div>
-              <RoomSharePanel roomId={room.id} isHost={isHost} />
+              <RoomSharePanel sharePrice={room.sharePrice} />
             </>
           ) : isHost ? (
             <Button

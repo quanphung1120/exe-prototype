@@ -7,7 +7,7 @@ import { DashboardTopbar } from "@/features/dashboard/topbar"
 
 export function DashboardFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  // Home, player play, player chat, bookings and wallet share the same blue
+  // Home, player play, player chat, and bookings share the same blue
   // header and drop the sidebar. The venue operator inbox and other dashboard
   // routes keep the inset sidebar layout.
   const isHome = pathname === "/app"
@@ -15,8 +15,7 @@ export function DashboardFrame({ children }: { children: React.ReactNode }) {
   const isPlayerBookings = pathname === "/app/bookings"
   const isPlayerPlay = pathname === "/app/play"
   const isPlayerBook = pathname === "/app/book"
-  const isPlayerWallet = pathname === "/app/wallet"
-  // SePay's return page (/app/payment/success/<id>) is part of the player flow.
+  // The VietQR payment screen (/app/payment/<id>) is part of the player flow.
   const isPlayerPayment = pathname.startsWith("/app/payment/")
   const isPlayerSurface =
     isHome ||
@@ -24,7 +23,6 @@ export function DashboardFrame({ children }: { children: React.ReactNode }) {
     isPlayerBookings ||
     isPlayerPlay ||
     isPlayerBook ||
-    isPlayerWallet ||
     isPlayerPayment
 
   return (
@@ -38,7 +36,6 @@ export function DashboardFrame({ children }: { children: React.ReactNode }) {
             isPlayerBookings ||
             isPlayerPlay ||
             isPlayerBook ||
-            isPlayerWallet ||
             isPlayerPayment
               ? "min-h-0 flex-1 overflow-y-auto bg-white"
               : isPlayerChat

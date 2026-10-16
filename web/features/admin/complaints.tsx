@@ -17,6 +17,7 @@ import { resolveComplaint } from "@/features/admin/admin-actions"
 const STATUS_VARIANT = {
   open: "default",
   refunded: "secondary",
+  resolved: "secondary",
   dismissed: "outline",
 } as const
 
@@ -28,8 +29,8 @@ export function AdminComplaintsView({
 }) {
   const t = useTranslations("AdminComplaints")
   const pagination = useAdminPagination(complaints.length)
-  const refund = useReasonConfirm<RoomComplaintRow>((item, note) =>
-    resolveComplaint(item.id, "refund", note)
+  const resolve = useReasonConfirm<RoomComplaintRow>((item, note) =>
+    resolveComplaint(item.id, "resolve", note)
   )
   const dismiss = useReasonConfirm<RoomComplaintRow>((item, note) =>
     resolveComplaint(item.id, "dismiss", note)
@@ -94,19 +95,14 @@ export function AdminComplaintsView({
                       {t("violations", { count: item.venueViolations })}
                     </p>
                   ) : null}
-                  {item.platformFunded ? (
-                    <p className="text-xs text-amber-600">
-                      {t("platformFunded")}
-                    </p>
-                  ) : null}
                   {item.status === "open" ? (
                     <div className="flex items-center gap-2">
                       <Button
                         size="sm"
                         className="rounded-full"
-                        onClick={() => refund.setTarget(item)}
+                        onClick={() => resolve.setTarget(item)}
                       >
-                        {t("refund")}
+                        {t("resolve")}
                       </Button>
                       <Button
                         size="sm"
@@ -127,9 +123,9 @@ export function AdminComplaintsView({
       <AdminPagination pagination={pagination} />
 
       <ReasonDialog
-        {...refund.dialogProps}
-        title={t("refundTitle")}
-        description={t("refundDescription")}
+        {...resolve.dialogProps}
+        title={t("resolveTitle")}
+        description={t("resolveDescription")}
         reasonLabel={t("noteLabel")}
         reasonPlaceholder={t("notePlaceholder")}
         cancelLabel={t("back")}

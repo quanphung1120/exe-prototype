@@ -12,7 +12,6 @@ import type {
   BranchSummary,
   PlayerAssessment,
   RoomComplaintRow,
-  WithdrawalRow,
   Seed,
   VenueSeed,
 } from "@/lib/shared"
@@ -268,10 +267,6 @@ export async function fetchAdminRefunds(): Promise<AdminRefundRow[]> {
 
 export async function fetchAdminComplaints(): Promise<RoomComplaintRow[]> {
   return apiFetch<RoomComplaintRow[]>("/api/admin/complaints")
-}
-
-export async function fetchAdminWithdrawals(): Promise<WithdrawalRow[]> {
-  return apiFetch<WithdrawalRow[]>("/api/admin/withdrawals")
 }
 
 export async function fetchAdminApprovals(): Promise<AdminApprovalRow[]> {

@@ -726,6 +726,11 @@ export function sessionToBooking(courts: Court[], s: PlaySession): Booking {
     declineReason: s.cancelReason,
     refunded: s.refunded,
     cancelRequest: s.cancelRequest,
+    bookingStatus: s.bookingStatus,
+    confirmDeadlineAt: s.confirmDeadlineAt,
+    refund: s.refund,
+    refundConfirmation: s.refundConfirmation,
+    transferMemo: s.transferMemo,
     result: s.result,
     score: s.score,
   }

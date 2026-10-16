@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 
 import { apiAction as api } from "@/lib/api"
-import type { RoomComplaintRow, WithdrawalRow } from "@/lib/shared"
+import type { RoomComplaintRow } from "@/lib/shared"
 import type {
   AdminBookingRow,
   AdminDiscountInput,
@@ -156,7 +156,7 @@ export async function setAppReviewHidden(
 /** Settle a room-share complaint: refund the member's share or dismiss it. */
 export async function resolveComplaint(
   id: string,
-  decision: "refund" | "dismiss",
+  decision: "resolve" | "dismiss",
   note: string
 ): Promise<RoomComplaintRow> {
   const row = await api<RoomComplaintRow>(
@@ -168,32 +168,6 @@ export async function resolveComplaint(
         ...(note.trim() ? { note: note.trim() } : {}),
       }),
     }
-  )
-  revalidateAdmin()
-  return row
-}
-
-/** Record that a wallet withdrawal's bank transfer was sent. */
-export async function completeWithdrawal(
-  id: string,
-  ref: string
-): Promise<WithdrawalRow> {
-  const row = await api<WithdrawalRow>(
-    `/api/admin/withdrawals/${encodeURIComponent(id)}/complete`,
-    { method: "POST", body: JSON.stringify({ ref: ref.trim() }) }
-  )
-  revalidateAdmin()
-  return row
-}
-
-/** Refuse a withdrawal; the money goes back into the player's wallet. */
-export async function rejectWithdrawal(
-  id: string,
-  note: string
-): Promise<WithdrawalRow> {
-  const row = await api<WithdrawalRow>(
-    `/api/admin/withdrawals/${encodeURIComponent(id)}/reject`,
-    { method: "POST", body: JSON.stringify({ note: note.trim() }) }
   )
   revalidateAdmin()
   return row

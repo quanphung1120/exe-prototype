@@ -40,13 +40,7 @@ import { removeGroupMember } from "@/features/chat/group-actions"
 import {
   cancelBookingRecord,
   createBookingHold,
-  withdrawCancelRequest,
 } from "@/features/play/booking-actions"
-import {
-  payBookingWithWallet,
-  startPaymentCheckout,
-} from "@/features/play/payment-actions"
-import { savePreferredLocale } from "@/lib/locale-preference"
 import {
   decideRoomRequest,
   disbandRoom,
@@ -71,9 +65,6 @@ const MAX_CAPACITY = 8
 // opening your own booking to friends (addTeamToSession) are exempt because a
 // real, paid court already backs them.
 const MAX_HOSTED_ROOMS = 3
-// Once a court+slot is picked (still forming, not yet paid), the slot is held
-// this long before it's released back for others to book.
-const HOLD_MS = 20 * 60 * 1000
 // A join request the host hasn't answered auto-expires after this long.
 const REQUEST_EXPIRY_MS = 2 * 60 * 60 * 1000
 // An invite a player hasn't responded to auto-expires after this long.
@@ -190,13 +181,6 @@ interface SessionContextValue {
    */
   hasTimeConflict: (room: MatchRoom) => boolean
   joinRoom: (room: MatchRoom) => void
-  /**
-   * A room whose court the host already paid for: joining costs the seat's
-   * share, so the player confirms it in a dialog before the request is sent.
-   */
-  shareJoinRoom: MatchRoom | null
-  confirmShareJoin: () => void
-  dismissShareJoin: () => void
   /** Host approves a player's join request → confirmed seat. */
   approveRequest: (sessionId: string, initials: string) => void
   /** Host declines a player's join request → dropped from the room. */
@@ -269,34 +253,25 @@ interface SessionContextValue {
   pickSlot: (slot: string, durationMin: number) => void
   setFillMode: (mode: FillMode) => void
   toggleInvite: (initials: string) => void
-  /** Creating the booking hold and/or opening the SePay checkout (drives the Pay button + spinner). */
+  /** Creating the booking (drives the Pay button + spinner). */
   paying: boolean
-  /** Set when starting checkout fails (a 409 conflict, or SePay unreachable) — cleared on retry. */
+  /** Set when creating the booking fails (a 409 conflict, no payout account…) — cleared on retry. */
   checkoutError: string | null
   clearCheckoutError: () => void
   /**
-   * Reserve the court (if not already held) and redirect to SePay's real
-   * checkout — a hidden-form POST, so this actually navigates the browser
-   * away. Payment confirmation happens out-of-band (SePay's IPN); the player
-   * lands back on `/app/bookings/[bookingId]`, which polls
-   * `GET /api/payments/by-booking/:id` for the result. An optional applied
-   * discount code is forwarded to `startPaymentCheckout` unchanged.
+   * Create the booking (no hold — it never expires and doesn't block the
+   * slot) and open the bank-transfer payment screen. The player pays the venue
+   * directly by VietQR and uploads a screenshot there; the venue then approves
+   * or refunds by hand. An applied discount code travels in the URL.
    */
   pay: (discountCode?: string) => void
-  /**
-   * Reserve the court (if not already held) and pay it straight from the
-   * wallet — no redirect; lands on the payment-success screen. A short balance
-   * surfaces as `checkoutError`.
-   */
-  payWithWallet: (discountCode?: string) => void
-  /** Resume checkout for an existing unpaid booking hold. */
+  /** Open the payment screen of an existing unpaid booking. */
   resumePayment: (bookingId: string) => void
-  resumingPaymentId: string | null
-  /** Apply a server-confirmed payment to the in-memory booking immediately. */
-  markPaymentPaid: (bookingId: string) => void
+  /**
+   * Cancel a booking — only an unpaid one cancels here; after a transfer
+   * proof was sent, the player and venue settle it in chat.
+   */
   cancelBooking: (id: string) => void
-  /** Take back a cancellation request the venue hasn't answered yet. */
-  withdrawCancel: (id: string) => void
   // ── Conflict (decision 2) ──
   slotBlocked: (slot: string) => boolean
   draftConflict: Conflict
@@ -344,32 +319,6 @@ function clampSlot(
   return slot
 }
 
-/**
- * Build the HMAC-signed SePay checkout form (`PaymentsService#checkout`'s
- * `fields`) and submit it as a real, hidden `<form>` POST to `checkoutUrl` —
- * this is a genuine full-page navigation away from the app to SePay's
- * hosted checkout, not a fetch, so nothing runs after this call.
- */
-export function submitSepayCheckoutForm(
-  fields: Record<string, string | number | undefined>,
-  checkoutUrl: string
-): void {
-  const form = document.createElement("form")
-  form.method = "POST"
-  form.action = checkoutUrl
-  form.style.display = "none"
-  for (const [name, value] of Object.entries(fields)) {
-    if (value === undefined) continue
-    const input = document.createElement("input")
-    input.type = "hidden"
-    input.name = name
-    input.value = String(value)
-    form.appendChild(input)
-  }
-  document.body.appendChild(form)
-  form.submit()
-}
-
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const tm = useTranslations("MatchMaker")
   const tb = useTranslations("Booking")
@@ -387,7 +336,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     dayLabelFor,
     playerByInitials,
     courtByVenue,
-    courtNumberFor,
     conflictFor,
     courtDayBusy,
     courtDayGaps,
@@ -437,9 +385,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   )
   const [paying, setPaying] = React.useState(false)
   const [checkoutError, setCheckoutError] = React.useState<string | null>(null)
-  const [resumingPaymentId, setResumingPaymentId] = React.useState<
-    string | null
-  >(null)
 
   // Cross-surface flow-back: the provider seeds its `sessions` once, so an
   // operator's approve/decline (persisted to the same DB) wouldn't otherwise
@@ -1122,16 +1067,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     })()
   }
 
-  const [shareJoinRoom, setShareJoinRoom] = React.useState<MatchRoom | null>(
-    null
-  )
-  const confirmShareJoin = () => {
-    if (!shareJoinRoom) return
-    requestJoin(shareJoinRoom)
-    setShareJoinRoom(null)
-  }
-  const dismissShareJoin = () => setShareJoinRoom(null)
-
   const joinRoom = (room: MatchRoom) => {
     if (room.demo) {
       toast.error(tm("toast.demoRoom"))
@@ -1153,11 +1088,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       toast.error(ts("toast.overlapTitle"), {
         description: ts("toast.overlapBody", { title: clash.title }),
       })
-      return
-    }
-    // The host's court is paid for: joining costs a share of it, confirmed first.
-    if (room.sharePrice) {
-      setShareJoinRoom(room)
       return
     }
     requestJoin(room)
@@ -1326,13 +1256,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const result = await leaveRoomMembership(sessionId)
       if (!result.ok) {
         toast.error(ts("toast.leaveFailed"), { description: result.message })
-        return
-      }
-      // A member who paid toward the court only filed a request: the host must
-      // approve (and refund) it, so they stay in the room for now.
-      if (result.data.status === "requested") {
-        toast(ts("toast.leaveRequested"), { description: title })
-        void refreshRooms()
         return
       }
       setCrossRooms((prev) =>
@@ -1771,9 +1694,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     router.back()
   }
   const next = () => {
-    // Leaving the slot step locks in a real, timed court hold — before that,
-    // nothing but local draft state is at stake.
-    if (steps[step] === "slot") startCourtHold()
     setStep((s) => Math.min(steps.length - 1, s + 1))
   }
   const back = () => {
@@ -1845,80 +1765,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const courtGaps: CourtBand[] = court
     ? courtDayGaps(sessions, court.id, draft.dayKey, linkedId ?? undefined)
     : []
-
-  /**
-   * Reserve `court` for the draft's day/slot the moment it's picked — before
-   * payment. Times out after HOLD_MS ({@link courtHolds}/{@link conflictFor}
-   * treat it as an active hold until then) so an abandoned or slow checkout
-   * doesn't lock the slot forever. Creates a fresh solo `forming` hold if this
-   * booking isn't tied to an existing room, else stamps the linked room's
-   * hold — either way `linkedId` ends up pointing at the held session, so
-   * {@link reserveHold} finalizes that same record when checkout starts.
-   */
-  const startCourtHold = () => {
-    if (!court || !draft.slot || draftConflict) return
-    const dayLabel = locStr(dayLabelFor(draft.dayKey), locale)
-    const courtLabel = courtNumberFor(court.id)
-    const holdExpiresAt = Date.now() + HOLD_MS
-    const existing = linkedId ? sessions.find((s) => s.id === linkedId) : null
-    if (existing?.reservationId) return
-    if (existing) {
-      const held: PlaySession = {
-        ...existing,
-        courtId: court.id,
-        courtLabel,
-        dayKey: draft.dayKey,
-        dayLabel,
-        slot: draft.slot,
-        durationMin: draft.durationMin,
-        venue: court.name,
-        ward: court.ward,
-        distanceKm: court.distanceKm,
-        pricePerHour: court.pricePerHour,
-        holdExpiresAt,
-      }
-      setSessions((prev) => prev.map((s) => (s.id === existing.id ? held : s)))
-      persist(held)
-      return
-    }
-    const sport = court.sports[0]
-    const id = newId("hold")
-    const host: SessionPlayer = {
-      name: userName,
-      initials: USER.initials,
-      rsvp: "host",
-    }
-    const next: PlaySession = {
-      id,
-      title: tb("roomTitle", {
-        sport: tc(`sports.${sport}`),
-        court: court.name,
-      }),
-      sport,
-      format: "Doubles",
-      courtId: court.id,
-      dayKey: draft.dayKey,
-      dayLabel,
-      slot: draft.slot,
-      durationMin: draft.durationMin,
-      courtLabel,
-      host: { name: userName, initials: USER.initials },
-      capacity: BOOKING_CAPACITY,
-      roster: [host],
-      level: userLevelForSport(sport),
-      status: "forming",
-      listed: false,
-      fillIntent: "court",
-      venue: court.name,
-      ward: court.ward,
-      distanceKm: court.distanceKm,
-      pricePerHour: court.pricePerHour,
-      holdExpiresAt,
-    }
-    setSessions((prev) => [next, ...prev])
-    persist(next)
-    setLinkedId(id)
-  }
 
   /**
    * Ensure a real, server-validated `awaiting_payment` hold exists for the
@@ -2059,57 +1905,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const clearCheckoutError = () => setCheckoutError(null)
 
   const resumePayment = (bookingId: string) => {
-    if (resumingPaymentId) return
-    setResumingPaymentId(bookingId)
-    void (async () => {
-      try {
-        const result = await startPaymentCheckout(bookingId)
-        if (!result.ok) {
-          toast.error(
-            result.status === 409
-              ? tb("pay.paymentExpired")
-              : tb("pay.checkoutFailed")
-          )
-          router.refresh()
-          return
-        }
-        savePreferredLocale(locale)
-        submitSepayCheckoutForm(result.data.fields, result.data.checkoutUrl)
-      } catch (err) {
-        console.error("Failed to resume SePay checkout", err)
-        toast.error(tb("pay.checkoutFailed"))
-      } finally {
-        setResumingPaymentId(null)
-      }
-    })()
+    router.push(`/app/payment/${encodeURIComponent(bookingId)}`)
   }
 
-  const markPaymentPaid = React.useCallback((bookingId: string) => {
-    setSessions((prev) =>
-      prev.map((session) =>
-        session.reservationId === bookingId
-          ? {
-              ...session,
-              status: "booked",
-              hold: "pending",
-              paymentStatus: "paid",
-              paymentExpiresAt: undefined,
-            }
-          : session
-      )
-    )
-  }, [])
-
   /**
-   * Reserve the court (creating the DB hold on the first call; reusing it on
-   * a retry), then hand off to SePay's real checkout — `startPaymentCheckout`
-   * (`POST /api/payments/checkout`) returns an HMAC-signed set of form fields
-   * the SDK expects POSTed to `checkoutUrl`, so a hidden `<form>` is built and
-   * submitted here, navigating the browser away from the app entirely.
-   * Payment confirmation happens out-of-band (SePay's IPN → the API's
-   * `BookingsService#confirmPayment`); this function never sees a "success" —
-   * the player lands back on `/app/bookings/[bookingId]`
-   * (`payment-return.tsx`), which polls for the result.
+   * Create the booking (reusing it on a retry) and open the bank-transfer
+   * payment screen. Nothing is charged here: the player transfers to the
+   * venue's account and uploads a screenshot on that screen.
    */
   const pay = (discountCode?: string) => {
     if (!court || !draft.slot || paying) return
@@ -2123,52 +1925,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       try {
         const bookingId = await reserveHold()
         if (!bookingId) return // reserveHold already toasted the failure
-        const result = await startPaymentCheckout(bookingId, discountCode)
-        if (!result.ok) {
-          console.error("Failed to start SePay checkout", result.message)
-          setCheckoutError(tb("pay.checkoutFailed"))
-          return
-        }
-        // SePay's return `successUrl` is a single static URL (always the
-        // default locale), so stash the active locale before leaving — the
-        // return screen reads it back to restore `en` players' locale.
-        savePreferredLocale(locale)
-        submitSepayCheckoutForm(result.data.fields, result.data.checkoutUrl)
-        // The line above navigates the browser away — nothing left to do.
+        const query = discountCode
+          ? `?discount=${encodeURIComponent(discountCode)}`
+          : ""
+        router.push(`/app/payment/${encodeURIComponent(bookingId)}${query}`)
       } catch (err) {
-        console.error("Payment checkout failed", err)
+        console.error("Failed to create the booking", err)
         setCheckoutError(tb("pay.checkoutFailed"))
-      } finally {
-        setPaying(false)
-      }
-    })()
-  }
-
-  const payWithWallet = (discountCode?: string) => {
-    if (!court || !draft.slot || paying) return
-    if (draftConflict) {
-      toast.error(tb("toast.conflict"))
-      return
-    }
-    setCheckoutError(null)
-    setPaying(true)
-    void (async () => {
-      try {
-        const bookingId = await reserveHold()
-        if (!bookingId) return // reserveHold already toasted the failure
-        const result = await payBookingWithWallet(bookingId, discountCode)
-        if (!result.ok) {
-          // 402 = balance too low; the server's Vietnamese message says so.
-          setCheckoutError(
-            result.status === 402 ? result.message : tb("pay.walletFailed")
-          )
-          return
-        }
-        markPaymentPaid(bookingId)
-        router.push(`/app/payment/success/${encodeURIComponent(bookingId)}`)
-      } catch (err) {
-        console.error("Wallet payment failed", err)
-        setCheckoutError(tb("pay.walletFailed"))
       } finally {
         setPaying(false)
       }
@@ -2177,17 +1940,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Cancel a booking. When it's linked to a real reservation, awaits
-   * `cancelBookingRecord` (`POST /api/bookings/:id/cancel`) first. A paid
-   * booking isn't cancelled there: it comes back still live with a
-   * `cancelRequest` the venue must answer (docs/chinh-sach.md §2.4), so this
-   * only marks it as awaiting the venue. An unpaid hold cancels outright, and
-   * a client-only draft (no `reservationId`) reverts purely locally.
+   * `cancelBookingRecord` (`POST /api/bookings/:id/cancel`) first — the server
+   * only allows it before a transfer proof was sent. A client-only draft (no
+   * `reservationId`) reverts purely locally.
    */
   const cancelBooking = async (id: string) => {
     const s = sessions.find((x) => x.id === id)
     if (!s) return
 
-    let refunded: boolean | undefined
     let cancelReason: string | undefined
     if (s.reservationId) {
       const result = await cancelBookingRecord(s.reservationId)
@@ -2195,22 +1955,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         toast.error(tb("toast.cancelFailed"), { description: result.message })
         return
       }
-      if (result.data.status !== "cancelled") {
-        const request = result.data.cancelRequest
-        setSessions((prev) =>
-          prev.map((x) => (x.id === id ? { ...x, cancelRequest: request } : x))
-        )
-        toast(tb("toast.cancelRequested"), {
-          description:
-            request?.window === "early"
-              ? tb("toast.cancelRequestedEarly")
-              : tb("toast.cancelRequestedLate"),
-        })
-        return
-      }
-      refunded =
-        result.data.paymentStatus === "refunded" ||
-        result.data.paymentStatus === "partial_refund"
       cancelReason = result.data.cancelReason
     }
 
@@ -2232,7 +1976,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const cancelled: PlaySession = {
         ...s,
         status: "cancelled",
-        refunded,
         cancelReason,
       }
       setSessions((prev) => prev.map((x) => (x.id === id ? cancelled : x)))
@@ -2241,21 +1984,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       freezeRoomChatBestEffort(id)
     }
     toast(tb("toast.cancelled"), { description: s.venue })
-  }
-
-  /** Take back a cancellation request the venue hasn't answered yet. */
-  const withdrawCancel = async (id: string) => {
-    const s = sessions.find((x) => x.id === id)
-    if (!s?.reservationId) return
-    const result = await withdrawCancelRequest(s.reservationId)
-    if (!result.ok) {
-      toast.error(tb("toast.withdrawFailed"), { description: result.message })
-      return
-    }
-    setSessions((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, cancelRequest: undefined } : x))
-    )
-    toast(tb("toast.cancelWithdrawn"))
   }
 
   const value: SessionContextValue = {
@@ -2286,9 +2014,6 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     isSuitable,
     hasTimeConflict: (room) => overlappingCommitment(room) !== null,
     joinRoom,
-    shareJoinRoom,
-    confirmShareJoin,
-    dismissShareJoin,
     approveRequest,
     declineRequest,
     leaveRoom,
@@ -2339,19 +2064,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     checkoutError,
     clearCheckoutError,
     pay,
-    payWithWallet,
     resumePayment,
-    resumingPaymentId,
-    markPaymentPaid,
     // Awaits a real server action internally (cancelBookingRecord) — wrapped
     // here so the exposed signature stays the void-returning event-handler
     // shape the rest of the UI expects; it handles/toasts its own failure,
     // so there's nothing for the caller to await.
     cancelBooking: (id: string) => {
       void cancelBooking(id)
-    },
-    withdrawCancel: (id: string) => {
-      void withdrawCancel(id)
     },
     slotBlocked,
     draftConflict,

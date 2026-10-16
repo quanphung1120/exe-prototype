@@ -47,6 +47,19 @@ export type BookingSummary = Pick<
   | "cancelReason"
   | "refund"
   | "cancelRequest"
+  | "paymentMethod"
+  | "amountDue"
+  | "discountCode"
+  | "discountAmount"
+  | "originalAmount"
+  | "transferMemo"
+  | "payoutSnapshot"
+  | "paymentProofUrl"
+  | "proofSubmittedAt"
+  | "rejectReason"
+  | "refundAccount"
+  | "refundProofUrl"
+  | "refundConfirmation"
 >
 
 export interface CreateBookingHoldInput {
@@ -87,11 +100,10 @@ async function bookingsApi<T>(
 }
 
 /**
- * Create a fresh unpaid `awaiting_payment` hold — `POST /api/bookings` — for
- * the signed-in player. Validates opening hours, the per-court overlap and
- * the caller's own cross-venue self-overlap server-side; a slot taken in the
- * meantime (or double-booked against the caller's own other holds) comes back
- * as `{ ok: false, status: 409 }`.
+ * Create a booking the player is about to pay for — `POST /api/bookings`.
+ * There is no hold: it never expires and doesn't block the slot. Validates
+ * opening hours and the court's payout account server-side; a slot a
+ * confirmed booking already holds comes back as `{ ok: false, status: 409 }`.
  */
 export async function createBookingHold(
   input: CreateBookingHoldInput
@@ -103,9 +115,9 @@ export async function createBookingHold(
 }
 
 /**
- * Cancel the caller's own booking — `POST /api/bookings/:id/cancel`. An
- * unpaid hold cancels outright; a paid booking comes back still live with a
- * `cancelRequest` the venue must answer (docs/chinh-sach.md §2.4).
+ * Cancel the caller's own booking — `POST /api/bookings/:id/cancel`. Only
+ * allowed before a transfer proof was sent; after that the player and venue
+ * settle it in chat and the venue cancels + refunds.
  */
 export async function cancelBookingRecord(
   bookingId: string,
@@ -114,29 +126,5 @@ export async function cancelBookingRecord(
   return bookingsApi<BookingSummary>(
     `/api/bookings/${encodeURIComponent(bookingId)}/cancel`,
     { method: "POST", body: reason ? { reason } : {} }
-  )
-}
-
-/** Take back a cancellation request the venue hasn't answered yet. */
-export async function withdrawCancelRequest(
-  bookingId: string
-): Promise<BookingActionResult<BookingSummary>> {
-  return bookingsApi<BookingSummary>(
-    `/api/bookings/${encodeURIComponent(bookingId)}/cancel-request`,
-    { method: "DELETE" }
-  )
-}
-
-/**
- * Complain to the platform that the venue refused a cancel request made ≥ 24h
- * before the start — `POST /api/bookings/:id/complaints`.
- */
-export async function fileCancelComplaint(
-  bookingId: string,
-  reason: string
-): Promise<BookingActionResult<{ ok: true }>> {
-  return bookingsApi<{ ok: true }>(
-    `/api/bookings/${encodeURIComponent(bookingId)}/complaints`,
-    { method: "POST", body: { reason: reason.trim() } }
   )
 }
